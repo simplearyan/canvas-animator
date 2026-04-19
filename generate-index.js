@@ -78,7 +78,7 @@ function renderHierarchy(items, depth = 0) {
             </div>`;
         } else {
             html += `
-            <a href="${item.path}" class="card" data-name="${item.cleanName.toLowerCase()}" target="_blank">
+            <a href="${item.path}" class="card" data-name="${item.cleanName.toLowerCase()}" data-path="${item.path.toLowerCase()}" data-folder="${item.path.split('/')[0].toLowerCase()}" target="_blank">
                 <div class="card-thumb">
                     ${item.screenshot 
                         ? `<img src="${item.screenshot}" alt="${item.cleanName}" loading="lazy">`
@@ -232,11 +232,17 @@ function generateHTML(hierarchy) {
 
     <script>
         document.getElementById('search').addEventListener('input', function(e) {
-            const q = e.target.value.toLowerCase();
+            const q = e.target.value.toLowerCase().trim();
             document.querySelectorAll('.card').forEach(card => {
-                const name = card.dataset.name;
-                card.style.display = name.includes(q) ? 'block' : 'none';
+                const name = card.dataset.name || '';
+                const path = card.dataset.path || '';
+                const folder = card.dataset.folder || '';
+                
+                const isMatch = name.includes(q) || path.includes(q) || folder.includes(q);
+                card.style.display = isMatch ? 'block' : 'none';
             });
+            
+            // Show/hide sections based on visibility of their children
             document.querySelectorAll('.section').forEach(section => {
                 const hasVisible = Array.from(section.querySelectorAll('.card')).some(c => c.style.display !== 'none');
                 section.style.display = hasVisible ? 'block' : 'none';
