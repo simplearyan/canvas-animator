@@ -106,7 +106,16 @@ function generateHTML(hierarchy) {
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>${config.title}</title>
+    <title>${config.title} // Research Lab</title>
+    <meta name="description" content="${config.description}">
+    <meta name="keywords" content="${config.keywords}">
+    <meta name="author" content="${config.author}">
+    
+    <!-- Open Graph / SEO -->
+    <meta property="og:type" content="website">
+    <meta property="og:title" content="${config.title}">
+    <meta property="og:description" content="${config.description}">
+    <meta property="og:image" content="${config.ogImage}">
     <link rel="preconnect" href="https://fonts.googleapis.com">
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
     <link href="https://fonts.googleapis.com/css2?family=Outfit:wght@300;400;500;600;700&display=swap" rel="stylesheet">

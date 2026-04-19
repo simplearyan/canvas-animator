@@ -5,6 +5,9 @@ module.exports = {
     title: "Animator Studio",
     description: "Blueprint repository for high-fidelity animation components, whiteboard engines, and design prototypes.",
     baseUrl: ".",
+    keywords: "animation studio, canvas vfx, procedural motion, whiteboard engine, design prototyping, high-fidelity animations",
+    author: "Simple Aryan",
+    ogImage: "/screenshots/design-demos/fox-lip-sync-animator_v0.2.png",
     
     // Theme colors for the Blueprint style
     theme: {
