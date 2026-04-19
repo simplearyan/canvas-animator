@@ -1,0 +1,50 @@
+name: Build and Deploy Animator Studio
+
+on:
+  push:
+    branches:
+      - main
+  workflow_dispatch:
+
+permissions:
+  contents: write
+
+concurrency:
+  group: "pages-studio"
+  cancel-in-progress: true
+
+jobs:
+  build-and-deploy:
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout 🛎️
+        uses: actions/checkout@v4
+
+      - name: Setup Node.js ⚙️
+        uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+          cache: 'npm'
+          cache-dependency-path: 'package.json'
+
+      - name: Install Dependencies 📦
+        run: npm install
+        env:
+          PUPPETEER_SKIP_DOWNLOAD: "false"
+
+      - name: Generate Build 🔨
+        run: npm run build
+        env:
+          CI: true
+
+      - name: Deploy to GitHub Pages 🚀
+        uses: peaceiris/actions-gh-pages@v4
+        with:
+          github_token: ${{ secrets.GITHUB_TOKEN }}
+          publish_dir: .
+          publish_branch: gh-pages
+          force_orphan: true
+          user_name: 'github-actions[bot]'
+          user_email: 'github-actions[bot]@users.noreply.github.com'
+          commit_message: "studio-deploy: ${{ github.event.head_commit.message }} (build ${{ github.sha }}) [skip ci]"

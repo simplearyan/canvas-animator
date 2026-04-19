@@ -1,0 +1,745 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+    <title>3D Sphere Face Animator</title>
+
+    <!-- Tailwind CSS for UI -->
+    <script src="https://cdn.tailwindcss.com"></script>
+    
+    <!-- Rough.js for hand-drawn shapes -->
+    <script src="https://unpkg.com/roughjs@latest/bundled/rough.js"></script>
+    
+    <!-- Phosphor Icons -->
+    <script src="https://unpkg.com/@phosphor-icons/web"></script>
+
+    <!-- Kalam Font for hand-drawn text -->
+    <link href="https://fonts.googleapis.com/css2?family=Kalam:wght@400;700&display=swap" rel="stylesheet">
+
+    <style>
+        :root {
+            /* Lighting and Shadow CSS Variables */
+            --light-x: 10%;
+            --light-y: 5%;
+            --shadow-scale: 1;
+            --shadow-opacity: 0.6;
+        }
+
+        body, html {
+            margin: 0; padding: 0; width: 100%; height: 100%;
+            background-color: #1e293b; /* Dark slate background */
+            background-image: radial-gradient(circle at top, #334155 0%, #0f172a 100%);
+            font-family: 'Kalam', cursive, sans-serif;
+            overflow: hidden;
+            color: white;
+            user-select: none;
+        }
+
+        /* --- 3D CSS Sphere Rendering --- */
+        #stage {
+            flex-grow: 1;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            position: relative;
+        }
+
+        .sphere-container {
+            position: relative;
+            width: 380px;
+            height: 380px;
+            /* Give it some hovering animation */
+            animation: float 6s ease-in-out infinite;
+        }
+
+        @keyframes float {
+            0% { transform: translateY(0px); }
+            50% { transform: translateY(-15px); }
+            100% { transform: translateY(0px); }
+        }
+
+        /* The dynamic shadow on the "floor" */
+        .sphere-shadow {
+            position: absolute;
+            width: 80%;
+            height: 30px;
+            bottom: -35px;
+            left: 10%;
+            background: radial-gradient(ellipse at center, rgba(0,0,0,1) 0%, rgba(0,0,0,0) 70%);
+            border-radius: 50%;
+            filter: blur(5px);
+            animation: shadow-float 6s ease-in-out infinite;
+        }
+
+        @keyframes shadow-float {
+            0% { transform: scale(var(--shadow-scale)); opacity: var(--shadow-opacity); }
+            50% { transform: scale(calc(var(--shadow-scale) * 0.85)); opacity: calc(var(--shadow-opacity) * 0.5); }
+            100% { transform: scale(var(--shadow-scale)); opacity: var(--shadow-opacity); }
+        }
+
+        /* The Sphere Material */
+        .sphere {
+            position: absolute;
+            top: 0; left: 0;
+            width: 100%; height: 100%;
+            border-radius: 50%;
+            /* Glossy Orange Gradient based on CSS animation rocks tutorial */
+            background: radial-gradient(circle at 35% 25%, #fde047 1%, #f97316 35%, #c2410c 70%, #431407 100%);
+            box-shadow: 
+                inset -20px -20px 40px rgba(0,0,0,0.6), /* Inner dark shadow */
+                inset 10px 10px 30px rgba(255,255,255,0.4), /* Inner highlight */
+                0 15px 35px rgba(0,0,0,0.4); /* Outer drop shadow */
+            overflow: hidden;
+            /* Hardware acceleration */
+            transform: translateZ(0); 
+            mask-image: radial-gradient(white, black);
+            -webkit-mask-image: -webkit-radial-gradient(white, black);
+        }
+
+        /* Glossy Highlight Reflection */
+        .sphere::after {
+            content: '';
+            position: absolute;
+            top: var(--light-y); left: var(--light-x);
+            width: 80%; height: 80%;
+            border-radius: 50%;
+            background: radial-gradient(circle at 50% 0%, rgba(255, 255, 255, 0.4), rgba(255, 255, 255, 0) 58%);
+            filter: blur(4px);
+            pointer-events: none;
+            transform: translateX(-10px) translateY(-20px) skewX(-10deg);
+            z-index: 10;
+        }
+
+        /* Canvas Overlay perfectly mapped to sphere */
+        #drawing-canvas {
+            position: absolute;
+            top: 0; left: 0;
+            width: 100%; height: 100%;
+            cursor: crosshair;
+            z-index: 5;
+            /* Soften drawing slightly to blend with 3D */
+            mix-blend-mode: multiply;
+        }
+
+        /* --- UI Components --- */
+        .panel {
+            background: rgba(30, 41, 59, 0.7);
+            backdrop-filter: blur(12px);
+            border: 1px solid rgba(255, 255, 255, 0.1);
+        }
+
+        .tool-btn {
+            width: 40px; height: 40px;
+            border-radius: 8px;
+            display: flex; align-items: center; justify-content: center;
+            color: #94a3b8; font-size: 1.25rem;
+            transition: all 0.2s; cursor: pointer;
+        }
+        .tool-btn:hover { background: rgba(255,255,255,0.1); color: white; }
+        .tool-btn.active { background: #f97316; color: white; box-shadow: 0 0 10px rgba(249,115,22,0.4); }
+
+        .color-btn {
+            width: 24px; height: 24px;
+            border-radius: 50%; cursor: pointer;
+            border: 2px solid transparent; transition: all 0.2s;
+        }
+        .color-btn.active { border-color: white; transform: scale(1.2); box-shadow: 0 0 8px rgba(0,0,0,0.5); }
+
+        .frame-thumb {
+            width: 60px; height: 60px;
+            border-radius: 50%;
+            background: radial-gradient(circle at 35% 25%, #fde047 1%, #f97316 35%, #c2410c 70%, #431407 100%);
+            border: 2px solid transparent;
+            cursor: pointer; position: relative;
+            flex-shrink: 0;
+            transition: transform 0.2s;
+            overflow: hidden;
+        }
+        .frame-thumb.active { border-color: #f97316; transform: scale(1.1); box-shadow: 0 0 15px rgba(249,115,22,0.5); }
+        .frame-thumb:hover { transform: scale(1.05); }
+        
+        .frame-canvas {
+            width: 100%; height: 100%;
+            position: absolute; top: 0; left: 0;
+            mix-blend-mode: multiply;
+        }
+
+        .frame-delete {
+            position: absolute; top: -5px; right: -5px;
+            background: #ef4444; color: white; border-radius: 50%;
+            width: 18px; height: 18px; font-size: 10px;
+            display: none; align-items: center; justify-content: center;
+            z-index: 10; font-family: sans-serif;
+        }
+        .frame-thumb:hover .frame-delete { display: flex; }
+
+        input[type=range] { -webkit-appearance: none; background: transparent; width: 100%; }
+        input[type=range]::-webkit-slider-thumb {
+            -webkit-appearance: none; height: 14px; width: 14px;
+            border-radius: 50%; background: #f97316; cursor: pointer; margin-top: -5px;
+        }
+        input[type=range]::-webkit-slider-runnable-track {
+            width: 100%; height: 4px; cursor: pointer;
+            background: rgba(255,255,255,0.2); border-radius: 2px;
+        }
+
+        /* Scrollbar styling for right panel */
+        .custom-scrollbar::-webkit-scrollbar { width: 4px; }
+        .custom-scrollbar::-webkit-scrollbar-track { background: transparent; }
+        .custom-scrollbar::-webkit-scrollbar-thumb { background: rgba(255,255,255,0.2); border-radius: 4px; }
+    </style>
+</head>
+<body class="flex flex-col">
+
+    <!-- Top Header & Animation Controls -->
+    <header class="panel flex items-center justify-between px-6 py-3 border-b">
+        <div class="flex items-center gap-3">
+            <i class="ph ph-smiley-wink text-3xl text-orange-500"></i>
+            <h1 class="text-xl font-bold tracking-wider">Sprite Face Animator</h1>
+        </div>
+        <div class="flex items-center gap-4">
+            <button id="play-btn" class="flex items-center gap-2 bg-orange-500 hover:bg-orange-600 px-4 py-1.5 rounded-lg text-white transition-colors font-bold shadow-lg shadow-orange-500/20">
+                <i class="ph ph-play text-xl" id="play-icon"></i>
+                <span id="play-text">Play</span>
+            </button>
+            <div class="flex flex-col w-32 ml-4">
+                <div class="flex justify-between text-xs text-gray-400 font-sans mb-1">
+                    <span>Speed</span>
+                    <span id="fps-val">8 FPS</span>
+                </div>
+                <input type="range" id="fps-slider" min="1" max="24" value="8">
+            </div>
+            <button id="jitter-btn" class="ml-4 tool-btn !w-auto px-3 gap-2" title="Jitter Animation (Randomize Seeds)">
+                <i class="ph ph-waves"></i> <span class="text-sm font-sans">Jitter</span>
+            </button>
+        </div>
+    </header>
+
+    <!-- Main Workspace -->
+    <main class="flex-grow flex overflow-hidden">
+        
+        <!-- Left Toolbar (Tools) -->
+        <aside class="panel w-16 flex flex-col items-center py-4 gap-2 border-r z-20">
+            <button class="tool-btn active" data-tool="pencil" title="Pencil"><i class="ph ph-pencil"></i></button>
+            <button class="tool-btn" data-tool="brush" title="Brush"><i class="ph ph-paintbrush"></i></button>
+            <button class="tool-btn" data-tool="crayon" title="Crayon"><i class="ph ph-pencil-line"></i></button>
+            <button class="tool-btn" data-tool="marker" title="Marker"><i class="ph ph-highlighter"></i></button>
+            <button class="tool-btn" data-tool="circle" title="Circle"><i class="ph ph-circle"></i></button>
+            <div class="w-8 h-px bg-white/10 my-2"></div>
+            <button class="tool-btn" data-tool="eraser" title="Eraser"><i class="ph ph-eraser"></i></button>
+            <button class="tool-btn text-red-400 hover:text-red-300" id="clear-btn" title="Clear Frame"><i class="ph ph-trash"></i></button>
+            <button class="tool-btn mt-auto" id="undo-btn" title="Undo"><i class="ph ph-arrow-u-up-left"></i></button>
+        </aside>
+
+        <!-- Center Stage -->
+        <div id="stage">
+            <div class="sphere-container">
+                <div class="sphere">
+                    <canvas id="drawing-canvas"></canvas>
+                </div>
+                <div class="sphere-shadow"></div>
+            </div>
+        </div>
+
+        <!-- Right Toolbar (Properties) -->
+        <aside class="panel w-56 flex flex-col py-5 px-4 gap-6 border-l z-20 font-sans overflow-y-auto custom-scrollbar">
+            <div>
+                <label class="text-xs text-gray-400 uppercase font-bold tracking-wider block mb-3">Colors</label>
+                <div class="flex flex-wrap gap-2">
+                    <div class="color-btn active" style="background:#111" data-color="#111"></div>
+                    <div class="color-btn" style="background:#fff" data-color="#fff"></div>
+                    <div class="color-btn" style="background:#ef4444" data-color="#ef4444"></div>
+                    <div class="color-btn" style="background:#3b82f6" data-color="#3b82f6"></div>
+                    <div class="color-btn" style="background:#22c55e" data-color="#22c55e"></div>
+                    <div class="color-btn" style="background:#a855f7" data-color="#a855f7"></div>
+                    <div class="color-btn" style="background:#f472b6" data-color="#f472b6"></div>
+                </div>
+            </div>
+            
+            <div>
+                <div class="flex justify-between items-center mb-1">
+                    <label class="text-[10px] text-gray-400 uppercase font-bold tracking-wider">Size</label>
+                    <span id="stroke-val" class="text-xs">3</span>
+                </div>
+                <input type="range" id="stroke-slider" min="1" max="15" value="3">
+            </div>
+
+            <div>
+                <div class="flex justify-between items-center mb-1">
+                    <label class="text-[10px] text-gray-400 uppercase font-bold tracking-wider">Opacity</label>
+                    <span id="opacity-val" class="text-xs">100%</span>
+                </div>
+                <input type="range" id="opacity-slider" min="0.1" max="1" step="0.1" value="1">
+            </div>
+            
+            <div>
+                <div class="flex justify-between items-center mb-1">
+                    <label class="text-[10px] text-gray-400 uppercase font-bold tracking-wider">Roughness</label>
+                    <span id="rough-val" class="text-xs">1.5</span>
+                </div>
+                <input type="range" id="rough-slider" min="0" max="4" step="0.1" value="1.5">
+            </div>
+
+            <!-- Environment Controls (Lighting & Shadow) -->
+            <div class="border-t border-white/10 pt-4 mt-2">
+                <label class="text-[10px] text-gray-300 uppercase font-bold tracking-wider block mb-4">Lighting & Environment</label>
+                
+                <div class="mb-3">
+                    <div class="flex justify-between items-center mb-1">
+                        <span class="text-[10px] text-gray-400">Light Source X</span>
+                    </div>
+                    <input type="range" id="light-x-slider" min="-50" max="150" value="10">
+                </div>
+
+                <div class="mb-3">
+                    <div class="flex justify-between items-center mb-1">
+                        <span class="text-[10px] text-gray-400">Light Source Y</span>
+                    </div>
+                    <input type="range" id="light-y-slider" min="-50" max="150" value="5">
+                </div>
+
+                <div class="mb-3">
+                    <div class="flex justify-between items-center mb-1">
+                        <span class="text-[10px] text-gray-400">Shadow Opacity</span>
+                    </div>
+                    <input type="range" id="shadow-opacity-slider" min="0" max="1" step="0.05" value="0.6">
+                </div>
+
+                <div>
+                    <div class="flex justify-between items-center mb-1">
+                        <span class="text-[10px] text-gray-400">Shadow Size</span>
+                    </div>
+                    <input type="range" id="shadow-size-slider" min="0" max="2" step="0.05" value="1">
+                </div>
+            </div>
+
+        </aside>
+    </main>
+
+    <!-- Bottom Timeline (Frames) -->
+    <footer class="panel h-28 flex items-center px-4 gap-4 border-t z-20 overflow-x-auto overflow-y-hidden">
+        
+        <div class="flex flex-col gap-2 border-r border-white/10 pr-4 shrink-0 font-sans">
+            <button id="add-frame-btn" class="bg-slate-700 hover:bg-slate-600 px-3 py-1.5 rounded text-xs flex items-center gap-1 transition-colors">
+                <i class="ph ph-plus"></i> Add Frame
+            </button>
+            <button id="dup-frame-btn" class="bg-slate-700 hover:bg-slate-600 px-3 py-1.5 rounded text-xs flex items-center gap-1 transition-colors">
+                <i class="ph ph-copy"></i> Duplicate
+            </button>
+        </div>
+
+        <div id="timeline-container" class="flex items-center gap-3 h-full px-2">
+            <!-- Frame thumbnails will be injected here -->
+        </div>
+
+    </footer>
+
+    <script>
+        // --- Core Application State ---
+        const SPHERE_SIZE = 380;
+        const canvas = document.getElementById('drawing-canvas');
+        const ctx = canvas.getContext('2d');
+        const timelineContainer = document.getElementById('timeline-container');
+        
+        let rc; // RoughJS instance
+        
+        // Sprite / Frame Management
+        let frames = [ { id: Date.now(), elements: [] } ];
+        let activeFrameIndex = 0;
+        
+        // Drawing State
+        let isDrawing = false;
+        let currentTool = 'pencil';
+        let currentColor = '#111';
+        let currentStrokeWidth = 3;
+        let currentOpacity = 1;
+        let currentRoughness = 1.5;
+        let currentElement = null;
+        
+        // Animation State
+        let isPlaying = false;
+        let fps = 8;
+        let playInterval = null;
+        let isJitterEnabled = false;
+
+        // --- Initialization ---
+        function init() {
+            // Setup High DPI Canvas
+            const dpr = window.devicePixelRatio || 1;
+            canvas.width = SPHERE_SIZE * dpr;
+            canvas.height = SPHERE_SIZE * dpr;
+            ctx.scale(dpr, dpr);
+            
+            rc = rough.canvas(canvas);
+            
+            renderTimeline();
+            redrawCanvas();
+        }
+
+        function getSeed() { return Math.floor(Math.random() * 2147483648); }
+
+        // --- Drawing Engine ---
+        function getCoordinates(e) {
+            const rect = canvas.getBoundingClientRect();
+            let clientX = e.touches ? e.touches[0].clientX : e.clientX;
+            let clientY = e.touches ? e.touches[0].clientY : e.clientY;
+            return {
+                x: (clientX - rect.left) / (rect.width / SPHERE_SIZE),
+                y: (clientY - rect.top) / (rect.height / SPHERE_SIZE)
+            };
+        }
+
+        function handlePointerDown(e) {
+            if (isPlaying) stopAnimation(); // Pause if user draws
+            if (e.target !== canvas) return;
+            isDrawing = true;
+            const { x, y } = getCoordinates(e);
+
+            if (currentTool === 'eraser') {
+                eraseAt(x, y);
+                return;
+            }
+
+            if (currentTool === 'circle') {
+                currentElement = {
+                    type: 'circle',
+                    x1: x, y1: y, x2: x, y2: y,
+                    color: currentColor,
+                    strokeWidth: currentStrokeWidth,
+                    opacity: currentOpacity,
+                    roughness: currentRoughness,
+                    seed: getSeed()
+                };
+            } else {
+                currentElement = {
+                    type: currentTool,
+                    points: [[x, y]],
+                    color: currentColor,
+                    strokeWidth: currentStrokeWidth,
+                    opacity: currentOpacity,
+                    roughness: currentTool === 'pencil' ? currentRoughness : null,
+                    seed: getSeed()
+                };
+            }
+            
+            frames[activeFrameIndex].elements.push(currentElement);
+        }
+
+        function handlePointerMove(e) {
+            if (!isDrawing || e.target !== canvas) return;
+            const { x, y } = getCoordinates(e);
+
+            if (currentTool === 'eraser') {
+                eraseAt(x, y);
+                return;
+            }
+
+            if (currentElement) {
+                if (currentTool === 'circle') {
+                    currentElement.x2 = x;
+                    currentElement.y2 = y;
+                } else {
+                    currentElement.points.push([x, y]);
+                }
+                redrawCanvas();
+            }
+        }
+
+        function handlePointerUp() {
+            if (isDrawing) {
+                isDrawing = false;
+                currentElement = null;
+                updateTimelineThumbnail(activeFrameIndex);
+            }
+        }
+
+        canvas.addEventListener('mousedown', handlePointerDown);
+        window.addEventListener('mousemove', handlePointerMove);
+        window.addEventListener('mouseup', handlePointerUp);
+        
+        canvas.addEventListener('touchstart', (e) => { e.preventDefault(); handlePointerDown(e); }, { passive: false });
+        window.addEventListener('touchmove', (e) => { if(isDrawing) e.preventDefault(); handlePointerMove(e); }, { passive: false });
+        window.addEventListener('touchend', handlePointerUp);
+
+        // --- Eraser Logic ---
+        function hitTest(x, y) {
+            const currentElements = frames[activeFrameIndex].elements;
+            for (let i = currentElements.length - 1; i >= 0; i--) {
+                const el = currentElements[i];
+                let minX = Infinity, minY = Infinity, maxX = -Infinity, maxY = -Infinity;
+                
+                if (el.type === 'circle') {
+                    const dx = el.x2 - el.x1;
+                    const dy = el.y2 - el.y1;
+                    const r = Math.sqrt(dx*dx + dy*dy);
+                    minX = el.x1 - r; minY = el.y1 - r;
+                    maxX = el.x1 + r; maxY = el.y1 + r;
+                } else if (el.points) {
+                    el.points.forEach(([px, py]) => {
+                        if (px < minX) minX = px; if (py < minY) minY = py;
+                        if (px > maxX) maxX = px; if (py > maxY) maxY = py;
+                    });
+                }
+                
+                const padding = 15 + el.strokeWidth;
+                if (x >= minX - padding && x <= maxX + padding && y >= minY - padding && y <= maxY + padding) {
+                    return i;
+                }
+            }
+            return -1;
+        }
+
+        function eraseAt(x, y) {
+            const hitIndex = hitTest(x, y);
+            if (hitIndex > -1) {
+                frames[activeFrameIndex].elements.splice(hitIndex, 1);
+                redrawCanvas();
+                updateTimelineThumbnail(activeFrameIndex);
+            }
+        }
+
+        // --- Rendering ---
+        function drawElements(context, elementsToDraw, roughInstance) {
+            elementsToDraw.forEach(el => {
+                context.save();
+                context.globalAlpha = el.opacity;
+
+                const seedToUse = isJitterEnabled ? getSeed() : el.seed;
+                let sw = el.strokeWidth;
+                let r = el.roughness !== null ? el.roughness : 1.5; 
+                let bowing = 1;
+
+                if (el.type === 'brush') { r = 0.5; sw *= 1.5; } 
+                else if (el.type === 'crayon') { r = 2.8; bowing = 2; } 
+                else if (el.type === 'marker') { r = 0.2; sw *= 3; context.globalAlpha = Math.min(el.opacity, 0.5); }
+
+                const options = { stroke: el.color, strokeWidth: sw, roughness: r, bowing: bowing, seed: seedToUse };
+
+                if (el.type === 'circle') {
+                    const dx = el.x2 - el.x1;
+                    const dy = el.y2 - el.y1;
+                    const radius = Math.sqrt(dx*dx + dy*dy);
+                    roughInstance.circle(el.x1, el.y1, radius * 2, options);
+                } else if (el.points && el.points.length > 1) {
+                    roughInstance.curve(el.points, options);
+                }
+                
+                context.restore();
+            });
+        }
+
+        function redrawCanvas() {
+            ctx.clearRect(0, 0, canvas.width, canvas.height);
+            drawElements(ctx, frames[activeFrameIndex].elements, rc);
+        }
+
+        // --- Timeline & Frame Management ---
+        function renderTimeline() {
+            timelineContainer.innerHTML = '';
+            frames.forEach((frame, index) => {
+                const thumb = document.createElement('div');
+                thumb.className = `frame-thumb ${index === activeFrameIndex ? 'active' : ''}`;
+                thumb.onclick = () => selectFrame(index);
+
+                // Add mini canvas for thumbnail
+                const thumbCanvas = document.createElement('canvas');
+                thumbCanvas.className = 'frame-canvas';
+                thumbCanvas.width = 120; // 2x resolution for sharpness
+                thumbCanvas.height = 120;
+                thumb.appendChild(thumbCanvas);
+
+                // Delete button
+                if (frames.length > 1) {
+                    const delBtn = document.createElement('div');
+                    delBtn.className = 'frame-delete';
+                    delBtn.innerHTML = '<i class="ph ph-x"></i>';
+                    delBtn.onclick = (e) => { e.stopPropagation(); deleteFrame(index); };
+                    thumb.appendChild(delBtn);
+                }
+
+                timelineContainer.appendChild(thumb);
+                updateTimelineThumbnail(index);
+            });
+        }
+
+        function updateTimelineThumbnail(index) {
+            const thumbs = timelineContainer.querySelectorAll('.frame-thumb');
+            if (!thumbs[index]) return;
+            const thumbCanvas = thumbs[index].querySelector('canvas');
+            const thumbCtx = thumbCanvas.getContext('2d');
+            const thumbRc = rough.canvas(thumbCanvas);
+            
+            thumbCtx.clearRect(0, 0, thumbCanvas.width, thumbCanvas.height);
+            
+            // Scale context down to fit 120x120 thumbnail
+            thumbCtx.save();
+            const scale = 120 / SPHERE_SIZE;
+            thumbCtx.scale(scale, scale);
+            drawElements(thumbCtx, frames[index].elements, thumbRc);
+            thumbCtx.restore();
+        }
+
+        function selectFrame(index) {
+            if (isPlaying) stopAnimation();
+            activeFrameIndex = index;
+            document.querySelectorAll('.frame-thumb').forEach((t, i) => {
+                t.classList.toggle('active', i === index);
+            });
+            redrawCanvas();
+        }
+
+        function addFrame() {
+            frames.push({ id: Date.now(), elements: [] });
+            activeFrameIndex = frames.length - 1;
+            renderTimeline();
+            redrawCanvas();
+            scrollToEnd();
+        }
+
+        function duplicateFrame() {
+            // Deep copy elements to prevent reference linking
+            const copiedElements = JSON.parse(JSON.stringify(frames[activeFrameIndex].elements));
+            // Give new seeds to copies so they don't look perfectly identical if jitter is off
+            copiedElements.forEach(el => el.seed = getSeed());
+            
+            frames.splice(activeFrameIndex + 1, 0, { id: Date.now(), elements: copiedElements });
+            activeFrameIndex++;
+            renderTimeline();
+            redrawCanvas();
+            scrollToEnd();
+        }
+
+        function deleteFrame(index) {
+            frames.splice(index, 1);
+            if (activeFrameIndex >= frames.length) activeFrameIndex = frames.length - 1;
+            renderTimeline();
+            redrawCanvas();
+        }
+
+        function scrollToEnd() {
+            setTimeout(() => {
+                timelineContainer.parentElement.scrollLeft = timelineContainer.parentElement.scrollWidth;
+            }, 50);
+        }
+
+        document.getElementById('add-frame-btn').addEventListener('click', addFrame);
+        document.getElementById('dup-frame-btn').addEventListener('click', duplicateFrame);
+
+        // --- Animation Engine ---
+        function toggleAnimation() {
+            if (isPlaying) stopAnimation();
+            else startAnimation();
+        }
+
+        function startAnimation() {
+            if (frames.length < 2) return; // Need at least 2 frames
+            isPlaying = true;
+            document.getElementById('play-icon').classList.replace('ph-play', 'ph-pause');
+            document.getElementById('play-text').innerText = 'Pause';
+            
+            const intervalMs = 1000 / fps;
+            playInterval = setInterval(() => {
+                activeFrameIndex = (activeFrameIndex + 1) % frames.length;
+                
+                // visually update timeline silently
+                document.querySelectorAll('.frame-thumb').forEach((t, i) => t.classList.toggle('active', i === activeFrameIndex));
+                
+                redrawCanvas();
+            }, intervalMs);
+        }
+
+        function stopAnimation() {
+            isPlaying = false;
+            document.getElementById('play-icon').classList.replace('ph-pause', 'ph-play');
+            document.getElementById('play-text').innerText = 'Play';
+            clearInterval(playInterval);
+            redrawCanvas(); // Restores original non-jittered seeds if jitter is off
+        }
+
+        document.getElementById('play-btn').addEventListener('click', toggleAnimation);
+
+        document.getElementById('fps-slider').addEventListener('input', (e) => {
+            fps = parseInt(e.target.value, 10);
+            document.getElementById('fps-val').innerText = fps + ' FPS';
+            if (isPlaying) {
+                stopAnimation();
+                startAnimation();
+            }
+        });
+
+        // --- UI Events (Tools & Properties) ---
+        document.querySelectorAll('.tool-btn[data-tool]').forEach(btn => {
+            btn.addEventListener('click', (e) => {
+                document.querySelector('.tool-btn.active[data-tool]')?.classList.remove('active');
+                btn.classList.add('active');
+                currentTool = btn.dataset.tool;
+            });
+        });
+
+        document.querySelectorAll('.color-btn').forEach(btn => {
+            btn.addEventListener('click', (e) => {
+                document.querySelector('.color-btn.active')?.classList.remove('active');
+                btn.classList.add('active');
+                currentColor = btn.dataset.color;
+            });
+        });
+
+        document.getElementById('stroke-slider').addEventListener('input', (e) => {
+            currentStrokeWidth = parseInt(e.target.value, 10);
+            document.getElementById('stroke-val').innerText = currentStrokeWidth;
+        });
+
+        document.getElementById('opacity-slider').addEventListener('input', (e) => {
+            currentOpacity = parseFloat(e.target.value);
+            document.getElementById('opacity-val').innerText = Math.round(currentOpacity * 100) + '%';
+        });
+
+        document.getElementById('rough-slider').addEventListener('input', (e) => {
+            currentRoughness = parseFloat(e.target.value);
+            document.getElementById('rough-val').innerText = currentRoughness;
+        });
+
+        document.getElementById('jitter-btn').addEventListener('click', (e) => {
+            isJitterEnabled = !isJitterEnabled;
+            e.currentTarget.classList.toggle('active', isJitterEnabled);
+            redrawCanvas();
+            // Re-render all thumbnails to show jitter state
+            frames.forEach((_, i) => updateTimelineThumbnail(i));
+        });
+
+        document.getElementById('undo-btn').addEventListener('click', () => {
+            frames[activeFrameIndex].elements.pop();
+            redrawCanvas();
+            updateTimelineThumbnail(activeFrameIndex);
+        });
+
+        document.getElementById('clear-btn').addEventListener('click', () => {
+            frames[activeFrameIndex].elements = [];
+            redrawCanvas();
+            updateTimelineThumbnail(activeFrameIndex);
+        });
+
+        // Environment Control Events
+        document.getElementById('light-x-slider').addEventListener('input', (e) => {
+            document.documentElement.style.setProperty('--light-x', e.target.value + '%');
+        });
+        
+        document.getElementById('light-y-slider').addEventListener('input', (e) => {
+            document.documentElement.style.setProperty('--light-y', e.target.value + '%');
+        });
+
+        document.getElementById('shadow-opacity-slider').addEventListener('input', (e) => {
+            document.documentElement.style.setProperty('--shadow-opacity', e.target.value);
+        });
+
+        document.getElementById('shadow-size-slider').addEventListener('input', (e) => {
+            document.documentElement.style.setProperty('--shadow-scale', e.target.value);
+        });
+
+        // Initialize application
+        init();
+
+    </script>
+</body>
+</html>

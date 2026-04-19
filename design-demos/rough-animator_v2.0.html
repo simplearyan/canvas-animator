@@ -1,0 +1,706 @@
+<!DOCTYPE html>
+<html lang="en" class="light">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+    <title>Rough Animator - Shapes & Record</title>
+    
+    <!-- Google Fonts -->
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Caveat:wght@400;600;700&family=Inter:wght@400;500;600&display=swap" rel="stylesheet">
+
+    <!-- Tailwind CSS -->
+    <script src="https://cdn.tailwindcss.com"></script>
+    <script>
+        tailwind.config = {
+            darkMode: 'class',
+            theme: {
+                extend: {
+                    fontFamily: {
+                        sans: ['Inter', 'sans-serif'],
+                        hand: ['Caveat', 'cursive'],
+                    },
+                    colors: {
+                        brand: {
+                            50: '#eef2ff',
+                            500: '#6366f1',
+                            600: '#4f46e5',
+                            900: '#312e81',
+                        }
+                    }
+                }
+            }
+        }
+    </script>
+
+    <!-- Phosphor Icons -->
+    <script src="https://unpkg.com/@phosphor-icons/web"></script>
+    
+    <!-- Rough.js -->
+    <script src="https://unpkg.com/roughjs@4.5.2/bundled/rough.js"></script>
+
+    <style>
+        body {
+            transition: background-color 0.2s ease, color 0.2s ease;
+            overscroll-behavior-y: none;
+        }
+        
+        /* Custom ranges for toolbar */
+        input[type=range] {
+            -webkit-appearance: none;
+            width: 100%;
+            background: transparent;
+        }
+        input[type=range]::-webkit-slider-thumb {
+            -webkit-appearance: none;
+            height: 16px;
+            width: 16px;
+            border-radius: 50%;
+            background: #6366f1;
+            cursor: pointer;
+            margin-top: -6px;
+        }
+        input[type=range]::-webkit-slider-runnable-track {
+            width: 100%;
+            height: 4px;
+            cursor: pointer;
+            background: #cbd5e1;
+            border-radius: 2px;
+        }
+        .dark input[type=range]::-webkit-slider-runnable-track {
+            background: #475569;
+        }
+        
+        /* Canvas area */
+        #canvas-container {
+            touch-action: none; /* Prevent scrolling while drawing */
+            background-image: 
+                radial-gradient(#e2e8f0 1px, transparent 1px),
+                radial-gradient(#e2e8f0 1px, transparent 1px);
+            background-size: 20px 20px;
+            background-position: 0 0, 10px 10px;
+        }
+        .dark #canvas-container {
+            background-image: 
+                radial-gradient(#334155 1px, transparent 1px),
+                radial-gradient(#334155 1px, transparent 1px);
+        }
+
+        /* Tool Grid Active State */
+        .tool-btn.active {
+            background-color: #e0e7ff;
+            color: #4f46e5;
+            border-color: #6366f1;
+        }
+        .dark .tool-btn.active {
+            background-color: #3730a3;
+            color: #e0e7ff;
+            border-color: #6366f1;
+        }
+    </style>
+</head>
+<body class="bg-gray-50 dark:bg-gray-900 text-gray-900 dark:text-gray-100 h-screen flex flex-col overflow-hidden">
+
+    <!-- HEADER -->
+    <header class="h-16 bg-white dark:bg-gray-800 border-b border-gray-200 dark:border-gray-700 flex items-center justify-between px-4 sm:px-6 flex-shrink-0 z-20">
+        <div class="flex items-center gap-2">
+            <div class="bg-brand-500 text-white p-1.5 rounded-lg">
+                <i class="ph-bold ph-shapes text-2xl"></i>
+            </div>
+            <h1 class="font-hand text-3xl font-bold tracking-tight text-brand-600 dark:text-brand-400 mt-1">Rough Shapes</h1>
+        </div>
+        <div class="flex items-center gap-3">
+            <button id="theme-toggle" class="p-2.5 rounded-full bg-gray-100 dark:bg-gray-700 hover:bg-gray-200 dark:hover:bg-gray-600 transition" title="Toggle Theme">
+                <i class="ph-fill ph-moon text-xl dark:hidden"></i>
+                <i class="ph-fill ph-sun text-xl hidden dark:block"></i>
+            </button>
+        </div>
+    </header>
+
+    <!-- MAIN APP AREA -->
+    <main class="flex-1 flex flex-col md:flex-row overflow-hidden relative">
+        
+        <!-- Recording Overlay Indicator -->
+        <div id="recording-overlay" class="absolute top-4 left-1/2 -translate-x-1/2 bg-red-500 text-white px-4 py-2 rounded-full font-medium text-sm flex items-center gap-2 shadow-lg z-50 transition-transform duration-300 transform -translate-y-20">
+            <div class="w-3 h-3 bg-white rounded-full animate-pulse"></div>
+            Recording Animation...
+        </div>
+
+        <!-- TOOLBAR (Left on desktop, Top on mobile) -->
+        <aside class="w-full md:w-80 bg-white dark:bg-gray-800 border-b md:border-b-0 md:border-r border-gray-200 dark:border-gray-700 p-4 md:p-5 flex flex-col gap-6 overflow-y-auto z-10 flex-shrink-0 max-h-[40vh] md:max-h-full">
+            
+            <!-- Shapes / Tools Section -->
+            <div class="flex flex-col gap-3">
+                <h2 class="text-xs font-bold uppercase tracking-wider text-gray-500 dark:text-gray-400">Tools & Shapes</h2>
+                <div class="grid grid-cols-4 gap-2">
+                    <button class="tool-btn active flex flex-col items-center justify-center p-2 rounded-lg border border-gray-200 dark:border-gray-700 hover:bg-gray-100 dark:hover:bg-gray-700 transition" data-tool="freehand" title="Freehand">
+                        <i class="ph ph-scribble-loop text-2xl"></i>
+                    </button>
+                    <button class="tool-btn flex flex-col items-center justify-center p-2 rounded-lg border border-gray-200 dark:border-gray-700 hover:bg-gray-100 dark:hover:bg-gray-700 transition" data-tool="curve" title="Curve">
+                        <i class="ph ph-bezier-curve text-2xl"></i>
+                    </button>
+                    <button class="tool-btn flex flex-col items-center justify-center p-2 rounded-lg border border-gray-200 dark:border-gray-700 hover:bg-gray-100 dark:hover:bg-gray-700 transition" data-tool="line" title="Line">
+                        <i class="ph ph-line-segment text-2xl"></i>
+                    </button>
+                    <button class="tool-btn flex flex-col items-center justify-center p-2 rounded-lg border border-gray-200 dark:border-gray-700 hover:bg-gray-100 dark:hover:bg-gray-700 transition" data-tool="arrow" title="Arrow">
+                        <i class="ph ph-arrow-up-right text-2xl"></i>
+                    </button>
+                    <button class="tool-btn flex flex-col items-center justify-center p-2 rounded-lg border border-gray-200 dark:border-gray-700 hover:bg-gray-100 dark:hover:bg-gray-700 transition" data-tool="rectangle" title="Rectangle">
+                        <i class="ph ph-rectangle text-2xl"></i>
+                    </button>
+                    <button class="tool-btn flex flex-col items-center justify-center p-2 rounded-lg border border-gray-200 dark:border-gray-700 hover:bg-gray-100 dark:hover:bg-gray-700 transition" data-tool="square" title="Square">
+                        <i class="ph ph-square text-2xl"></i>
+                    </button>
+                    <button class="tool-btn flex flex-col items-center justify-center p-2 rounded-lg border border-gray-200 dark:border-gray-700 hover:bg-gray-100 dark:hover:bg-gray-700 transition" data-tool="circle" title="Circle">
+                        <i class="ph ph-circle text-2xl"></i>
+                    </button>
+                    <button class="tool-btn flex flex-col items-center justify-center p-2 rounded-lg border border-gray-200 dark:border-gray-700 hover:bg-gray-100 dark:hover:bg-gray-700 transition" data-tool="ellipse" title="Ellipse">
+                        <i class="ph ph-oval text-2xl"></i>
+                    </button>
+                    <button class="tool-btn flex flex-col items-center justify-center p-2 rounded-lg border border-gray-200 dark:border-gray-700 hover:bg-gray-100 dark:hover:bg-gray-700 transition" data-tool="pentagon" title="Pentagon">
+                        <i class="ph ph-pentagon text-2xl"></i>
+                    </button>
+                    <button class="tool-btn flex flex-col items-center justify-center p-2 rounded-lg border border-gray-200 dark:border-gray-700 hover:bg-gray-100 dark:hover:bg-gray-700 transition" data-tool="hexagon" title="Hexagon">
+                        <i class="ph ph-hexagon text-2xl"></i>
+                    </button>
+                    <button class="tool-btn flex flex-col items-center justify-center p-2 rounded-lg border border-gray-200 dark:border-gray-700 hover:bg-gray-100 dark:hover:bg-gray-700 transition" data-tool="graph" title="Graph">
+                        <i class="ph ph-chart-line-up text-2xl"></i>
+                    </button>
+                </div>
+            </div>
+
+            <!-- Style Section -->
+            <div class="flex flex-col gap-4">
+                <h2 class="text-xs font-bold uppercase tracking-wider text-gray-500 dark:text-gray-400">Styling</h2>
+                
+                <!-- Color Picker -->
+                <div>
+                    <label class="block text-sm font-medium mb-2">Stroke Color</label>
+                    <div class="flex gap-2 flex-wrap">
+                        <button class="color-btn w-8 h-8 rounded-full border-2 border-transparent hover:scale-110 transition shadow-sm ring-2 ring-offset-2 ring-transparent ring-offset-white dark:ring-offset-gray-800 active-color" data-color="#0f0f0f" style="background-color: #0f0f0f;"></button>
+                        <button class="color-btn w-8 h-8 rounded-full border-2 border-transparent hover:scale-110 transition shadow-sm ring-2 ring-offset-2 ring-transparent ring-offset-white dark:ring-offset-gray-800" data-color="#ef4444" style="background-color: #ef4444;"></button>
+                        <button class="color-btn w-8 h-8 rounded-full border-2 border-transparent hover:scale-110 transition shadow-sm ring-2 ring-offset-2 ring-transparent ring-offset-white dark:ring-offset-gray-800" data-color="#3b82f6" style="background-color: #3b82f6;"></button>
+                        <button class="color-btn w-8 h-8 rounded-full border-2 border-transparent hover:scale-110 transition shadow-sm ring-2 ring-offset-2 ring-transparent ring-offset-white dark:ring-offset-gray-800" data-color="#6366f1" style="background-color: #6366f1;"></button>
+                        <button class="color-btn w-8 h-8 rounded-full border-2 border-transparent hover:scale-110 transition shadow-sm ring-2 ring-offset-2 ring-transparent ring-offset-white dark:ring-offset-gray-800" data-color="#eab308" style="background-color: #eab308;"></button>
+                        <div class="relative w-8 h-8 rounded-full overflow-hidden border border-gray-300 dark:border-gray-600">
+                            <input type="color" id="custom-color" value="#ec4899" class="absolute -top-2 -left-2 w-12 h-12 cursor-pointer">
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Stroke Width -->
+                <div>
+                    <div class="flex justify-between items-center mb-1">
+                        <label class="block text-sm font-medium">Stroke Width</label>
+                        <span id="width-val" class="text-xs text-gray-500 font-mono">3px</span>
+                    </div>
+                    <input type="range" id="stroke-width" min="1" max="20" value="3">
+                </div>
+
+                <!-- Roughness -->
+                <div>
+                    <div class="flex justify-between items-center mb-1">
+                        <label class="block text-sm font-medium">Roughness</label>
+                        <span id="roughness-val" class="text-xs text-gray-500 font-mono">1.5</span>
+                    </div>
+                    <input type="range" id="roughness" min="0" max="5" step="0.5" value="1.5">
+                </div>
+            </div>
+
+            <!-- Actions Section -->
+            <div class="flex flex-col gap-3 mt-2 md:mt-auto">
+                <div class="flex gap-2">
+                    <button id="btn-undo" class="flex-1 flex items-center justify-center gap-2 py-2.5 bg-gray-100 dark:bg-gray-700 hover:bg-gray-200 dark:hover:bg-gray-600 rounded-lg font-medium transition disabled:opacity-50 disabled:cursor-not-allowed">
+                        <i class="ph-bold ph-arrow-u-up-left"></i> Undo
+                    </button>
+                    <button id="btn-clear" class="flex-1 flex items-center justify-center gap-2 py-2.5 bg-gray-100 dark:bg-gray-700 hover:bg-red-100 hover:text-red-600 dark:hover:bg-red-900/30 dark:hover:text-red-400 rounded-lg font-medium transition">
+                        <i class="ph-bold ph-trash"></i> Clear
+                    </button>
+                </div>
+                
+                <hr class="border-gray-200 dark:border-gray-700 my-1">
+
+                <button id="btn-animate" class="flex items-center justify-center gap-2 w-full py-3 px-4 bg-gray-900 text-white dark:bg-gray-100 dark:text-gray-900 hover:bg-gray-800 dark:hover:bg-gray-200 rounded-lg font-bold transition shadow-md disabled:opacity-50">
+                    <i class="ph-fill ph-play-circle text-xl"></i> Preview Animation
+                </button>
+                <button id="btn-record" class="flex items-center justify-center gap-2 w-full py-3 px-4 bg-brand-500 hover:bg-brand-600 text-white rounded-lg font-bold transition shadow-md disabled:opacity-50 group">
+                    <i class="ph-fill ph-record text-xl text-red-100 group-hover:text-red-200"></i> Record & Export
+                </button>
+            </div>
+        </aside>
+
+        <!-- CANVAS AREA -->
+        <section id="canvas-container" class="flex-1 relative cursor-crosshair overflow-hidden">
+            <canvas id="drawing-canvas" class="absolute top-0 left-0 w-full h-full"></canvas>
+            
+            <!-- Empty State Prompt -->
+            <div id="empty-state" class="absolute inset-0 flex flex-col items-center justify-center text-gray-400 dark:text-gray-500 pointer-events-none transition-opacity duration-300">
+                <i class="ph ph-shapes text-6xl mb-2 opacity-50"></i>
+                <p class="font-hand text-2xl">Select a shape & start drawing...</p>
+            </div>
+        </section>
+
+    </main>
+
+    <script>
+        // --- UI & Theme Setup ---
+        const htmlElement = document.documentElement;
+        const themeToggleBtn = document.getElementById('theme-toggle');
+        const emptyState = document.getElementById('empty-state');
+        const recordingOverlay = document.getElementById('recording-overlay');
+
+        // Check theme
+        if (localStorage.theme === 'dark' || (!('theme' in localStorage) && window.matchMedia('(prefers-color-scheme: dark)').matches)) {
+            htmlElement.classList.add('dark');
+        } else {
+            htmlElement.classList.remove('dark');
+        }
+
+        themeToggleBtn.addEventListener('click', () => {
+            htmlElement.classList.toggle('dark');
+            localStorage.theme = htmlElement.classList.contains('dark') ? 'dark' : 'light';
+            redrawAll();
+        });
+
+        // --- Canvas & Rough.js Setup ---
+        const container = document.getElementById('canvas-container');
+        const canvas = document.getElementById('drawing-canvas');
+        const ctx = canvas.getContext('2d', { willReadFrequently: true });
+        let rc; // RoughCanvas instance
+
+        // App State
+        let currentTool = 'freehand'; // default
+        let isDrawing = false;
+        let isAnimating = false;
+        let strokes = []; // Array of drawn objects
+        let currentStroke = null;
+
+        // Tool Settings
+        let currentColor = '#0f0f0f';
+        let currentWidth = 3;
+        let currentRoughness = 1.5;
+
+        // Adjust for dark mode default color
+        if (htmlElement.classList.contains('dark')) {
+            currentColor = '#f8fafc';
+            document.querySelector('[data-color="#0f0f0f"]').style.backgroundColor = '#f8fafc';
+            document.querySelector('[data-color="#0f0f0f"]').setAttribute('data-color', '#f8fafc');
+        }
+
+        function resizeCanvas() {
+            const rect = container.getBoundingClientRect();
+            canvas.width = rect.width;
+            canvas.height = rect.height;
+            rc = rough.canvas(canvas);
+            redrawAll();
+        }
+
+        window.addEventListener('resize', resizeCanvas);
+        setTimeout(resizeCanvas, 0);
+
+        // --- UI Controls Logic ---
+        
+        // Tool Selection
+        const toolBtns = document.querySelectorAll('.tool-btn');
+        toolBtns.forEach(btn => {
+            btn.addEventListener('click', () => {
+                toolBtns.forEach(b => b.classList.remove('active'));
+                btn.classList.add('active');
+                currentTool = btn.getAttribute('data-tool');
+            });
+        });
+
+        // Sliders
+        const widthSlider = document.getElementById('stroke-width');
+        const widthVal = document.getElementById('width-val');
+        widthSlider.addEventListener('input', (e) => {
+            currentWidth = parseFloat(e.target.value);
+            widthVal.textContent = `${currentWidth}px`;
+        });
+
+        const roughnessSlider = document.getElementById('roughness');
+        const roughnessVal = document.getElementById('roughness-val');
+        roughnessSlider.addEventListener('input', (e) => {
+            currentRoughness = parseFloat(e.target.value);
+            roughnessVal.textContent = currentRoughness;
+        });
+
+        // Colors
+        const colorBtns = document.querySelectorAll('.color-btn');
+        const customColorBtn = document.getElementById('custom-color');
+
+        function setActiveColorBtn(btn) {
+            colorBtns.forEach(b => b.classList.remove('ring-brand-500'));
+            customColorBtn.parentElement.classList.remove('ring-2', 'ring-brand-500', 'ring-offset-2');
+            if (btn === customColorBtn) {
+                customColorBtn.parentElement.classList.add('ring-2', 'ring-brand-500', 'ring-offset-2');
+            } else {
+                btn.classList.add('ring-brand-500');
+            }
+        }
+
+        colorBtns.forEach(btn => {
+            btn.addEventListener('click', (e) => {
+                currentColor = e.target.getAttribute('data-color');
+                setActiveColorBtn(e.target);
+            });
+        });
+
+        customColorBtn.addEventListener('input', (e) => {
+            currentColor = e.target.value;
+            setActiveColorBtn(customColorBtn);
+        });
+
+        setActiveColorBtn(colorBtns[0]);
+
+        // --- Shape Drawing Engine ---
+        
+        // Helper to draw a specific shape based on a progress multiplier 't' (0 to 1)
+        // This makes animating shapes extremely smooth and easy!
+        function drawShape(strokeData, roughCanvas, t = 1) {
+            const { type, x1, y1, x2, y2, points, options } = strokeData;
+            const dx = x2 - x1;
+            const dy = y2 - y1;
+            // Current bounds based on animation time 't'
+            const ex = x1 + dx * t; 
+            const ey = y1 + dy * t;
+
+            if (type === 'freehand') {
+                if (points.length < 2) {
+                    if (points.length === 1) roughCanvas.circle(points[0][0], points[0][1], options.strokeWidth*2, {...options, fill: options.stroke});
+                    return;
+                }
+                const ptsToDraw = points.slice(0, Math.max(2, Math.floor(points.length * t)));
+                roughCanvas.curve(ptsToDraw, { ...options, disableMultiStroke: true });
+            } 
+            else if (type === 'curve') {
+                // A stylized bow curve between two points
+                const midX = x1 + dx/2;
+                const midY = y1 + dy/2;
+                // Offset control point to create a curve
+                const cx = midX - dy * 0.3 * t; 
+                const cy = midY + dx * 0.3 * t;
+                roughCanvas.curve([[x1, y1], [cx, cy], [ex, ey]], { ...options, disableMultiStroke: true });
+            }
+            else if (type === 'line') {
+                roughCanvas.line(x1, y1, ex, ey, options);
+            } 
+            else if (type === 'rectangle') {
+                roughCanvas.rectangle(Math.min(x1, ex), Math.min(y1, ey), Math.abs(dx * t), Math.abs(dy * t), options);
+            } 
+            else if (type === 'square') {
+                const side = Math.max(Math.abs(dx), Math.abs(dy));
+                const signX = dx < 0 ? -1 : 1;
+                const signY = dy < 0 ? -1 : 1;
+                roughCanvas.rectangle(Math.min(x1, x1 + side * signX * t), Math.min(y1, y1 + side * signY * t), side * t, side * t, options);
+            } 
+            else if (type === 'circle') {
+                const radius = Math.max(Math.abs(dx), Math.abs(dy)) * t;
+                roughCanvas.circle(x1, y1, radius * 2, options);
+            } 
+            else if (type === 'ellipse') {
+                roughCanvas.ellipse(x1 + dx/2, y1 + dy/2, Math.abs(dx * t), Math.abs(dy * t), options);
+            } 
+            else if (type === 'arrow') {
+                roughCanvas.line(x1, y1, ex, ey, options);
+                // Animate arrowhead blooming at the end
+                if (t > 0.8) {
+                    const headT = (t - 0.8) * 5; // scales 0 to 1
+                    const angle = Math.atan2(dy, dx);
+                    const headlen = 20 * headT + (options.strokeWidth * 2);
+                    roughCanvas.line(ex, ey, ex - headlen * Math.cos(angle - Math.PI/6), ey - headlen * Math.sin(angle - Math.PI/6), options);
+                    roughCanvas.line(ex, ey, ex - headlen * Math.cos(angle + Math.PI/6), ey - headlen * Math.sin(angle + Math.PI/6), options);
+                }
+            } 
+            else if (type === 'pentagon' || type === 'hexagon') {
+                const sides = type === 'pentagon' ? 5 : 6;
+                const r = Math.max(Math.abs(dx), Math.abs(dy)) * t;
+                const pts = [];
+                for(let i = 0; i < sides; i++) {
+                    const angle = (i * 2 * Math.PI / sides) - Math.PI/2;
+                    pts.push([x1 + r * Math.cos(angle), y1 + r * Math.sin(angle)]);
+                }
+                roughCanvas.polygon(pts, options);
+            } 
+            else if (type === 'graph') {
+                // Y Axis
+                roughCanvas.line(x1, y1, x1, y1 + dy * t, options); 
+                // X Axis
+                roughCanvas.line(x1, y1 + dy, x1 + dx * t, y1 + dy, options); 
+                
+                // Animate a line chart growing inside
+                if (t > 0.2) {
+                    const waveT = (t - 0.2) / 0.8;
+                    const wavePts = [];
+                    const steps = 15;
+                    for (let i = 0; i <= steps * waveT; i++) {
+                        const px = x1 + (dx / steps) * i;
+                        // Math logic to create a pleasant zig-zag / sine wave
+                        const heightMod = Math.abs(dy) * 0.8;
+                        const py = (y1 + dy) - (heightMod * 0.2) - Math.abs(Math.sin(i * 0.8) * heightMod * 0.8);
+                        wavePts.push([px, py]);
+                    }
+                    if (wavePts.length > 1) {
+                        roughCanvas.linearPath(wavePts, { ...options, disableMultiStroke: true });
+                    }
+                }
+            }
+        }
+
+        // --- Drawing Interactions ---
+        function getPointerPos(e) {
+            const rect = canvas.getBoundingClientRect();
+            const clientX = e.touches ? e.touches[0].clientX : e.clientX;
+            const clientY = e.touches ? e.touches[0].clientY : e.clientY;
+            return [clientX - rect.left, clientY - rect.top];
+        }
+
+        function startDrawing(e) {
+            if (isAnimating) return;
+            e.preventDefault();
+            isDrawing = true;
+            emptyState.style.opacity = '0';
+            
+            const [startX, startY] = getPointerPos(e);
+            currentStroke = {
+                type: currentTool,
+                x1: startX,
+                y1: startY,
+                x2: startX,
+                y2: startY,
+                points: [[startX, startY]], // primarily for freehand
+                options: {
+                    stroke: currentColor,
+                    strokeWidth: currentWidth,
+                    roughness: currentRoughness
+                }
+            };
+        }
+
+        function draw(e) {
+            if (!isDrawing || isAnimating) return;
+            e.preventDefault();
+            
+            const [x, y] = getPointerPos(e);
+            currentStroke.x2 = x;
+            currentStroke.y2 = y;
+            
+            if (currentTool === 'freehand') {
+                currentStroke.points.push([x, y]);
+            }
+            
+            redrawAll();
+        }
+
+        function stopDrawing() {
+            if (!isDrawing || isAnimating) return;
+            isDrawing = false;
+            
+            // Only commit if we actually moved or drew something
+            const dx = Math.abs(currentStroke.x2 - currentStroke.x1);
+            const dy = Math.abs(currentStroke.y2 - currentStroke.y1);
+            
+            if (currentTool === 'freehand' && currentStroke.points.length > 0) {
+                strokes.push(currentStroke);
+            } else if (currentTool !== 'freehand' && (dx > 5 || dy > 5)) {
+                strokes.push(currentStroke);
+            }
+
+            currentStroke = null;
+            redrawAll();
+            updateUndoState();
+        }
+
+        canvas.addEventListener('mousedown', startDrawing);
+        canvas.addEventListener('mousemove', draw);
+        window.addEventListener('mouseup', stopDrawing);
+
+        canvas.addEventListener('touchstart', startDrawing, {passive: false});
+        canvas.addEventListener('touchmove', draw, {passive: false});
+        window.addEventListener('touchend', stopDrawing);
+
+        function redrawAll() {
+            ctx.clearRect(0, 0, canvas.width, canvas.height);
+            
+            const isDark = htmlElement.classList.contains('dark');
+            ctx.fillStyle = isDark ? '#111827' : '#f8fafc'; // bg colors
+            ctx.fillRect(0, 0, canvas.width, canvas.height);
+
+            // Draw committed shapes
+            strokes.forEach(stroke => {
+                drawShape(stroke, rc, 1);
+            });
+
+            // Draw current active shape
+            if (isDrawing && currentStroke) {
+                drawShape(currentStroke, rc, 1);
+            }
+
+            if (strokes.length === 0 && !isDrawing) {
+                emptyState.style.opacity = '1';
+            }
+        }
+
+        // --- Toolbar Actions ---
+        const btnUndo = document.getElementById('btn-undo');
+        const btnClear = document.getElementById('btn-clear');
+
+        function updateUndoState() {
+            btnUndo.disabled = strokes.length === 0;
+            btnClear.disabled = strokes.length === 0;
+        }
+
+        btnUndo.addEventListener('click', () => {
+            if (strokes.length > 0) {
+                strokes.pop();
+                redrawAll();
+                updateUndoState();
+            }
+        });
+
+        btnClear.addEventListener('click', () => {
+            strokes = [];
+            redrawAll();
+            updateUndoState();
+        });
+
+        updateUndoState();
+
+        // --- Animation & Recording Logic ---
+        const btnAnimate = document.getElementById('btn-animate');
+        const btnRecord = document.getElementById('btn-record');
+
+        async function runAnimation(recordCallback = null) {
+            if (strokes.length === 0 || isAnimating) return;
+            isAnimating = true;
+            
+            btnAnimate.disabled = true;
+            btnRecord.disabled = true;
+            btnUndo.disabled = true;
+            btnClear.disabled = true;
+
+            ctx.clearRect(0, 0, canvas.width, canvas.height);
+            const isDark = htmlElement.classList.contains('dark');
+            ctx.fillStyle = isDark ? '#111827' : '#f8fafc';
+            ctx.fillRect(0, 0, canvas.width, canvas.height);
+
+            if (recordCallback) await recordCallback();
+
+            // Animate each shape sequentially
+            for (let i = 0; i < strokes.length; i++) {
+                const stroke = strokes[i];
+                
+                // Helper to draw the state up to the current shape
+                const drawBackground = () => {
+                    ctx.clearRect(0, 0, canvas.width, canvas.height);
+                    ctx.fillRect(0, 0, canvas.width, canvas.height);
+                    for (let j = 0; j < i; j++) {
+                        drawShape(strokes[j], rc, 1);
+                    }
+                };
+
+                // Determine steps based on shape type
+                let steps = 20; 
+                if (stroke.type === 'freehand') {
+                    steps = Math.max(10, stroke.points.length / 3);
+                }
+
+                // Progressive drawing loop for the current shape
+                for (let step = 1; step <= steps; step++) {
+                    drawBackground();
+                    const progress = step / steps;
+                    drawShape(stroke, rc, progress);
+                    // Standard ~16ms frame delay
+                    await new Promise(resolve => requestAnimationFrame(resolve));
+                }
+                
+                // Final solid render of the shape
+                drawBackground();
+                drawShape(stroke, rc, 1);
+                
+                // Slight pause between shapes for effect
+                await new Promise(resolve => setTimeout(resolve, 150));
+            }
+
+            isAnimating = false;
+            btnAnimate.disabled = false;
+            btnRecord.disabled = false;
+            updateUndoState();
+        }
+
+        btnAnimate.addEventListener('click', () => {
+            runAnimation();
+        });
+
+        btnRecord.addEventListener('click', async () => {
+            if (strokes.length === 0 || isAnimating) return;
+            
+            let mediaRecorder;
+            let recordedChunks = [];
+            
+            try {
+                const stream = canvas.captureStream(30); // 30 FPS
+                
+                let options = { mimeType: 'video/webm;codecs=vp9' };
+                if (!MediaRecorder.isTypeSupported(options.mimeType)) {
+                    options = { mimeType: 'video/webm' };
+                    if (!MediaRecorder.isTypeSupported(options.mimeType)) {
+                        options = { mimeType: 'video/mp4' }; // Fallback
+                    }
+                }
+
+                mediaRecorder = new MediaRecorder(stream, options);
+
+                mediaRecorder.ondataavailable = (e) => {
+                    if (e.data.size > 0) recordedChunks.push(e.data);
+                };
+
+                mediaRecorder.onstop = () => {
+                    const blob = new Blob(recordedChunks, { type: options.mimeType.split(';')[0] });
+                    const url = URL.createObjectURL(blob);
+                    
+                    const a = document.createElement('a');
+                    a.style.display = 'none';
+                    a.href = url;
+                    const ext = options.mimeType.includes('mp4') ? 'mp4' : 'webm';
+                    a.download = `rough-shapes-export.${ext}`;
+                    document.body.appendChild(a);
+                    a.click();
+                    
+                    setTimeout(() => {
+                        document.body.removeChild(a);
+                        window.URL.revokeObjectURL(url);
+                    }, 100);
+
+                    recordingOverlay.classList.remove('translate-y-4');
+                    recordingOverlay.classList.add('-translate-y-20');
+                };
+
+                recordingOverlay.classList.remove('-translate-y-20');
+                recordingOverlay.classList.add('translate-y-4');
+
+                await runAnimation(() => {
+                    mediaRecorder.start();
+                });
+
+                setTimeout(() => {
+                    mediaRecorder.stop();
+                }, 600);
+
+            } catch (err) {
+                console.error("Recording failed:", err);
+                alert("Recording failed. Your browser might not support canvas recording.");
+                
+                recordingOverlay.classList.remove('translate-y-4');
+                recordingOverlay.classList.add('-translate-y-20');
+                isAnimating = false;
+                btnAnimate.disabled = false;
+                btnRecord.disabled = false;
+                updateUndoState();
+            }
+        });
+
+    </script>
+</body>
+</html>

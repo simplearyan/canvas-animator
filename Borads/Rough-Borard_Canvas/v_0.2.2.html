@@ -1,0 +1,1040 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+    <title>Roughboard Canvas</title>
+
+    <!-- Tailwind CSS for UI -->
+    <script src="https://cdn.tailwindcss.com"></script>
+    
+    <!-- Rough.js for hand-drawn shapes -->
+    <script src="https://unpkg.com/roughjs@latest/bundled/rough.js"></script>
+    
+    <!-- Phosphor Icons -->
+    <script src="https://unpkg.com/@phosphor-icons/web"></script>
+
+    <!-- Marked.js for Markdown Support -->
+    <script src="https://cdn.jsdelivr.net/npm/marked/marked.min.js"></script>
+    
+    <!-- Kalam Font for hand-drawn text -->
+    <link href="https://fonts.googleapis.com/css2?family=Kalam:wght@400;700&display=swap" rel="stylesheet">
+
+    <!-- MathJax Configuration and Script for LaTeX -->
+    <script>
+        window.MathJax = {
+            tex: { inlineMath: [['$', '$'], ['\\(', '\\)']] },
+            svg: { fontCache: 'local' },
+            startup: {
+                ready: () => {
+                    MathJax.startup.defaultReady();
+                    window.mathJaxReady = true;
+                }
+            }
+        };
+    </script>
+    <script id="MathJax-script" async src="https://cdn.jsdelivr.net/npm/mathjax@3/es5/tex-svg.js"></script>
+
+    <style>
+        body, html {
+            margin: 0;
+            padding: 0;
+            width: 100%;
+            height: 100%;
+            overflow: hidden;
+            background-color: #fcfcfc;
+            font-family: 'Kalam', cursive;
+            touch-action: none;
+        }
+
+        /* Moving background to a container to allow panning the grid */
+        #grid-bg {
+            position: absolute;
+            top: 0; left: 0; right: 0; bottom: 0;
+            background-image: radial-gradient(#e5e7eb 1px, transparent 1px);
+            background-size: 20px 20px;
+            z-index: -1;
+        }
+
+        #board {
+            position: absolute;
+            top: 0;
+            left: 0;
+            cursor: crosshair;
+        }
+
+        /* Minimal Tool Button UI */
+        .tool-btn {
+            padding: 0.35rem;
+            border-radius: 0.4rem;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            color: #4b5563;
+            transition: all 0.2s;
+            position: relative;
+            background: transparent;
+            border: none;
+            cursor: pointer;
+            font-size: 1.125rem;
+        }
+
+        .tool-btn:hover {
+            background-color: #f3f4f6;
+            color: #111827;
+        }
+
+        .tool-btn.active {
+            background-color: #eef2ff;
+            color: #4f46e5;
+            box-shadow: 0 1px 2px 0 rgba(0, 0, 0, 0.05), 0 0 0 1px rgba(99, 102, 241, 0.2);
+        }
+
+        /* Color Buttons */
+        .color-btn {
+            width: 1.5rem;
+            height: 1.5rem;
+            border-radius: 9999px;
+            border: 1px solid #e5e7eb;
+            cursor: pointer;
+            flex-shrink: 0;
+            transition: all 0.2s;
+            display: inline-block;
+        }
+
+        .color-btn.active {
+            box-shadow: 0 0 0 2px #ffffff, 0 0 0 4px #6366f1;
+            border-color: transparent;
+            transform: scale(1.1);
+        }
+
+        /* Colors */
+        .c-black  { background-color: #1e1e1e; }
+        .c-gray   { background-color: #868e96; }
+        .c-red    { background-color: #fa5252; }
+        .c-orange { background-color: #fd7e14; }
+        .c-yellow { background-color: #fcc419; }
+        .c-green  { background-color: #40c057; }
+        .c-blue   { background-color: #228be6; }
+        .c-purple { background-color: #be4bdb; }
+        .c-pink   { background-color: #f783ac; }
+
+        #input-container {
+            position: absolute;
+            display: none;
+            z-index: 50;
+        }
+
+        #text-input {
+            background: transparent;
+            border: 2px dashed #9ca3af;
+            outline: none;
+            resize: none;
+            padding: 4px;
+            font-family: 'Kalam', cursive;
+            font-size: 24px;
+            min-width: 200px;
+            min-height: 40px;
+            border-radius: 4px;
+            line-height: 1.2;
+            backdrop-filter: blur(4px);
+        }
+
+        /* Custom Tooltip */
+        .tool-btn::after {
+            content: attr(data-tooltip);
+            position: absolute;
+            bottom: -30px;
+            left: 50%;
+            transform: translateX(-50%);
+            background: #1f2937;
+            color: white;
+            font-size: 10px;
+            font-weight: 500;
+            padding: 3px 6px;
+            border-radius: 4px;
+            white-space: nowrap;
+            opacity: 0;
+            pointer-events: none;
+            transition: opacity 0.2s, transform 0.2s;
+            transform-origin: top center;
+            z-index: 100;
+            font-family: sans-serif;
+            box-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.1);
+        }
+        .tool-btn:hover::after { 
+            opacity: 1; 
+            transform: translateX(-50%) translateY(2px);
+        }
+        
+        /* Custom Sliders */
+        input[type=range] {
+            -webkit-appearance: none;
+            background: transparent;
+        }
+        input[type=range]::-webkit-slider-thumb {
+            -webkit-appearance: none;
+            height: 12px;
+            width: 12px;
+            border-radius: 50%;
+            background: #4f46e5;
+            cursor: pointer;
+            margin-top: -4px;
+        }
+        input[type=range]::-webkit-slider-runnable-track {
+            width: 100%;
+            height: 4px;
+            cursor: pointer;
+            background: #e5e7eb;
+            border-radius: 2px;
+        }
+
+        /* Markdown styling for inside SVG */
+        .md-content p { margin-bottom: 0.5em; }
+        .md-content h1, .md-content h2, .md-content h3 { margin-top: 0; margin-bottom: 0.5em; }
+        .md-content ul { padding-left: 20px; margin-bottom: 0.5em; }
+    </style>
+</head>
+<body>
+
+    <div id="grid-bg"></div>
+
+    <!-- Canvas Element -->
+    <canvas id="board"></canvas>
+
+    <!-- Unified Minimal Top Toolbar -->
+    <div class="absolute top-3 left-1/2 transform -translate-x-1/2 bg-white/95 backdrop-blur shadow-sm border border-gray-200 rounded-xl p-1 flex flex-wrap items-center justify-center gap-0.5 z-10 w-[96vw] max-w-fit font-sans">
+        
+        <!-- Pan & Selection -->
+        <button class="tool-btn" data-tool="pan" data-tooltip="Pan (Space+Drag)"><i class="ph ph-hand"></i></button>
+        <button class="tool-btn" data-tool="select" data-tooltip="Select (V)"><i class="ph ph-cursor"></i></button>
+        <div class="w-px h-4 bg-gray-200 mx-1 hidden sm:block"></div>
+        
+        <!-- Draw Styles & Eraser -->
+        <button class="tool-btn active" data-tool="pencil" data-tooltip="Pencil (P)"><i class="ph ph-pencil"></i></button>
+        <button class="tool-btn" data-tool="pen" data-tooltip="Curve Pen (N)"><i class="ph ph-pen-nib"></i></button>
+        <button class="tool-btn" data-tool="brush" data-tooltip="Brush (B)"><i class="ph ph-paintbrush"></i></button>
+        <button class="tool-btn" data-tool="crayon" data-tooltip="Crayon (Y)"><i class="ph ph-pencil-line"></i></button>
+        <button class="tool-btn" data-tool="marker" data-tooltip="Marker (H)"><i class="ph ph-highlighter"></i></button>
+        <button class="tool-btn" data-tool="eraser" data-tooltip="Eraser (E)"><i class="ph ph-eraser"></i></button>
+        
+        <!-- Shapes -->
+        <div class="w-px h-4 bg-gray-200 mx-1 hidden sm:block"></div>
+        <button class="tool-btn" data-tool="line" data-tooltip="Line (L)"><i class="ph ph-line-segment"></i></button>
+        <button class="tool-btn" data-tool="curve" data-tooltip="Curve (U)"><i class="ph ph-bezier-curve"></i></button>
+        <button class="tool-btn" data-tool="arrow" data-tooltip="Arrow (A)"><i class="ph ph-arrow-up-right"></i></button>
+        <button class="tool-btn" data-tool="rectangle" data-tooltip="Rectangle (R)"><i class="ph ph-rectangle"></i></button>
+        <button class="tool-btn" data-tool="circle" data-tooltip="Circle (C)"><i class="ph ph-circle"></i></button>
+        
+        <!-- Text & Content -->
+        <div class="w-px h-4 bg-gray-200 mx-1 hidden sm:block"></div>
+        <button class="tool-btn" data-tool="text" data-tooltip="Text (T)"><i class="ph ph-text-t"></i></button>
+        <button class="tool-btn" data-tool="math" data-tooltip="LaTeX Equation"><i class="ph ph-function"></i></button>
+        <button class="tool-btn" data-tool="markdown" data-tooltip="Markdown + Math (M)"><i class="ph ph-markdown-logo"></i></button>
+        
+        <!-- Actions -->
+        <div class="w-px h-4 bg-gray-200 mx-1 hidden sm:block"></div>
+        <button class="tool-btn" id="jitter-btn" data-tooltip="Toggle Jitter (J)"><i class="ph ph-waves"></i></button>
+        <button class="tool-btn" id="undo-btn" data-tooltip="Undo (Ctrl+Z)"><i class="ph ph-arrow-u-up-left"></i></button>
+        <button class="tool-btn text-red-500 hover:bg-red-50 hover:text-red-600" id="clear-btn" data-tooltip="Clear Board"><i class="ph ph-trash"></i></button>
+    </div>
+
+    <!-- Properties & Color Palette Panel (Responsive) -->
+    <div class="absolute bottom-4 left-1/2 transform -translate-x-1/2 md:bottom-auto md:top-1/2 md:left-4 md:-translate-y-1/2 md:-translate-x-0 bg-white/95 backdrop-blur shadow-sm border border-gray-200 rounded-2xl p-3 flex flex-col md:flex-row md:flex-col gap-4 z-10 w-max max-w-[92vw] overflow-x-auto font-sans">
+        
+        <!-- Colors -->
+        <div class="flex flex-row md:flex-col gap-2.5 border-b md:border-b-0 md:border-r border-gray-100 pb-3 md:pb-0 md:pr-3 justify-center items-center">
+            <div class="color-btn c-black active" data-color="#1e1e1e" title="Black"></div>
+            <div class="color-btn c-gray" data-color="#868e96" title="Gray"></div>
+            <div class="color-btn c-red" data-color="#fa5252" title="Red"></div>
+            <div class="color-btn c-orange" data-color="#fd7e14" title="Orange"></div>
+            <div class="color-btn c-yellow" data-color="#fcc419" title="Yellow"></div>
+            <div class="color-btn c-green" data-color="#40c057" title="Green"></div>
+            <div class="color-btn c-blue" data-color="#228be6" title="Blue"></div>
+            <div class="color-btn c-purple" data-color="#be4bdb" title="Purple"></div>
+            <div class="color-btn c-pink" data-color="#f783ac" title="Pink"></div>
+        </div>
+
+        <!-- Sliders -->
+        <div class="flex flex-row md:flex-col gap-4 justify-center items-center md:items-stretch min-w-[120px]">
+            <div class="flex flex-col gap-1.5 w-24 md:w-full">
+                <div class="flex justify-between items-center px-0.5">
+                    <label class="text-[9px] text-gray-500 font-bold uppercase tracking-widest">Size</label>
+                    <span id="stroke-val" class="text-[10px] text-gray-400 font-medium">2</span>
+                </div>
+                <input type="range" id="stroke-slider" min="1" max="20" value="2">
+            </div>
+            
+            <div class="flex flex-col gap-1.5 w-24 md:w-full">
+                <div class="flex justify-between items-center px-0.5">
+                    <label class="text-[9px] text-gray-500 font-bold uppercase tracking-widest">Opacity</label>
+                    <span id="opacity-val" class="text-[10px] text-gray-400 font-medium">100%</span>
+                </div>
+                <input type="range" id="opacity-slider" min="0.1" max="1" step="0.1" value="1">
+            </div>
+        </div>
+    </div>
+
+    <!-- Hidden Input Container for Text and Math -->
+    <div id="input-container">
+        <textarea id="text-input" placeholder="Type here..."></textarea>
+        <div id="math-hint" class="absolute -bottom-6 left-0 text-xs text-indigo-600 bg-indigo-50 px-2 py-1.5 rounded shadow-sm whitespace-nowrap hidden font-sans font-medium">
+            <!-- Dynamic hint text -->
+        </div>
+    </div>
+
+    <script>
+        // --- Core Variables ---
+        const canvas = document.getElementById('board');
+        const ctx = canvas.getContext('2d');
+        const gridBg = document.getElementById('grid-bg');
+        const inputContainer = document.getElementById('input-container');
+        const textInput = document.getElementById('text-input');
+        const mathHint = document.getElementById('math-hint');
+        
+        let rc; 
+        let elements = [];
+        let isDrawing = false;
+        let currentTool = 'pencil';
+        let currentColor = '#1e1e1e';
+        let currentStrokeWidth = 2;
+        let currentOpacity = 1;
+        let currentElement = null;
+        let isJitterEnabled = false;
+
+        // Camera / Panning state
+        let camera = { x: 0, y: 0 };
+        let isPanning = false;
+        let panLastX = 0;
+        let panLastY = 0;
+        let isSpacePressed = false;
+
+        // Specialized Tool States
+        let curveState = 0; // 0: idle, 1: dragging line, 2: bending
+
+        // Selection state
+        let selectedIndex = -1;
+        let isDragging = false;
+        let dragLastX = 0;
+        let dragLastY = 0;
+        let lastClickTime = 0;
+        let editingIndex = -1;
+
+        const strokeSlider = document.getElementById('stroke-slider');
+        const opacitySlider = document.getElementById('opacity-slider');
+        const strokeVal = document.getElementById('stroke-val');
+        const opacityVal = document.getElementById('opacity-val');
+
+        // --- Setup & Resize ---
+        function initCanvas() {
+            const dpr = window.devicePixelRatio || 1;
+            canvas.width = window.innerWidth * dpr;
+            canvas.height = window.innerHeight * dpr;
+            canvas.style.width = `${window.innerWidth}px`;
+            canvas.style.height = `${window.innerHeight}px`;
+            
+            rc = rough.canvas(canvas);
+            redraw();
+        }
+
+        window.addEventListener('resize', initCanvas);
+        initCanvas();
+
+        function getSeed() {
+            return Math.floor(Math.random() * 2147483648);
+        }
+
+        function getCursorForTool(tool) {
+            if (isSpacePressed || tool === 'pan') return 'grab';
+            if (['text', 'math', 'markdown'].includes(tool)) return 'text';
+            if (tool === 'select') return 'default';
+            if (tool === 'eraser') return 'cell';
+            return 'crosshair';
+        }
+
+        function updateCursor() {
+            canvas.style.cursor = isPanning ? 'grabbing' : getCursorForTool(currentTool);
+        }
+
+        // --- UI Interactions ---
+        document.querySelectorAll('.tool-btn[data-tool]').forEach(btn => {
+            btn.addEventListener('click', (e) => {
+                document.querySelector('.tool-btn.active')?.classList.remove('active');
+                btn.classList.add('active');
+                currentTool = btn.dataset.tool;
+                
+                // Reset curve state if switching
+                curveState = 0;
+                
+                updateCursor();
+                
+                if (currentTool !== 'select') {
+                    selectedIndex = -1;
+                    redraw();
+                }
+                
+                hideInput();
+            });
+        });
+
+        document.querySelectorAll('.color-btn').forEach(btn => {
+            btn.addEventListener('click', (e) => {
+                document.querySelector('.color-btn.active')?.classList.remove('active');
+                btn.classList.add('active');
+                currentColor = btn.dataset.color;
+                textInput.style.color = currentColor;
+
+                if (selectedIndex > -1) {
+                    elements[selectedIndex].color = currentColor;
+                    redraw();
+                }
+            });
+        });
+
+        // Sliders interactions
+        strokeSlider.addEventListener('input', (e) => {
+            currentStrokeWidth = parseInt(e.target.value, 10);
+            strokeVal.innerText = currentStrokeWidth;
+            if (selectedIndex > -1) {
+                elements[selectedIndex].strokeWidth = currentStrokeWidth;
+                redraw();
+            }
+        });
+
+        opacitySlider.addEventListener('input', (e) => {
+            currentOpacity = parseFloat(e.target.value);
+            opacityVal.innerText = Math.round(currentOpacity * 100) + '%';
+            if (selectedIndex > -1) {
+                elements[selectedIndex].opacity = currentOpacity;
+                redraw();
+            }
+        });
+
+        document.getElementById('jitter-btn').addEventListener('click', (e) => {
+            isJitterEnabled = !isJitterEnabled;
+            e.currentTarget.classList.toggle('active', isJitterEnabled);
+            redraw();
+        });
+
+        document.getElementById('undo-btn').addEventListener('click', () => {
+            elements.pop();
+            selectedIndex = -1;
+            redraw();
+        });
+
+        document.getElementById('clear-btn').addEventListener('click', () => {
+            elements = [];
+            selectedIndex = -1;
+            camera = { x: 0, y: 0 };
+            gridBg.style.backgroundPosition = `0px 0px`;
+            redraw();
+        });
+
+        // Keyboard shortcuts
+        window.addEventListener('keydown', (e) => {
+            if (e.code === 'Space' && document.activeElement !== textInput) {
+                isSpacePressed = true;
+                updateCursor();
+            }
+
+            if (document.activeElement === textInput) return;
+
+            if (e.key.toLowerCase() === 'p') clickTool('pencil');
+            if (e.key.toLowerCase() === 'n') clickTool('pen');
+            if (e.key.toLowerCase() === 'b') clickTool('brush');
+            if (e.key.toLowerCase() === 'y') clickTool('crayon');
+            if (e.key.toLowerCase() === 'h') clickTool('marker');
+            if (e.key.toLowerCase() === 'e') clickTool('eraser');
+            if (e.key.toLowerCase() === 'a') clickTool('arrow');
+            if (e.key.toLowerCase() === 'v') clickTool('select');
+            if (e.key.toLowerCase() === 'l') clickTool('line');
+            if (e.key.toLowerCase() === 'u') clickTool('curve');
+            if (e.key.toLowerCase() === 'r') clickTool('rectangle');
+            if (e.key.toLowerCase() === 'c') clickTool('circle');
+            if (e.key.toLowerCase() === 't') clickTool('text');
+            if (e.key.toLowerCase() === 'm') clickTool('markdown');
+            if (e.key.toLowerCase() === 'j') document.getElementById('jitter-btn').click();
+            if (e.ctrlKey && e.key === 'z') {
+                elements.pop();
+                selectedIndex = -1;
+                redraw();
+            }
+            if ((e.key === 'Delete' || e.key === 'Backspace') && selectedIndex > -1) {
+                elements.splice(selectedIndex, 1);
+                selectedIndex = -1;
+                redraw();
+            }
+        });
+
+        window.addEventListener('keyup', (e) => {
+            if (e.code === 'Space') {
+                isSpacePressed = false;
+                updateCursor();
+            }
+        });
+
+        function clickTool(toolName) {
+            const btn = document.querySelector(`.tool-btn[data-tool="${toolName}"]`);
+            if (btn) btn.click();
+        }
+
+        // --- Markdown & LaTeX Processing ---
+        async function renderRichContentToImage(text, color, mode) {
+            if (!window.mathJaxReady) {
+                alert("MathJax is still loading, please wait a moment.");
+                return null;
+            }
+            
+            try {
+                let htmlContent = "";
+                
+                if (mode === 'math') {
+                    // Raw Math mode
+                    const node = MathJax.tex2svg(text, {display: true});
+                    const svg = node.querySelector('svg');
+                    if (!svg) return null;
+                    svg.style.color = color;
+                    svg.setAttribute('color', color);
+                    
+                    const wStr = svg.getAttribute('width');
+                    const hStr = svg.getAttribute('height');
+                    if (wStr && wStr.includes('ex')) svg.setAttribute('width', (parseFloat(wStr) * 16) + 'px');
+                    if (hStr && hStr.includes('ex')) svg.setAttribute('height', (parseFloat(hStr) * 16) + 'px');
+
+                    const svgData = new XMLSerializer().serializeToString(svg);
+                    const svg64 = btoa(unescape(encodeURIComponent(svgData)));
+                    const image64 = 'data:image/svg+xml;base64,' + svg64;
+
+                    return new Promise((resolve) => {
+                        const img = new Image();
+                        img.onload = () => resolve(img);
+                        img.src = image64;
+                    });
+                } else if (mode === 'markdown') {
+                    // Markdown + Math mode using foreignObject
+                    htmlContent = marked.parse(text);
+                    
+                    const div = document.createElement('div');
+                    div.innerHTML = htmlContent;
+                    div.className = 'md-content';
+                    div.style.position = 'absolute';
+                    div.style.top = '-9999px';
+                    div.style.color = color;
+                    div.style.fontFamily = "'Kalam', cursive, sans-serif";
+                    div.style.fontSize = '24px';
+                    div.style.padding = '8px';
+                    div.style.display = 'inline-block';
+                    div.style.width = 'max-content';
+                    div.style.maxWidth = '600px'; 
+                    document.body.appendChild(div);
+                    
+                    // Render MathJax inside the markdown HTML
+                    await MathJax.typesetPromise([div]);
+                    
+                    const rect = div.getBoundingClientRect();
+                    const finalizedHtml = div.innerHTML;
+                    document.body.removeChild(div);
+                    
+                    // Create an SVG wrapping the HTML
+                    const svgString = `
+                        <svg xmlns="http://www.w3.org/2000/svg" width="${rect.width}" height="${rect.height}">
+                            <foreignObject width="100%" height="100%">
+                                <div xmlns="http://www.w3.org/1999/xhtml" style="color: ${color}; font-family: sans-serif; font-size: 24px; margin: 0; padding: 8px; box-sizing: border-box;">
+                                    ${finalizedHtml}
+                                </div>
+                            </foreignObject>
+                        </svg>
+                    `;
+                    
+                    const svg64 = btoa(unescape(encodeURIComponent(svgString)));
+                    const image64 = 'data:image/svg+xml;base64,' + svg64;
+
+                    return new Promise((resolve) => {
+                        const img = new Image();
+                        img.onload = () => resolve(img);
+                        img.onerror = () => resolve(null);
+                        img.src = image64;
+                    });
+                }
+            } catch (err) {
+                console.error("Rendering Error:", err);
+                return null;
+            }
+        }
+
+        // --- Text/Math Input Handling ---
+        let inputPosition = { x: 0, y: 0 };
+
+        function showInput(worldX, worldY, editIndex = -1) {
+            inputPosition = { x: worldX, y: worldY };
+            editingIndex = editIndex;
+            inputContainer.style.display = 'block';
+            
+            // Position DOM element relative to screen
+            inputContainer.style.left = `${worldX + camera.x}px`;
+            inputContainer.style.top = `${worldY + camera.y}px`;
+            
+            if (editIndex > -1) {
+                const el = elements[editIndex];
+                textInput.value = el.text || "";
+                currentColor = el.color;
+                
+                document.querySelector('.color-btn.active')?.classList.remove('active');
+                const matchingBtn = Array.from(document.querySelectorAll('.color-btn')).find(b => b.dataset.color.toUpperCase() === currentColor.toUpperCase());
+                if (matchingBtn) matchingBtn.classList.add('active');
+            } else {
+                textInput.value = '';
+            }
+            
+            textInput.style.color = currentColor;
+            
+            if (currentTool === 'math' && editIndex === -1) {
+                mathHint.innerText = "Enter LaTeX (e.g., E = mc^2). Press Enter to finish.";
+                mathHint.style.display = 'block';
+                textInput.placeholder = "E = mc^2";
+                textInput.style.fontFamily = 'monospace';
+                textInput.style.fontSize = '20px';
+            } else if (currentTool === 'markdown' && editIndex === -1) {
+                mathHint.innerHTML = "Markdown Mode: Use <b>**bold**</b>, <b># header</b>, and <b>$LaTeX$</b>. <br/>Press <b>Shift+Enter</b> to finish.";
+                mathHint.style.display = 'block';
+                textInput.placeholder = "Write concepts here...";
+                textInput.style.fontFamily = 'monospace';
+                textInput.style.fontSize = '18px';
+            } else {
+                mathHint.style.display = 'none';
+                textInput.placeholder = "Type here...";
+                textInput.style.fontFamily = "'Kalam', cursive";
+                textInput.style.fontSize = '28px';
+            }
+            
+            setTimeout(() => {
+                textInput.focus();
+            }, 50);
+        }
+
+        function hideInput() {
+            inputContainer.style.display = 'none';
+            textInput.value = '';
+            editingIndex = -1;
+        }
+
+        async function finalizeInput() {
+            if (inputContainer.style.display === 'none') return;
+            const text = textInput.value.trim();
+            
+            if (text) {
+                if (currentTool === 'text' || (editingIndex > -1 && elements[editingIndex].type === 'text')) {
+                    if (editingIndex > -1) {
+                        elements[editingIndex].text = text;
+                        elements[editingIndex].color = currentColor;
+                    } else {
+                        elements.push({
+                            type: 'text',
+                            text: text,
+                            x: inputPosition.x,
+                            y: inputPosition.y,
+                            color: currentColor,
+                            opacity: currentOpacity
+                        });
+                    }
+                    redraw();
+                } else if (currentTool === 'math' || currentTool === 'markdown') {
+                    textInput.value = "Rendering...";
+                    const img = await renderRichContentToImage(text, currentColor, currentTool);
+                    if (img) {
+                        elements.push({
+                            type: currentTool, // 'math' or 'markdown'
+                            text: text, // save raw text for editing later if needed
+                            img: img,
+                            x: inputPosition.x,
+                            y: currentTool === 'math' ? inputPosition.y - (img.height / 2) : inputPosition.y,
+                            color: currentColor,
+                            opacity: currentOpacity
+                        });
+                        redraw();
+                    }
+                }
+            }
+            hideInput();
+        }
+
+        textInput.addEventListener('keydown', (e) => {
+            if (e.key === 'Enter') {
+                if (currentTool === 'markdown') {
+                    // For markdown, shift+enter saves, enter makes new line
+                    if (e.shiftKey) {
+                        e.preventDefault();
+                        finalizeInput();
+                    }
+                } else {
+                    // For text/math, enter saves, shift+enter makes new line
+                    if (!e.shiftKey) {
+                        e.preventDefault();
+                        finalizeInput();
+                    }
+                }
+            }
+            if (e.key === 'Escape') hideInput();
+        });
+
+        // --- Selection & Hit Testing ---
+        function getBoundingBox(el) {
+            if (['pencil', 'pen', 'brush', 'crayon', 'marker'].includes(el.type)) {
+                let minX = Infinity, minY = Infinity, maxX = -Infinity, maxY = -Infinity;
+                el.points.forEach(([x, y]) => {
+                    if (x < minX) minX = x; if (y < minY) minY = y;
+                    if (x > maxX) maxX = x; if (y > maxY) maxY = y;
+                });
+                return { x: minX, y: minY, w: maxX - minX, h: maxY - minY };
+            } else if (['line', 'arrow', 'rectangle', 'curve'].includes(el.type)) {
+                let minX = Infinity, minY = Infinity, maxX = -Infinity, maxY = -Infinity;
+                const points = el.type === 'curve' ? el.points : [[el.x1, el.y1], [el.x2, el.y2]];
+                points.forEach(([x, y]) => {
+                    if (x < minX) minX = x; if (y < minY) minY = y;
+                    if (x > maxX) maxX = x; if (y > maxY) maxY = y;
+                });
+                return { x: minX, y: minY, w: maxX - minX, h: maxY - minY };
+            } else if (el.type === 'circle') {
+                const dx = el.x2 - el.x1, dy = el.y2 - el.y1;
+                const r = Math.sqrt(dx*dx + dy*dy);
+                return { x: el.x1 - r, y: el.y1 - r, w: r*2, h: r*2 };
+            } else if (el.type === 'text') {
+                ctx.font = '28px Kalam, cursive';
+                const lines = el.text.split('\n');
+                let maxW = 0;
+                lines.forEach(line => { maxW = Math.max(maxW, ctx.measureText(line).width); });
+                return { x: el.x, y: el.y, w: maxW, h: lines.length * 32 };
+            } else if (['math', 'markdown'].includes(el.type) && el.img) {
+                return { x: el.x, y: el.y, w: el.img.width, h: el.img.height };
+            }
+            return { x: 0, y: 0, w: 0, h: 0 };
+        }
+
+        function hitTest(worldX, worldY) {
+            for (let i = elements.length - 1; i >= 0; i--) {
+                const box = getBoundingBox(elements[i]);
+                const padding = 15 + (elements[i].strokeWidth || 0);
+                if (worldX >= box.x - padding && worldX <= box.x + box.w + padding &&
+                    worldY >= box.y - padding && worldY <= box.y + box.h + padding) {
+                    return i;
+                }
+            }
+            return -1;
+        }
+
+        function moveElement(el, dx, dy) {
+            if (['pencil', 'pen', 'brush', 'crayon', 'marker'].includes(el.type)) {
+                el.points = el.points.map(([px, py]) => [px + dx, py + dy]);
+            } else if (el.type === 'curve') {
+                el.points = el.points.map(([px, py]) => [px + dx, py + dy]);
+            } else if (['line', 'arrow', 'rectangle', 'circle'].includes(el.type)) {
+                el.x1 += dx; el.y1 += dy;
+                el.x2 += dx; el.y2 += dy;
+            } else if (['text', 'math', 'markdown'].includes(el.type)) {
+                el.x += dx; el.y += dy;
+            }
+        }
+
+        function eraseAt(worldX, worldY) {
+            const hitIndex = hitTest(worldX, worldY);
+            if (hitIndex > -1) {
+                elements.splice(hitIndex, 1);
+                if (hitIndex === selectedIndex) selectedIndex = -1;
+                else if (selectedIndex > hitIndex) selectedIndex--;
+                redraw();
+            }
+        }
+
+        // --- Mouse & Touch Event Handling ---
+        function getCoordinates(e) {
+            let screenX, screenY;
+            if (e.touches && e.touches.length > 0) {
+                screenX = e.touches[0].clientX;
+                screenY = e.touches[0].clientY;
+            } else {
+                screenX = e.clientX;
+                screenY = e.clientY;
+            }
+            return { 
+                screenX, 
+                screenY, 
+                x: screenX - camera.x, // World X
+                y: screenY - camera.y  // World Y
+            };
+        }
+
+        function handlePointerDown(e) {
+            if (e.target !== canvas) return;
+            
+            const { screenX, screenY, x, y } = getCoordinates(e);
+
+            // Handle Pan
+            if (currentTool === 'pan' || isSpacePressed || e.button === 1) {
+                isPanning = true;
+                panLastX = screenX;
+                panLastY = screenY;
+                canvas.style.cursor = 'grabbing';
+                return;
+            }
+
+            // Finalize curve if waiting for bend click
+            if (currentTool === 'curve' && curveState === 2) {
+                curveState = 0;
+                isDrawing = false;
+                currentElement = null;
+                return;
+            }
+
+            if (currentTool === 'select') {
+                const hitIndex = hitTest(x, y);
+                const now = Date.now();
+                const isDoubleClick = (now - lastClickTime) < 300;
+                lastClickTime = now;
+
+                if (hitIndex > -1) {
+                    selectedIndex = hitIndex;
+                    isDragging = true;
+                    dragLastX = x;
+                    dragLastY = y;
+                    
+                    const el = elements[selectedIndex];
+                    if (el.strokeWidth) {
+                        currentStrokeWidth = el.strokeWidth;
+                        strokeSlider.value = currentStrokeWidth;
+                        strokeVal.innerText = currentStrokeWidth;
+                    }
+                    if (el.opacity !== undefined) {
+                        currentOpacity = el.opacity;
+                        opacitySlider.value = currentOpacity;
+                        opacityVal.innerText = Math.round(currentOpacity * 100) + '%';
+                    }
+
+                    if (isDoubleClick && (el.type === 'text' || el.type === 'markdown' || el.type === 'math')) {
+                        showInput(el.x, el.y, selectedIndex);
+                        isDragging = false;
+                    }
+                } else {
+                    selectedIndex = -1;
+                }
+                redraw();
+                return;
+            }
+
+            if (currentTool === 'eraser') {
+                isDrawing = true;
+                eraseAt(x, y);
+                return;
+            }
+
+            if (['text', 'math', 'markdown'].includes(currentTool)) {
+                if (inputContainer.style.display === 'none') {
+                    showInput(x, y);
+                }
+                return;
+            }
+
+            isDrawing = true;
+            
+            if (['pencil', 'pen', 'brush', 'crayon', 'marker'].includes(currentTool)) {
+                currentElement = { type: currentTool, points: [[x, y]], color: currentColor, strokeWidth: currentStrokeWidth, opacity: currentOpacity, seed: getSeed() };
+                elements.push(currentElement);
+            } else if (currentTool === 'curve') {
+                curveState = 1;
+                currentElement = { type: 'curve', points: [[x, y], [x, y], [x, y]], color: currentColor, strokeWidth: currentStrokeWidth, opacity: currentOpacity, seed: getSeed() };
+                elements.push(currentElement);
+            } else if (['line', 'arrow', 'rectangle', 'circle'].includes(currentTool)) {
+                currentElement = { type: currentTool, x1: x, y1: y, x2: x, y2: y, color: currentColor, strokeWidth: currentStrokeWidth, opacity: currentOpacity, seed: getSeed() };
+                elements.push(currentElement);
+            }
+        }
+
+        function handlePointerMove(e) {
+            const { screenX, screenY, x, y } = getCoordinates(e);
+
+            if (isPanning) {
+                camera.x += screenX - panLastX;
+                camera.y += screenY - panLastY;
+                panLastX = screenX;
+                panLastY = screenY;
+                
+                // Move grid background to match pan
+                gridBg.style.backgroundPosition = `${camera.x}px ${camera.y}px`;
+
+                if (inputContainer.style.display === 'block') {
+                    inputContainer.style.left = `${inputPosition.x + camera.x}px`;
+                    inputContainer.style.top = `${inputPosition.y + camera.y}px`;
+                }
+                redraw();
+                return;
+            }
+
+            if (currentTool === 'select' && isDragging && selectedIndex > -1) {
+                const dx = x - dragLastX;
+                const dy = y - dragLastY;
+                moveElement(elements[selectedIndex], dx, dy);
+                dragLastX = x;
+                dragLastY = y;
+                redraw();
+                return;
+            }
+
+            if (currentTool === 'eraser' && isDrawing) {
+                eraseAt(x, y);
+                return;
+            }
+
+            // Curve bending phase (moves control point without holding button)
+            if (currentTool === 'curve' && curveState === 2 && currentElement) {
+                currentElement.points[1] = [x, y];
+                redraw();
+                return;
+            }
+
+            if (!isDrawing || !currentElement) return;
+
+            if (['pencil', 'pen', 'brush', 'crayon', 'marker'].includes(currentTool)) {
+                currentElement.points.push([x, y]);
+            } else if (currentTool === 'curve' && curveState === 1) {
+                currentElement.points[2] = [x, y];
+                currentElement.points[1] = [
+                    (currentElement.points[0][0] + x) / 2,
+                    (currentElement.points[0][1] + y) / 2
+                ];
+            } else if (['line', 'arrow', 'rectangle', 'circle'].includes(currentTool)) {
+                currentElement.x2 = x;
+                currentElement.y2 = y;
+            }
+            
+            redraw();
+        }
+
+        function handlePointerUp() {
+            if (isPanning) {
+                isPanning = false;
+                updateCursor();
+                return;
+            }
+
+            if (currentTool === 'curve' && curveState === 1) {
+                curveState = 2; // Move to bending phase
+                return;
+            }
+
+            isDrawing = false;
+            isDragging = false;
+            
+            if (currentTool !== 'curve') {
+                currentElement = null;
+            }
+        }
+
+        canvas.addEventListener('mousedown', handlePointerDown);
+        canvas.addEventListener('mousemove', handlePointerMove);
+        window.addEventListener('mouseup', handlePointerUp);
+
+        canvas.addEventListener('touchstart', (e) => { e.preventDefault(); handlePointerDown(e); }, { passive: false });
+        canvas.addEventListener('touchmove', (e) => { e.preventDefault(); handlePointerMove(e); }, { passive: false });
+        window.addEventListener('touchend', handlePointerUp);
+
+        // --- Render Engine ---
+        function redraw() {
+            // Reset transform to clear the whole physical canvas
+            ctx.setTransform(1, 0, 0, 1, 0, 0);
+            const dpr = window.devicePixelRatio || 1;
+            ctx.clearRect(0, 0, canvas.width, canvas.height);
+            
+            // Apply camera pan transformation
+            ctx.setTransform(dpr, 0, 0, dpr, camera.x * dpr, camera.y * dpr);
+            
+            elements.forEach(el => {
+                ctx.save();
+                ctx.globalAlpha = el.opacity !== undefined ? el.opacity : 1;
+
+                const seedToUse = isJitterEnabled ? getSeed() : el.seed;
+                const sw = el.strokeWidth || 2;
+                
+                let roughness = 1.2;
+                let bowing = 1;
+                let finalStrokeWidth = sw;
+                
+                if (el.type === 'pen') {
+                    roughness = 0.1;
+                    bowing = 0.5;
+                } else if (el.type === 'brush') {
+                    roughness = 0.5;
+                    finalStrokeWidth = sw * 1.5;
+                } else if (el.type === 'crayon') {
+                    roughness = 2.8;
+                    bowing = 2;
+                } else if (el.type === 'marker') {
+                    roughness = 0.5;
+                    finalStrokeWidth = sw * 3;
+                    ctx.globalAlpha = Math.min(ctx.globalAlpha, 0.5); 
+                }
+
+                const options = { 
+                    stroke: el.color, 
+                    strokeWidth: finalStrokeWidth, 
+                    roughness: roughness,
+                    bowing: bowing,
+                    seed: seedToUse
+                };
+
+                if (['pencil', 'pen', 'brush', 'crayon', 'marker'].includes(el.type) && el.points.length > 1) {
+                    rc.curve(el.points, options);
+                } else if (el.type === 'curve' && el.points.length === 3) {
+                    // Quadratic curve using RoughJS path
+                    const [p1, pc, p2] = el.points;
+                    rc.path(`M ${p1[0]} ${p1[1]} Q ${pc[0]} ${pc[1]} ${p2[0]} ${p2[1]}`, options);
+                } else if (el.type === 'line') {
+                    rc.line(el.x1, el.y1, el.x2, el.y2, options);
+                } else if (el.type === 'arrow') {
+                    const angle = Math.atan2(el.y2 - el.y1, el.x2 - el.x1);
+                    const headlen = 20 + (sw * 2); 
+                    
+                    rc.line(el.x1, el.y1, el.x2, el.y2, options);
+                    
+                    const p1 = [el.x2 - headlen * Math.cos(angle - Math.PI / 6), el.y2 - headlen * Math.sin(angle - Math.PI / 6)];
+                    const p2 = [el.x2, el.y2];
+                    const p3 = [el.x2 - headlen * Math.cos(angle + Math.PI / 6), el.y2 - headlen * Math.sin(angle + Math.PI / 6)];
+                    rc.linearPath([p1, p2, p3], options);
+                } else if (el.type === 'rectangle') {
+                    const w = el.x2 - el.x1;
+                    const h = el.y2 - el.y1;
+                    rc.rectangle(el.x1, el.y1, w, h, options);
+                } else if (el.type === 'circle') {
+                    const dx = el.x2 - el.x1;
+                    const dy = el.y2 - el.y1;
+                    const r = Math.sqrt(dx*dx + dy*dy);
+                    rc.circle(el.x1, el.y1, r * 2, options);
+                } else if (el.type === 'text') {
+                    ctx.font = '28px Kalam, cursive';
+                    ctx.fillStyle = el.color;
+                    ctx.textBaseline = 'top';
+                    const lines = el.text.split('\n');
+                    lines.forEach((line, i) => {
+                        ctx.fillText(line, el.x, el.y + (i * 32));
+                    });
+                } else if (['math', 'markdown'].includes(el.type) && el.img) {
+                    ctx.drawImage(el.img, el.x, el.y);
+                }
+                
+                ctx.restore();
+            });
+
+            // Draw Selection Box
+            if (selectedIndex > -1 && elements[selectedIndex]) {
+                const box = getBoundingBox(elements[selectedIndex]);
+                ctx.save();
+                ctx.strokeStyle = '#0EA5E9';
+                ctx.setLineDash([5, 5]);
+                ctx.lineWidth = 1.5;
+                ctx.strokeRect(box.x - 6, box.y - 6, box.w + 12, box.h + 12);
+                ctx.fillStyle = 'rgba(14, 165, 233, 0.1)';
+                ctx.fillRect(box.x - 6, box.y - 6, box.w + 12, box.h + 12);
+                ctx.restore();
+            }
+        }
+    </script>
+</body>
+</html>

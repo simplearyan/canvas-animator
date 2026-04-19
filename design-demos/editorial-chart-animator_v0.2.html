@@ -1,0 +1,1048 @@
+<!DOCTYPE html>
+<html lang="en" class="dark">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+    <title>Editorial Chart Animator</title>
+    
+    <!-- Google Fonts -->
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Carrois+Gothic&family=Caveat:wght@600;700&family=Inter:wght@400;500;600;700;800;900&family=JetBrains+Mono:wght@400;500;700&family=Playfair+Display:wght@600;700&family=Roboto:wght@400;500;700;900&display=swap" rel="stylesheet">
+
+    <!-- Tailwind CSS -->
+    <script src="https://cdn.tailwindcss.com"></script>
+    <script>
+        tailwind.config = {
+            darkMode: 'class',
+            theme: {
+                extend: {
+                    fontFamily: {
+                        sans: ['Inter', 'sans-serif'],
+                        mono: ['JetBrains Mono', 'monospace'],
+                    },
+                    colors: {
+                        brand: {
+                            500: '#0ea5e9', // Cyan
+                            600: '#0891b2',
+                        }
+                    }
+                }
+            }
+        }
+    </script>
+
+    <!-- Phosphor Icons -->
+    <script src="https://unpkg.com/@phosphor-icons/web"></script>
+
+    <style>
+        body {
+            transition: background-color 0.2s ease, color 0.2s ease;
+            overscroll-behavior-y: none;
+        }
+        
+        /* Custom ranges for toolbar */
+        input[type=range] {
+            -webkit-appearance: none;
+            width: 100%;
+            background: transparent;
+        }
+        input[type=range]::-webkit-slider-thumb {
+            -webkit-appearance: none;
+            height: 16px;
+            width: 16px;
+            border-radius: 50%;
+            background: #0ea5e9;
+            cursor: pointer;
+            margin-top: -6px;
+        }
+        input[type=range]::-webkit-slider-runnable-track {
+            width: 100%;
+            height: 4px;
+            cursor: pointer;
+            background: #cbd5e1;
+            border-radius: 2px;
+        }
+        .dark input[type=range]::-webkit-slider-runnable-track {
+            background: #475569;
+        }
+
+        /* Custom scrollbars */
+        ::-webkit-scrollbar { width: 8px; height: 8px; }
+        ::-webkit-scrollbar-track { background: transparent; }
+        ::-webkit-scrollbar-thumb { background-color: #cbd5e1; border-radius: 4px; }
+        .dark ::-webkit-scrollbar-thumb { background-color: #475569; }
+
+        /* Canvas container background (Dynamic) */
+        #canvas-container {
+            touch-action: none;
+            background-size: 20px 20px;
+            background-position: 0 0, 10px 10px;
+            transition: background-color 0.3s ease;
+        }
+    </style>
+</head>
+<body class="bg-gray-50 dark:bg-gray-900 text-gray-900 dark:text-gray-100 h-screen flex flex-col overflow-hidden">
+
+    <!-- HEADER -->
+    <header class="h-16 bg-white dark:bg-gray-800 border-b border-gray-200 dark:border-gray-700 flex items-center justify-between px-4 sm:px-6 flex-shrink-0 z-20">
+        <div class="flex items-center gap-2">
+            <div class="bg-brand-500 text-white p-1.5 rounded-lg shadow-sm">
+                <i class="ph-bold ph-chart-line-up text-2xl"></i>
+            </div>
+            <h1 class="text-xl font-bold tracking-tight text-gray-800 dark:text-gray-100 mt-0.5">Chart Animator</h1>
+        </div>
+        <div class="flex items-center gap-3">
+            <button id="theme-toggle" class="p-2.5 rounded-full bg-gray-100 dark:bg-gray-700 hover:bg-gray-200 dark:hover:bg-gray-600 transition" title="Toggle UI Theme">
+                <i class="ph-fill ph-moon text-xl dark:hidden"></i>
+                <i class="ph-fill ph-sun text-xl hidden dark:block"></i>
+            </button>
+        </div>
+    </header>
+
+    <!-- MAIN APP AREA -->
+    <main class="flex-1 flex flex-col md:flex-row overflow-hidden relative">
+        
+        <!-- Recording Overlay -->
+        <div id="recording-overlay" class="absolute top-4 left-1/2 -translate-x-1/2 bg-red-500 text-white px-5 py-2.5 rounded-full font-medium text-sm flex items-center gap-2 shadow-lg z-50 transition-transform duration-300 transform -translate-y-20">
+            <div class="w-3 h-3 bg-white rounded-full animate-pulse"></div>
+            Recording Animation...
+        </div>
+
+        <!-- TOOLBAR / SIDEBAR -->
+        <aside class="w-full md:w-[440px] bg-white dark:bg-gray-800 border-b md:border-b-0 md:border-r border-gray-200 dark:border-gray-700 p-4 md:p-5 flex flex-col gap-5 overflow-y-auto z-10 flex-shrink-0 h-[50vh] md:h-full">
+            
+            <!-- Quick Templates -->
+            <div class="flex flex-col gap-2 flex-shrink-0">
+                <h2 class="text-xs font-bold uppercase tracking-wider text-gray-500 dark:text-gray-400">Quick Templates</h2>
+                <div class="grid grid-cols-2 gap-2">
+                    <button class="template-btn py-1.5 bg-gray-100 dark:bg-gray-700 hover:bg-gray-200 hover:text-brand-600 dark:hover:bg-gray-600 rounded text-[13px] font-medium transition truncate px-2 text-left" data-template="tech">💻 Tech Giants (Rev)</button>
+                    <button class="template-btn py-1.5 bg-gray-100 dark:bg-gray-700 hover:bg-gray-200 hover:text-brand-600 dark:hover:bg-gray-600 rounded text-[13px] font-medium transition truncate px-2 text-left" data-template="crypto">🪙 Crypto Run ($)</button>
+                    <button class="template-btn py-1.5 bg-gray-100 dark:bg-gray-700 hover:bg-gray-200 hover:text-brand-600 dark:hover:bg-gray-600 rounded text-[13px] font-medium transition truncate px-2 text-left" data-template="social">📱 Social Media (MAUs)</button>
+                    <button class="template-btn py-1.5 bg-gray-100 dark:bg-gray-700 hover:bg-gray-200 hover:text-brand-600 dark:hover:bg-gray-600 rounded text-[13px] font-medium transition truncate px-2 text-left" data-template="climate">🌍 Global Temps (Anomaly)</button>
+                </div>
+            </div>
+
+            <!-- Content Editor -->
+            <div class="flex flex-col gap-3 flex-shrink-0">
+                <h2 class="text-xs font-bold uppercase tracking-wider text-gray-500 dark:text-gray-400">Chart Metadata</h2>
+                <div class="flex items-center gap-2">
+                    <input type="checkbox" id="show-title" checked class="w-4 h-4 text-brand-500 rounded border-gray-300 focus:ring-brand-500" title="Toggle Title">
+                    <input type="text" id="chart-title" value="Global EV Market Share (2025)" class="flex-1 p-2 rounded border border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-700 text-sm font-semibold outline-none focus:ring-2 focus:ring-brand-500" placeholder="Chart Title">
+                </div>
+                <div class="flex items-center gap-2">
+                    <input type="checkbox" id="show-subtitle" checked class="w-4 h-4 text-brand-500 rounded border-gray-300 focus:ring-brand-500" title="Toggle Subtitle">
+                    <input type="text" id="chart-subtitle" value="The rapid rise of Chinese manufacturers continues to reshape the landscape." class="flex-1 p-2 rounded border border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-700 text-sm outline-none focus:ring-2 focus:ring-brand-500" placeholder="Chart Subtitle">
+                </div>
+                <div class="flex items-center gap-2">
+                    <input type="checkbox" id="show-source" checked class="w-4 h-4 text-brand-500 rounded border-gray-300 focus:ring-brand-500" title="Toggle Source">
+                    <input type="text" id="chart-source" value="SOURCE: INTERNATIONAL ENERGY AGENCY (IEA)" class="flex-1 p-2 rounded border border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-700 text-xs uppercase outline-none focus:ring-2 focus:ring-brand-500" placeholder="Source Attribution">
+                </div>
+            </div>
+
+            <!-- Data Editor -->
+            <div class="flex flex-col gap-2 flex-1 min-h-[160px]">
+                <div class="flex justify-between items-center">
+                    <h2 class="text-xs font-bold uppercase tracking-wider text-gray-500 dark:text-gray-400">Chart Data (CSV)</h2>
+                </div>
+                <p class="text-[11px] text-gray-500">Format: Label, Value. Optional 3rd column for hex color.</p>
+                <textarea id="data-input" class="w-full flex-1 p-3 rounded-lg border border-gray-300 dark:border-gray-600 bg-gray-50 dark:bg-gray-900 text-[12px] font-mono focus:ring-2 focus:ring-brand-500 focus:border-brand-500 outline-none resize-none whitespace-pre" spellcheck="false">
+Label,Value,Color
+BYD,35,#3b82f6
+Tesla,18,#10b981
+VW Group,12,#f59e0b
+SAIC,8,#f43f5e
+Geely,6,#a855f7
+Others,21,#94a3b8</textarea>
+            </div>
+
+            <!-- Appearance Settings -->
+            <div class="flex flex-col gap-4 flex-shrink-0">
+                <h2 class="text-xs font-bold uppercase tracking-wider text-gray-500 dark:text-gray-400">Layout & Style</h2>
+                
+                <!-- Chart Type & Palette -->
+                <div class="grid grid-cols-2 gap-4">
+                    <div>
+                        <label class="block text-[11px] font-medium mb-1 text-gray-700 dark:text-gray-300">Chart Type</label>
+                        <select id="chart-type" class="w-full p-2 rounded border border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-700 text-sm outline-none focus:ring-2 focus:ring-brand-500">
+                            <option value="vertical">Vertical Bar</option>
+                            <option value="horizontal">Horizontal Bar</option>
+                            <option value="pie">Pie Chart</option>
+                        </select>
+                    </div>
+                    <div>
+                        <label class="block text-[11px] font-medium mb-1 text-gray-700 dark:text-gray-300">Line Palette</label>
+                        <select id="color-palette" class="w-full p-2 rounded border border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-700 text-sm outline-none focus:ring-2 focus:ring-brand-500">
+                            <option value="vibrant">Vibrant</option>
+                            <option value="pastel">Pastel Colors</option>
+                            <option value="neon">Cyberpunk Neon</option>
+                            <option value="sunset">Sunset Glow</option>
+                            <option value="ocean">Deep Ocean</option>
+                        </select>
+                    </div>
+                </div>
+
+                <!-- Custom Colors: Canvas BG, Title, Text -->
+                <div class="grid grid-cols-3 gap-3">
+                    <div>
+                        <label class="block text-[11px] font-medium mb-1 text-gray-700 dark:text-gray-300">Canvas Color</label>
+                        <div class="relative w-full h-8 rounded overflow-hidden border border-gray-300 dark:border-gray-600">
+                            <input type="color" id="bg-color" value="#0f172a" class="absolute -top-2 -left-2 w-20 h-20 cursor-pointer">
+                        </div>
+                    </div>
+                    <div>
+                        <label class="block text-[11px] font-medium mb-1 text-gray-700 dark:text-gray-300">Title Color</label>
+                        <div class="relative w-full h-8 rounded overflow-hidden border border-gray-300 dark:border-gray-600">
+                            <input type="color" id="title-color" value="#ffffff" class="absolute -top-2 -left-2 w-20 h-20 cursor-pointer">
+                        </div>
+                    </div>
+                    <div>
+                        <label class="block text-[11px] font-medium mb-1 text-gray-700 dark:text-gray-300">Text Color</label>
+                        <div class="relative w-full h-8 rounded overflow-hidden border border-gray-300 dark:border-gray-600">
+                            <input type="color" id="text-color" value="#94a3b8" class="absolute -top-2 -left-2 w-20 h-20 cursor-pointer">
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Font Select & Value Format -->
+                <div class="grid grid-cols-2 gap-4">
+                    <div>
+                        <label class="block text-[11px] font-medium mb-1 text-gray-700 dark:text-gray-300">Font Family</label>
+                        <select id="font-family" class="w-full p-2 rounded border border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-700 text-sm outline-none focus:ring-2 focus:ring-brand-500">
+                            <option value="Inter">Inter (Modern)</option>
+                            <option value="Carrois Gothic">Carrois Gothic (Editorial)</option>
+                            <option value="Roboto">Roboto (Clean)</option>
+                            <option value="JetBrains Mono">JetBrains (Code)</option>
+                            <option value="Playfair Display">Playfair (Serif)</option>
+                            <option value="Caveat">Caveat (Handdrawn)</option>
+                        </select>
+                    </div>
+                    <div>
+                        <label class="block text-[11px] font-medium mb-1 text-gray-700 dark:text-gray-300">Value Format</label>
+                        <select id="value-format" class="w-full p-2 rounded border border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-700 text-sm outline-none focus:ring-2 focus:ring-brand-500">
+                            <option value="number">Plain Number</option>
+                            <option value="currency">$ Currency</option>
+                            <option value="percent">% Percentage</option>
+                        </select>
+                    </div>
+                </div>
+
+                <!-- Font Sizes -->
+                <div class="grid grid-cols-3 gap-3 mt-1">
+                    <div>
+                        <div class="flex justify-between items-center mb-1">
+                            <label class="block text-[11px] font-medium text-gray-700 dark:text-gray-300">Title Size</label>
+                        </div>
+                        <input type="range" id="title-size" min="30" max="100" step="2" value="64" class="w-full">
+                    </div>
+                    <div>
+                        <div class="flex justify-between items-center mb-1">
+                            <label class="block text-[11px] font-medium text-gray-700 dark:text-gray-300">Sub Size</label>
+                        </div>
+                        <input type="range" id="subtitle-size" min="16" max="60" step="2" value="38" class="w-full">
+                    </div>
+                    <div>
+                        <div class="flex justify-between items-center mb-1">
+                            <label class="block text-[11px] font-medium text-gray-700 dark:text-gray-300">Src Size</label>
+                        </div>
+                        <input type="range" id="source-size" min="10" max="40" step="2" value="20" class="w-full">
+                    </div>
+                </div>
+
+                <!-- Duration & Glow -->
+                <div class="grid grid-cols-2 gap-4 mt-1">
+                    <div>
+                        <div class="flex justify-between items-center mb-1">
+                            <label class="block text-[11px] font-medium text-gray-700 dark:text-gray-300">Duration</label>
+                            <span id="duration-val" class="text-[10px] text-gray-500 font-mono">2.0s</span>
+                        </div>
+                        <input type="range" id="anim-duration" min="0.5" max="5" step="0.5" value="2.0" class="w-full mt-2">
+                    </div>
+                    <div>
+                        <div class="flex justify-between items-center mb-1">
+                            <label class="block text-[11px] font-medium text-gray-700 dark:text-gray-300">Line Glow</label>
+                            <span id="glow-val" class="text-[10px] text-gray-500 font-mono">High</span>
+                        </div>
+                        <input type="range" id="line-glow" min="0" max="30" step="5" value="15" class="w-full mt-2">
+                    </div>
+                </div>
+                
+                <div class="flex items-center gap-4 mt-2">
+                    <label class="flex items-center gap-2 cursor-pointer">
+                        <input type="checkbox" id="show-grid" checked class="w-4 h-4 text-brand-500 rounded border-gray-300 focus:ring-brand-500">
+                        <span class="text-[12px] font-medium text-gray-700 dark:text-gray-300">Grid Lines</span>
+                    </label>
+                    <label class="flex items-center gap-2 cursor-pointer">
+                        <input type="checkbox" id="show-legend" checked class="w-4 h-4 text-brand-500 rounded border-gray-300 focus:ring-brand-500">
+                        <span class="text-[12px] font-medium text-gray-700 dark:text-gray-300">Show Legend</span>
+                    </label>
+                </div>
+            </div>
+
+            <!-- Action Buttons -->
+            <div class="flex flex-col gap-3 mt-auto pt-4 pb-6 md:pb-0">
+                <button id="btn-animate" class="flex items-center justify-center gap-2 w-full py-3 px-4 bg-gray-200 text-gray-900 dark:bg-gray-700 dark:text-white hover:bg-gray-300 dark:hover:bg-gray-600 rounded-lg font-bold transition disabled:opacity-50">
+                    <i class="ph-fill ph-play-circle text-xl"></i> Preview Animation
+                </button>
+                <button id="btn-record" class="flex items-center justify-center gap-2 w-full py-3 px-4 bg-brand-500 hover:bg-brand-600 text-white rounded-lg font-bold transition shadow-md disabled:opacity-50 group">
+                    <i class="ph-fill ph-video-camera text-xl text-cyan-200 group-hover:text-white transition"></i> Record & Export Video
+                </button>
+            </div>
+        </aside>
+
+        <!-- CANVAS AREA -->
+        <section id="canvas-container" class="flex-1 relative overflow-hidden flex items-center justify-center p-4 sm:p-8">
+            <!-- 16:9 1080p Canvas -->
+            <canvas id="export-canvas" class="w-full max-w-[1200px] aspect-video shadow-2xl rounded-lg bg-black"></canvas>
+        </section>
+
+    </main>
+
+    <script>
+        // --- Template Data ---
+        const templates = {
+            'tech': {
+                title: 'Tech Giants Revenue ($B)',
+                subtitle: 'Annual revenue over the past decade.',
+                source: 'SOURCE: COMPANY EARNINGS REPORTS',
+                type: 'horizontal',
+                theme: 'dark',
+                csv: `Label,Value,Color
+Apple,383,#94a3b8
+Amazon,574,#f59e0b
+Google,305,#3b82f6
+Microsoft,211,#10b981`
+            },
+            'crypto': {
+                title: 'Cryptocurrency Market Cap ($B)',
+                subtitle: 'The meteoric rise of digital assets.',
+                source: 'SOURCE: COINMARKETCAP',
+                type: 'vertical',
+                theme: 'dark',
+                csv: `Label,Value,Color
+Bitcoin,1200,#f59e0b
+Ethereum,400,#a855f7
+Tether,100,#10b981
+BNB,95,#eab308
+Solana,60,#8b5cf6`
+            },
+            'social': {
+                title: 'Social Media MAUs (Millions)',
+                subtitle: 'Monthly Active Users across platforms.',
+                source: 'SOURCE: STATISTA',
+                type: 'vertical',
+                theme: 'light',
+                csv: `Label,Value,Color
+Facebook,3030,#3b82f6
+YouTube,2500,#ef4444
+WhatsApp,2000,#22c55e
+Instagram,2000,#ec4899
+TikTok,1500,#0f172a`
+            },
+            'climate': {
+                title: 'Global Temperature Anomaly (°C)',
+                subtitle: 'Deviation from the 20th-century average.',
+                source: 'SOURCE: NOAA CLIMATE AT A GLANCE',
+                type: 'horizontal',
+                theme: 'light',
+                csv: `Label,Value,Color
+2019,0.95,#f43f5e
+2020,1.02,#e11d48
+2021,0.85,#fb923c
+2022,0.86,#f97316
+2023,1.18,#9f1239`
+            }
+        };
+
+        // --- App State & Data ---
+        const state = {
+            data: [], // Array of { label, value, color }
+            maxVal: 0,
+            minVal: 0,
+            progress: 1.0,
+            isAnimating: false,
+            isRecording: false,
+            
+            // Text Content
+            title: '',
+            subtitle: '',
+            source: '',
+            
+            // Text Toggles
+            showTitle: true,
+            showSubtitle: true,
+            showSource: true,
+            
+            // Typography & Styling
+            fontFamily: 'Inter',
+            titleSize: 64,
+            subtitleSize: 38,
+            sourceSize: 20,
+            titleColor: '#ffffff',
+            textColor: '#94a3b8',
+            bgColor: '#0f172a',
+            colorPalette: 'vibrant',
+            
+            // Chart specific
+            type: 'vertical',
+            format: 'number',
+            duration: 2000,
+            glow: 15,
+            showLegend: true,
+            showGrid: true
+        };
+
+        // Color Palettes
+        const palettes = {
+            vibrant: ['#ef4444', '#3b82f6', '#10b981', '#f59e0b', '#a855f7', '#ec4899', '#06b6d4', '#eab308'],
+            pastel: ['#fca5a5', '#93c5fd', '#6ee7b7', '#fcd34d', '#d8b4fe', '#f9a8d4', '#67e8f9', '#fde047'],
+            neon: ['#ff00ff', '#00ffff', '#00ff00', '#ffff00', '#ff0000', '#0000ff'],
+            sunset: ['#f43f5e', '#f97316', '#eab308', '#8b5cf6', '#d946ef'],
+            ocean: ['#0369a1', '#0ea5e9', '#38bdf8', '#7dd3fc', '#0284c7']
+        };
+
+        const canvas = document.getElementById('export-canvas');
+        const ctx = canvas.getContext('2d', { alpha: false });
+        canvas.width = 1920;
+        canvas.height = 1080;
+
+        // DOM Elements
+        const uiTitle = document.getElementById('chart-title');
+        const uiSubtitle = document.getElementById('chart-subtitle');
+        const uiSource = document.getElementById('chart-source');
+        
+        const uiShowTitle = document.getElementById('show-title');
+        const uiShowSubtitle = document.getElementById('show-subtitle');
+        const uiShowSource = document.getElementById('show-source');
+        
+        const uiTitleSize = document.getElementById('title-size');
+        const uiSubtitleSize = document.getElementById('subtitle-size');
+        const uiSourceSize = document.getElementById('source-size');
+        
+        const uiTitleColor = document.getElementById('title-color');
+        const uiTextColor = document.getElementById('text-color');
+        const uiBgColor = document.getElementById('bg-color');
+
+        const dataInput = document.getElementById('data-input');
+        const formatSelect = document.getElementById('value-format');
+        const fontSelect = document.getElementById('font-family');
+        const paletteSelect = document.getElementById('color-palette');
+        const typeSelect = document.getElementById('chart-type');
+        
+        const durationSlider = document.getElementById('anim-duration');
+        const glowSlider = document.getElementById('line-glow');
+        const legendCheck = document.getElementById('show-legend');
+        const showGridCheck = document.getElementById('show-grid');
+        const canvasContainer = document.getElementById('canvas-container');
+
+        // --- Utility Functions ---
+        function isDarkColor(hexColor) {
+            const hex = hexColor.replace('#', '');
+            if(hex.length === 6) {
+                const r = parseInt(hex.substr(0, 2), 16);
+                const g = parseInt(hex.substr(2, 2), 16);
+                const b = parseInt(hex.substr(4, 2), 16);
+                return (r * 0.299 + g * 0.587 + b * 0.114) < 128;
+            }
+            return false;
+        }
+
+        function updateCanvasBackgroundCSS() {
+            canvasContainer.style.backgroundColor = state.bgColor;
+            const isDarkBg = isDarkColor(state.bgColor);
+            const gridColor = isDarkBg ? 'rgba(255,255,255,0.06)' : 'rgba(0,0,0,0.06)';
+            
+            canvasContainer.style.backgroundImage = `
+                radial-gradient(${gridColor} 1px, transparent 1px),
+                radial-gradient(${gridColor} 1px, transparent 1px)
+            `;
+        }
+
+        // --- Data Parsing ---
+        function updateStateFromUI() {
+            state.title = uiTitle.value;
+            state.subtitle = uiSubtitle.value;
+            state.source = uiSource.value;
+            
+            state.showTitle = uiShowTitle.checked;
+            state.showSubtitle = uiShowSubtitle.checked;
+            state.showSource = uiShowSource.checked;
+            
+            state.titleSize = parseInt(uiTitleSize.value);
+            state.subtitleSize = parseInt(uiSubtitleSize.value);
+            state.sourceSize = parseInt(uiSourceSize.value);
+            
+            state.titleColor = uiTitleColor.value;
+            state.textColor = uiTextColor.value;
+            state.bgColor = uiBgColor.value;
+            
+            state.fontFamily = fontSelect.value;
+            state.colorPalette = paletteSelect.value;
+            state.type = typeSelect.value;
+            state.format = formatSelect.value;
+            state.showLegend = legendCheck.checked;
+            state.showGrid = showGridCheck.checked;
+            
+            const raw = dataInput.value.trim();
+            if (!raw) return;
+
+            const lines = raw.split('\n');
+            state.data = [];
+            state.maxVal = 0;
+            state.minVal = 0;
+            
+            // Skip header if it contains non-numeric value in second column
+            let startIdx = 0;
+            if (lines.length > 0) {
+                const firstRow = lines[0].split(',');
+                if (firstRow.length >= 2 && isNaN(parseFloat(firstRow[1]))) {
+                    startIdx = 1;
+                }
+            }
+
+            for (let i = startIdx; i < lines.length; i++) {
+                const row = lines[i].split(',').map(c => c.trim());
+                if (row.length < 2) continue;
+                
+                const label = row[0];
+                const value = parseFloat(row[1]) || 0;
+                let color = row.length >= 3 && row[2].startsWith('#') ? row[2] : null;
+                
+                state.data.push({ label, value, color }); // Null color will use palette later
+                if (value > state.maxVal) state.maxVal = value;
+                if (value < state.minVal) state.minVal = value;
+            }
+
+            // Adjust axes padding based on values
+            if (state.maxVal > 0 && state.type !== 'pie') {
+                const magnitude = Math.pow(10, Math.floor(Math.log10(Math.max(0.1, state.maxVal))));
+                let norm = state.maxVal / magnitude;
+                if (norm <= 1.5) norm = 1.5;
+                else if (norm <= 2) norm = 2;
+                else if (norm <= 5) norm = 5;
+                else norm = 10;
+                state.maxVal = norm * magnitude;
+            }
+
+            if (state.minVal < 0) {
+                 const magnitude = Math.pow(10, Math.floor(Math.log10(Math.abs(state.minVal))));
+                 state.minVal = Math.floor(state.minVal / magnitude) * magnitude;
+            }
+        }
+
+        function formatValue(val) {
+            const rounded = Math.abs(state.maxVal - state.minVal) < 5 ? val.toFixed(2) : Math.round(val);
+            if (state.format === 'currency') return '$' + Number(rounded).toLocaleString();
+            if (state.format === 'percent') return Number(rounded).toLocaleString() + '%';
+            return Number(rounded).toLocaleString();
+        }
+
+        // --- Easing Function ---
+        function easeOutQuint(x) {
+            return 1 - Math.pow(1 - x, 5);
+        }
+
+        // --- Canvas Rendering Engine ---
+        function renderFrame(progress) {
+            const easeP = easeOutQuint(progress);
+
+            // 1. Theme & Font Setup
+            const isDarkBg = isDarkColor(state.bgColor);
+            const gridColor = isDarkBg ? 'rgba(255,255,255,0.15)' : 'rgba(0,0,0,0.15)';
+            const fontBase = state.fontFamily;
+            const activePalette = palettes[state.colorPalette];
+
+            // Clear Background
+            ctx.fillStyle = state.bgColor;
+            ctx.fillRect(0, 0, canvas.width, canvas.height);
+
+            // 2. Draw Header & Footer Texts
+            ctx.textAlign = 'left';
+            let currentY = 70;
+            
+            if (state.showTitle) {
+                ctx.textBaseline = 'top';
+                ctx.font = `800 ${state.titleSize}px "${fontBase}"`;
+                ctx.fillStyle = state.titleColor;
+                ctx.fillText(state.title, 80, currentY);
+                currentY += state.titleSize + 16;
+            } else {
+                currentY = 70;
+            }
+
+            if (state.showSubtitle) {
+                ctx.textBaseline = 'top';
+                ctx.font = `400 ${state.subtitleSize}px "${fontBase}"`;
+                ctx.fillStyle = state.textColor;
+                ctx.fillText(state.subtitle, 80, currentY);
+            }
+
+            if (state.showSource) {
+                ctx.textBaseline = 'bottom';
+                ctx.font = `600 ${state.sourceSize}px "${fontBase}"`;
+                ctx.fillStyle = state.textColor;
+                ctx.fillText(state.source, 80, canvas.height - 40);
+            }
+
+            // Separator lines
+            ctx.beginPath();
+            ctx.moveTo(80, 220);
+            ctx.lineTo(canvas.width - 80, 220);
+            ctx.strokeStyle = gridColor;
+            ctx.lineWidth = 2;
+            ctx.stroke();
+
+            ctx.beginPath();
+            ctx.moveTo(80, canvas.height - 80);
+            ctx.lineTo(canvas.width - 80, canvas.height - 80);
+            ctx.stroke();
+
+            if (state.data.length === 0) return;
+
+            // 3. Draw Legend
+            if (state.showLegend) {
+                drawLegend(state.textColor, activePalette, fontBase);
+            }
+
+            // 4. Draw Chart Data
+            const chartArea = {
+                x: 120,
+                y: 280,
+                w: canvas.width - 240,
+                h: canvas.height - (state.showLegend ? 480 : 400)
+            };
+
+            if (state.type === 'vertical') {
+                drawVerticalChart(chartArea, easeP, state.textColor, gridColor, activePalette, fontBase);
+            } else if (state.type === 'horizontal') {
+                drawHorizontalChart(chartArea, easeP, state.textColor, gridColor, activePalette, fontBase);
+            } else if (state.type === 'pie') {
+                drawPieChart(chartArea, easeP, state.textColor, activePalette, fontBase);
+            }
+        }
+
+        function drawLegend(textColor, palette, fontBase) {
+            ctx.textAlign = 'left';
+            ctx.textBaseline = 'middle';
+            ctx.font = `700 24px "${fontBase}"`;
+            
+            const legendY = canvas.height - 140;
+            let totalWidth = 0;
+            const itemPadding = 40;
+            const boxSize = 20;
+
+            state.data.forEach(item => {
+                totalWidth += boxSize + 10 + ctx.measureText(item.label).width + itemPadding;
+            });
+            totalWidth -= itemPadding; 
+
+            let currentX = (canvas.width - totalWidth) / 2;
+
+            state.data.forEach((item, idx) => {
+                const color = item.color || palette[idx % palette.length];
+                
+                ctx.fillStyle = color;
+                ctx.beginPath();
+                ctx.roundRect(currentX, legendY - boxSize/2, boxSize, boxSize, 4);
+                ctx.fill();
+
+                ctx.fillStyle = textColor;
+                ctx.fillText(item.label, currentX + boxSize + 10, legendY + 2);
+
+                currentX += boxSize + 10 + ctx.measureText(item.label).width + itemPadding;
+            });
+        }
+
+        function drawVerticalChart(area, progress, textColor, gridColor, palette, fontBase) {
+            const steps = 4;
+            const valueRange = state.maxVal - state.minVal;
+            
+            ctx.textAlign = 'right';
+            ctx.textBaseline = 'middle';
+            ctx.font = `600 20px "${fontBase}"`;
+            ctx.fillStyle = textColor;
+
+            for (let i = 0; i <= steps; i++) {
+                const val = state.minVal + (valueRange / steps) * i;
+                const y = area.y + area.h - ((val - state.minVal) / valueRange) * area.h;
+
+                if (state.showGrid) {
+                    ctx.beginPath();
+                    ctx.setLineDash([8, 8]);
+                    ctx.moveTo(area.x + 80, y);
+                    ctx.lineTo(area.x + area.w, y);
+                    ctx.strokeStyle = gridColor;
+                    ctx.lineWidth = 2;
+                    ctx.stroke();
+                    ctx.setLineDash([]);
+                }
+                
+                if (i > 0 || state.minVal < 0) { 
+                    ctx.fillText(formatValue(val), area.x + 60, y);
+                } else {
+                    ctx.fillText("0", area.x + 60, y);
+                }
+            }
+
+            // Zero Line Base
+            const zeroY = state.minVal < 0 ? area.y + area.h - ((0 - state.minVal) / valueRange) * area.h : area.y + area.h;
+            ctx.beginPath();
+            ctx.moveTo(area.x + 80, zeroY);
+            ctx.lineTo(area.x + area.w, zeroY);
+            ctx.strokeStyle = gridColor;
+            ctx.lineWidth = 3;
+            ctx.stroke();
+
+            // Draw Bars
+            const numBars = state.data.length;
+            const slotWidth = (area.w - 100) / numBars;
+            const barWidth = slotWidth * 0.8;
+            
+            ctx.textAlign = 'center';
+
+            state.data.forEach((item, index) => {
+                const x = area.x + 100 + (index * slotWidth) + (slotWidth - barWidth)/2;
+                
+                // Calculations accounting for negative numbers
+                const startY = zeroY;
+                const targetPixelHeight = ((item.value) / valueRange) * area.h;
+                const currentPixelHeight = targetPixelHeight * progress;
+                const y = startY - currentPixelHeight;
+                const color = item.color || palette[index % palette.length];
+
+                // Draw Bar
+                ctx.fillStyle = color;
+                ctx.fillRect(x, y, barWidth, currentPixelHeight);
+
+                // X-Axis Label
+                ctx.textBaseline = 'top';
+                ctx.font = `700 24px "${fontBase}"`;
+                ctx.fillStyle = textColor;
+                ctx.globalAlpha = Math.min(1, progress * 2); 
+                const lblY = state.minVal < 0 ? area.y + area.h + 15 : zeroY + 15;
+                ctx.fillText(item.label, x + barWidth/2, lblY);
+
+                // Value Label floating on top
+                if (progress > 0.1) {
+                    ctx.textBaseline = item.value >= 0 ? 'bottom' : 'top';
+                    ctx.font = `800 28px "${fontBase === 'Caveat' || fontBase === 'Playfair Display' ? fontBase : 'JetBrains Mono'}"`;
+                    const valYOffset = item.value >= 0 ? -10 : 10;
+                    ctx.fillText(formatValue(item.value * progress), x + barWidth/2, y + valYOffset);
+                }
+                ctx.globalAlpha = 1.0;
+            });
+        }
+
+        function drawHorizontalChart(area, progress, textColor, gridColor, palette, fontBase) {
+            const labelSpace = 250;
+            const actualAreaW = area.w - labelSpace;
+            const valueRange = state.maxVal - state.minVal;
+
+            // X-Axis Grid
+            const steps = 4;
+            ctx.textAlign = 'center';
+            ctx.textBaseline = 'top';
+            ctx.font = `600 20px "${fontBase}"`;
+            ctx.fillStyle = textColor;
+
+            for (let i = 0; i <= steps; i++) {
+                const val = state.minVal + (valueRange / steps) * i;
+                const x = area.x + labelSpace + ((val - state.minVal) / valueRange) * actualAreaW;
+
+                if (state.showGrid) {
+                    ctx.beginPath();
+                    ctx.setLineDash([8, 8]);
+                    ctx.moveTo(x, area.y);
+                    ctx.lineTo(x, area.y + area.h);
+                    ctx.strokeStyle = gridColor;
+                    ctx.lineWidth = 2;
+                    ctx.stroke();
+                    ctx.setLineDash([]);
+                }
+
+                ctx.fillText(formatValue(val), x, area.y + area.h + 15);
+            }
+
+            const zeroX = state.minVal < 0 ? area.x + labelSpace + ((0 - state.minVal) / valueRange) * actualAreaW : area.x + labelSpace;
+
+            // Draw Bars
+            const numBars = state.data.length;
+            const slotHeight = area.h / numBars;
+            const barHeight = slotHeight * 0.75;
+            
+            ctx.textBaseline = 'middle';
+
+            state.data.forEach((item, index) => {
+                const targetPixelWidth = (item.value / valueRange) * actualAreaW;
+                const currentPixelWidth = targetPixelWidth * progress;
+                const y = area.y + (index * slotHeight) + (slotHeight - barHeight)/2;
+                const color = item.color || palette[index % palette.length];
+
+                // Y-Axis Label
+                ctx.textAlign = 'right';
+                ctx.font = `800 24px "${fontBase}"`;
+                ctx.fillStyle = textColor;
+                ctx.globalAlpha = Math.min(1, progress * 2);
+                ctx.fillText(item.label, area.x + labelSpace - 20, y + barHeight/2);
+
+                // Bar
+                ctx.fillStyle = color;
+                ctx.globalAlpha = 1.0;
+                ctx.fillRect(zeroX, y, currentPixelWidth, barHeight);
+
+                // Value Label floating to the right (or left if negative)
+                if (progress > 0.1) {
+                    ctx.textAlign = item.value >= 0 ? 'left' : 'right';
+                    ctx.font = `800 28px "${fontBase === 'Caveat' || fontBase === 'Playfair Display' ? fontBase : 'JetBrains Mono'}"`;
+                    ctx.fillStyle = textColor;
+                    
+                    const valXOffset = item.value >= 0 ? 15 : -15;
+                    ctx.fillText(formatValue(item.value * progress), zeroX + currentPixelWidth + valXOffset, y + barHeight/2);
+                }
+            });
+        }
+
+        function drawPieChart(area, progress, textColor, palette, fontBase) {
+            const total = state.data.reduce((sum, item) => sum + item.value, 0);
+            if (total === 0) return;
+            
+            const centerX = area.x + area.w * 0.35; 
+            const centerY = area.y + area.h / 2;
+            const radius = Math.min(area.w, area.h) * 0.45;
+
+            const targetTotalRadian = Math.PI * 2 * progress;
+            let currentRadian = -Math.PI / 2; 
+
+            const legendStartX = area.x + area.w * 0.7;
+            const legendStartY = area.y + area.h * 0.2;
+            const legendSpacing = 80;
+
+            state.data.forEach((item, index) => {
+                const sliceAngle = (item.value / total) * targetTotalRadian;
+                const color = item.color || palette[index % palette.length];
+                
+                ctx.beginPath();
+                ctx.moveTo(centerX, centerY);
+                ctx.arc(centerX, centerY, radius, currentRadian, currentRadian + sliceAngle);
+                ctx.closePath();
+                
+                ctx.fillStyle = color;
+                ctx.fill();
+                
+                ctx.lineWidth = 3;
+                ctx.strokeStyle = state.bgColor;
+                ctx.stroke();
+
+                currentRadian += sliceAngle;
+
+                if (progress > 0.5) {
+                    const row = Math.floor(index / 2);
+                    const col = index % 2;
+                    const lx = legendStartX + (col * 200);
+                    const ly = legendStartY + (row * legendSpacing);
+
+                    ctx.globalAlpha = (progress - 0.5) * 2;
+                    
+                    ctx.fillStyle = color;
+                    ctx.beginPath();
+                    ctx.roundRect(lx, ly, 24, 24, 6);
+                    ctx.fill();
+
+                    ctx.textAlign = 'left';
+                    ctx.textBaseline = 'top';
+                    ctx.font = `800 24px "${fontBase}"`;
+                    ctx.fillStyle = textColor;
+                    ctx.fillText(item.label.toUpperCase(), lx + 40, ly - 2);
+
+                    ctx.font = `700 22px "${fontBase === 'Caveat' || fontBase === 'Playfair Display' ? fontBase : 'JetBrains Mono'}"`;
+                    const pct = ((item.value / total) * 100).toFixed(1);
+                    ctx.fillText(`${pct}%`, lx + 40, ly + 28);
+                    
+                    ctx.globalAlpha = 1.0;
+                }
+            });
+        }
+
+        // --- Interaction & Update Loops ---
+        function updateAndRender() {
+            updateStateFromUI();
+            updateCanvasBackgroundCSS();
+            renderFrame(1.0); // Show final state
+        }
+
+        // Apply templates and switch colors logically
+        document.querySelectorAll('.template-btn').forEach(btn => {
+            btn.addEventListener('click', () => {
+                const template = btn.getAttribute('data-template');
+                if (templates[template]) {
+                    uiTitle.value = templates[template].title;
+                    uiSubtitle.value = templates[template].subtitle;
+                    uiSource.value = templates[template].source;
+                    typeSelect.value = templates[template].type;
+                    dataInput.value = templates[template].csv;
+                    
+                    if (templates[template].theme === 'light') {
+                        uiBgColor.value = '#ffffff';
+                        uiTitleColor.value = '#18181b';
+                        uiTextColor.value = '#71717a';
+                    } else {
+                        uiBgColor.value = '#18181b';
+                        uiTitleColor.value = '#ffffff';
+                        uiTextColor.value = '#a1a1aa';
+                    }
+                    
+                    updateAndRender();
+                }
+            });
+        });
+
+        // Listeners for all dynamic inputs
+        const inputs = [uiTitle, uiSubtitle, uiSource, dataInput, uiBgColor, uiTitleColor, uiTextColor];
+        inputs.forEach(el => el.addEventListener('input', updateAndRender));
+        
+        [uiShowTitle, uiShowSubtitle, uiShowSource, legendCheck, showGridCheck].forEach(el => el.addEventListener('change', updateAndRender));
+        [uiTitleSize, uiSubtitleSize, uiSourceSize].forEach(el => el.addEventListener('input', updateAndRender));
+        
+        [typeSelect, fontSelect, paletteSelect, formatSelect].forEach(el => el.addEventListener('change', updateAndRender));
+        
+        durationSlider.addEventListener('input', (e) => { 
+            state.duration = parseFloat(e.target.value) * 1000;
+            document.getElementById('duration-val').textContent = e.target.value + 's';
+        });
+        
+        glowSlider.addEventListener('input', (e) => { 
+            state.glow = parseInt(e.target.value);
+            const valLabel = state.glow === 0 ? 'None' : (state.glow > 20 ? 'High' : 'Med');
+            document.getElementById('glow-val').textContent = valLabel;
+            renderFrame(state.progress);
+        });
+
+        document.getElementById('theme-toggle').addEventListener('click', () => {
+            document.documentElement.classList.toggle('dark');
+        });
+
+        // Initialize
+        updateAndRender();
+
+        // --- Animation & Recording Logic ---
+        const btnAnimate = document.getElementById('btn-animate');
+        const btnRecord = document.getElementById('btn-record');
+        const overlay = document.getElementById('recording-overlay');
+
+        async function runAnimation(recordCallback = null) {
+            if (state.isAnimating) return;
+            state.isAnimating = true;
+            btnAnimate.disabled = true;
+            btnRecord.disabled = true;
+
+            updateStateFromUI(); // Ensure fresh data
+            
+            if (recordCallback) await recordCallback();
+
+            const startTime = performance.now();
+            const durationMs = state.duration;
+
+            return new Promise((resolve) => {
+                function animLoop(currentTime) {
+                    const elapsed = Math.max(0, currentTime - startTime);
+                    let p = durationMs > 0 ? elapsed / durationMs : 1.0;
+                    p = Math.max(0, Math.min(1, p));
+                    
+                    state.progress = p;
+                    renderFrame(p);
+
+                    if (p < 1.0) {
+                        requestAnimationFrame(animLoop);
+                    } else {
+                        state.isAnimating = false;
+                        btnAnimate.disabled = false;
+                        btnRecord.disabled = false;
+                        resolve();
+                    }
+                }
+                requestAnimationFrame(animLoop);
+            });
+        }
+
+        btnAnimate.addEventListener('click', () => runAnimation());
+
+        btnRecord.addEventListener('click', async () => {
+            if (state.isAnimating || state.isRecording) return;
+            
+            let mediaRecorder;
+            let recordedChunks = [];
+            state.isRecording = true;
+            
+            try {
+                const stream = canvas.captureStream(60);
+                
+                let options = { mimeType: 'video/webm;codecs=vp9' };
+                if (!MediaRecorder.isTypeSupported(options.mimeType)) {
+                    options = { mimeType: 'video/webm;codecs=vp8' };
+                    if (!MediaRecorder.isTypeSupported(options.mimeType)) {
+                        options = { mimeType: 'video/webm' };
+                    }
+                }
+
+                options.videoBitsPerSecond = 8000000;
+
+                mediaRecorder = new MediaRecorder(stream, options);
+
+                mediaRecorder.ondataavailable = (e) => {
+                    if (e.data.size > 0) recordedChunks.push(e.data);
+                };
+
+                mediaRecorder.onstop = () => {
+                    const blob = new Blob(recordedChunks, { type: options.mimeType.split(';')[0] });
+                    const url = URL.createObjectURL(blob);
+                    
+                    const a = document.createElement('a');
+                    a.style.display = 'none';
+                    a.href = url;
+                    a.download = `editorial-chart.webm`;
+                    document.body.appendChild(a);
+                    a.click();
+                    
+                    setTimeout(() => {
+                        document.body.removeChild(a);
+                        window.URL.revokeObjectURL(url);
+                    }, 100);
+
+                    overlay.classList.remove('translate-y-4');
+                    overlay.classList.add('-translate-y-20');
+                    state.isRecording = false;
+                    state.progress = 1.0;
+                    renderFrame(1.0); 
+                };
+
+                overlay.classList.remove('-translate-y-20');
+                overlay.classList.add('translate-y-4');
+
+                state.progress = 0;
+                renderFrame(0);
+                
+                await new Promise(r => setTimeout(r, 500)); 
+                mediaRecorder.start();
+                
+                await runAnimation();
+
+                setTimeout(() => {
+                    mediaRecorder.stop();
+                }, 2000);
+
+            } catch (err) {
+                console.error("Recording failed:", err);
+                alert("Recording failed. Your browser might not support canvas recording.");
+                overlay.classList.remove('translate-y-4');
+                overlay.classList.add('-translate-y-20');
+                state.isAnimating = false;
+                state.isRecording = false;
+                btnAnimate.disabled = false;
+                btnRecord.disabled = false;
+                renderFrame(1.0);
+            }
+        });
+
+    </script>
+</body>
+</html>
