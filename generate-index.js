@@ -231,7 +231,12 @@ function generateHTML(hierarchy) {
     <main class="wrapper">
         <header class="site-header">
             <div class="header-inner">
-                <div class="logo">ANIMATOR<span>STUDIO</span></div>
+            <div class="logo">ANIMATOR<span>STUDIO</span></div>
+            <div style="display: flex; align-items: center; gap: 2rem;">
+                    <nav style="display: flex; gap: 1rem;">
+                        <a href="tools/index.html" style="text-decoration: none; color: var(--border); font-weight: 700; border: 1px solid var(--border); padding: 5px 10px; font-size: 0.8rem; text-transform: uppercase;">Toolkit</a>
+                    </nav>
+                </div>
                 <div class="search-wrap">
                     <input type="text" id="search" placeholder="Filter research components…">
                 </div>
