@@ -2,7 +2,7 @@
 
 Adaptive research lab for high-fidelity canvas animations, character lip-sync engines, and procedural whiteboard prototypes.
 
-![Studio Preview](https://raw.githubusercontent.com/simplearyan/canvas-animator/gh-pages/screenshots/design-demos/fox-lip-sync-animator_v0.2.png)
+![Studio Preview](https://raw.githubusercontent.com/simplearyan/canvas-animator/main/screenshots/design-demos/fox-lip-sync-animator_v0.2.png)
 
 ## 🏗️ The Blueprint Identity
 Unlike the dark-themed VFX Lab, the **Animator Studio** uses a technical drafting aesthetic:
