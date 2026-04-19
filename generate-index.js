@@ -186,8 +186,11 @@ function generateHTML(hierarchy) {
 
         .section { margin-bottom: 4rem; }
         .section-header { border-bottom: 1px dashed var(--border); margin-bottom: 2rem; padding-bottom: 1rem; position: relative; }
-        .section-title { font-size: 1.5rem; font-weight: 700; display: flex; align-items: center; gap: 0.5rem; color: var(--border); }
-        .section-desc { font-size: 0.9rem; color: var(--text-muted); }
+        
+        .section-title-group { display: flex; align-items: flex-start; gap: 1rem; }
+        .section-icon { font-size: 1.75rem; line-height: 1.2; }
+        .section-title { font-size: 1.5rem; font-weight: 700; color: var(--border); margin: 0; }
+        .section-desc { font-size: 0.9rem; color: var(--text-muted); margin: 0.25rem 0 0 0; }
 
         .section-content {
             display: grid;
