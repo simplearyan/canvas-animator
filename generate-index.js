@@ -61,6 +61,8 @@ function renderHierarchy(items, depth = 0) {
             const desc = catInfo.desc || '';
             const relPath = item.path.replace(/\\/g, '/');
             
+            const hasSubDirectories = item.children.some(c => c.type === 'directory');
+            
             html += `
             <div class="section depth-${depth}" data-name="${label.toLowerCase()}" data-path="${relPath}">
                 <div class="section-header">
@@ -72,7 +74,7 @@ function renderHierarchy(items, depth = 0) {
                         </div>
                     </div>
                 </div>
-                <div class="section-content">
+                <div class="${hasSubDirectories ? 'section-nested' : 'section-content'}">
                     ${renderHierarchy(item.children, depth + 1)}
                 </div>
             </div>`;
@@ -177,6 +179,12 @@ function generateHTML(hierarchy) {
         .section-content {
             display: grid;
             grid-template-columns: repeat(auto-fill, minmax(280px, 1fr));
+            gap: 2rem;
+        }
+
+        .section-nested {
+            display: flex;
+            flex-direction: column;
             gap: 2rem;
         }
 
