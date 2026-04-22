@@ -21,6 +21,7 @@ htmlFiles.forEach(file => {
 });
 
 export default defineConfig({
+  base: './',
   root: '.',
   build: {
     outDir: 'dist',

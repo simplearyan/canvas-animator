@@ -31,7 +31,7 @@ function scanRecursive(dir, relativePath = '') {
             const cleanRelPath = relativePath.replace(/\\/g, '/');
             const screenshotPathStr = cleanRelPath ? `${cleanRelPath}/${file.name.replace('.html', '.png')}` : file.name.replace('.html', '.png');
             const screenshotRel = `./screenshots/${screenshotPathStr}`;
-            const screenshotAbs = path.join(rootDir, 'screenshots', relativePath, file.name.replace('.html', '.png'));
+            const screenshotAbs = path.join(rootDir, 'public', 'screenshots', relativePath, file.name.replace('.html', '.png'));
             const hasScreenshot = fs.existsSync(screenshotAbs);
 
             items.push({
