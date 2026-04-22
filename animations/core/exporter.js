@@ -17,32 +17,64 @@ export class Exporter {
             
             const numFrames = Math.ceil((durationMs / 1000) * fps);
             const frameDurationUs = Math.floor((1000 / fps) * 1000);
+            const microDtMs = 1000000 / fps;
+
+            let currentFrame = 0;
+            let pendingFrames = 0;
             
             worker.onmessage = async (e) => {
                 const { type, data, error } = e.data;
                 
                 if (type === 'READY') {
-                    // Send all frames
-                    for (let i = 0; i <= numFrames; i++) {
-                        const progress = Math.min(1.0, i / numFrames);
-                        const timeMs = progress * durationMs;
-                        
-                        await this.renderFrameFn(progress);
-                        
-                        const bitmap = await createImageBitmap(this.canvas);
-                        worker.postMessage({
-                            type: 'ENCODE_FRAME',
-                            data: {
-                                bitmap,
-                                timestamp: timeMs * 1000, // convert ms to microseconds
-                                duration: frameDurationUs
+                    // Optimized Loop inspired by chart-studio-web
+                    const pushNextBatch = async () => {
+                        while (currentFrame <= numFrames) {
+                            // BACKPRESSURE: If worker is falling behind, wait
+                            if (pendingFrames > 12) {
+                                await new Promise(r => setTimeout(r, 20));
+                                continue;
                             }
-                        }, [bitmap]);
-                    }
-                    worker.postMessage({ type: 'FINALIZE' });
+
+                            const progress = Math.min(1.0, currentFrame / numFrames);
+                            const timeMs = progress * durationMs;
+
+                            // UI YIELDING: Give the main thread a dedicated tick
+                            await this.renderFrameFn(progress);
+                            await new Promise(r => setTimeout(r, 0)); 
+                            
+                            const bitmap = await createImageBitmap(this.canvas);
+                            
+                            worker.postMessage({
+                                type: 'ENCODE_FRAME',
+                                data: {
+                                    bitmap,
+                                    timestamp: Math.round(currentFrame * microDtMs),
+                                    duration: Math.round(microDtMs)
+                                }
+                            }, [bitmap]);
+
+                            currentFrame++;
+                            pendingFrames++;
+
+                            if (onProgress) {
+                                onProgress({
+                                    current: currentFrame,
+                                    total: numFrames,
+                                    pending: pendingFrames
+                                });
+                            }
+                        }
+                        
+                        worker.postMessage({ type: 'FINALIZE' });
+                    };
+                    
+                    pushNextBatch();
                 }
                 else if (type === 'PROGRESS') {
-                    if (onProgress) onProgress(data.queueSize);
+                    // Internal worker progress
+                }
+                else if (type === 'FRAME_DONE') {
+                    pendingFrames--;
                 }
                 else if (type === 'COMPLETE') {
                     const blob = new Blob([data], { type: format === 'webm' ? 'video/webm' : 'video/mp4' });
