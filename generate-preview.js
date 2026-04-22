@@ -7,7 +7,7 @@ const path = require('path');
 const puppeteer = require('puppeteer');
 
 const rootDir = __dirname;
-const screenshotsDir = path.join(rootDir, 'screenshots');
+const screenshotsDir = path.join(rootDir, 'public', 'screenshots');
 const FORCE = process.argv.includes('--force');
 
 function scanRecursive(dir, relativePath = '') {
