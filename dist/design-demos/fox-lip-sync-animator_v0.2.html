@@ -1,0 +1,968 @@
+<!DOCTYPE html>
+<html lang="en" class="dark">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+    <title>Fox LipSync Animator</title>
+    
+    <!-- Google Fonts -->
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&family=JetBrains+Mono:wght@400;500&display=swap" rel="stylesheet">
+
+    <!-- Tailwind CSS -->
+    <script src="https://cdn.tailwindcss.com"></script>
+    <script>
+        tailwind.config = {
+            darkMode: 'class',
+            theme: {
+                extend: {
+                    fontFamily: {
+                        sans: ['Inter', 'sans-serif'],
+                        mono: ['JetBrains Mono', 'monospace'],
+                    },
+                    colors: {
+                        brand: {
+                            500: '#d97706', // Fox Orange
+                            600: '#b45309',
+                        }
+                    }
+                }
+            }
+        }
+    </script>
+
+    <!-- Phosphor Icons -->
+    <script src="https://unpkg.com/@phosphor-icons/web"></script>
+
+    <style>
+        body {
+            transition: background-color 0.2s ease, color 0.2s ease;
+            overscroll-behavior-y: none;
+        }
+        
+        input[type=range] {
+            -webkit-appearance: none;
+            width: 100%;
+            background: transparent;
+        }
+        input[type=range]::-webkit-slider-thumb {
+            -webkit-appearance: none;
+            height: 16px;
+            width: 16px;
+            border-radius: 50%;
+            background: #d97706;
+            cursor: pointer;
+            margin-top: -6px;
+        }
+        input[type=range]::-webkit-slider-runnable-track {
+            width: 100%;
+            height: 4px;
+            cursor: pointer;
+            background: #cbd5e1;
+            border-radius: 2px;
+        }
+        .dark input[type=range]::-webkit-slider-runnable-track {
+            background: #475569;
+        }
+
+        ::-webkit-scrollbar { width: 8px; height: 8px; }
+        ::-webkit-scrollbar-track { background: transparent; }
+        ::-webkit-scrollbar-thumb { background-color: #cbd5e1; border-radius: 4px; }
+        .dark ::-webkit-scrollbar-thumb { background-color: #475569; }
+
+        /* Canvas checkerboard pattern for transparent look */
+        #canvas-wrapper {
+            background-color: #e2e8f0;
+            background-image: 
+                linear-gradient(45deg, #cbd5e1 25%, transparent 25%), 
+                linear-gradient(-45deg, #cbd5e1 25%, transparent 25%), 
+                linear-gradient(45deg, transparent 75%, #cbd5e1 75%), 
+                linear-gradient(-45deg, transparent 75%, #cbd5e1 75%);
+            background-size: 20px 20px;
+            background-position: 0 0, 0 10px, 10px -10px, -10px 0px;
+        }
+        .dark #canvas-wrapper {
+            background-color: #0f172a;
+            background-image: 
+                linear-gradient(45deg, #1e293b 25%, transparent 25%), 
+                linear-gradient(-45deg, #1e293b 25%, transparent 25%), 
+                linear-gradient(45deg, transparent 75%, #1e293b 75%), 
+                linear-gradient(-45deg, transparent 75%, #1e293b 75%);
+        }
+    </style>
+</head>
+<body class="bg-gray-50 dark:bg-gray-900 text-gray-900 dark:text-gray-100 h-screen flex flex-col overflow-hidden">
+
+    <!-- HEADER -->
+    <header class="h-16 bg-white dark:bg-gray-800 border-b border-gray-200 dark:border-gray-700 flex items-center justify-between px-4 sm:px-6 flex-shrink-0 z-20">
+        <div class="flex items-center gap-2">
+            <div class="bg-brand-500 text-white p-1.5 rounded-lg shadow-sm">
+                <i class="ph-bold ph-fox text-2xl"></i>
+            </div>
+            <h1 class="text-xl font-bold tracking-tight text-gray-800 dark:text-gray-100 mt-0.5">Fox LipSync Animator</h1>
+        </div>
+        <div class="flex items-center gap-3">
+            <button id="theme-toggle" class="p-2.5 rounded-full bg-gray-100 dark:bg-gray-700 hover:bg-gray-200 dark:hover:bg-gray-600 transition">
+                <i class="ph-fill ph-moon text-xl dark:hidden"></i>
+                <i class="ph-fill ph-sun text-xl hidden dark:block"></i>
+            </button>
+        </div>
+    </header>
+
+    <!-- MAIN APP AREA -->
+    <main class="flex-1 flex flex-col md:flex-row overflow-hidden relative">
+        
+        <!-- Recording Overlay -->
+        <div id="recording-overlay" class="absolute top-4 left-1/2 -translate-x-1/2 bg-red-500 text-white px-5 py-2.5 rounded-full font-medium text-sm flex items-center gap-2 shadow-lg z-50 transition-transform duration-300 transform -translate-y-20">
+            <div class="w-3 h-3 bg-white rounded-full animate-pulse"></div>
+            Recording Animation...
+        </div>
+
+        <!-- TOOLBAR / SIDEBAR -->
+        <aside class="w-full md:w-[440px] bg-white dark:bg-gray-800 border-b md:border-b-0 md:border-r border-gray-200 dark:border-gray-700 p-4 md:p-5 flex flex-col gap-5 overflow-y-auto z-10 flex-shrink-0 h-[50vh] md:h-full">
+            
+            <!-- Script Editor -->
+            <div class="flex flex-col gap-2 flex-shrink-0">
+                <div class="flex justify-between items-center">
+                    <h2 class="text-xs font-bold uppercase tracking-wider text-gray-500 dark:text-gray-400">Dialogue Script</h2>
+                    <button id="load-sample" class="text-xs font-medium text-brand-500 hover:text-brand-600 transition">Load Sample</button>
+                </div>
+                <textarea id="script-input" class="w-full h-20 p-3 rounded-lg border border-gray-300 dark:border-gray-600 bg-gray-50 dark:bg-gray-900 text-sm font-mono focus:ring-2 focus:ring-brand-500 focus:border-brand-500 outline-none resize-none" spellcheck="false">The quick brown fox jumps over the lazy dog!</textarea>
+                
+                <!-- Spoken Word Preview -->
+                <div class="mt-1 bg-gray-100 dark:bg-gray-700 rounded p-2 flex items-center gap-2 overflow-hidden">
+                    <i class="ph-fill ph-speaker-high text-gray-400"></i>
+                    <span id="current-word" class="text-sm font-mono text-gray-800 dark:text-gray-200 truncate">Ready to speak...</span>
+                </div>
+            </div>
+
+            <!-- Head Tracking / Pose -->
+            <div class="flex flex-col gap-3 flex-shrink-0">
+                <h2 class="text-xs font-bold uppercase tracking-wider text-gray-500 dark:text-gray-400">Head Tracking</h2>
+                <div class="grid grid-cols-2 gap-4">
+                    <div>
+                        <div class="flex justify-between items-center mb-1">
+                            <label class="block text-[11px] font-medium text-gray-700 dark:text-gray-300">Look Horizontal</label>
+                        </div>
+                        <input type="range" id="look-x" min="-1" max="1" step="0.05" value="0" class="w-full mt-1">
+                    </div>
+                    <div>
+                        <div class="flex justify-between items-center mb-1">
+                            <label class="block text-[11px] font-medium text-gray-700 dark:text-gray-300">Look Vertical</label>
+                        </div>
+                        <input type="range" id="look-y" min="-1" max="1" step="0.05" value="0" class="w-full mt-1">
+                    </div>
+                </div>
+            </div>
+
+            <!-- Appearance Settings -->
+            <div class="flex flex-col gap-4 flex-shrink-0">
+                <h2 class="text-xs font-bold uppercase tracking-wider text-gray-500 dark:text-gray-400">Character & Emotion</h2>
+                
+                <div class="grid grid-cols-2 gap-4">
+                    <div>
+                        <label class="block text-[11px] font-medium mb-1 text-gray-700 dark:text-gray-300">Emotion</label>
+                        <select id="emotion-style" class="w-full p-2 rounded border border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-700 text-sm font-bold outline-none focus:ring-2 focus:ring-brand-500">
+                            <option value="Neutral">😐 Neutral</option>
+                            <option value="Happy">😃 Happy</option>
+                            <option value="Sad">😟 Sad</option>
+                            <option value="Angry">😠 Angry</option>
+                            <option value="Scared">😨 Scared</option>
+                        </select>
+                    </div>
+                    <div>
+                        <label class="block text-[11px] font-medium mb-1 text-gray-700 dark:text-gray-300">Canvas BG</label>
+                        <div class="relative w-full h-9 rounded overflow-hidden border border-gray-300 dark:border-gray-600">
+                            <input type="color" id="bg-color" value="#4ade80" class="absolute -top-2 -left-2 w-20 h-20 cursor-pointer" title="Green screen default">
+                        </div>
+                    </div>
+                </div>
+
+                <div class="grid grid-cols-5 gap-2">
+                    <div>
+                        <label class="block text-[9px] font-medium mb-1 text-gray-700 dark:text-gray-300 truncate">Main Fur</label>
+                        <div class="relative w-full h-8 rounded overflow-hidden border border-gray-300 dark:border-gray-600">
+                            <input type="color" id="fur-dark" value="#a64d26" class="absolute -top-2 -left-2 w-20 h-20 cursor-pointer">
+                        </div>
+                    </div>
+                    <div>
+                        <label class="block text-[9px] font-medium mb-1 text-gray-700 dark:text-gray-300 truncate">Muzzle</label>
+                        <div class="relative w-full h-8 rounded overflow-hidden border border-gray-300 dark:border-gray-600">
+                            <input type="color" id="fur-light" value="#dda86b" class="absolute -top-2 -left-2 w-20 h-20 cursor-pointer">
+                        </div>
+                    </div>
+                    <div>
+                        <label class="block text-[9px] font-medium mb-1 text-gray-700 dark:text-gray-300 truncate">Nose</label>
+                        <div class="relative w-full h-8 rounded overflow-hidden border border-gray-300 dark:border-gray-600">
+                            <input type="color" id="nose-color" value="#2e170a" class="absolute -top-2 -left-2 w-20 h-20 cursor-pointer">
+                        </div>
+                    </div>
+                    <div>
+                        <label class="block text-[9px] font-medium mb-1 text-gray-700 dark:text-gray-300 truncate">Mouth</label>
+                        <div class="relative w-full h-8 rounded overflow-hidden border border-gray-300 dark:border-gray-600">
+                            <input type="color" id="mouth-color" value="#4a150c" class="absolute -top-2 -left-2 w-20 h-20 cursor-pointer">
+                        </div>
+                    </div>
+                    <div>
+                        <label class="block text-[9px] font-medium mb-1 text-gray-700 dark:text-gray-300 truncate">Tongue</label>
+                        <div class="relative w-full h-8 rounded overflow-hidden border border-gray-300 dark:border-gray-600">
+                            <input type="color" id="tongue-color" value="#cf5353" class="absolute -top-2 -left-2 w-20 h-20 cursor-pointer">
+                        </div>
+                    </div>
+                </div>
+
+                <div class="mt-2">
+                    <div class="flex justify-between items-center mb-1">
+                        <label class="block text-[11px] font-medium text-gray-700 dark:text-gray-300">Speech Speed</label>
+                        <span id="speed-val" class="text-[10px] text-gray-500 font-mono">90ms/char</span>
+                    </div>
+                    <input type="range" id="speech-speed" min="40" max="200" step="10" value="90" class="w-full mt-2">
+                    
+                    <label class="flex items-center gap-2 mt-4 cursor-pointer">
+                        <input type="checkbox" id="audio-preview" checked class="w-4 h-4 text-brand-500 rounded border-gray-300 focus:ring-brand-500">
+                        <span class="text-[11px] font-medium text-gray-700 dark:text-gray-300">Audio Preview (TTS)</span>
+                    </label>
+                </div>
+            </div>
+
+            <!-- Viseme Reference Guide -->
+            <div class="flex flex-col gap-2 flex-1 mt-2">
+                <h2 class="text-xs font-bold uppercase tracking-wider text-gray-500 dark:text-gray-400">Fox Visemes</h2>
+                <div class="grid grid-cols-4 gap-2 text-center text-[10px] font-mono text-gray-600 dark:text-gray-400 overflow-y-auto">
+                    <button class="viseme-test-btn bg-gray-100 dark:bg-gray-700 rounded py-2 hover:bg-brand-100 dark:hover:bg-brand-900 transition" data-v="REST"><b class="block text-gray-900 dark:text-white pointer-events-none">REST</b>Neutral</button>
+                    <button class="viseme-test-btn bg-gray-100 dark:bg-gray-700 rounded py-2 hover:bg-brand-100 dark:hover:bg-brand-900 transition" data-v="AAH"><b class="block text-gray-900 dark:text-white pointer-events-none">AAH</b>A, I</button>
+                    <button class="viseme-test-btn bg-gray-100 dark:bg-gray-700 rounded py-2 hover:bg-brand-100 dark:hover:bg-brand-900 transition" data-v="EEH"><b class="block text-gray-900 dark:text-white pointer-events-none">EEH</b>E, Y</button>
+                    <button class="viseme-test-btn bg-gray-100 dark:bg-gray-700 rounded py-2 hover:bg-brand-100 dark:hover:bg-brand-900 transition" data-v="OOH"><b class="block text-gray-900 dark:text-white pointer-events-none">OOH</b>O, U, W</button>
+                    <button class="viseme-test-btn bg-gray-100 dark:bg-gray-700 rounded py-2 hover:bg-brand-100 dark:hover:bg-brand-900 transition" data-v="M_P_B"><b class="block text-gray-900 dark:text-white pointer-events-none">M_P_B</b>M, B, P</button>
+                    <button class="viseme-test-btn bg-gray-100 dark:bg-gray-700 rounded py-2 hover:bg-brand-100 dark:hover:bg-brand-900 transition" data-v="FFF"><b class="block text-gray-900 dark:text-white pointer-events-none">FFF</b>F, V</button>
+                    <button class="viseme-test-btn bg-gray-100 dark:bg-gray-700 rounded py-2 hover:bg-brand-100 dark:hover:bg-brand-900 transition" data-v="N_L"><b class="block text-gray-900 dark:text-white pointer-events-none">N_L</b>L, N</button>
+                    <button class="viseme-test-btn bg-gray-100 dark:bg-gray-700 rounded py-2 hover:bg-brand-100 dark:hover:bg-brand-900 transition" data-v="E_K_S"><b class="block text-gray-900 dark:text-white pointer-events-none">E_K_S</b>T, S, K</button>
+                </div>
+            </div>
+
+            <!-- Action Buttons -->
+            <div class="flex flex-col gap-3 mt-auto pt-4 pb-6 md:pb-0">
+                <button id="btn-animate" class="flex items-center justify-center gap-2 w-full py-3 px-4 bg-gray-200 text-gray-900 dark:bg-gray-700 dark:text-white hover:bg-gray-300 dark:hover:bg-gray-600 rounded-lg font-bold transition disabled:opacity-50">
+                    <i class="ph-fill ph-play-circle text-xl"></i> Play Animation
+                </button>
+                <button id="btn-record" class="flex items-center justify-center gap-2 w-full py-3 px-4 bg-brand-500 hover:bg-brand-600 text-white rounded-lg font-bold transition shadow-md disabled:opacity-50 group">
+                    <i class="ph-fill ph-video-camera text-xl text-orange-200 group-hover:text-white transition"></i> Record & Export Video
+                </button>
+            </div>
+        </aside>
+
+        <!-- CANVAS AREA -->
+        <section id="canvas-wrapper" class="flex-1 relative overflow-hidden flex items-center justify-center p-4 sm:p-8">
+            <!-- 1:1 Canvas (Perfect for character faces) -->
+            <canvas id="export-canvas" class="w-full max-w-[600px] aspect-square shadow-2xl rounded-2xl bg-white"></canvas>
+        </section>
+
+    </main>
+
+    <script>
+        // --- App State ---
+        const state = {
+            currentViseme: 'REST',
+            emotion: 'Neutral',
+            lookX: 0,
+            lookY: 0,
+            colors: {
+                bg: '#4ade80',
+                furDark: '#a64d26', // Main Head Fur
+                furLight: '#dda86b', // Muzzle
+                nose: '#2e170a',
+                mouth: '#4a150c',
+                tongue: '#cf5353',
+                teeth: '#ffffff',
+                outline: '#1f0d05'
+            },
+            speedMs: 90, // ms per character
+            audioPreview: true,
+            isAnimating: false,
+            isRecording: false,
+            timeline: []
+        };
+
+        // --- Fox Phoneme Dictionary ---
+        const phonemeMap = {
+            'a': 'AAH', 'i': 'AAH',
+            'e': 'EEH', 'y': 'EEH',
+            'o': 'OOH', 'u': 'OOH', 'w': 'OOH', 'q': 'OOH',
+            'm': 'M_P_B', 'b': 'M_P_B', 'p': 'M_P_B',
+            'f': 'FFF', 'v': 'FFF',
+            'l': 'N_L', 'n': 'N_L', 'r': 'N_L',
+            'c': 'E_K_S', 'd': 'E_K_S', 'g': 'E_K_S', 'k': 'E_K_S', 's': 'E_K_S', 't': 'E_K_S', 'x': 'E_K_S', 'z': 'E_K_S', 'j': 'E_K_S', 'h': 'E_K_S',
+            ' ': 'REST', '.': 'REST', ',': 'REST', '!': 'REST', '?': 'REST'
+        };
+
+        const canvas = document.getElementById('export-canvas');
+        const ctx = canvas.getContext('2d', { alpha: false });
+        
+        // High-res square canvas
+        canvas.width = 1000;
+        canvas.height = 1000;
+
+        // DOM Elements
+        const scriptInput = document.getElementById('script-input');
+        const speedSlider = document.getElementById('speech-speed');
+        const audioPreviewCheck = document.getElementById('audio-preview');
+        const emotionSelect = document.getElementById('emotion-style');
+        
+        const lookXSlider = document.getElementById('look-x');
+        const lookYSlider = document.getElementById('look-y');
+
+        const colorBg = document.getElementById('bg-color');
+        const colorFurDark = document.getElementById('fur-dark');
+        const colorFurLight = document.getElementById('fur-light');
+        const colorNose = document.getElementById('nose-color');
+        const colorMouth = document.getElementById('mouth-color');
+        const colorTongue = document.getElementById('tongue-color');
+        const currentWordDisplay = document.getElementById('current-word');
+
+        // --- Text Parser Engine ---
+        function generateTimeline(text) {
+            const timeline = [];
+            let currentTime = 0;
+            const chars = text.toLowerCase().split('');
+
+            for (let i = 0; i < chars.length; i++) {
+                const char = chars[i];
+                let viseme = phonemeMap[char] || 'REST';
+                
+                let duration = state.speedMs;
+                if (char === ' ') duration = state.speedMs * 1.5;
+                if (['.', ',', '!', '?'].includes(char)) duration = state.speedMs * 4;
+
+                timeline.push({
+                    char: char,
+                    viseme: viseme,
+                    duration: duration,
+                    startTime: currentTime
+                });
+
+                currentTime += duration;
+            }
+
+            timeline.push({ char: '', viseme: 'REST', duration: 500, startTime: currentTime });
+            return { timeline, totalDuration: currentTime + 500 };
+        }
+
+        // --- Fox Vector Drawing Engine ---
+        function drawBackground() {
+            ctx.fillStyle = state.colors.bg;
+            ctx.fillRect(0, 0, canvas.width, canvas.height);
+        }
+
+        // Layer 1: Back of the head (Ears & Neck)
+        function drawNeckAndEars() {
+            ctx.lineWidth = 10;
+            ctx.strokeStyle = state.colors.outline;
+            ctx.lineJoin = 'round';
+
+            // Neck / Chest fluff
+            ctx.fillStyle = state.colors.furDark;
+            ctx.beginPath();
+            ctx.moveTo(-60, 150);
+            ctx.lineTo(-40, 320);
+            ctx.quadraticCurveTo(0, 360, 40, 320);
+            ctx.lineTo(60, 150);
+            ctx.fill();
+            ctx.stroke();
+
+            // Left Ear
+            ctx.beginPath();
+            ctx.moveTo(-70, -130);
+            ctx.quadraticCurveTo(-140, -250, -160, -320); // Outer edge
+            ctx.quadraticCurveTo(-100, -280, -30, -180);  // Inner edge
+            ctx.fill();
+            ctx.stroke();
+            
+            // Left Ear Inside
+            ctx.fillStyle = state.colors.furLight;
+            ctx.beginPath();
+            ctx.moveTo(-75, -150);
+            ctx.quadraticCurveTo(-120, -230, -140, -290);
+            ctx.quadraticCurveTo(-90, -250, -45, -180);
+            ctx.fill();
+            ctx.stroke();
+
+            // Right Ear
+            ctx.fillStyle = state.colors.furDark;
+            ctx.beginPath();
+            ctx.moveTo(70, -130);
+            ctx.quadraticCurveTo(140, -250, 160, -320); 
+            ctx.quadraticCurveTo(100, -280, 30, -180);  
+            ctx.fill();
+            ctx.stroke();
+            
+            // Right Ear Inside
+            ctx.fillStyle = state.colors.furLight;
+            ctx.beginPath();
+            ctx.moveTo(75, -150);
+            ctx.quadraticCurveTo(120, -230, 140, -290);
+            ctx.quadraticCurveTo(90, -250, 45, -180);
+            ctx.fill();
+            ctx.stroke();
+        }
+
+        // Layer 2: Main Head Sphere & Hair
+        function drawHeadBase() {
+            ctx.lineWidth = 10;
+            ctx.strokeStyle = state.colors.outline;
+            ctx.lineJoin = 'round';
+            ctx.fillStyle = state.colors.furDark;
+
+            // Head Base (Circle/Ellipse)
+            ctx.beginPath();
+            ctx.ellipse(0, -60, 190, 180, 0, 0, Math.PI * 2);
+            ctx.fill();
+            ctx.stroke();
+
+            // Top Hair Tuft
+            ctx.beginPath();
+            ctx.moveTo(-20, -235);
+            ctx.lineTo(-10, -280);
+            ctx.lineTo(10, -245);
+            ctx.lineTo(30, -290);
+            ctx.lineTo(40, -230);
+            ctx.fill();
+            ctx.stroke();
+        }
+
+        // Layer 3: Eyes & Expressions
+        function drawEyes(lookX, lookY, emotion, isBlinking) {
+            ctx.lineWidth = 8;
+            ctx.strokeStyle = state.colors.outline;
+
+            const eyeW = 55;
+            const eyeH = 95;
+            // Base eye positions
+            const leftEyeX = -60;
+            const rightEyeX = 60;
+            const eyeY = -90;
+
+            if (isBlinking) {
+                // Closed Eyes (Blink)
+                ctx.beginPath();
+                ctx.moveTo(leftEyeX - eyeW, eyeY + 20);
+                ctx.quadraticCurveTo(leftEyeX, eyeY + 40, leftEyeX + eyeW, eyeY + 20);
+                ctx.stroke();
+
+                ctx.beginPath();
+                ctx.moveTo(rightEyeX - eyeW, eyeY + 20);
+                ctx.quadraticCurveTo(rightEyeX, eyeY + 40, rightEyeX + eyeW, eyeY + 20);
+                ctx.stroke();
+            } else {
+                // Sclera (Whites)
+                ctx.fillStyle = '#ffffff';
+                
+                // Left Eye
+                ctx.beginPath();
+                ctx.ellipse(leftEyeX, eyeY, eyeW, eyeH, 0, 0, Math.PI * 2);
+                ctx.fill(); ctx.stroke();
+                
+                // Right Eye
+                ctx.beginPath();
+                ctx.ellipse(rightEyeX, eyeY, eyeW, eyeH, 0, 0, Math.PI * 2);
+                ctx.fill(); ctx.stroke();
+
+                // Pupils (Track Look X/Y inside the bounds)
+                let pupilRadiusX = 14;
+                let pupilRadiusY = 30;
+                
+                if (emotion === 'Scared') {
+                    pupilRadiusX = 6;
+                    pupilRadiusY = 12;
+                }
+
+                // Constrain pupil movement so they don't leave the eye
+                const pOffX = lookX * (eyeW - pupilRadiusX - 10);
+                const pOffY = lookY * (eyeH - pupilRadiusY - 15);
+
+                ctx.fillStyle = '#000000';
+                
+                ctx.beginPath();
+                ctx.ellipse(leftEyeX + 15 + pOffX, eyeY + pOffY, pupilRadiusX, pupilRadiusY, 0, 0, Math.PI * 2);
+                ctx.fill();
+
+                ctx.beginPath();
+                ctx.ellipse(rightEyeX - 15 + pOffX, eyeY + pOffY, pupilRadiusX, pupilRadiusY, 0, 0, Math.PI * 2);
+                ctx.fill();
+            }
+
+            // Eyebrows based on Emotion
+            ctx.lineWidth = 12;
+            ctx.lineCap = 'round';
+            
+            // Base positions above eyes
+            let lBrowY1, lBrowY2, rBrowY1, rBrowY2;
+            let browYOffset = -200;
+
+            switch(emotion) {
+                case 'Happy':
+                    lBrowY1 = browYOffset; lBrowY2 = browYOffset - 10;
+                    rBrowY1 = browYOffset - 10; rBrowY2 = browYOffset;
+                    break;
+                case 'Sad':
+                    lBrowY1 = browYOffset; lBrowY2 = browYOffset - 30; // Angled up towards middle
+                    rBrowY1 = browYOffset - 30; rBrowY2 = browYOffset;
+                    break;
+                case 'Angry':
+                    lBrowY1 = browYOffset - 30; lBrowY2 = browYOffset + 10; // Angled down towards middle
+                    rBrowY1 = browYOffset + 10; rBrowY2 = browYOffset - 30;
+                    break;
+                case 'Scared':
+                    browYOffset -= 30; // High up
+                    lBrowY1 = browYOffset; lBrowY2 = browYOffset - 15;
+                    rBrowY1 = browYOffset - 15; rBrowY2 = browYOffset;
+                    break;
+                case 'Neutral':
+                default:
+                    lBrowY1 = browYOffset; lBrowY2 = browYOffset;
+                    rBrowY1 = browYOffset; rBrowY2 = browYOffset;
+                    break;
+            }
+
+            ctx.beginPath(); ctx.moveTo(leftEyeX - 40, lBrowY1); ctx.lineTo(leftEyeX + 40, lBrowY2); ctx.stroke();
+            ctx.beginPath(); ctx.moveTo(rightEyeX - 40, rBrowY1); ctx.lineTo(rightEyeX + 40, rBrowY2); ctx.stroke();
+        }
+
+        // Layer 4: Lower Face (Muzzle, Cheeks, Nose)
+        function drawFoxMuzzle() {
+            // Fluffy Muzzle (Cheeks)
+            ctx.fillStyle = state.colors.furLight;
+            ctx.strokeStyle = state.colors.outline;
+            ctx.lineWidth = 10;
+            ctx.lineJoin = 'round';
+            
+            ctx.beginPath();
+            ctx.moveTo(-250, -30);
+            ctx.quadraticCurveTo(-280, 80, -140, 140); // Left cheek fluff
+            ctx.quadraticCurveTo(0, 220, 140, 140);    // Chin
+            ctx.quadraticCurveTo(280, 80, 250, -30);   // Right cheek fluff
+            
+            // Connect over the bridge of the nose
+            ctx.quadraticCurveTo(100, -80, 0, -90);
+            ctx.quadraticCurveTo(-100, -80, -250, -30);
+            ctx.fill();
+            ctx.stroke();
+
+            // Nose
+            ctx.fillStyle = state.colors.nose;
+            ctx.beginPath();
+            ctx.moveTo(-45, -5);
+            ctx.quadraticCurveTo(0, -25, 45, -5);
+            ctx.quadraticCurveTo(0, 45, -45, -5);
+            ctx.fill();
+            ctx.stroke();
+            
+            // Nose highlight
+            ctx.fillStyle = 'rgba(255,255,255,0.4)';
+            ctx.beginPath();
+            ctx.ellipse(-15, -5, 12, 6, Math.PI/6, 0, Math.PI*2);
+            ctx.fill();
+
+            // Muzzle bridge details
+            ctx.lineWidth = 6;
+            ctx.beginPath(); ctx.moveTo(-35, -20); ctx.lineTo(-15, -60); ctx.stroke();
+            ctx.beginPath(); ctx.moveTo(35, -20); ctx.lineTo(15, -60); ctx.stroke();
+        }
+
+        // Layer 5: Mouth & Visemes
+        function drawFoxMouth(viseme, em) {
+            ctx.save();
+            ctx.translate(0, 70); // Drop down to mouth area
+
+            ctx.lineWidth = 10;
+            ctx.strokeStyle = state.colors.outline;
+            ctx.lineJoin = 'round';
+            ctx.lineCap = 'round';
+
+            // Emotion Modifiers for Mouth
+            let smileY = 0;      
+            let topCurvY = 20;   
+            let centerDip = 5;   
+            let widthScale = 1;
+            let mouthScale = 1;
+
+            switch(em) {
+                case 'Happy': smileY = -35; topCurvY = 30; centerDip = -10; mouthScale = 1.1; break;
+                case 'Sad': smileY = 30; topCurvY = -10; centerDip = 10; widthScale = 0.85; break;
+                case 'Angry': smileY = 15; topCurvY = 35; centerDip = 20; widthScale = 0.9; break;
+                case 'Scared': smileY = 20; topCurvY = 0; centerDip = -15; widthScale = 0.7; mouthScale = 1.2; break;
+                case 'Neutral': default: smileY = 0; topCurvY = 20; centerDip = 5; break;
+            }
+
+            const drawTopLip = (w) => {
+                const cornerX = w * widthScale;
+                ctx.moveTo(-cornerX, smileY);
+                ctx.quadraticCurveTo(-cornerX/2, topCurvY, 0, centerDip);
+                ctx.quadraticCurveTo(cornerX/2, topCurvY, cornerX, smileY);
+            };
+
+            const fillMouth = (pathFn) => {
+                ctx.fillStyle = state.colors.mouth;
+                ctx.beginPath();
+                pathFn();
+                ctx.fill();
+                ctx.stroke();
+            };
+
+            switch (viseme) {
+                case 'REST':
+                case 'M_P_B':
+                    ctx.beginPath();
+                    drawTopLip(100);
+                    ctx.stroke();
+                    
+                    if (em === 'Happy') {
+                        ctx.beginPath(); ctx.moveTo(-110, -40); ctx.quadraticCurveTo(-120, -20, -90, -5); ctx.stroke();
+                        ctx.beginPath(); ctx.moveTo(110, -40); ctx.quadraticCurveTo(120, -20, 90, -5); ctx.stroke();
+                    }
+                    if (em === 'Angry') {
+                        ctx.beginPath(); ctx.moveTo(-90, 20); ctx.quadraticCurveTo(-70, 40, -40, 30); ctx.stroke();
+                        ctx.beginPath(); ctx.moveTo(90, 20); ctx.quadraticCurveTo(70, 40, 40, 30); ctx.stroke();
+                    }
+                    break;
+
+                case 'AAH':
+                    fillMouth(() => {
+                        drawTopLip(110);
+                        ctx.quadraticCurveTo(0, 150 * mouthScale, -110 * widthScale, smileY);
+                    });
+                    
+                    ctx.save();
+                    ctx.beginPath(); drawTopLip(110); ctx.quadraticCurveTo(0, 150 * mouthScale, -110 * widthScale, smileY); ctx.clip();
+                    ctx.fillStyle = state.colors.tongue;
+                    ctx.beginPath(); ctx.arc(0, 130 * mouthScale, 70, 0, Math.PI*2); ctx.fill(); ctx.stroke();
+                    
+                    ctx.fillStyle = state.colors.teeth;
+                    if (em === 'Angry') {
+                        ctx.beginPath(); ctx.moveTo(-50, 25); ctx.lineTo(-30, 50); ctx.lineTo(-10, 20); ctx.fill(); ctx.stroke();
+                        ctx.beginPath(); ctx.moveTo(50, 25); ctx.lineTo(30, 50); ctx.lineTo(10, 20); ctx.fill(); ctx.stroke();
+                    } else {
+                        ctx.beginPath(); ctx.moveTo(-70, 15); ctx.quadraticCurveTo(0, 35, 70, 15); ctx.lineTo(70, -20); ctx.lineTo(-70, -20); ctx.fill(); ctx.stroke();
+                    }
+                    ctx.restore();
+                    break;
+
+                case 'EEH':
+                    fillMouth(() => {
+                        drawTopLip(130);
+                        ctx.quadraticCurveTo(0, (em === 'Scared' ? 110 : 70) * mouthScale, -130 * widthScale, smileY);
+                    });
+                    
+                    ctx.save();
+                    ctx.beginPath(); drawTopLip(130); ctx.quadraticCurveTo(0, (em === 'Scared' ? 110 : 70) * mouthScale, -130 * widthScale, smileY); ctx.clip();
+                    ctx.fillStyle = state.colors.teeth;
+                    ctx.fillRect(-140, -20, 280, 40); // Top
+                    ctx.fillRect(-140, 50, 280, 35);  // Bottom
+                    ctx.beginPath(); ctx.moveTo(-140, 20); ctx.lineTo(140, 20); ctx.stroke(); 
+                    ctx.restore();
+                    break;
+
+                case 'OOH':
+                    const oohW = 40 * widthScale;
+                    const oohH = 50 * mouthScale;
+                    ctx.fillStyle = state.colors.mouth;
+                    ctx.beginPath();
+                    ctx.ellipse(0, 25, oohW, oohH, 0, 0, Math.PI*2);
+                    ctx.fill(); ctx.stroke();
+                    break;
+
+                case 'FFF':
+                    fillMouth(() => {
+                        drawTopLip(100);
+                        ctx.quadraticCurveTo(0, 70 * mouthScale, -100 * widthScale, smileY);
+                    });
+                    
+                    ctx.save();
+                    ctx.beginPath(); drawTopLip(100); ctx.quadraticCurveTo(0, 70 * mouthScale, -100 * widthScale, smileY); ctx.clip();
+                    ctx.fillStyle = state.colors.teeth;
+                    ctx.beginPath(); ctx.moveTo(-70, 15); ctx.quadraticCurveTo(0, 35, 70, 15); ctx.lineTo(70, -20); ctx.lineTo(-70, -20); ctx.fill(); ctx.stroke();
+                    ctx.restore();
+                    
+                    ctx.fillStyle = state.colors.furLight;
+                    ctx.beginPath(); ctx.moveTo(-60, 35); ctx.quadraticCurveTo(0, 80, 60, 35); ctx.stroke();
+                    break;
+
+                case 'N_L':
+                    fillMouth(() => {
+                        drawTopLip(100);
+                        ctx.quadraticCurveTo(0, 110 * mouthScale, -100 * widthScale, smileY);
+                    });
+                    
+                    ctx.save();
+                    ctx.beginPath(); drawTopLip(100); ctx.quadraticCurveTo(0, 110 * mouthScale, -100 * widthScale, smileY); ctx.clip();
+                    ctx.fillStyle = state.colors.tongue;
+                    ctx.beginPath(); ctx.ellipse(0, 25, 50, 35, 0, 0, Math.PI*2); ctx.fill(); ctx.stroke();
+                    ctx.restore();
+                    break;
+
+                case 'E_K_S':
+                    fillMouth(() => {
+                        drawTopLip(110);
+                        ctx.quadraticCurveTo(0, 60 * mouthScale, -110 * widthScale, smileY);
+                    });
+                    
+                    ctx.save();
+                    ctx.beginPath(); drawTopLip(110); ctx.quadraticCurveTo(0, 60 * mouthScale, -110 * widthScale, smileY); ctx.clip();
+                    ctx.fillStyle = state.colors.teeth;
+                    ctx.beginPath(); ctx.moveTo(-80, 15); ctx.quadraticCurveTo(0, 30, 80, 15); ctx.lineTo(80, -20); ctx.lineTo(-80, -20); ctx.fill(); ctx.stroke();
+                    ctx.restore();
+                    break;
+            }
+
+            ctx.restore();
+        }
+
+        // --- Master Render Function (with Parallax) ---
+        function renderFrame() {
+            drawBackground();
+
+            const lx = parseFloat(state.lookX);
+            const ly = parseFloat(state.lookY);
+            const em = state.emotion;
+            
+            // Continuous Blinking Logic
+            const time = Date.now();
+            const isBlinking = (time % 4000) > 3850; // Blink for 150ms every 4 seconds
+
+            ctx.save();
+            ctx.translate(canvas.width / 2, canvas.height / 2 + 50); // Move center down a bit for tall ears
+
+            // Layer 1: Ears & Neck (Move slightly opposite or less)
+            ctx.save();
+            ctx.translate(lx * -15, ly * -10);
+            drawNeckAndEars();
+            ctx.restore();
+
+            // Layer 2: Main Head Base (Moves slightly)
+            ctx.save();
+            ctx.translate(lx * 10, ly * 10);
+            drawHeadBase();
+            ctx.restore();
+
+            // Layer 3: Eyes (Move medium amount)
+            ctx.save();
+            ctx.translate(lx * 25, ly * 25);
+            drawEyes(lx, ly, em, isBlinking);
+            ctx.restore();
+
+            // Layer 4: Muzzle & Mouth (Move the most - foreground)
+            ctx.save();
+            ctx.translate(lx * 40, ly * 40);
+            drawFoxMuzzle();
+            drawFoxMouth(state.currentViseme, em);
+            ctx.restore();
+
+            ctx.restore();
+
+            // Keep requesting frames if not animating dialogue just to keep blinks active
+            if (!state.isAnimating) {
+                requestAnimationFrame(renderFrame);
+            }
+        }
+
+        // --- UI Interactions ---
+        function updateStyles() {
+            state.emotion = emotionSelect.value;
+            state.lookX = lookXSlider.value;
+            state.lookY = lookYSlider.value;
+
+            state.colors.bg = colorBg.value;
+            state.colors.furDark = colorFurDark.value;
+            state.colors.furLight = colorFurLight.value;
+            state.colors.nose = colorNose.value;
+            state.colors.mouth = colorMouth.value;
+            state.colors.tongue = colorTongue.value;
+        }
+
+        const inputs = [colorBg, colorFurDark, colorFurLight, colorNose, colorMouth, colorTongue, emotionSelect, lookXSlider, lookYSlider];
+        inputs.forEach(el => el.addEventListener('input', updateStyles));
+
+        speedSlider.addEventListener('input', (e) => {
+            state.speedMs = parseInt(e.target.value);
+            document.getElementById('speed-val').textContent = state.speedMs + 'ms/char';
+        });
+
+        audioPreviewCheck.addEventListener('change', (e) => {
+            state.audioPreview = e.target.checked;
+        });
+
+        document.querySelectorAll('.viseme-test-btn').forEach(btn => {
+            btn.addEventListener('click', (e) => {
+                if (state.isAnimating) return;
+                state.currentViseme = e.target.getAttribute('data-v');
+                currentWordDisplay.textContent = `Testing: ${state.currentViseme}`;
+            });
+        });
+
+        document.getElementById('theme-toggle').addEventListener('click', () => {
+            document.documentElement.classList.toggle('dark');
+        });
+
+        document.getElementById('load-sample').addEventListener('click', () => {
+            scriptInput.value = "Hey there! I am an animated fox. Move my head around with the sliders and watch my mouth perfectly match the words!";
+        });
+
+        // Initialize & start continuous loop for blinking
+        updateStyles();
+        requestAnimationFrame(renderFrame);
+
+        // --- Animation & Recording Engine ---
+        const btnAnimate = document.getElementById('btn-animate');
+        const btnRecord = document.getElementById('btn-record');
+        const overlay = document.getElementById('recording-overlay');
+
+        async function runLipSync(recordCallback = null) {
+            if (state.isAnimating) return;
+            state.isAnimating = true;
+            btnAnimate.disabled = true;
+            btnRecord.disabled = true;
+
+            const text = scriptInput.value.trim();
+            if (!text) {
+                state.isAnimating = false;
+                btnAnimate.disabled = false;
+                btnRecord.disabled = false;
+                return;
+            }
+
+            const { timeline, totalDuration } = generateTimeline(text);
+            
+            if (state.audioPreview && !recordCallback) {
+                window.speechSynthesis.cancel(); 
+                const utterance = new SpeechSynthesisUtterance(text);
+                
+                const estimatedNormalDuration = text.length * 75;
+                const calculatedRate = estimatedNormalDuration / totalDuration;
+                
+                utterance.rate = Math.max(0.1, Math.min(10, calculatedRate)); 
+                window.speechSynthesis.speak(utterance);
+            }
+            
+            if (recordCallback) await recordCallback();
+
+            const startTime = performance.now();
+
+            return new Promise((resolve) => {
+                function loop(currentTime) {
+                    const elapsed = currentTime - startTime;
+
+                    // Find the current viseme in the timeline
+                    let activeFrame = timeline[timeline.length - 1]; 
+                    for (let i = 0; i < timeline.length; i++) {
+                        if (elapsed >= timeline[i].startTime && elapsed < timeline[i].startTime + timeline[i].duration) {
+                            activeFrame = timeline[i];
+                            break;
+                        }
+                    }
+
+                    if (state.currentViseme !== activeFrame.viseme) {
+                        state.currentViseme = activeFrame.viseme;
+                        
+                        if (activeFrame.char) {
+                            currentWordDisplay.innerHTML = `<span class="text-brand-500 font-bold text-lg mr-2">${activeFrame.char.toUpperCase()}</span> -> [${activeFrame.viseme}]`;
+                        } else {
+                            currentWordDisplay.textContent = "Resting...";
+                        }
+                    }
+
+                    renderFrame();
+
+                    if (elapsed < totalDuration) {
+                        requestAnimationFrame(loop);
+                    } else {
+                        state.currentViseme = 'REST';
+                        currentWordDisplay.textContent = "Finished.";
+                        state.isAnimating = false;
+                        btnAnimate.disabled = false;
+                        btnRecord.disabled = false;
+                        resolve();
+                        requestAnimationFrame(renderFrame); // Ensure blinks continue after speech
+                    }
+                }
+                requestAnimationFrame(loop);
+            });
+        }
+
+        btnAnimate.addEventListener('click', () => runLipSync());
+
+        btnRecord.addEventListener('click', async () => {
+            if (state.isAnimating || state.isRecording) return;
+            
+            let mediaRecorder;
+            let recordedChunks = [];
+            state.isRecording = true;
+            
+            try {
+                const stream = canvas.captureStream(60);
+                
+                let options = { mimeType: 'video/webm;codecs=vp9' };
+                if (!MediaRecorder.isTypeSupported(options.mimeType)) {
+                    options = { mimeType: 'video/webm;codecs=vp8' };
+                    if (!MediaRecorder.isTypeSupported(options.mimeType)) {
+                        options = { mimeType: 'video/webm' };
+                    }
+                }
+
+                options.videoBitsPerSecond = 5000000;
+
+                mediaRecorder = new MediaRecorder(stream, options);
+
+                mediaRecorder.ondataavailable = (e) => {
+                    if (e.data.size > 0) recordedChunks.push(e.data);
+                };
+
+                mediaRecorder.onstop = () => {
+                    const blob = new Blob(recordedChunks, { type: options.mimeType.split(';')[0] });
+                    const url = URL.createObjectURL(blob);
+                    
+                    const a = document.createElement('a');
+                    a.style.display = 'none';
+                    a.href = url;
+                    a.download = `fox-lipsync.webm`;
+                    document.body.appendChild(a);
+                    a.click();
+                    
+                    setTimeout(() => {
+                        document.body.removeChild(a);
+                        window.URL.revokeObjectURL(url);
+                    }, 100);
+
+                    overlay.classList.remove('translate-y-4');
+                    overlay.classList.add('-translate-y-20');
+                    state.isRecording = false;
+                };
+
+                overlay.classList.remove('-translate-y-20');
+                overlay.classList.add('translate-y-4');
+
+                state.currentViseme = 'REST';
+                
+                await new Promise(r => setTimeout(r, 500)); 
+                mediaRecorder.start();
+                
+                await runLipSync();
+
+                setTimeout(() => {
+                    mediaRecorder.stop();
+                }, 1000);
+
+            } catch (err) {
+                console.error("Recording failed:", err);
+                alert("Recording failed. Your browser might not support canvas recording.");
+                overlay.classList.remove('translate-y-4');
+                overlay.classList.add('-translate-y-20');
+                state.isAnimating = false;
+                state.isRecording = false;
+                btnAnimate.disabled = false;
+                btnRecord.disabled = false;
+            }
+        });
+
+    </script>
+</body>
+</html>

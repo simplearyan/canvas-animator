@@ -1,0 +1,785 @@
+<!DOCTYPE html>
+<html lang="en" class="dark">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+    <title>Chart Animator - Smooth Line Chart Races</title>
+    
+    <!-- Google Fonts -->
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Caveat:wght@600;700&family=Inter:wght@400;500;600;700;800&family=JetBrains+Mono:wght@400;500;700&family=Playfair+Display:wght@600;700&family=Roboto:wght@400;500;700;900&display=swap" rel="stylesheet">
+
+    <!-- Tailwind CSS -->
+    <script src="https://cdn.tailwindcss.com"></script>
+    <script>
+        tailwind.config = {
+            darkMode: 'class',
+            theme: {
+                extend: {
+                    fontFamily: {
+                        sans: ['Inter', 'sans-serif'],
+                        mono: ['JetBrains Mono', 'monospace'],
+                    },
+                    colors: {
+                        brand: {
+                            500: '#0ea5e9', // Cyan
+                            600: '#0891b2',
+                        }
+                    }
+                }
+            }
+        }
+    </script>
+
+    <!-- Phosphor Icons -->
+    <script src="https://unpkg.com/@phosphor-icons/web"></script>
+
+    <style>
+        body {
+            transition: background-color 0.2s ease, color 0.2s ease;
+            overscroll-behavior-y: none;
+        }
+        
+        /* Custom ranges for toolbar */
+        input[type=range] {
+            -webkit-appearance: none;
+            width: 100%;
+            background: transparent;
+        }
+        input[type=range]::-webkit-slider-thumb {
+            -webkit-appearance: none;
+            height: 16px;
+            width: 16px;
+            border-radius: 50%;
+            background: #0ea5e9;
+            cursor: pointer;
+            margin-top: -6px;
+        }
+        input[type=range]::-webkit-slider-runnable-track {
+            width: 100%;
+            height: 4px;
+            cursor: pointer;
+            background: #cbd5e1;
+            border-radius: 2px;
+        }
+        .dark input[type=range]::-webkit-slider-runnable-track {
+            background: #475569;
+        }
+
+        /* Custom scrollbars */
+        ::-webkit-scrollbar { width: 8px; height: 8px; }
+        ::-webkit-scrollbar-track { background: transparent; }
+        ::-webkit-scrollbar-thumb { background-color: #cbd5e1; border-radius: 4px; }
+        .dark ::-webkit-scrollbar-thumb { background-color: #475569; }
+
+        /* Canvas container background (Dynamic) */
+        #canvas-container {
+            touch-action: none;
+            background-size: 20px 20px;
+            background-position: 0 0, 10px 10px;
+            transition: background-color 0.3s ease;
+        }
+    </style>
+</head>
+<body class="bg-gray-50 dark:bg-gray-900 text-gray-900 dark:text-gray-100 h-screen flex flex-col overflow-hidden">
+
+    <!-- HEADER -->
+    <header class="h-16 bg-white dark:bg-gray-800 border-b border-gray-200 dark:border-gray-700 flex items-center justify-between px-4 sm:px-6 flex-shrink-0 z-20">
+        <div class="flex items-center gap-2">
+            <div class="bg-brand-500 text-white p-1.5 rounded-lg shadow-sm">
+                <i class="ph-bold ph-chart-line-up text-2xl"></i>
+            </div>
+            <h1 class="text-xl font-bold tracking-tight text-gray-800 dark:text-gray-100 mt-0.5">Chart Animator</h1>
+        </div>
+        <div class="flex items-center gap-3">
+            <button id="theme-toggle" class="p-2.5 rounded-full bg-gray-100 dark:bg-gray-700 hover:bg-gray-200 dark:hover:bg-gray-600 transition" title="Toggle UI Theme">
+                <i class="ph-fill ph-moon text-xl dark:hidden"></i>
+                <i class="ph-fill ph-sun text-xl hidden dark:block"></i>
+            </button>
+        </div>
+    </header>
+
+    <!-- MAIN APP AREA -->
+    <main class="flex-1 flex flex-col md:flex-row overflow-hidden relative">
+        
+        <!-- Recording Overlay -->
+        <div id="recording-overlay" class="absolute top-4 left-1/2 -translate-x-1/2 bg-red-500 text-white px-5 py-2.5 rounded-full font-medium text-sm flex items-center gap-2 shadow-lg z-50 transition-transform duration-300 transform -translate-y-20">
+            <div class="w-3 h-3 bg-white rounded-full animate-pulse"></div>
+            Recording Animation...
+        </div>
+
+        <!-- TOOLBAR / SIDEBAR -->
+        <aside class="w-full md:w-[440px] bg-white dark:bg-gray-800 border-b md:border-b-0 md:border-r border-gray-200 dark:border-gray-700 p-4 md:p-5 flex flex-col gap-5 overflow-y-auto z-10 flex-shrink-0 h-[50vh] md:h-full">
+            
+            <!-- Quick Templates -->
+            <div class="flex flex-col gap-2 flex-shrink-0">
+                <h2 class="text-xs font-bold uppercase tracking-wider text-gray-500 dark:text-gray-400">Quick Templates</h2>
+                <div class="grid grid-cols-2 gap-2">
+                    <button class="template-btn py-1.5 bg-gray-100 dark:bg-gray-700 hover:bg-gray-200 hover:text-brand-600 dark:hover:bg-gray-600 rounded text-xs font-medium transition truncate px-2 text-left" data-template="tech">💻 Tech Giants (Rev)</button>
+                    <button class="template-btn py-1.5 bg-gray-100 dark:bg-gray-700 hover:bg-gray-200 hover:text-brand-600 dark:hover:bg-gray-600 rounded text-xs font-medium transition truncate px-2 text-left" data-template="crypto">🪙 Crypto Run ($)</button>
+                    <button class="template-btn py-1.5 bg-gray-100 dark:bg-gray-700 hover:bg-gray-200 hover:text-brand-600 dark:hover:bg-gray-600 rounded text-xs font-medium transition truncate px-2 text-left" data-template="social">📱 Social Media (MAUs)</button>
+                    <button class="template-btn py-1.5 bg-gray-100 dark:bg-gray-700 hover:bg-gray-200 hover:text-brand-600 dark:hover:bg-gray-600 rounded text-xs font-medium transition truncate px-2 text-left" data-template="climate">🌍 Global Temps (Anomaly)</button>
+                </div>
+            </div>
+
+            <!-- Data Editor -->
+            <div class="flex flex-col gap-2 flex-1 min-h-[160px]">
+                <div class="flex justify-between items-center">
+                    <h2 class="text-xs font-bold uppercase tracking-wider text-gray-500 dark:text-gray-400">Chart Data (CSV)</h2>
+                </div>
+                <p class="text-[11px] text-gray-500">First column is X-axis (time). Top row is labels.</p>
+                <textarea id="data-input" class="w-full flex-1 p-3 rounded-lg border border-gray-300 dark:border-gray-600 bg-gray-50 dark:bg-gray-900 text-[12px] font-mono focus:ring-2 focus:ring-brand-500 focus:border-brand-500 outline-none resize-none whitespace-pre" spellcheck="false">
+Year,TechCorp,GlobalNet,CloudSync,BioGen
+2015,100,250,50,80
+2016,150,260,90,110
+2017,250,270,180,130
+2018,400,280,300,160
+2019,650,290,480,200
+2020,950,280,750,250
+2021,1400,290,1100,320
+2022,1900,310,1600,450
+2023,2600,330,2200,600
+2024,3500,340,2900,850</textarea>
+            </div>
+
+            <!-- Appearance Settings -->
+            <div class="flex flex-col gap-4 flex-shrink-0">
+                <h2 class="text-xs font-bold uppercase tracking-wider text-gray-500 dark:text-gray-400">Appearance & Animation</h2>
+                
+                <!-- Background & Palette -->
+                <div class="grid grid-cols-1 gap-4">
+                    <div>
+                        <label class="block text-sm font-medium mb-2 text-gray-700 dark:text-gray-300">Canvas Background Color</label>
+                        <div class="flex gap-2 flex-wrap">
+                            <button class="bg-color-btn w-6 h-6 rounded-full border-2 border-transparent hover:scale-110 transition ring-2 ring-offset-2 ring-brand-500 ring-offset-white dark:ring-offset-gray-800" data-color="#0f172a" style="background-color: #0f172a;"></button>
+                            <button class="bg-color-btn w-6 h-6 rounded-full border-2 border-transparent hover:scale-110 transition ring-offset-white dark:ring-offset-gray-800" data-color="#000000" style="background-color: #000000;"></button>
+                            <button class="bg-color-btn w-6 h-6 rounded-full border-2 border-transparent hover:scale-110 transition ring-offset-white dark:ring-offset-gray-800" data-color="#f8fafc" style="background-color: #f8fafc;"></button>
+                            <button class="bg-color-btn w-6 h-6 rounded-full border-2 border-transparent hover:scale-110 transition ring-offset-white dark:ring-offset-gray-800" data-color="#fffbeb" style="background-color: #fffbeb;"></button>
+                            <div class="relative w-6 h-6 rounded-full overflow-hidden border border-gray-300 dark:border-gray-600" title="Custom Color">
+                                <input type="color" id="custom-bg" value="#1e1b4b" class="absolute -top-2 -left-2 w-10 h-10 cursor-pointer">
+                            </div>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Font & Palettes -->
+                <div class="grid grid-cols-2 gap-4">
+                    <div>
+                        <label class="block text-sm font-medium mb-1 text-gray-700 dark:text-gray-300">Font Family</label>
+                        <select id="font-family" class="w-full p-2 rounded-lg border border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-700 text-sm outline-none focus:ring-2 focus:ring-brand-500">
+                            <option value="Inter">Inter (Modern)</option>
+                            <option value="Roboto">Roboto (Clean)</option>
+                            <option value="JetBrains Mono">JetBrains (Code)</option>
+                            <option value="Playfair Display">Playfair (Serif)</option>
+                            <option value="Caveat">Caveat (Handdrawn)</option>
+                        </select>
+                    </div>
+                    <div>
+                        <label class="block text-sm font-medium mb-1 text-gray-700 dark:text-gray-300">Line Palette</label>
+                        <select id="color-palette" class="w-full p-2 rounded-lg border border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-700 text-sm outline-none focus:ring-2 focus:ring-brand-500">
+                            <option value="vibrant">Vibrant</option>
+                            <option value="pastel">Pastel Colors</option>
+                            <option value="neon">Cyberpunk Neon</option>
+                            <option value="sunset">Sunset Glow</option>
+                            <option value="ocean">Deep Ocean</option>
+                        </select>
+                    </div>
+                </div>
+
+                <div class="grid grid-cols-2 gap-4">
+                    <div>
+                        <div class="flex justify-between items-center mb-1">
+                            <label class="block text-sm font-medium text-gray-700 dark:text-gray-300">Duration</label>
+                            <span id="duration-val" class="text-xs text-gray-500 font-mono">5.0s</span>
+                        </div>
+                        <input type="range" id="anim-duration" min="2" max="15" step="0.5" value="5.0" class="w-full mt-2">
+                    </div>
+                    <div>
+                        <div class="flex justify-between items-center mb-1">
+                            <label class="block text-sm font-medium text-gray-700 dark:text-gray-300">Line Glow</label>
+                            <span id="glow-val" class="text-xs text-gray-500 font-mono">High</span>
+                        </div>
+                        <input type="range" id="line-glow" min="0" max="30" step="5" value="15" class="w-full mt-2">
+                    </div>
+                </div>
+                
+                <div class="flex items-center justify-between">
+                    <div class="flex items-center gap-3">
+                        <input type="checkbox" id="show-grid" checked class="w-4 h-4 text-brand-500 rounded border-gray-300 focus:ring-brand-500">
+                        <label for="show-grid" class="text-sm font-medium text-gray-700 dark:text-gray-300">Grid Lines</label>
+                    </div>
+                    <div>
+                        <select id="value-format" class="w-full py-1 px-2 rounded border border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-700 text-xs outline-none focus:ring-2 focus:ring-brand-500">
+                            <option value="number">Plain Number</option>
+                            <option value="currency">$ Currency</option>
+                            <option value="percent">% Percentage</option>
+                        </select>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Action Buttons -->
+            <div class="flex flex-col gap-3 mt-auto pt-2 pb-6 md:pb-0">
+                <button id="btn-animate" class="flex items-center justify-center gap-2 w-full py-3 px-4 bg-gray-200 text-gray-900 dark:bg-gray-700 dark:text-white hover:bg-gray-300 dark:hover:bg-gray-600 rounded-lg font-bold transition disabled:opacity-50">
+                    <i class="ph-fill ph-play-circle text-xl"></i> Preview Animation
+                </button>
+                <button id="btn-record" class="flex items-center justify-center gap-2 w-full py-3 px-4 bg-brand-500 hover:bg-brand-600 text-white rounded-lg font-bold transition shadow-md disabled:opacity-50 group">
+                    <i class="ph-fill ph-video-camera text-xl text-cyan-200 group-hover:text-white transition"></i> Record & Export Video
+                </button>
+            </div>
+        </aside>
+
+        <!-- CANVAS AREA -->
+        <section id="canvas-container" class="flex-1 relative overflow-hidden flex items-center justify-center p-4 sm:p-8">
+            <!-- 16:9 1080p Canvas -->
+            <canvas id="export-canvas" class="w-full max-w-[1200px] aspect-video shadow-2xl rounded-lg bg-black"></canvas>
+        </section>
+
+    </main>
+
+    <script>
+        // --- Template Data ---
+        const templates = {
+            'tech': {
+                format: 'currency',
+                csv: `Year,Apple,Microsoft,Google,Amazon
+2014,200,80,60,40
+2016,215,90,90,135
+2018,265,110,136,232
+2020,274,143,182,386
+2022,394,198,282,513
+2024,383,211,305,574`
+            },
+            'crypto': {
+                format: 'currency',
+                csv: `Month,Bitcoin,Ethereum,Solana
+Jan,16000,1200,20
+Mar,24000,1600,22
+May,28000,1900,21
+Jul,30000,1850,25
+Sep,26000,1600,19
+Nov,37000,2000,55
+Jan 24,42000,2200,95
+Mar 24,65000,3500,150`
+            },
+            'social': {
+                format: 'number',
+                csv: `Year,Facebook,Instagram,TikTok,Twitter
+2016,1860,600,0,318
+2018,2320,1000,500,321
+2020,2790,1200,800,353
+2022,2950,1400,1000,368
+2024,3030,2000,1500,415`
+            },
+            'climate': {
+                format: 'number',
+                csv: `Year,GlobalAnomaly,OceanAnomaly,LandAnomaly
+1980,-0.16,-0.04,-0.43
+1990,0.44,0.30,0.76
+2000,0.42,0.29,0.73
+2010,0.72,0.56,1.07
+2015,0.90,0.74,1.33
+2020,1.02,0.84,1.59
+2023,1.18,0.91,1.90`
+            }
+        };
+
+        // --- App State & Data ---
+        const state = {
+            data: [], 
+            seriesNames: [],
+            maxVal: 0,
+            progress: 1.0,
+            isAnimating: false,
+            isRecording: false,
+            duration: 5000,
+            glow: 15,
+            format: 'number',
+            bgColor: '#0f172a',
+            fontFamily: 'Inter',
+            colorPalette: 'vibrant',
+            showGrid: true
+        };
+
+        // Color Palettes
+        const palettes = {
+            vibrant: ['#ef4444', '#3b82f6', '#10b981', '#f59e0b', '#a855f7', '#ec4899', '#06b6d4', '#eab308'],
+            pastel: ['#fca5a5', '#93c5fd', '#6ee7b7', '#fcd34d', '#d8b4fe', '#f9a8d4', '#67e8f9', '#fde047'],
+            neon: ['#ff00ff', '#00ffff', '#00ff00', '#ffff00', '#ff0000', '#0000ff'],
+            sunset: ['#f43f5e', '#f97316', '#eab308', '#8b5cf6', '#d946ef'],
+            ocean: ['#0369a1', '#0ea5e9', '#38bdf8', '#7dd3fc', '#0284c7']
+        };
+
+        const canvas = document.getElementById('export-canvas');
+        const ctx = canvas.getContext('2d', { alpha: false });
+        
+        // Fixed 1080p resolution for crisp rendering and exports
+        canvas.width = 1920;
+        canvas.height = 1080;
+
+        const dataInput = document.getElementById('data-input');
+        const durationSlider = document.getElementById('anim-duration');
+        const glowSlider = document.getElementById('line-glow');
+        const formatSelect = document.getElementById('value-format');
+        const fontSelect = document.getElementById('font-family');
+        const paletteSelect = document.getElementById('color-palette');
+        const showGridCheck = document.getElementById('show-grid');
+        const canvasContainer = document.getElementById('canvas-container');
+
+        // --- Utility Functions ---
+        function isDarkColor(hexColor) {
+            const hex = hexColor.replace('#', '');
+            if(hex.length === 6) {
+                const r = parseInt(hex.substr(0, 2), 16);
+                const g = parseInt(hex.substr(2, 2), 16);
+                const b = parseInt(hex.substr(4, 2), 16);
+                return (r * 0.299 + g * 0.587 + b * 0.114) < 128;
+            }
+            return false;
+        }
+
+        function updateCanvasBackgroundCSS() {
+            canvasContainer.style.backgroundColor = state.bgColor;
+            const isDarkBg = isDarkColor(state.bgColor);
+            const gridColor = isDarkBg ? 'rgba(255,255,255,0.06)' : 'rgba(0,0,0,0.06)';
+            
+            canvasContainer.style.backgroundImage = `
+                radial-gradient(${gridColor} 1px, transparent 1px),
+                radial-gradient(${gridColor} 1px, transparent 1px)
+            `;
+        }
+
+        // --- Data Parsing ---
+        function parseCSV() {
+            const raw = dataInput.value.trim();
+            if (!raw) return;
+
+            const lines = raw.split('\n').map(l => l.split(',').map(c => c.trim()));
+            if (lines.length < 2) return;
+
+            state.seriesNames = lines[0].slice(1);
+            state.data = [];
+            state.maxVal = 0;
+
+            // Handle potential negative numbers (like Climate anomalies)
+            let minVal = 0; 
+
+            for (let i = 1; i < lines.length; i++) {
+                const row = lines[i];
+                if (row.length < 2) continue;
+                
+                const xLabel = row[0];
+                const seriesData = [];
+                
+                for (let j = 1; j < row.length; j++) {
+                    const val = parseFloat(row[j]) || 0;
+                    seriesData.push(val);
+                    if (val > state.maxVal) state.maxVal = val;
+                    if (val < minVal) minVal = val;
+                }
+                
+                state.data.push({ xLabel, series: seriesData });
+            }
+
+            // Adjust axes padding based on minVal
+            if (state.maxVal > 0) {
+                const magnitude = Math.pow(10, Math.floor(Math.log10(Math.max(0.1, state.maxVal))));
+                state.maxVal = Math.ceil(state.maxVal / magnitude) * magnitude;
+            } else {
+                state.maxVal = 100; // fallback
+            }
+
+            // Simple handling if min is negative (add buffer)
+            if (minVal < 0) {
+                 const magnitude = Math.pow(10, Math.floor(Math.log10(Math.abs(minVal))));
+                 state.minVal = Math.floor(minVal / magnitude) * magnitude;
+            } else {
+                 state.minVal = 0;
+            }
+        }
+
+        function formatValue(val) {
+            // Keep decimal if the numbers are very small (like anomalies)
+            const rounded = Math.abs(state.maxVal - state.minVal) < 5 ? val.toFixed(2) : Math.round(val);
+            if (state.format === 'currency') return '$' + Number(rounded).toLocaleString();
+            if (state.format === 'percent') return Number(rounded).toLocaleString() + '%';
+            return Number(rounded).toLocaleString();
+        }
+
+        // --- Canvas Rendering Engine ---
+        function renderFrame(progress) {
+            // Theme configuration based on bg color
+            const isDarkBg = isDarkColor(state.bgColor);
+            const textColor = isDarkBg ? '#f8fafc' : '#0f172a';
+            const gridColor = isDarkBg ? 'rgba(255,255,255,0.15)' : 'rgba(0,0,0,0.15)';
+            const hugeTextColor = isDarkBg ? 'rgba(255,255,255,0.04)' : 'rgba(0,0,0,0.04)';
+            const activePalette = palettes[state.colorPalette];
+            const fontBase = state.fontFamily;
+
+            // 1. Clear & Draw Background
+            ctx.fillStyle = state.bgColor;
+            ctx.fillRect(0, 0, canvas.width, canvas.height);
+
+            if (state.data.length === 0) return;
+
+            // Layout definitions
+            const padding = { top: 120, right: 380, bottom: 100, left: 150 };
+            const graphWidth = canvas.width - padding.left - padding.right;
+            const graphHeight = canvas.height - padding.top - padding.bottom;
+            const valueRange = state.maxVal - state.minVal;
+
+            // Utilities to map data to canvas coordinates
+            const numPoints = state.data.length;
+            const getX = (index) => padding.left + (index / (Math.max(1, numPoints - 1))) * graphWidth;
+            const getY = (value) => padding.top + graphHeight - ((value - state.minVal) / valueRange) * graphHeight;
+
+            // 2. Draw Grid & Axes
+            ctx.textAlign = 'right';
+            ctx.textBaseline = 'middle';
+            ctx.font = `600 24px "${fontBase}"`;
+            ctx.fillStyle = textColor;
+
+            // Y-Axis Grid Lines & Labels
+            const ySteps = 5;
+            for (let i = 0; i <= ySteps; i++) {
+                const val = state.minVal + (valueRange / ySteps) * i;
+                const y = getY(val);
+
+                if (state.showGrid) {
+                    ctx.beginPath();
+                    ctx.moveTo(padding.left, y);
+                    ctx.lineTo(padding.left + graphWidth, y);
+                    ctx.strokeStyle = gridColor;
+                    ctx.lineWidth = 2;
+                    ctx.stroke();
+                }
+
+                // Y-axis label
+                ctx.fillText(formatValue(val), padding.left - 20, y);
+            }
+
+            // Zero Line (if minVal < 0)
+            if (state.minVal < 0 && state.maxVal > 0) {
+                const zeroY = getY(0);
+                ctx.beginPath();
+                ctx.moveTo(padding.left, zeroY);
+                ctx.lineTo(padding.left + graphWidth, zeroY);
+                ctx.strokeStyle = isDarkBg ? 'rgba(255,255,255,0.4)' : 'rgba(0,0,0,0.4)';
+                ctx.lineWidth = 4;
+                ctx.stroke();
+            } else {
+                // Standard Bottom X-Axis Base Line
+                ctx.beginPath();
+                ctx.moveTo(padding.left, padding.top + graphHeight);
+                ctx.lineTo(padding.left + graphWidth, padding.top + graphHeight);
+                ctx.strokeStyle = isDarkBg ? 'rgba(255,255,255,0.4)' : 'rgba(0,0,0,0.4)';
+                ctx.lineWidth = 4;
+                ctx.stroke();
+            }
+
+            // 3. Current Progress Calculations
+            const clampedProgress = Math.max(0, Math.min(1, progress));
+            const virtualIndex = clampedProgress * (numPoints - 1);
+            const currentIndex = Math.max(0, Math.min(numPoints - 1, Math.floor(virtualIndex)));
+            const fraction = Math.max(0, Math.min(1, virtualIndex - currentIndex));
+
+            // 4. Huge Background Label (Current X-Axis Value)
+            let currentXLabel = state.data[currentIndex].xLabel;
+            if (fraction > 0.5 && currentIndex < numPoints - 1) {
+                currentXLabel = state.data[currentIndex + 1].xLabel;
+            }
+            
+            ctx.textAlign = 'center';
+            ctx.textBaseline = 'middle';
+            ctx.font = `800 400px "${fontBase}"`;
+            ctx.fillStyle = hugeTextColor;
+            ctx.fillText(currentXLabel, padding.left + graphWidth/2, padding.top + graphHeight/2);
+
+            // 5. Draw the Chart Lines!
+            for (let s = 0; s < state.seriesNames.length; s++) {
+                const color = activePalette[s % activePalette.length];
+                
+                ctx.beginPath();
+                ctx.moveTo(getX(0), getY(state.data[0].series[s]));
+
+                // Draw completed segments
+                for (let i = 1; i <= currentIndex; i++) {
+                    ctx.lineTo(getX(i), getY(state.data[i].series[s]));
+                }
+
+                // Draw partial leading segment if animating between points
+                let leadX = getX(currentIndex);
+                let leadY = getY(state.data[currentIndex].series[s]);
+                let currentVal = state.data[currentIndex].series[s];
+
+                if (currentIndex < numPoints - 1 && fraction > 0) {
+                    const nextVal = state.data[currentIndex + 1].series[s];
+                    currentVal = currentVal + (nextVal - currentVal) * fraction;
+                    
+                    leadX = getX(currentIndex + fraction);
+                    leadY = getY(currentVal);
+                    ctx.lineTo(leadX, leadY);
+                }
+
+                // Stroke the line with Glow
+                ctx.strokeStyle = color;
+                ctx.lineWidth = 6;
+                ctx.lineCap = 'round';
+                ctx.lineJoin = 'round';
+                
+                if (state.glow > 0) {
+                    ctx.shadowBlur = state.glow;
+                    ctx.shadowColor = color;
+                } else {
+                    ctx.shadowBlur = 0;
+                }
+                
+                ctx.stroke();
+
+                // 6. Draw Leading Marker (Dot)
+                ctx.shadowBlur = 0; 
+                ctx.beginPath();
+                ctx.arc(leadX, leadY, 12, 0, Math.PI * 2);
+                ctx.fillStyle = state.bgColor; 
+                ctx.fill();
+                ctx.lineWidth = 5;
+                ctx.stroke();
+
+                // 7. Draw Floating Label at the Leading Edge
+                const labelX = leadX + 25;
+                const labelY = leadY;
+                
+                ctx.textAlign = 'left';
+                ctx.textBaseline = 'middle';
+                
+                // Series Name
+                ctx.font = `700 28px "${fontBase}"`;
+                ctx.fillStyle = textColor;
+                ctx.fillText(state.seriesNames[s], labelX, labelY - 18);
+                
+                // Value
+                // Use a standard Mono or Sans for digits depending on base font
+                ctx.font = `600 26px "${fontBase === 'Caveat' || fontBase === 'Playfair Display' ? fontBase : 'JetBrains Mono'}"`;
+                ctx.fillStyle = color;
+                ctx.fillText(formatValue(currentVal), labelX, labelY + 18);
+            }
+
+            // 8. Draw X-Axis Ticks & Labels
+            ctx.textAlign = 'center';
+            ctx.textBaseline = 'top';
+            ctx.font = `600 20px "${fontBase}"`;
+            ctx.fillStyle = isDarkBg ? 'rgba(255,255,255,0.6)' : 'rgba(0,0,0,0.6)';
+            ctx.shadowBlur = 0;
+
+            const step = numPoints > 20 ? Math.ceil(numPoints / 15) : 1;
+            for (let i = 0; i <= currentIndex; i += step) {
+                const x = getX(i);
+                const y = padding.top + graphHeight + 15;
+                ctx.fillText(state.data[i].xLabel, x, y);
+            }
+            if (currentIndex % step !== 0) {
+                ctx.fillText(state.data[currentIndex].xLabel, getX(currentIndex), padding.top + graphHeight + 15);
+            }
+        }
+
+        // --- Interaction & Update Loops ---
+        function updateAndRender() {
+            parseCSV();
+            renderFrame(1.0);
+        }
+
+        // Setup Template Buttons
+        document.querySelectorAll('.template-btn').forEach(btn => {
+            btn.addEventListener('click', () => {
+                const template = btn.getAttribute('data-template');
+                if (templates[template]) {
+                    dataInput.value = templates[template].csv;
+                    formatSelect.value = templates[template].format;
+                    state.format = templates[template].format;
+                    updateAndRender();
+                }
+            });
+        });
+
+        // Background Color Pickers
+        const bgBtns = document.querySelectorAll('.bg-color-btn');
+        const customBgBtn = document.getElementById('custom-bg');
+
+        function setBgBtnActive(btn) {
+            bgBtns.forEach(b => b.classList.remove('ring-2', 'ring-brand-500'));
+            customBgBtn.parentElement.classList.remove('ring-2', 'ring-brand-500');
+            if (btn === customBgBtn) {
+                customBgBtn.parentElement.classList.add('ring-2', 'ring-brand-500');
+            } else {
+                btn.classList.add('ring-2', 'ring-brand-500');
+            }
+            updateCanvasBackgroundCSS();
+            renderFrame(state.progress);
+        }
+
+        bgBtns.forEach(btn => {
+            btn.addEventListener('click', (e) => {
+                state.bgColor = e.target.getAttribute('data-color');
+                setBgBtnActive(e.target);
+            });
+        });
+
+        customBgBtn.addEventListener('input', (e) => {
+            state.bgColor = e.target.value;
+            setBgBtnActive(customBgBtn);
+        });
+        setBgBtnActive(bgBtns[0]); // Init default active
+
+        // UI Listeners
+        dataInput.addEventListener('input', updateAndRender);
+        formatSelect.addEventListener('change', (e) => { state.format = e.target.value; renderFrame(state.progress); });
+        fontSelect.addEventListener('change', (e) => { state.fontFamily = e.target.value; renderFrame(state.progress); });
+        paletteSelect.addEventListener('change', (e) => { state.colorPalette = e.target.value; renderFrame(state.progress); });
+        showGridCheck.addEventListener('change', (e) => { state.showGrid = e.target.checked; renderFrame(state.progress); });
+        
+        durationSlider.addEventListener('input', (e) => { 
+            state.duration = parseFloat(e.target.value) * 1000;
+            document.getElementById('duration-val').textContent = e.target.value + 's';
+        });
+        
+        glowSlider.addEventListener('input', (e) => { 
+            state.glow = parseInt(e.target.value);
+            const valLabel = state.glow === 0 ? 'None' : (state.glow > 20 ? 'High' : 'Med');
+            document.getElementById('glow-val').textContent = valLabel;
+            renderFrame(state.progress);
+        });
+
+        document.getElementById('theme-toggle').addEventListener('click', () => {
+            document.documentElement.classList.toggle('dark');
+        });
+
+        // Initialize
+        updateAndRender();
+
+        // --- Animation & Recording Logic ---
+        const btnAnimate = document.getElementById('btn-animate');
+        const btnRecord = document.getElementById('btn-record');
+        const overlay = document.getElementById('recording-overlay');
+
+        async function runAnimation(recordCallback = null) {
+            if (state.isAnimating) return;
+            state.isAnimating = true;
+            btnAnimate.disabled = true;
+            btnRecord.disabled = true;
+
+            parseCSV(); // Ensure fresh data
+            
+            if (recordCallback) await recordCallback();
+
+            const startTime = performance.now();
+            const durationMs = state.duration;
+
+            return new Promise((resolve) => {
+                function animLoop(currentTime) {
+                    const elapsed = Math.max(0, currentTime - startTime);
+                    let p = durationMs > 0 ? elapsed / durationMs : 1.0;
+                    p = Math.max(0, Math.min(1, p));
+                    
+                    state.progress = p;
+                    renderFrame(p);
+
+                    if (p < 1.0) {
+                        requestAnimationFrame(animLoop);
+                    } else {
+                        state.isAnimating = false;
+                        btnAnimate.disabled = false;
+                        btnRecord.disabled = false;
+                        resolve();
+                    }
+                }
+                requestAnimationFrame(animLoop);
+            });
+        }
+
+        btnAnimate.addEventListener('click', () => runAnimation());
+
+        btnRecord.addEventListener('click', async () => {
+            if (state.isAnimating || state.isRecording) return;
+            
+            let mediaRecorder;
+            let recordedChunks = [];
+            state.isRecording = true;
+            
+            try {
+                // High quality stream capture
+                const stream = canvas.captureStream(60);
+                
+                let options = { mimeType: 'video/webm;codecs=vp9' };
+                if (!MediaRecorder.isTypeSupported(options.mimeType)) {
+                    options = { mimeType: 'video/webm;codecs=vp8' };
+                    if (!MediaRecorder.isTypeSupported(options.mimeType)) {
+                        options = { mimeType: 'video/webm' };
+                    }
+                }
+
+                // High bitrate for crisp charts
+                options.videoBitsPerSecond = 8000000; // 8 Mbps
+
+                mediaRecorder = new MediaRecorder(stream, options);
+
+                mediaRecorder.ondataavailable = (e) => {
+                    if (e.data.size > 0) recordedChunks.push(e.data);
+                };
+
+                mediaRecorder.onstop = () => {
+                    const blob = new Blob(recordedChunks, { type: options.mimeType.split(';')[0] });
+                    const url = URL.createObjectURL(blob);
+                    
+                    const a = document.createElement('a');
+                    a.style.display = 'none';
+                    a.href = url;
+                    a.download = `animated-chart.webm`;
+                    document.body.appendChild(a);
+                    a.click();
+                    
+                    setTimeout(() => {
+                        document.body.removeChild(a);
+                        window.URL.revokeObjectURL(url);
+                    }, 100);
+
+                    overlay.classList.remove('translate-y-4');
+                    overlay.classList.add('-translate-y-20');
+                    state.isRecording = false;
+                    state.progress = 1.0;
+                    renderFrame(1.0); // Reset UI
+                };
+
+                overlay.classList.remove('-translate-y-20');
+                overlay.classList.add('translate-y-4');
+
+                // Record: Hold first frame 0.5s, animate, hold last frame 2s
+                state.progress = 0;
+                renderFrame(0);
+                
+                await new Promise(r => setTimeout(r, 500)); // Pre-roll
+                mediaRecorder.start();
+                
+                await runAnimation();
+
+                // Post-animation hold
+                setTimeout(() => {
+                    mediaRecorder.stop();
+                }, 2000);
+
+            } catch (err) {
+                console.error("Recording failed:", err);
+                alert("Recording failed. Your browser might not support canvas recording.");
+                overlay.classList.remove('translate-y-4');
+                overlay.classList.add('-translate-y-20');
+                state.isAnimating = false;
+                state.isRecording = false;
+                btnAnimate.disabled = false;
+                btnRecord.disabled = false;
+                renderFrame(1.0);
+            }
+        });
+
+    </script>
+</body>
+</html>

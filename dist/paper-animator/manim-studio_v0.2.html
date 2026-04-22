@@ -1,0 +1,1095 @@
+<!DOCTYPE html>
+<html lang="en" class="dark">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+    <title>Manim Studio Web</title>
+    
+    <!-- Google Fonts -->
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=JetBrains+Mono:wght@400;500;700&display=swap" rel="stylesheet">
+
+    <!-- Tailwind CSS -->
+    <script src="https://cdn.tailwindcss.com"></script>
+    <script>
+        tailwind.config = {
+            darkMode: 'class',
+            theme: {
+                extend: {
+                    fontFamily: {
+                        sans: ['Inter', 'sans-serif'],
+                        mono: ['JetBrains Mono', 'monospace'],
+                    },
+                    colors: {
+                        manim: {
+                            bg: '#141414',
+                            blue: '#58C4DD',
+                            red: '#FC6255',
+                            green: '#83C167',
+                            yellow: '#FFFF00',
+                            purple: '#9A72AC',
+                            teal: '#29ABCA',
+                            gold: '#C59978',
+                            grey: '#888888'
+                        }
+                    }
+                }
+            }
+        }
+    </script>
+
+    <!-- Phosphor Icons -->
+    <script src="https://unpkg.com/@phosphor-icons/web"></script>
+    
+    <!-- MathJax for Equations -->
+    <script>
+        window.MathJax = {
+            tex: { packages: {'[+]': ['base', 'ams']} },
+            svg: { fontCache: 'global' },
+            startup: { typeset: false }
+        };
+    </script>
+    <script id="MathJax-script" async src="https://cdn.jsdelivr.net/npm/mathjax@3/es5/tex-svg.js"></script>
+
+    <style>
+        body {
+            overscroll-behavior-y: none;
+            background-color: #0a0a0a;
+        }
+        
+        ::-webkit-scrollbar { width: 6px; height: 6px; }
+        ::-webkit-scrollbar-track { background: transparent; }
+        ::-webkit-scrollbar-thumb { background-color: #3f3f46; border-radius: 3px; }
+        ::-webkit-scrollbar-thumb:hover { background-color: #52525b; }
+
+        /* The canvas container ensures absolute positioning of math overlays */
+        #canvas-container {
+            background-color: #141414; /* Manim default background */
+        }
+        
+        /* MathJax overlay styling */
+        .math-overlay {
+            position: absolute;
+            color: white;
+            font-size: 2.2rem;
+            pointer-events: none;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            opacity: 0;
+            transition: opacity 0.3s ease;
+        }
+        .math-overlay svg {
+            fill: currentColor;
+            filter: drop-shadow(0px 4px 6px rgba(0,0,0,0.8));
+        }
+    </style>
+</head>
+<body class="text-gray-100 h-screen flex flex-col overflow-hidden">
+
+    <!-- HEADER -->
+    <header class="h-16 bg-[#1a1a1a] border-b border-[#2a2a2a] flex items-center justify-between px-4 sm:px-6 flex-shrink-0 z-20">
+        <div class="flex items-center gap-3">
+            <div class="bg-manim-blue/20 text-manim-blue p-1.5 rounded-lg shadow-sm border border-manim-blue/30">
+                <i class="ph-bold ph-math-operations text-2xl"></i>
+            </div>
+            <h1 class="text-xl font-bold tracking-tight text-white mt-0.5">Manim Studio <span class="text-xs text-manim-grey font-normal ml-1">Web Edition</span></h1>
+        </div>
+    </header>
+
+    <!-- MAIN APP AREA -->
+    <main class="flex-1 flex flex-col md:flex-row overflow-hidden relative">
+        
+        <!-- Recording Overlay -->
+        <div id="recording-overlay" class="absolute top-4 left-1/2 -translate-x-1/2 bg-manim-red text-white px-5 py-2.5 rounded-full font-medium text-sm flex items-center gap-2 shadow-lg z-50 transform -translate-y-20 transition-transform duration-300">
+            <div class="w-3 h-3 bg-white rounded-full animate-pulse"></div>
+            Rendering Video...
+        </div>
+
+        <!-- TOOLBAR / SIDEBAR -->
+        <aside class="w-full md:w-[420px] bg-[#1a1a1a] border-r border-[#2a2a2a] p-5 flex flex-col gap-6 overflow-y-auto z-10 flex-shrink-0 h-[50vh] md:h-full">
+            
+            <!-- Mathematical Scenes -->
+            <div class="flex flex-col gap-3 flex-shrink-0">
+                <h2 class="text-xs font-bold uppercase tracking-wider text-manim-grey">Mathematical Templates</h2>
+                <div class="grid grid-cols-2 gap-2">
+                    <button class="scene-btn p-2.5 bg-[#222] border border-[#333] hover:border-manim-blue hover:bg-[#2a2a2a] rounded-lg text-sm font-semibold transition flex flex-col gap-1 active:border-manim-blue active:bg-[#2a2a2a]" data-scene="transform">
+                        <div class="flex items-center gap-2 text-manim-blue"><i class="ph-bold ph-grid-four text-lg"></i> <span class="text-white">Transformation</span></div>
+                        <p class="text-[10px] text-manim-grey font-normal text-left">2D Matrix Warping</p>
+                    </button>
+                    <button class="scene-btn p-2.5 bg-[#222] border border-[#333] hover:border-manim-yellow hover:bg-[#2a2a2a] rounded-lg text-sm font-semibold transition flex flex-col gap-1" data-scene="calculus">
+                        <div class="flex items-center gap-2 text-manim-yellow"><i class="ph-bold ph-chart-line text-lg"></i> <span class="text-white">Derivative</span></div>
+                        <p class="text-[10px] text-manim-grey font-normal text-left">Tangent Line Tracking</p>
+                    </button>
+                    <button class="scene-btn p-2.5 bg-[#222] border border-[#333] hover:border-manim-green hover:bg-[#2a2a2a] rounded-lg text-sm font-semibold transition flex flex-col gap-1" data-scene="integral">
+                        <div class="flex items-center gap-2 text-manim-green"><i class="ph-bold ph-chart-polar text-lg"></i> <span class="text-white">Integral Area</span></div>
+                        <p class="text-[10px] text-manim-grey font-normal text-left">Area Under Curve</p>
+                    </button>
+                    <button class="scene-btn p-2.5 bg-[#222] border border-[#333] hover:border-manim-teal hover:bg-[#2a2a2a] rounded-lg text-sm font-semibold transition flex flex-col gap-1" data-scene="surface3d">
+                        <div class="flex items-center gap-2 text-manim-teal"><i class="ph-bold ph-cube text-lg"></i> <span class="text-white">3D Surface</span></div>
+                        <p class="text-[10px] text-manim-grey font-normal text-left">Isometric Projection</p>
+                    </button>
+                    <button class="scene-btn p-2.5 bg-[#222] border border-[#333] hover:border-manim-purple hover:bg-[#2a2a2a] rounded-lg text-sm font-semibold transition flex flex-col gap-1" data-scene="vectorfield">
+                        <div class="flex items-center gap-2 text-manim-purple"><i class="ph-bold ph-arrows-out-cardinal text-lg"></i> <span class="text-white">Vector Field</span></div>
+                        <p class="text-[10px] text-manim-grey font-normal text-left">Flow & Curl</p>
+                    </button>
+                    <button class="scene-btn p-2.5 bg-[#222] border border-[#333] hover:border-manim-gold hover:bg-[#2a2a2a] rounded-lg text-sm font-semibold transition flex flex-col gap-1" data-scene="physics">
+                        <div class="flex items-center gap-2 text-manim-gold"><i class="ph-bold ph-rocket text-lg"></i> <span class="text-white">Physics</span></div>
+                        <p class="text-[10px] text-manim-grey font-normal text-left">Projectile Motion</p>
+                    </button>
+                </div>
+            </div>
+
+            <!-- Custom Equations Input -->
+            <div class="flex flex-col gap-3 flex-shrink-0 bg-[#222] p-3 rounded-lg border border-[#333]">
+                <div class="flex justify-between items-center">
+                    <h2 class="text-xs font-bold uppercase tracking-wider text-manim-blue">Custom Logic Editor</h2>
+                </div>
+                
+                <div>
+                    <label class="block text-[10px] font-medium mb-1 text-gray-400">LaTeX Formula (Overlay)</label>
+                    <textarea id="latex-input" class="w-full p-2 rounded border border-[#444] bg-[#1a1a1a] text-xs text-white outline-none focus:border-manim-blue font-mono resize-none h-16">\begin{bmatrix} 1 & 1 \\ -1 & 1 \end{bmatrix}</textarea>
+                </div>
+                
+                <div>
+                    <label class="block text-[10px] font-medium mb-1 text-gray-400">Math Function (Variables: x, y, t)</label>
+                    <textarea id="math-input" class="w-full p-2 rounded border border-[#444] bg-[#1a1a1a] text-xs text-white outline-none focus:border-manim-blue font-mono resize-none h-16" placeholder="e.g. sin(x) * exp(0.1 * x)">// Only used in specific scenes (Matrix uses preset)</textarea>
+                    <p class="text-[9px] text-gray-500 mt-1">Standard math functions (sin, cos, exp, sqrt) are automatically available. <br>Ex: <span class="text-manim-blue">sin(sqrt(x*x + y*y) - t)</span></p>
+                </div>
+
+                <button id="btn-apply-math" class="w-full py-2 bg-manim-blue/20 hover:bg-manim-blue/30 text-manim-blue rounded text-xs font-bold transition border border-manim-blue/40 mt-1">
+                    Apply Custom Formula
+                </button>
+            </div>
+
+            <!-- Scene Settings -->
+            <div class="flex flex-col gap-3 flex-shrink-0">
+                <h2 class="text-xs font-bold uppercase tracking-wider text-manim-grey">Scene Settings</h2>
+                <div class="grid grid-cols-2 gap-3">
+                    <div>
+                        <label class="block text-[11px] font-medium mb-1 text-gray-400">Duration (sec)</label>
+                        <input type="number" id="anim-duration" value="6" min="2" max="20" class="w-full p-2 rounded border border-[#333] bg-[#222] text-sm text-white outline-none focus:border-manim-blue font-mono">
+                    </div>
+                    <div>
+                        <label class="block text-[11px] font-medium mb-1 text-gray-400">Grid Opacity</label>
+                        <input type="range" id="grid-opacity" min="0" max="1" step="0.1" value="0.3" class="w-full mt-2 accent-manim-blue">
+                    </div>
+                </div>
+                <label class="flex items-center gap-2 mt-1 cursor-pointer">
+                    <input type="checkbox" id="show-equations" checked class="w-4 h-4 text-manim-blue rounded border-[#333] bg-[#222] focus:ring-manim-blue">
+                    <span class="text-xs font-medium text-gray-300">Overlay LaTeX Equations</span>
+                </label>
+            </div>
+
+            <!-- Export Settings -->
+            <div class="flex flex-col gap-3 flex-shrink-0 mt-2">
+                <h2 class="text-xs font-bold uppercase tracking-wider text-manim-grey">Video Export</h2>
+                <div class="grid grid-cols-2 gap-3">
+                    <div>
+                        <label class="block text-[11px] font-medium mb-1 text-gray-400">Aspect Ratio</label>
+                        <select id="export-ratio" class="w-full p-2 rounded border border-[#333] bg-[#222] text-xs font-semibold outline-none focus:border-manim-blue">
+                            <option value="16:9">16:9 (Landscape)</option>
+                            <option value="9:16">9:16 (Shorts)</option>
+                        </select>
+                    </div>
+                    <div>
+                        <label class="block text-[11px] font-medium mb-1 text-gray-400">Resolution</label>
+                        <select id="export-res" class="w-full p-2 rounded border border-[#333] bg-[#222] text-xs font-semibold outline-none focus:border-manim-blue">
+                            <option value="480">480p (SD)</option>
+                            <option value="720">720p (HD)</option>
+                            <option value="1080" selected>1080p (FHD)</option>
+                        </select>
+                    </div>
+                    <div>
+                        <label class="block text-[11px] font-medium mb-1 text-gray-400">Frame Rate</label>
+                        <select id="export-fps" class="w-full p-2 rounded border border-[#333] bg-[#222] text-xs font-semibold outline-none focus:border-manim-blue">
+                            <option value="24">24 FPS</option>
+                            <option value="30">30 FPS</option>
+                            <option value="60" selected>60 FPS</option>
+                        </select>
+                    </div>
+                    <div>
+                        <label class="block text-[11px] font-medium mb-1 text-gray-400">Format</label>
+                        <select id="export-format" class="w-full p-2 rounded border border-[#333] bg-[#222] text-xs font-semibold outline-none focus:border-manim-blue">
+                            <option value="mp4">.MP4</option>
+                            <option value="webm">.WEBM</option>
+                        </select>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Action Buttons -->
+            <div class="flex flex-col gap-3 mt-auto pt-4 pb-6 md:pb-0">
+                <button id="btn-animate" class="flex items-center justify-center gap-2 w-full py-3 px-4 bg-[#2a2a2a] text-white hover:bg-[#333] rounded-lg font-bold transition disabled:opacity-50 border border-[#444]">
+                    <i class="ph-fill ph-play text-xl"></i> Play Animation
+                </button>
+                <button id="btn-record" class="flex items-center justify-center gap-2 w-full py-3 px-4 bg-white hover:bg-gray-200 text-black rounded-lg font-bold transition shadow-md disabled:opacity-50">
+                    <i class="ph-fill ph-export text-xl"></i> Render Video
+                </button>
+            </div>
+        </aside>
+
+        <!-- CANVAS AREA -->
+        <section id="canvas-container" class="flex-1 relative flex items-center justify-center p-4 sm:p-8 overflow-hidden">
+            <!-- Equations Overlay Container -->
+            <div id="math-layer" class="absolute inset-0 pointer-events-none z-10 flex items-center justify-center"></div>
+            <!-- Main Rendering Canvas -->
+            <canvas id="export-canvas" class="bg-[#141414] shadow-2xl shadow-black/50"></canvas>
+        </section>
+
+    </main>
+
+    <script>
+        // --- Default Scene Data ---
+        const sceneDefaults = {
+            transform: { 
+                latex: "\\text{Linear Transformation: } \\begin{bmatrix} 1 & 1 \\\\ -1 & 1 \\end{bmatrix}", 
+                math: "// Matrix hardcoded in script for this scene" 
+            },
+            calculus: { 
+                latex: "f(x) = \\sin(x) \\cdot e^{0.1x} \\\\ f'(x) = \\frac{d}{dx}f(x)", 
+                math: "sin(x) * exp(0.1 * x)" 
+            },
+            integral: { 
+                latex: "\\int_{-4}^{4} \\left( \\frac{\\sin(2x)}{x} \\right) dx", 
+                math: "x === 0 ? 2 : sin(2*x) / x" 
+            },
+            surface3d: { 
+                latex: "z = \\sin(\\sqrt{x^2 + y^2} - 5t) \\cdot 1.5", 
+                math: "sin(sqrt(x*x + y*y) - t * 5) * 1.5" 
+            },
+            vectorfield: { 
+                latex: "\\vec{V}(x,y) = \\sin(y + t)\\hat{i} + \\cos(x - t)\\hat{j}", 
+                math: "[sin(y + t*3), cos(x - t*3)]" 
+            },
+            physics: { 
+                latex: "\\vec{r}(t) = v_{x}t\\hat{i} + \\left(v_{y0}t - \\frac{1}{2}gt^2\\right)\\hat{j}", 
+                math: "// Physics simulation hardcoded" 
+            }
+        };
+
+        // --- App State & Configuration ---
+        const state = {
+            scene: 'transform', 
+            ratio: '16:9',
+            resolutionHeight: 1080,
+            fps: 60,
+            format: 'mp4',
+            duration: 6, // seconds
+            gridOpacity: 0.3,
+            showEquations: true,
+            
+            isAnimating: false,
+            isRecording: false,
+            progress: 0
+        };
+
+        const colors = {
+            bg: '#141414',
+            blue: '#58C4DD',
+            red: '#FC6255',
+            green: '#83C167',
+            yellow: '#FFFF00',
+            purple: '#9A72AC',
+            teal: '#29ABCA',
+            gold: '#C59978',
+            grey: '#888888',
+            white: '#FFFFFF'
+        };
+
+        const canvas = document.getElementById('export-canvas');
+        const ctx = canvas.getContext('2d', { alpha: false });
+        const mathLayer = document.getElementById('math-layer');
+
+        const latexInput = document.getElementById('latex-input');
+        const mathInput = document.getElementById('math-input');
+
+        // --- Math & MathJax Utilities ---
+        
+        async function renderEquation(tex, color, xPct, yPct) {
+            if (!state.showEquations) return null;
+            
+            let retries = 0;
+            while ((typeof MathJax === 'undefined' || typeof MathJax.tex2svgPromise !== 'function') && retries < 100) {
+                await new Promise(r => setTimeout(r, 50));
+                retries++;
+            }
+
+            if (typeof MathJax === 'undefined' || typeof MathJax.tex2svgPromise !== 'function') {
+                console.warn("MathJax failed to load properly.");
+                return null;
+            }
+            
+            try {
+                const wrapper = await MathJax.tex2svgPromise(tex, { display: true });
+                const svg = wrapper.querySelector('svg');
+                if (!svg) return null;
+
+                const div = document.createElement('div');
+                div.className = 'math-overlay';
+                div.style.color = color;
+                
+                div.innerHTML = svg.outerHTML;
+                mathLayer.appendChild(div);
+
+                return {
+                    element: div,
+                    x: xPct,
+                    y: yPct,
+                    show: function(opacity = 1) { this.element.style.opacity = opacity; },
+                    hide: function() { this.element.style.opacity = 0; },
+                    updatePosition: function(canvasRect) {
+                        const cx = canvasRect.width / 2;
+                        const cy = canvasRect.height / 2;
+                        const px = cx + (this.x * cx);
+                        const py = cy - (this.y * cy); 
+                        
+                        this.element.style.left = `${canvasRect.left + px}px`;
+                        this.element.style.top = `${canvasRect.top + py}px`;
+                        this.element.style.transform = 'translate(-50%, -50%) scale(1.3)';
+                    },
+                    remove: function() { this.element.remove(); }
+                };
+            } catch (err) {
+                console.error("MathJax error:", err);
+                return null;
+            }
+        }
+
+        // Secure Evaluation of Custom Math string
+        function createCustomFunction(mathStr, defaultFn, isVector = false) {
+            try {
+                // Using 'with(Math)' allows users to write sin(x) instead of Math.sin(x)
+                if (isVector) {
+                    return new Function('x', 'y', 't', `with(Math) { return ${mathStr}; }`);
+                }
+                return new Function('x', 'y', 't', `with(Math) { return ${mathStr}; }`);
+            } catch (e) {
+                console.error("Custom function error:", e);
+                return defaultFn;
+            }
+        }
+
+        // Standard Easing
+        function easeInOutCubic(x) {
+            return x < 0.5 ? 4 * x * x * x : 1 - Math.pow(-2 * x + 2, 3) / 2;
+        }
+
+        // --- Canvas Geometry Engines ---
+
+        class Engine2D {
+            constructor(ctx, width, height) {
+                this.ctx = ctx;
+                this.w = width;
+                this.h = height;
+                this.cx = width / 2;
+                this.cy = height / 2;
+                this.scale = height / 10; 
+            }
+
+            toScreen(x, y) {
+                return { x: this.cx + x * this.scale, y: this.cy - y * this.scale };
+            }
+
+            drawGrid(matrix = [1, 0, 0, 1], alpha = state.gridOpacity, highlightAxes = true) {
+                this.ctx.lineWidth = 2;
+                const limit = 15; 
+
+                for (let i = -limit; i <= limit; i++) {
+                    const opacity = (i === 0 && highlightAxes) ? alpha * 2.5 : alpha;
+                    this.ctx.strokeStyle = `rgba(255, 255, 255, ${opacity})`;
+                    
+                    let p1 = this.transform(i, -limit, matrix);
+                    let p2 = this.transform(i, limit, matrix);
+                    this.line(p1.x, p1.y, p2.x, p2.y);
+
+                    let p3 = this.transform(-limit, i, matrix);
+                    let p4 = this.transform(limit, i, matrix);
+                    this.line(p3.x, p3.y, p4.x, p4.y);
+                }
+            }
+
+            transform(x, y, matrix) {
+                return {
+                    x: x * matrix[0] + y * matrix[1],
+                    y: x * matrix[2] + y * matrix[3]
+                };
+            }
+
+            line(x1, y1, x2, y2) {
+                const s1 = this.toScreen(x1, y1);
+                const s2 = this.toScreen(x2, y2);
+                this.ctx.beginPath();
+                this.ctx.moveTo(s1.x, s1.y);
+                this.ctx.lineTo(s2.x, s2.y);
+                this.ctx.stroke();
+            }
+
+            arrow(x1, y1, x2, y2, color, width = 6, opacity = 1.0) {
+                const s1 = this.toScreen(x1, y1);
+                const s2 = this.toScreen(x2, y2);
+                
+                this.ctx.strokeStyle = color;
+                this.ctx.fillStyle = color;
+                this.ctx.globalAlpha = opacity;
+                this.ctx.lineWidth = width;
+                this.ctx.lineCap = 'round';
+                this.ctx.lineJoin = 'round';
+                
+                this.ctx.beginPath();
+                this.ctx.moveTo(s1.x, s1.y);
+                this.ctx.lineTo(s2.x, s2.y);
+                this.ctx.stroke();
+
+                const angle = Math.atan2(s2.y - s1.y, s2.x - s1.x);
+                const headLen = width * 2.5;
+                this.ctx.beginPath();
+                this.ctx.moveTo(s2.x, s2.y);
+                this.ctx.lineTo(s2.x - headLen * Math.cos(angle - Math.PI/7), s2.y - headLen * Math.sin(angle - Math.PI/7));
+                this.ctx.lineTo(s2.x - headLen * Math.cos(angle + Math.PI/7), s2.y - headLen * Math.sin(angle + Math.PI/7));
+                this.ctx.fill();
+                this.ctx.globalAlpha = 1.0;
+            }
+
+            drawFunction(fn, color, tStart, tEnd, progress = 1.0) {
+                this.ctx.strokeStyle = color;
+                this.ctx.lineWidth = 6;
+                this.ctx.lineCap = 'round';
+                this.ctx.lineJoin = 'round';
+                this.ctx.beginPath();
+                
+                const steps = 300;
+                const activeSteps = Math.floor(steps * progress);
+                
+                let first = true;
+                for (let i = 0; i <= activeSteps; i++) {
+                    const t = tStart + (tEnd - tStart) * (i / steps);
+                    const y = fn(t);
+                    const s = this.toScreen(t, y);
+                    // Prevent insane drawing lines for asymptotes
+                    if (y > 20 || y < -20 || isNaN(y)) {
+                        first = true;
+                        continue;
+                    }
+
+                    if (first) { this.ctx.moveTo(s.x, s.y); first = false; }
+                    else { this.ctx.lineTo(s.x, s.y); }
+                }
+                this.ctx.stroke();
+            }
+
+            fillArea(fn, color, tStart, tEnd, progress = 1.0) {
+                if (progress <= 0) return;
+                
+                this.ctx.fillStyle = color;
+                this.ctx.beginPath();
+                
+                const steps = 300;
+                const activeSteps = Math.floor(steps * progress);
+                
+                const startPos = this.toScreen(tStart, 0);
+                this.ctx.moveTo(startPos.x, startPos.y);
+
+                for (let i = 0; i <= activeSteps; i++) {
+                    const t = tStart + (tEnd - tStart) * (i / steps);
+                    let y = fn(t);
+                    // Cap Y for safe drawing
+                    if (y > 20) y = 20; if (y < -20) y = -20; if (isNaN(y)) y = 0;
+                    const s = this.toScreen(t, y);
+                    this.ctx.lineTo(s.x, s.y);
+                }
+                
+                const endT = tStart + (tEnd - tStart) * (activeSteps / steps);
+                const endPos = this.toScreen(endT, 0);
+                this.ctx.lineTo(endPos.x, endPos.y);
+                this.ctx.closePath();
+                this.ctx.fill();
+            }
+        }
+
+        class Engine3D {
+            constructor(ctx, width, height) {
+                this.ctx = ctx;
+                this.cx = width / 2;
+                this.cy = height / 2;
+                this.scale = height / 8; 
+            }
+
+            project(x, y, z, angleZ, angleX) {
+                const x1 = x * Math.cos(angleZ) - y * Math.sin(angleZ);
+                const y1 = x * Math.sin(angleZ) + y * Math.cos(angleZ);
+                
+                const y2 = y1 * Math.cos(angleX) - z * Math.sin(angleX);
+                const z2 = y1 * Math.sin(angleX) + z * Math.cos(angleX);
+
+                return {
+                    x: this.cx + x1 * this.scale,
+                    y: this.cy - y2 * this.scale,
+                    zDepth: z2 
+                };
+            }
+
+            drawSurface(fn, angleZ, angleX, progress) {
+                const gridSize = 16;
+                const range = 3.5; 
+                const patches = [];
+
+                for (let i = 0; i < gridSize; i++) {
+                    for (let j = 0; j < gridSize; j++) {
+                        const x = -range + (i / gridSize) * (range * 2);
+                        const y = -range + (j / gridSize) * (range * 2);
+                        const nX = -range + ((i+1) / gridSize) * (range * 2);
+                        const nY = -range + ((j+1) / gridSize) * (range * 2);
+
+                        const pRadius = Math.sqrt(x*x + y*y) / (range * 1.4);
+                        if (pRadius > progress * 1.5) continue;
+
+                        const z1 = fn(x, y);
+                        const z2 = fn(nX, y);
+                        const z3 = fn(nX, nY);
+                        const z4 = fn(x, nY);
+
+                        if(isNaN(z1) || isNaN(z2) || isNaN(z3) || isNaN(z4)) continue;
+
+                        const p1 = this.project(x, y, z1, angleZ, angleX);
+                        const p2 = this.project(nX, y, z2, angleZ, angleX);
+                        const p3 = this.project(nX, nY, z3, angleZ, angleX);
+                        const p4 = this.project(x, nY, z4, angleZ, angleX);
+
+                        const centerZ = (p1.zDepth + p2.zDepth + p3.zDepth + p4.zDepth) / 4;
+                        const avgZ = (z1+z2+z3+z4)/4;
+                        const hue = 200 - (avgZ * 40); 
+
+                        patches.push({
+                            points: [p1, p2, p3, p4],
+                            depth: centerZ,
+                            color: `hsla(${hue}, 80%, 50%, 0.9)`,
+                            stroke: `hsla(${hue}, 80%, 30%, 0.5)`
+                        });
+                    }
+                }
+
+                patches.sort((a, b) => a.depth - b.depth);
+
+                this.ctx.lineWidth = 1;
+                this.ctx.lineJoin = 'round';
+                
+                for (const patch of patches) {
+                    this.ctx.beginPath();
+                    this.ctx.moveTo(patch.points[0].x, patch.points[0].y);
+                    this.ctx.lineTo(patch.points[1].x, patch.points[1].y);
+                    this.ctx.lineTo(patch.points[2].x, patch.points[2].y);
+                    this.ctx.lineTo(patch.points[3].x, patch.points[3].y);
+                    this.ctx.closePath();
+                    
+                    this.ctx.fillStyle = patch.color;
+                    this.ctx.fill();
+                    
+                    this.ctx.strokeStyle = patch.stroke;
+                    this.ctx.stroke();
+                }
+
+                this.ctx.strokeStyle = 'rgba(255,255,255,0.2)';
+                this.ctx.lineWidth = 2;
+                const origin = this.project(0,0,0, angleZ, angleX);
+                const xAx = this.project(range*1.2, 0, 0, angleZ, angleX);
+                const yAx = this.project(0, range*1.2, 0, angleZ, angleX);
+                const zAx = this.project(0, 0, range*1.2, angleZ, angleX);
+                
+                this.ctx.beginPath(); this.ctx.moveTo(origin.x, origin.y); this.ctx.lineTo(xAx.x, xAx.y); this.ctx.stroke();
+                this.ctx.beginPath(); this.ctx.moveTo(origin.x, origin.y); this.ctx.lineTo(yAx.x, yAx.y); this.ctx.stroke();
+                this.ctx.beginPath(); this.ctx.moveTo(origin.x, origin.y); this.ctx.lineTo(zAx.x, zAx.y); this.ctx.stroke();
+            }
+        }
+
+        // --- SCENE DEFINITIONS ---
+        let currentEquations = [];
+
+        async function cleanupEquations() {
+            currentEquations.forEach(eq => eq.remove());
+            currentEquations = [];
+        }
+
+        function positionEquations() {
+            const rect = canvas.getBoundingClientRect();
+            currentEquations.forEach(eq => eq.updatePosition(rect));
+        }
+
+        // 1. Linear Transformation
+        async function setupScene_Transform() {
+            await cleanupEquations();
+            const eq1 = await renderEquation(latexInput.value, colors.white, 0.6, 0.7);
+            if(eq1) currentEquations.push(eq1);
+            return (ctx, w, h, p) => {
+                const engine = new Engine2D(ctx, w, h);
+                
+                const tStart = Math.min(1, p / 0.2);
+                let matrix = [1, 0, 0, 1]; 
+                let target = [1, 1, -1, 1]; 
+                
+                if (p > 0.5) {
+                    const tTrans = easeInOutCubic(Math.min(1, (p - 0.5) / 0.4));
+                    matrix = [
+                        1 * (1-tTrans) + target[0] * tTrans,
+                        0 * (1-tTrans) + target[1] * tTrans,
+                        0 * (1-tTrans) + target[2] * tTrans,
+                        1 * (1-tTrans) + target[3] * tTrans
+                    ];
+                }
+
+                engine.drawGrid([1,0,0,1], state.gridOpacity * 0.5 * tStart, false);
+                engine.drawGrid(matrix, state.gridOpacity * tStart, true);
+
+                const v1 = engine.transform(1, 0, matrix);
+                const v2 = engine.transform(0, 1, matrix);
+                
+                if (tStart > 0.5) {
+                    engine.arrow(0, 0, v1.x, v1.y, colors.green, 6);
+                    engine.arrow(0, 0, v2.x, v2.y, colors.red, 6);
+                }
+
+                if (eq1) {
+                    if (p > 0.4 && p < 0.9) eq1.show((p-0.4)/0.1);
+                    else if (p <= 0.4) eq1.hide();
+                }
+            };
+        }
+
+        // 2. 3D Surface Plot
+        async function setupScene_Surface3D() {
+            await cleanupEquations();
+            const eq1 = await renderEquation(latexInput.value, colors.white, -0.4, 0.8);
+            if(eq1) currentEquations.push(eq1);
+            
+            // Dynamic Function Generation
+            const mathStr = mathInput.value;
+            const fn = createCustomFunction(mathStr, (x,y,t) => Math.sin(Math.sqrt(x*x + y*y) - t*5)*1.5);
+
+            return (ctx, w, h, p) => {
+                const engine = new Engine3D(ctx, w, h);
+                
+                const angleZ = p * Math.PI * 2; 
+                const angleX = Math.PI / 3; 
+                const drawP = easeInOutCubic(Math.min(1, p / 0.2)); 
+
+                engine.drawSurface((x, y) => {
+                    return fn(x, y, p * Math.PI * 2); // Pass time for animation
+                }, angleZ, angleX, drawP);
+
+                if(eq1) eq1.show(Math.min(1, p*5));
+            };
+        }
+
+        // 3. Calculus Derivative (Tangent)
+        async function setupScene_Calculus() {
+            await cleanupEquations();
+            const eq1 = await renderEquation(latexInput.value, colors.white, 0, 0.8);
+            if(eq1) currentEquations.push(eq1);
+
+            const mathStr = mathInput.value;
+            const fn = createCustomFunction(mathStr, (x) => Math.sin(x) * Math.exp(0.1 * x));
+            
+            // Numerical Derivative Approximation
+            const dFn = (x) => {
+                try { return (fn(x + 0.001) - fn(x - 0.001)) / 0.002; } 
+                catch(e) { return 0; }
+            };
+
+            return (ctx, w, h, p) => {
+                const engine = new Engine2D(ctx, w, h);
+                engine.scale = h / 8; 
+
+                engine.drawGrid([1,0,0,1], state.gridOpacity, true);
+
+                const curveP = Math.min(1, p / 0.3);
+                engine.drawFunction((t) => fn(t), colors.yellow, -5, 5, curveP);
+
+                if (p > 0.3) {
+                    const tMove = easeInOutCubic((p - 0.3) / 0.7);
+                    const currentX = -4 + (tMove * 8); 
+                    const currentY = fn(currentX);
+                    const slope = dFn(currentX);
+
+                    const sPos = engine.toScreen(currentX, currentY);
+                    
+                    if (!isNaN(sPos.x) && !isNaN(sPos.y)) {
+                        ctx.beginPath();
+                        ctx.fillStyle = colors.white;
+                        ctx.arc(sPos.x, sPos.y, 8, 0, Math.PI*2);
+                        ctx.fill();
+
+                        const dx = 1.5;
+                        const dy = slope * dx;
+                        engine.line(currentX - dx, currentY - dy, currentX + dx, currentY + dy);
+                        ctx.strokeStyle = colors.red;
+                        ctx.lineWidth = 4;
+                        ctx.stroke();
+                    }
+                }
+                if(eq1) eq1.show(curveP);
+            };
+        }
+
+        // 4. Calculus Integral (Area)
+        async function setupScene_Integral() {
+            await cleanupEquations();
+            const eq1 = await renderEquation(latexInput.value, colors.white, 0, -0.8);
+            if(eq1) currentEquations.push(eq1);
+
+            const mathStr = mathInput.value;
+            const fn = createCustomFunction(mathStr, (x) => x === 0 ? 2 : Math.sin(2*x) / x);
+
+            return (ctx, w, h, p) => {
+                const engine = new Engine2D(ctx, w, h);
+                engine.scale = h / 8;
+                engine.drawGrid([1,0,0,1], state.gridOpacity, true);
+
+                const curveP = Math.min(1, p / 0.3); 
+                const fillP = Math.max(0, Math.min(1, (p - 0.3) / 0.7)); 
+                
+                engine.drawFunction((t) => fn(t), colors.blue, -5, 5, curveP);
+                
+                if (fillP > 0) {
+                    // Fill area from x=-4 to x=4
+                    engine.fillArea((t) => fn(t), 'rgba(131, 193, 103, 0.5)', -4, 4, fillP); 
+                }
+                if(eq1) eq1.show(curveP);
+            };
+        }
+
+        // 5. Vector Field
+        async function setupScene_VectorField() {
+            await cleanupEquations();
+            const eq1 = await renderEquation(latexInput.value, colors.white, 0, 0.8);
+            if(eq1) currentEquations.push(eq1);
+
+            const mathStr = mathInput.value;
+            const fn = createCustomFunction(mathStr, (x,y,t) => [Math.sin(y + t*3), Math.cos(x - t*3)], true);
+
+            return (ctx, w, h, p) => {
+                const engine = new Engine2D(ctx, w, h);
+                engine.drawGrid([1,0,0,1], state.gridOpacity * 0.3, true);
+
+                const spacing = 1.0;
+                const limit = 8;
+                const timeP = p * Math.PI * 2;
+                const drawP = easeInOutCubic(Math.min(1, p / 0.2));
+
+                if (drawP > 0) {
+                    for(let x = -limit; x <= limit; x += spacing) {
+                        for(let y = -limit; y <= limit; y += spacing) {
+                            try {
+                                const vec = fn(x, y, timeP);
+                                if(vec && vec.length === 2) {
+                                    const u = vec[0]; const v = vec[1];
+                                    const len = Math.sqrt(u*u + v*v);
+                                    
+                                    if(len > 0.01) {
+                                        // Scale arrow length
+                                        const arrowScale = (0.6 / len) * Math.min(len, 2);
+                                        const colorHue = (angle) => `hsl(${angle * 180 / Math.PI + 180}, 80%, 60%)`;
+                                        const angle = Math.atan2(v, u);
+                                        
+                                        engine.arrow(x, y, x + u * arrowScale * drawP, y + v * arrowScale * drawP, colorHue(angle), 3, 0.8);
+                                    }
+                                }
+                            } catch(e) {}
+                        }
+                    }
+                }
+                if(eq1) eq1.show(drawP);
+            };
+        }
+
+        // 6. Projectile Physics
+        async function setupScene_Physics() {
+            await cleanupEquations();
+            const eq1 = await renderEquation(latexInput.value, colors.white, 0, 0.8);
+            if(eq1) currentEquations.push(eq1);
+
+            return (ctx, w, h, p) => {
+                const engine = new Engine2D(ctx, w, h);
+                engine.cx = w * 0.1; 
+                engine.cy = h * 0.8;
+                engine.scale = h / 12;
+
+                ctx.beginPath();
+                ctx.moveTo(0, engine.cy);
+                ctx.lineTo(w, engine.cy);
+                ctx.strokeStyle = colors.grey;
+                ctx.lineWidth = 4;
+                ctx.stroke();
+
+                const vx = 4;
+                const vy0 = 8;
+                const g = 9.8;
+                const totalFlightTime = (2 * vy0) / g;
+
+                const animP = easeInOutCubic(p); 
+                const t = animP * totalFlightTime;
+
+                const curX = vx * t;
+                const curY = vy0 * t - 0.5 * g * t * t;
+                const curVy = vy0 - g * t;
+
+                engine.drawFunction((time) => vy0 * time - 0.5 * g * time * time, 'rgba(255,255,255,0.3)', 0, t, 1.0);
+
+                const pos = engine.toScreen(curX, curY);
+                ctx.beginPath();
+                ctx.fillStyle = colors.blue;
+                ctx.arc(pos.x, pos.y, 15, 0, Math.PI*2);
+                ctx.fill();
+
+                if (curY >= 0) {
+                    engine.arrow(curX, curY, curX + vx*0.3, curY, colors.green, 5);
+                    engine.arrow(curX, curY, curX, curY + curVy*0.3, colors.red, 5);
+                    engine.arrow(curX, curY, curX + vx*0.3, curY + curVy*0.3, colors.yellow, 5);
+                }
+
+                if(eq1) eq1.show(Math.min(1, p*5));
+            };
+        }
+
+        // --- Application Architecture ---
+        
+        let currentRenderer = null;
+
+        async function initScene() {
+            await cleanupEquations();
+            
+            switch(state.scene) {
+                case 'transform': currentRenderer = await setupScene_Transform(); break;
+                case 'surface3d': currentRenderer = await setupScene_Surface3D(); break;
+                case 'calculus': currentRenderer = await setupScene_Calculus(); break;
+                case 'integral': currentRenderer = await setupScene_Integral(); break;
+                case 'vectorfield': currentRenderer = await setupScene_VectorField(); break;
+                case 'physics': currentRenderer = await setupScene_Physics(); break;
+            }
+            
+            positionEquations();
+            renderFinalFrame(state.progress);
+        }
+
+        function renderFinalFrame(p) {
+            ctx.fillStyle = colors.bg;
+            ctx.fillRect(0, 0, canvas.width, canvas.height);
+            if (currentRenderer) {
+                currentRenderer(ctx, canvas.width, canvas.height, p);
+            }
+            positionEquations();
+        }
+
+        function updateCanvasResolution() {
+            let w, h;
+            const res = state.resolutionHeight; 
+            
+            if (state.ratio === '16:9') {
+                h = res; w = Math.round((res / 9) * 16);
+            } else {
+                w = res; h = Math.round((res / 9) * 16);
+                if (res === 480) { w = 480; h = 854; }
+                if (res === 720) { w = 720; h = 1280; }
+                if (res === 1080) { w = 1080; h = 1920; }
+            }
+
+            canvas.width = w;
+            canvas.height = h;
+            
+            const wrapper = document.getElementById('canvas-container');
+            const wr = wrapper.clientWidth / wrapper.clientHeight;
+            const cr = w / h;
+            
+            if (cr > wr) {
+                canvas.style.width = '100%';
+                canvas.style.height = 'auto';
+            } else {
+                canvas.style.width = 'auto';
+                canvas.style.height = '100%';
+            }
+
+            initScene();
+        }
+
+        window.addEventListener('resize', () => {
+            updateCanvasResolution();
+        });
+
+        // --- UI Listeners ---
+        document.querySelectorAll('.scene-btn').forEach(btn => {
+            btn.addEventListener('click', (e) => {
+                const target = e.target.closest('.scene-btn');
+                document.querySelectorAll('.scene-btn').forEach(b => {
+                    b.classList.remove('border-manim-blue', 'border-manim-teal', 'border-manim-yellow', 'border-manim-green', 'border-manim-purple', 'border-manim-gold', 'bg-[#2a2a2a]');
+                    b.classList.add('border-[#333]');
+                });
+                
+                const themeClass = Array.from(target.classList).find(c => c.startsWith('hover:border-'));
+                if(themeClass) target.classList.add(themeClass.replace('hover:', ''));
+                target.classList.add('bg-[#2a2a2a]');
+                
+                state.scene = target.dataset.scene;
+                state.progress = 0;
+                
+                // Load default formulas for this scene
+                latexInput.value = sceneDefaults[state.scene].latex;
+                mathInput.value = sceneDefaults[state.scene].math;
+                
+                initScene();
+            });
+        });
+
+        document.getElementById('btn-apply-math').addEventListener('click', () => {
+            state.progress = 0;
+            initScene();
+        });
+
+        const inputs = ['export-ratio', 'export-res', 'export-fps', 'export-format', 'anim-duration', 'grid-opacity'];
+        inputs.forEach(id => {
+            document.getElementById(id).addEventListener('change', (e) => {
+                if(id.startsWith('export-')) state[id.replace('export-', '')] = e.target.value;
+                if(id === 'anim-duration') state.duration = parseFloat(e.target.value);
+                if(id === 'grid-opacity') state.gridOpacity = parseFloat(e.target.value);
+                
+                if(id === 'export-ratio' || id === 'export-res') updateCanvasResolution();
+                else renderFinalFrame(state.progress);
+            });
+        });
+
+        document.getElementById('show-equations').addEventListener('change', (e) => {
+            state.showEquations = e.target.checked;
+            initScene();
+        });
+
+        // Initialize
+        updateCanvasResolution();
+
+        // --- Animation & Recording Engine ---
+        async function runAnimation(recordCallback = null) {
+            if (state.isAnimating) return;
+            state.isAnimating = true;
+            document.getElementById('btn-animate').disabled = true;
+            document.getElementById('btn-record').disabled = true;
+            
+            state.progress = 0;
+            await initScene();
+            
+            if (recordCallback) await recordCallback();
+
+            const startTime = performance.now();
+            const totalDuration = state.duration * 1000;
+            
+            const targetFPS = parseInt(state.fps);
+            const frameDelay = 1000 / targetFPS;
+            let lastDrawTime = 0;
+
+            return new Promise((resolve) => {
+                function loop(currentTime) {
+                    const elapsed = Math.max(0, currentTime - startTime);
+                    let p = totalDuration > 0 ? elapsed / totalDuration : 1.0;
+                    p = Math.max(0, Math.min(1, p));
+                    
+                    if (currentTime - lastDrawTime >= frameDelay) {
+                        state.progress = p;
+                        renderFinalFrame(p);
+                        lastDrawTime = currentTime;
+                    }
+
+                    if (p < 1.0) {
+                        requestAnimationFrame(loop);
+                    } else {
+                        renderFinalFrame(1.0);
+                        state.isAnimating = false;
+                        document.getElementById('btn-animate').disabled = false;
+                        document.getElementById('btn-record').disabled = false;
+                        resolve();
+                    }
+                }
+                requestAnimationFrame(loop);
+            });
+        }
+
+        document.getElementById('btn-animate').addEventListener('click', () => runAnimation());
+
+        document.getElementById('btn-record').addEventListener('click', async () => {
+            if (state.isAnimating || state.isRecording) return;
+            
+            let mediaRecorder;
+            let recordedChunks = [];
+            state.isRecording = true;
+            const overlay = document.getElementById('recording-overlay');
+            
+            try {
+                if (state.showEquations && currentEquations.length > 0) {
+                    console.log("Note: Exporting captures the Canvas element only.");
+                }
+
+                const stream = canvas.captureStream(parseInt(state.fps));
+                let ext = state.format;
+                let options = { mimeType: `video/${ext};codecs=vp9` };
+                
+                if (!MediaRecorder.isTypeSupported(options.mimeType)) {
+                    options = { mimeType: `video/${ext}` };
+                    if (!MediaRecorder.isTypeSupported(options.mimeType)) {
+                        ext = 'webm';
+                        options = { mimeType: 'video/webm' };
+                    }
+                }
+                options.videoBitsPerSecond = 8000000;
+
+                mediaRecorder = new MediaRecorder(stream, options);
+
+                mediaRecorder.ondataavailable = (e) => {
+                    if (e.data.size > 0) recordedChunks.push(e.data);
+                };
+
+                mediaRecorder.onstop = () => {
+                    const blob = new Blob(recordedChunks, { type: options.mimeType.split(';')[0] });
+                    const url = URL.createObjectURL(blob);
+                    const a = document.createElement('a');
+                    a.style.display = 'none';
+                    a.href = url;
+                    a.download = `manim-export.${ext}`;
+                    document.body.appendChild(a);
+                    a.click();
+                    
+                    setTimeout(() => { document.body.removeChild(a); window.URL.revokeObjectURL(url); }, 100);
+
+                    overlay.classList.remove('translate-y-4');
+                    overlay.classList.add('-translate-y-20');
+                    state.isRecording = false;
+                };
+
+                overlay.classList.remove('-translate-y-20');
+                overlay.classList.add('translate-y-4');
+
+                renderFinalFrame(0);
+                let idleInterval = setInterval(() => renderFinalFrame(0), 1000 / parseInt(state.fps));
+                
+                mediaRecorder.start();
+                await new Promise(r => setTimeout(r, 500)); 
+                clearInterval(idleInterval);
+                
+                await runAnimation();
+
+                let endInterval = setInterval(() => renderFinalFrame(1.0), 1000 / parseInt(state.fps));
+                setTimeout(() => {
+                    clearInterval(endInterval);
+                    mediaRecorder.stop();
+                }, 1000);
+
+            } catch (err) {
+                console.error("Recording failed:", err);
+                alert("Recording failed.");
+                overlay.classList.remove('translate-y-4');
+                overlay.classList.add('-translate-y-20');
+                state.isAnimating = false;
+                state.isRecording = false;
+                document.getElementById('btn-animate').disabled = false;
+                document.getElementById('btn-record').disabled = false;
+            }
+        });
+
+    </script>
+</body>
+</html>

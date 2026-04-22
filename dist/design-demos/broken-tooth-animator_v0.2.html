@@ -1,0 +1,910 @@
+<!DOCTYPE html>
+<html lang="en" class="dark">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+    <title>Funny Broken Tooth Animator</title>
+    
+    <!-- Google Fonts -->
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&family=JetBrains+Mono:wght@400;500&display=swap" rel="stylesheet">
+
+    <!-- Tailwind CSS -->
+    <script src="https://cdn.tailwindcss.com"></script>
+    <script>
+        tailwind.config = {
+            darkMode: 'class',
+            theme: {
+                extend: {
+                    fontFamily: {
+                        sans: ['Inter', 'sans-serif'],
+                        mono: ['JetBrains Mono', 'monospace'],
+                    },
+                    colors: {
+                        brand: {
+                            500: '#10b981', // Emerald
+                            600: '#059669',
+                        }
+                    }
+                }
+            }
+        }
+    </script>
+
+    <!-- Phosphor Icons -->
+    <script src="https://unpkg.com/@phosphor-icons/web"></script>
+
+    <style>
+        body {
+            transition: background-color 0.2s ease, color 0.2s ease;
+            overscroll-behavior-y: none;
+        }
+        
+        input[type=range] {
+            -webkit-appearance: none;
+            width: 100%;
+            background: transparent;
+        }
+        input[type=range]::-webkit-slider-thumb {
+            -webkit-appearance: none;
+            height: 16px;
+            width: 16px;
+            border-radius: 50%;
+            background: #10b981;
+            cursor: pointer;
+            margin-top: -6px;
+        }
+        input[type=range]::-webkit-slider-runnable-track {
+            width: 100%;
+            height: 4px;
+            cursor: pointer;
+            background: #cbd5e1;
+            border-radius: 2px;
+        }
+        .dark input[type=range]::-webkit-slider-runnable-track {
+            background: #475569;
+        }
+
+        ::-webkit-scrollbar { width: 8px; height: 8px; }
+        ::-webkit-scrollbar-track { background: transparent; }
+        ::-webkit-scrollbar-thumb { background-color: #cbd5e1; border-radius: 4px; }
+        .dark ::-webkit-scrollbar-thumb { background-color: #475569; }
+
+        /* Canvas checkerboard pattern for transparent look */
+        #canvas-wrapper {
+            background-color: #e2e8f0;
+            background-image: 
+                linear-gradient(45deg, #cbd5e1 25%, transparent 25%), 
+                linear-gradient(-45deg, #cbd5e1 25%, transparent 25%), 
+                linear-gradient(45deg, transparent 75%, #cbd5e1 75%), 
+                linear-gradient(-45deg, transparent 75%, #cbd5e1 75%);
+            background-size: 20px 20px;
+            background-position: 0 0, 0 10px, 10px -10px, -10px 0px;
+        }
+        .dark #canvas-wrapper {
+            background-color: #0f172a;
+            background-image: 
+                linear-gradient(45deg, #1e293b 25%, transparent 25%), 
+                linear-gradient(-45deg, #1e293b 25%, transparent 25%), 
+                linear-gradient(45deg, transparent 75%, #1e293b 75%), 
+                linear-gradient(-45deg, transparent 75%, #1e293b 75%);
+        }
+    </style>
+</head>
+<body class="bg-gray-50 dark:bg-gray-900 text-gray-900 dark:text-gray-100 h-screen flex flex-col overflow-hidden">
+
+    <!-- HEADER -->
+    <header class="h-16 bg-white dark:bg-gray-800 border-b border-gray-200 dark:border-gray-700 flex items-center justify-between px-4 sm:px-6 flex-shrink-0 z-20">
+        <div class="flex items-center gap-2">
+            <div class="bg-brand-500 text-white p-1.5 rounded-lg shadow-sm">
+                <i class="ph-bold ph-alien text-2xl"></i>
+            </div>
+            <h1 class="text-xl font-bold tracking-tight text-gray-800 dark:text-gray-100 mt-0.5">Broken Tooth Animator</h1>
+        </div>
+        <div class="flex items-center gap-3">
+            <button id="theme-toggle" class="p-2.5 rounded-full bg-gray-100 dark:bg-gray-700 hover:bg-gray-200 dark:hover:bg-gray-600 transition">
+                <i class="ph-fill ph-moon text-xl dark:hidden"></i>
+                <i class="ph-fill ph-sun text-xl hidden dark:block"></i>
+            </button>
+        </div>
+    </header>
+
+    <!-- MAIN APP AREA -->
+    <main class="flex-1 flex flex-col md:flex-row overflow-hidden relative">
+        
+        <!-- Recording Overlay -->
+        <div id="recording-overlay" class="absolute top-4 left-1/2 -translate-x-1/2 bg-red-500 text-white px-5 py-2.5 rounded-full font-medium text-sm flex items-center gap-2 shadow-lg z-50 transition-transform duration-300 transform -translate-y-20">
+            <div class="w-3 h-3 bg-white rounded-full animate-pulse"></div>
+            Recording Animation...
+        </div>
+
+        <!-- TOOLBAR / SIDEBAR -->
+        <aside class="w-full md:w-[440px] bg-white dark:bg-gray-800 border-b md:border-b-0 md:border-r border-gray-200 dark:border-gray-700 p-4 md:p-5 flex flex-col gap-5 overflow-y-auto z-10 flex-shrink-0 h-[50vh] md:h-full">
+            
+            <!-- Script Editor -->
+            <div class="flex flex-col gap-2 flex-shrink-0">
+                <div class="flex justify-between items-center">
+                    <h2 class="text-xs font-bold uppercase tracking-wider text-gray-500 dark:text-gray-400">Dialogue Script</h2>
+                    <button id="load-sample" class="text-xs font-medium text-brand-500 hover:text-brand-600 transition">Load Sample</button>
+                </div>
+                <textarea id="script-input" class="w-full h-20 p-3 rounded-lg border border-gray-300 dark:border-gray-600 bg-gray-50 dark:bg-gray-900 text-sm font-mono focus:ring-2 focus:ring-brand-500 focus:border-brand-500 outline-none resize-none" spellcheck="false">Whaddya mean I need to go to the dentist?! I have perfectly fine teeth!</textarea>
+                
+                <!-- Spoken Word Preview -->
+                <div class="mt-1 bg-gray-100 dark:bg-gray-700 rounded p-2 flex items-center gap-2 overflow-hidden">
+                    <i class="ph-fill ph-speaker-high text-gray-400"></i>
+                    <span id="current-word" class="text-sm font-mono text-gray-800 dark:text-gray-200 truncate">Ready to speak...</span>
+                </div>
+            </div>
+
+            <!-- Appearance Settings -->
+            <div class="flex flex-col gap-4 flex-shrink-0">
+                <h2 class="text-xs font-bold uppercase tracking-wider text-gray-500 dark:text-gray-400">Character Colors</h2>
+                
+                <div class="grid grid-cols-2 gap-4">
+                    <div>
+                        <label class="block text-[11px] font-medium mb-1 text-gray-700 dark:text-gray-300">Skin Color</label>
+                        <div class="relative w-full h-8 rounded overflow-hidden border border-gray-300 dark:border-gray-600">
+                            <input type="color" id="skin-color" value="#34d399" class="absolute -top-2 -left-2 w-20 h-20 cursor-pointer">
+                        </div>
+                    </div>
+                    <div>
+                        <label class="block text-[11px] font-medium mb-1 text-gray-700 dark:text-gray-300">Canvas BG</label>
+                        <div class="relative w-full h-8 rounded overflow-hidden border border-gray-300 dark:border-gray-600">
+                            <input type="color" id="bg-color" value="#fef08a" class="absolute -top-2 -left-2 w-20 h-20 cursor-pointer">
+                        </div>
+                    </div>
+                </div>
+
+                <div class="grid grid-cols-3 gap-2">
+                    <div>
+                        <label class="block text-[9px] font-medium mb-1 text-gray-700 dark:text-gray-300 truncate">Mouth Interior</label>
+                        <div class="relative w-full h-8 rounded overflow-hidden border border-gray-300 dark:border-gray-600">
+                            <input type="color" id="mouth-color" value="#60003b" class="absolute -top-2 -left-2 w-20 h-20 cursor-pointer">
+                        </div>
+                    </div>
+                    <div>
+                        <label class="block text-[9px] font-medium mb-1 text-gray-700 dark:text-gray-300 truncate">Tongue</label>
+                        <div class="relative w-full h-8 rounded overflow-hidden border border-gray-300 dark:border-gray-600">
+                            <input type="color" id="tongue-color" value="#e62e6b" class="absolute -top-2 -left-2 w-20 h-20 cursor-pointer">
+                        </div>
+                    </div>
+                    <div>
+                        <label class="block text-[9px] font-medium mb-1 text-gray-700 dark:text-gray-300 truncate">Teeth</label>
+                        <div class="relative w-full h-8 rounded overflow-hidden border border-gray-300 dark:border-gray-600">
+                            <input type="color" id="teeth-color" value="#f8fafc" class="absolute -top-2 -left-2 w-20 h-20 cursor-pointer">
+                        </div>
+                    </div>
+                </div>
+
+                <div class="mt-2">
+                    <div class="flex justify-between items-center mb-1">
+                        <label class="block text-[11px] font-medium text-gray-700 dark:text-gray-300">Speech Speed</label>
+                        <span id="speed-val" class="text-[10px] text-gray-500 font-mono">100ms/char</span>
+                    </div>
+                    <input type="range" id="speech-speed" min="40" max="200" step="10" value="100" class="w-full mt-2">
+                    
+                    <label class="flex items-center gap-2 mt-4 cursor-pointer">
+                        <input type="checkbox" id="audio-preview" checked class="w-4 h-4 text-brand-500 rounded border-gray-300 focus:ring-brand-500">
+                        <span class="text-[11px] font-medium text-gray-700 dark:text-gray-300">Audio Preview (TTS)</span>
+                    </label>
+                </div>
+            </div>
+
+            <!-- Viseme Reference Guide -->
+            <div class="flex flex-col gap-2 flex-1 mt-2">
+                <h2 class="text-xs font-bold uppercase tracking-wider text-gray-500 dark:text-gray-400">Funny Visemes</h2>
+                <div class="grid grid-cols-4 gap-2 text-center text-[10px] font-mono text-gray-600 dark:text-gray-400 overflow-y-auto">
+                    <button class="viseme-test-btn bg-gray-100 dark:bg-gray-700 rounded py-2 hover:bg-brand-100 dark:hover:bg-brand-900 transition" data-v="NEUTRAL"><b class="block text-gray-900 dark:text-white pointer-events-none">NEUTRAL</b>Rest</button>
+                    <button class="viseme-test-btn bg-gray-100 dark:bg-gray-700 rounded py-2 hover:bg-brand-100 dark:hover:bg-brand-900 transition" data-v="A_E_I"><b class="block text-gray-900 dark:text-white pointer-events-none">A_E_I</b>Wide</button>
+                    <button class="viseme-test-btn bg-gray-100 dark:bg-gray-700 rounded py-2 hover:bg-brand-100 dark:hover:bg-brand-900 transition" data-v="C_D_G"><b class="block text-gray-900 dark:text-white pointer-events-none">C,D,G</b>Open</button>
+                    <button class="viseme-test-btn bg-gray-100 dark:bg-gray-700 rounded py-2 hover:bg-brand-100 dark:hover:bg-brand-900 transition" data-v="O"><b class="block text-gray-900 dark:text-white pointer-events-none">O</b>Round</button>
+                    <button class="viseme-test-btn bg-gray-100 dark:bg-gray-700 rounded py-2 hover:bg-brand-100 dark:hover:bg-brand-900 transition" data-v="U"><b class="block text-gray-900 dark:text-white pointer-events-none">U</b>Tall</button>
+                    <button class="viseme-test-btn bg-gray-100 dark:bg-gray-700 rounded py-2 hover:bg-brand-100 dark:hover:bg-brand-900 transition" data-v="Q_W"><b class="block text-gray-900 dark:text-white pointer-events-none">Q, W</b>Pucker</button>
+                    <button class="viseme-test-btn bg-gray-100 dark:bg-gray-700 rounded py-2 hover:bg-brand-100 dark:hover:bg-brand-900 transition" data-v="B_M_P"><b class="block text-gray-900 dark:text-white pointer-events-none">B, M, P</b>Closed</button>
+                    <button class="viseme-test-btn bg-gray-100 dark:bg-gray-700 rounded py-2 hover:bg-brand-100 dark:hover:bg-brand-900 transition" data-v="F_V"><b class="block text-gray-900 dark:text-white pointer-events-none">F, V</b>Bite</button>
+                    <button class="viseme-test-btn bg-gray-100 dark:bg-gray-700 rounded py-2 hover:bg-brand-100 dark:hover:bg-brand-900 transition" data-v="L"><b class="block text-gray-900 dark:text-white pointer-events-none">L</b>Tongue</button>
+                    <button class="viseme-test-btn bg-gray-100 dark:bg-gray-700 rounded py-2 hover:bg-brand-100 dark:hover:bg-brand-900 transition" data-v="TH"><b class="block text-gray-900 dark:text-white pointer-events-none">TH</b>TongueOut</button>
+                    <button class="viseme-test-btn bg-gray-100 dark:bg-gray-700 rounded py-2 hover:bg-brand-100 dark:hover:bg-brand-900 transition" data-v="CH_J_SH"><b class="block text-gray-900 dark:text-white pointer-events-none">CH, SH</b>Clench</button>
+                    <button class="viseme-test-btn bg-gray-100 dark:bg-gray-700 rounded py-2 hover:bg-brand-100 dark:hover:bg-brand-900 transition" data-v="SURPRISED"><b class="block text-gray-900 dark:text-white pointer-events-none">SURPRISED</b>Huge</button>
+                </div>
+            </div>
+
+            <!-- Action Buttons -->
+            <div class="flex flex-col gap-3 mt-auto pt-4 pb-6 md:pb-0">
+                <button id="btn-animate" class="flex items-center justify-center gap-2 w-full py-3 px-4 bg-gray-200 text-gray-900 dark:bg-gray-700 dark:text-white hover:bg-gray-300 dark:hover:bg-gray-600 rounded-lg font-bold transition disabled:opacity-50">
+                    <i class="ph-fill ph-play-circle text-xl"></i> Play Animation
+                </button>
+                <button id="btn-record" class="flex items-center justify-center gap-2 w-full py-3 px-4 bg-brand-500 hover:bg-brand-600 text-white rounded-lg font-bold transition shadow-md disabled:opacity-50 group">
+                    <i class="ph-fill ph-video-camera text-xl text-green-200 group-hover:text-white transition"></i> Record & Export Video
+                </button>
+            </div>
+        </aside>
+
+        <!-- CANVAS AREA -->
+        <section id="canvas-wrapper" class="flex-1 relative overflow-hidden flex items-center justify-center p-4 sm:p-8">
+            <!-- 1:1 Canvas (Perfect for character faces) -->
+            <canvas id="export-canvas" class="w-full max-w-[600px] aspect-square shadow-2xl rounded-2xl bg-white"></canvas>
+        </section>
+
+    </main>
+
+    <script>
+        // --- App State ---
+        const state = {
+            currentViseme: 'NEUTRAL',
+            colors: {
+                bg: '#fef08a',
+                skin: '#34d399',
+                mouth: '#60003b',
+                tongue: '#e62e6b',
+                teeth: '#f8fafc',
+                outline: '#0f172a'
+            },
+            speedMs: 100, // ms per character
+            audioPreview: true,
+            isAnimating: false,
+            isRecording: false,
+            timeline: []
+        };
+
+        // --- Custom Phoneme Dictionary (Based on reference image) ---
+        const phonemeMap = {
+            'a': 'A_E_I', 'e': 'A_E_I', 'i': 'A_E_I',
+            'o': 'O',
+            'u': 'U',
+            'q': 'Q_W', 'w': 'Q_W',
+            'b': 'B_M_P', 'm': 'B_M_P', 'p': 'B_M_P',
+            'f': 'F_V', 'v': 'F_V',
+            'l': 'L',
+            'r': 'R',
+            'c': 'C_D_G', 'd': 'C_D_G', 'g': 'C_D_G', 'k': 'C_D_G', 'n': 'C_D_G', 
+            's': 'C_D_G', 't': 'C_D_G', 'x': 'C_D_G', 'y': 'C_D_G', 'z': 'C_D_G',
+            'h': 'CH_J_SH', 'j': 'CH_J_SH',
+            ' ': 'NEUTRAL', '.': 'NEUTRAL', ',': 'NEUTRAL', '!': 'SURPRISED', '?': 'NEUTRAL'
+        };
+
+        const canvas = document.getElementById('export-canvas');
+        const ctx = canvas.getContext('2d', { alpha: false });
+        
+        // High-res square canvas
+        canvas.width = 1000;
+        canvas.height = 1000;
+
+        // DOM Elements
+        const scriptInput = document.getElementById('script-input');
+        const speedSlider = document.getElementById('speech-speed');
+        const audioPreviewCheck = document.getElementById('audio-preview');
+        
+        const colorBg = document.getElementById('bg-color');
+        const colorSkin = document.getElementById('skin-color');
+        const colorMouth = document.getElementById('mouth-color');
+        const colorTongue = document.getElementById('tongue-color');
+        const colorTeeth = document.getElementById('teeth-color');
+        const currentWordDisplay = document.getElementById('current-word');
+
+        // --- Text Parser Engine ---
+        function generateTimeline(text) {
+            const timeline = [];
+            let currentTime = 0;
+            const chars = text.toLowerCase().split('');
+
+            for (let i = 0; i < chars.length; i++) {
+                const char = chars[i];
+                let viseme = phonemeMap[char] || 'NEUTRAL';
+                
+                // Detect specific digraphs (th, ch, sh)
+                if (i < chars.length - 1) {
+                    const pair = char + chars[i+1];
+                    if (pair === 'th') viseme = 'TH';
+                    if (pair === 'ch' || pair === 'sh') viseme = 'CH_J_SH';
+                    
+                    if (viseme === 'TH' || viseme === 'CH_J_SH') {
+                        // Skip next character
+                        i++; 
+                    }
+                }
+
+                let duration = state.speedMs;
+                if (char === ' ') duration = state.speedMs * 1.5;
+                if (['.', ',', '!', '?'].includes(char)) duration = state.speedMs * 4;
+
+                timeline.push({
+                    char: char,
+                    viseme: viseme,
+                    duration: duration,
+                    startTime: currentTime
+                });
+
+                currentTime += duration;
+            }
+
+            timeline.push({ char: '', viseme: 'NEUTRAL', duration: 500, startTime: currentTime });
+            return { timeline, totalDuration: currentTime + 500 };
+        }
+
+        // --- Drawing Engine ---
+        function drawBackground() {
+            ctx.fillStyle = state.colors.bg;
+            ctx.fillRect(0, 0, canvas.width, canvas.height);
+        }
+
+        // Draw the quirky monster base
+        function drawCharacterBase(jawDrop) {
+            ctx.save();
+            ctx.translate(canvas.width / 2, canvas.height / 2);
+
+            // Squishy body/head
+            ctx.fillStyle = state.colors.skin;
+            ctx.strokeStyle = state.colors.outline;
+            ctx.lineWidth = 14;
+            ctx.lineJoin = 'round';
+
+            // Head shape (bounces with jaw drop)
+            ctx.beginPath();
+            ctx.moveTo(-250, -100);
+            ctx.bezierCurveTo(-280, -300, 280, -300, 250, -100); // Top head
+            ctx.bezierCurveTo(300, 100, 200, 250 + jawDrop, 0, 280 + jawDrop); // Right cheek to chin
+            ctx.bezierCurveTo(-200, 250 + jawDrop, -300, 100, -250, -100); // Left cheek to chin
+            ctx.fill();
+            ctx.stroke();
+
+            // Single Big Googly Eye (Cyclops)
+            // Blink logic
+            const time = Date.now();
+            const isBlinking = (time % 3500) > 3350;
+
+            if (isBlinking) {
+                ctx.beginPath();
+                ctx.moveTo(-80, -120);
+                ctx.quadraticCurveTo(0, -90, 80, -120);
+                ctx.stroke();
+            } else {
+                // Eye white
+                ctx.fillStyle = '#ffffff';
+                ctx.beginPath();
+                ctx.arc(0, -120, 80, 0, Math.PI * 2);
+                ctx.fill();
+                ctx.stroke();
+
+                // Pupil
+                ctx.fillStyle = '#0f172a';
+                ctx.beginPath();
+                ctx.arc(0, -120, 25, 0, Math.PI * 2);
+                ctx.fill();
+                
+                // Highlight
+                ctx.fillStyle = '#ffffff';
+                ctx.beginPath();
+                ctx.arc(10, -130, 8, 0, Math.PI * 2);
+                ctx.fill();
+            }
+
+            ctx.restore();
+        }
+
+        // --- Broken Teeth Rendering ---
+        function drawBrokenTeeth(mouthWidth, yOffset, showBottom = false) {
+            ctx.fillStyle = state.colors.teeth;
+            
+            // Top teeth are drawn as three blocks to simulate a gap
+            // The reference image has a gap on the viewer's left/center
+            const tW = mouthWidth * 0.9; 
+            
+            // Left tooth block
+            ctx.fillRect(-tW/2, yOffset, tW * 0.35, 30);
+            // The GAP (tW * 0.35 to tW * 0.5) is empty!
+            // Right tooth block
+            ctx.fillRect(-tW/2 + tW * 0.55, yOffset, tW * 0.45, 30);
+
+            // Little jagged tooth inside the gap
+            ctx.fillRect(-tW/2 + tW * 0.4, yOffset, tW * 0.1, 12);
+
+            // Bottom teeth (if needed for clenched looks)
+            if (showBottom) {
+                ctx.fillRect(-tW/2, yOffset + 50, tW * 0.4, 25);
+                ctx.fillRect(-tW/2 + tW * 0.45, yOffset + 50, tW * 0.55, 25);
+            }
+            
+            // Outline all teeth
+            ctx.strokeStyle = state.colors.outline;
+            ctx.lineWidth = 4;
+            ctx.strokeRect(-tW/2, yOffset, tW * 0.35, 30);
+            ctx.strokeRect(-tW/2 + tW * 0.55, yOffset, tW * 0.45, 30);
+            ctx.strokeRect(-tW/2 + tW * 0.4, yOffset, tW * 0.1, 12);
+
+            if (showBottom) {
+                ctx.strokeRect(-tW/2, yOffset + 50, tW * 0.4, 25);
+                ctx.strokeRect(-tW/2 + tW * 0.45, yOffset + 50, tW * 0.55, 25);
+            }
+        }
+
+        // Draws the expressive, slightly asymmetrical mouth based on the reference image
+        function drawViseme(visemeType) {
+            ctx.save();
+            ctx.translate(canvas.width / 2, canvas.height / 2 + 80); // Mouth center
+            
+            ctx.lineWidth = 12;
+            ctx.strokeStyle = state.colors.outline;
+            ctx.lineJoin = 'round';
+            ctx.lineCap = 'round';
+
+            // Base mouth path drawer
+            const drawMouthPath = (topL, topR, botL, botR, cpTop, cpBot) => {
+                ctx.beginPath();
+                ctx.moveTo(topL.x, topL.y);
+                ctx.quadraticCurveTo(cpTop.x, cpTop.y, topR.x, topR.y);
+                ctx.bezierCurveTo(cpBot.rx, cpBot.ry, cpBot.lx, cpBot.ly, botL.x, botL.y);
+                ctx.closePath();
+            };
+
+            const fillAndStroke = () => {
+                ctx.fillStyle = state.colors.mouth;
+                ctx.fill();
+                ctx.stroke();
+            };
+
+            let jawDrop = 0; // Used to return value to move the head/chin
+
+            switch (visemeType) {
+                case 'NEUTRAL':
+                    ctx.beginPath();
+                    ctx.moveTo(-80, 0);
+                    ctx.quadraticCurveTo(0, 15, 80, 0);
+                    ctx.stroke();
+                    break;
+
+                case 'B_M_P':
+                    // Firmly closed, slight frown/flat
+                    ctx.beginPath();
+                    ctx.moveTo(-100, 10);
+                    ctx.quadraticCurveTo(0, -5, 100, 10);
+                    ctx.stroke();
+                    break;
+
+                case 'SMILE': // Optional extra
+                    ctx.beginPath();
+                    ctx.moveTo(-120, -20);
+                    ctx.quadraticCurveTo(0, 40, 120, -20);
+                    ctx.stroke();
+                    // Dimples
+                    ctx.beginPath(); ctx.moveTo(-130, -30); ctx.quadraticCurveTo(-140, -10, -110, 0); ctx.stroke();
+                    ctx.beginPath(); ctx.moveTo(130, -30); ctx.quadraticCurveTo(140, -10, 110, 0); ctx.stroke();
+                    break;
+
+                case 'A_E_I':
+                    jawDrop = 60;
+                    drawMouthPath(
+                        {x: -140, y: -20}, {x: 140, y: -10}, // Top corners (slightly asymmetrical)
+                        {x: -140, y: -20}, {x: 140, y: -10}, // Bot corners (same to close)
+                        {x: 0, y: -10},                      // Top CP
+                        {lx: -100, ly: 140, rx: 100, ry: 150} // Bot CP (Deep drop)
+                    );
+                    fillAndStroke();
+                    
+                    ctx.save(); ctx.clip();
+                    drawBrokenTeeth(240, -20);
+                    // Bottom Tongue
+                    ctx.fillStyle = state.colors.tongue;
+                    ctx.beginPath(); ctx.arc(20, 120, 70, Math.PI, 0); ctx.fill(); ctx.stroke();
+                    ctx.restore();
+                    break;
+
+                case 'C_D_G':
+                    jawDrop = 40;
+                    drawMouthPath(
+                        {x: -150, y: -10}, {x: 140, y: 0}, 
+                        {x: -150, y: -10}, {x: 140, y: 0}, 
+                        {x: 0, y: 10},                      
+                        {lx: -120, ly: 90, rx: 120, ry: 100} 
+                    );
+                    fillAndStroke();
+                    
+                    ctx.save(); ctx.clip();
+                    drawBrokenTeeth(260, -10);
+                    // Floating Tongue
+                    ctx.fillStyle = state.colors.tongue;
+                    ctx.beginPath(); ctx.ellipse(0, 60, 60, 30, 0, 0, Math.PI*2); ctx.fill(); ctx.stroke();
+                    ctx.restore();
+                    break;
+
+                case 'O':
+                    jawDrop = 30;
+                    drawMouthPath(
+                        {x: -60, y: -10}, {x: 60, y: -10}, 
+                        {x: -60, y: -10}, {x: 60, y: -10}, 
+                        {x: 0, y: -30},                      
+                        {lx: -40, ly: 90, rx: 40, ry: 90} 
+                    );
+                    fillAndStroke();
+                    
+                    ctx.save(); ctx.clip();
+                    drawBrokenTeeth(100, -20);
+                    // Bottom Tongue
+                    ctx.fillStyle = state.colors.tongue;
+                    ctx.beginPath(); ctx.arc(0, 70, 40, Math.PI, 0); ctx.fill(); ctx.stroke();
+                    ctx.restore();
+                    break;
+
+                case 'U':
+                    jawDrop = 50;
+                    drawMouthPath(
+                        {x: -80, y: 0}, {x: 80, y: 0}, 
+                        {x: -80, y: 0}, {x: 80, y: 0}, 
+                        {x: 0, y: -10},                      
+                        {lx: -60, ly: 120, rx: 60, ry: 120} 
+                    );
+                    fillAndStroke();
+                    
+                    ctx.save(); ctx.clip();
+                    drawBrokenTeeth(120, -10);
+                    ctx.restore();
+                    break;
+
+                case 'Q_W':
+                    jawDrop = 10;
+                    drawMouthPath(
+                        {x: -40, y: 0}, {x: 40, y: 0}, 
+                        {x: -40, y: 0}, {x: 40, y: 0}, 
+                        {x: 0, y: -20},                      
+                        {lx: -30, ly: 50, rx: 30, ry: 50} 
+                    );
+                    fillAndStroke();
+                    ctx.save(); ctx.clip();
+                    drawBrokenTeeth(60, -10);
+                    ctx.restore();
+                    // Pucker lines
+                    ctx.beginPath(); ctx.moveTo(-60, 10); ctx.lineTo(-80, 5); ctx.stroke();
+                    ctx.beginPath(); ctx.moveTo(60, 10); ctx.lineTo(80, 5); ctx.stroke();
+                    break;
+
+                case 'F_V':
+                    jawDrop = 20;
+                    drawMouthPath(
+                        {x: -120, y: -20}, {x: 120, y: -20}, 
+                        {x: -120, y: -20}, {x: 120, y: -20}, 
+                        {x: 0, y: 0},                      
+                        {lx: -100, ly: 60, rx: 100, ry: 60} 
+                    );
+                    fillAndStroke();
+                    
+                    ctx.save(); ctx.clip();
+                    drawBrokenTeeth(200, -20);
+                    ctx.restore();
+                    
+                    // Bottom lip biting under teeth
+                    ctx.fillStyle = state.colors.skin;
+                    ctx.beginPath();
+                    ctx.moveTo(-100, 10);
+                    ctx.quadraticCurveTo(0, -10, 100, 10);
+                    ctx.quadraticCurveTo(0, 50, -100, 10);
+                    ctx.fill(); ctx.stroke();
+                    break;
+
+                case 'L':
+                    jawDrop = 30;
+                    drawMouthPath(
+                        {x: -130, y: -10}, {x: 130, y: -10}, 
+                        {x: -130, y: -10}, {x: 130, y: -10}, 
+                        {x: 0, y: 10},                      
+                        {lx: -100, ly: 80, rx: 100, ry: 80} 
+                    );
+                    fillAndStroke();
+                    
+                    ctx.save(); ctx.clip();
+                    drawBrokenTeeth(220, -10);
+                    // Tongue touching teeth
+                    ctx.fillStyle = state.colors.tongue;
+                    ctx.beginPath(); ctx.ellipse(0, 20, 60, 40, 0, 0, Math.PI*2); ctx.fill(); ctx.stroke();
+                    ctx.restore();
+                    break;
+
+                case 'TH':
+                    jawDrop = 20;
+                    drawMouthPath(
+                        {x: -140, y: -20}, {x: 140, y: -20}, 
+                        {x: -140, y: -20}, {x: 140, y: -20}, 
+                        {x: 0, y: 0},                      
+                        {lx: -120, ly: 50, rx: 120, ry: 50} 
+                    );
+                    fillAndStroke();
+                    
+                    ctx.save(); ctx.clip();
+                    // Tongue sticking out slightly
+                    ctx.fillStyle = state.colors.tongue;
+                    ctx.beginPath(); ctx.ellipse(20, 25, 70, 30, 0, 0, Math.PI*2); ctx.fill(); ctx.stroke();
+                    drawBrokenTeeth(240, -20);
+                    ctx.restore();
+                    break;
+
+                case 'CH_J_SH':
+                    jawDrop = 10;
+                    drawMouthPath(
+                        {x: -130, y: -20}, {x: 130, y: -10}, 
+                        {x: -130, y: -20}, {x: 130, y: -10}, 
+                        {x: 0, y: 10},                      
+                        {lx: -100, ly: 60, rx: 100, ry: 50} 
+                    );
+                    fillAndStroke();
+                    
+                    ctx.save(); ctx.clip();
+                    drawBrokenTeeth(220, -10, true); // Show bottom teeth too!
+                    ctx.restore();
+                    break;
+                    
+                case 'R':
+                    jawDrop = 25;
+                    drawMouthPath(
+                        {x: -110, y: 0}, {x: 110, y: 0}, 
+                        {x: -110, y: 0}, {x: 110, y: 0}, 
+                        {x: 0, y: 20},                      
+                        {lx: -90, ly: 70, rx: 90, ry: 70} 
+                    );
+                    fillAndStroke();
+                    
+                    ctx.save(); ctx.clip();
+                    drawBrokenTeeth(200, 0);
+                    // Tongue curled back
+                    ctx.fillStyle = state.colors.tongue;
+                    ctx.beginPath(); ctx.ellipse(0, 60, 50, 20, 0, 0, Math.PI*2); ctx.fill(); ctx.stroke();
+                    ctx.restore();
+                    break;
+                    
+                case 'EEH':
+                    jawDrop = 15;
+                    drawMouthPath(
+                        {x: -150, y: -30}, {x: 150, y: -30}, 
+                        {x: -150, y: -30}, {x: 150, y: -30}, 
+                        {x: 0, y: -10},                      
+                        {lx: -120, ly: 60, rx: 120, ry: 60} 
+                    );
+                    fillAndStroke();
+                    
+                    ctx.save(); ctx.clip();
+                    drawBrokenTeeth(260, -20, true); // Clenched teeth
+                    ctx.restore();
+                    break;
+
+                case 'SURPRISED':
+                    jawDrop = 90;
+                    drawMouthPath(
+                        {x: -120, y: -40}, {x: 120, y: -40}, 
+                        {x: -120, y: -40}, {x: 120, y: -40}, 
+                        {x: 0, y: -10},                      
+                        {lx: -100, ly: 180, rx: 100, ry: 180} 
+                    );
+                    fillAndStroke();
+                    
+                    ctx.save(); ctx.clip();
+                    drawBrokenTeeth(200, -30);
+                    ctx.fillStyle = state.colors.tongue;
+                    ctx.beginPath(); ctx.arc(0, 160, 60, Math.PI, 0); ctx.fill(); ctx.stroke();
+                    ctx.restore();
+                    break;
+            }
+
+            ctx.restore();
+            return jawDrop;
+        }
+
+        // --- Master Render Function ---
+        // To allow the head to bounce, we render the mouth virtually first to get the jaw drop, 
+        // then render everything.
+        function renderFrame() {
+            drawBackground();
+            
+            // Dummy call to get jawDrop value for the current viseme
+            // (In a complex engine, we'd map this explicitly, but this works well for Canvas)
+            ctx.save();
+            ctx.globalAlpha = 0; // invisible
+            const jawDrop = drawViseme(state.currentViseme);
+            ctx.restore();
+
+            drawCharacterBase(jawDrop);
+            drawViseme(state.currentViseme);
+
+            // Keep requesting frames if not animating dialogue just to keep blinks active
+            if (!state.isAnimating) {
+                requestAnimationFrame(renderFrame);
+            }
+        }
+
+        // --- UI Interactions ---
+        function updateStyles() {
+            state.colors.bg = colorBg.value;
+            state.colors.skin = colorSkin.value;
+            state.colors.mouth = colorMouth.value;
+            state.colors.tongue = colorTongue.value;
+            state.colors.teeth = colorTeeth.value;
+        }
+
+        const inputs = [colorBg, colorSkin, colorMouth, colorTongue, colorTeeth];
+        inputs.forEach(el => el.addEventListener('input', updateStyles));
+
+        speedSlider.addEventListener('input', (e) => {
+            state.speedMs = parseInt(e.target.value);
+            document.getElementById('speed-val').textContent = state.speedMs + 'ms/char';
+        });
+
+        audioPreviewCheck.addEventListener('change', (e) => {
+            state.audioPreview = e.target.checked;
+        });
+
+        document.querySelectorAll('.viseme-test-btn').forEach(btn => {
+            btn.addEventListener('click', (e) => {
+                if (state.isAnimating) return;
+                state.currentViseme = e.target.getAttribute('data-v');
+                currentWordDisplay.textContent = `Testing: ${state.currentViseme}`;
+            });
+        });
+
+        document.getElementById('theme-toggle').addEventListener('click', () => {
+            document.documentElement.classList.toggle('dark');
+        });
+
+        document.getElementById('load-sample').addEventListener('click', () => {
+            scriptInput.value = "Hey look! I lost a tooth but I can still talk perfectly fine. Ch, Sh, Th, La la la!";
+        });
+
+        // Initialize & start continuous loop for blinking
+        updateStyles();
+        requestAnimationFrame(renderFrame);
+
+        // --- Animation & Recording Engine ---
+        const btnAnimate = document.getElementById('btn-animate');
+        const btnRecord = document.getElementById('btn-record');
+        const overlay = document.getElementById('recording-overlay');
+
+        async function runLipSync(recordCallback = null) {
+            if (state.isAnimating) return;
+            state.isAnimating = true;
+            btnAnimate.disabled = true;
+            btnRecord.disabled = true;
+
+            const text = scriptInput.value.trim();
+            if (!text) {
+                state.isAnimating = false;
+                btnAnimate.disabled = false;
+                btnRecord.disabled = false;
+                return;
+            }
+
+            const { timeline, totalDuration } = generateTimeline(text);
+            
+            if (state.audioPreview && !recordCallback) {
+                window.speechSynthesis.cancel(); 
+                const utterance = new SpeechSynthesisUtterance(text);
+                
+                const estimatedNormalDuration = text.length * 75;
+                const calculatedRate = estimatedNormalDuration / totalDuration;
+                
+                utterance.rate = Math.max(0.1, Math.min(10, calculatedRate)); 
+                // Set voice pitch higher to match the goofy character
+                utterance.pitch = 1.5;
+                window.speechSynthesis.speak(utterance);
+            }
+            
+            if (recordCallback) await recordCallback();
+
+            const startTime = performance.now();
+
+            return new Promise((resolve) => {
+                function loop(currentTime) {
+                    const elapsed = currentTime - startTime;
+
+                    let activeFrame = timeline[timeline.length - 1]; 
+                    for (let i = 0; i < timeline.length; i++) {
+                        if (elapsed >= timeline[i].startTime && elapsed < timeline[i].startTime + timeline[i].duration) {
+                            activeFrame = timeline[i];
+                            break;
+                        }
+                    }
+
+                    if (state.currentViseme !== activeFrame.viseme) {
+                        state.currentViseme = activeFrame.viseme;
+                        
+                        if (activeFrame.char) {
+                            currentWordDisplay.innerHTML = `<span class="text-brand-500 font-bold text-lg mr-2">${activeFrame.char.toUpperCase()}</span> -> [${activeFrame.viseme}]`;
+                        } else {
+                            currentWordDisplay.textContent = "Resting...";
+                        }
+                    }
+
+                    renderFrame();
+
+                    if (elapsed < totalDuration) {
+                        requestAnimationFrame(loop);
+                    } else {
+                        state.currentViseme = 'NEUTRAL';
+                        currentWordDisplay.textContent = "Finished.";
+                        state.isAnimating = false;
+                        btnAnimate.disabled = false;
+                        btnRecord.disabled = false;
+                        renderFrame();
+                        requestAnimationFrame(renderFrame);
+                        resolve();
+                    }
+                }
+                requestAnimationFrame(loop);
+            });
+        }
+
+        btnAnimate.addEventListener('click', () => runLipSync());
+
+        btnRecord.addEventListener('click', async () => {
+            if (state.isAnimating || state.isRecording) return;
+            
+            let mediaRecorder;
+            let recordedChunks = [];
+            state.isRecording = true;
+            
+            try {
+                const stream = canvas.captureStream(60);
+                
+                let options = { mimeType: 'video/webm;codecs=vp9' };
+                if (!MediaRecorder.isTypeSupported(options.mimeType)) {
+                    options = { mimeType: 'video/webm;codecs=vp8' };
+                    if (!MediaRecorder.isTypeSupported(options.mimeType)) {
+                        options = { mimeType: 'video/webm' };
+                    }
+                }
+
+                options.videoBitsPerSecond = 5000000;
+
+                mediaRecorder = new MediaRecorder(stream, options);
+
+                mediaRecorder.ondataavailable = (e) => {
+                    if (e.data.size > 0) recordedChunks.push(e.data);
+                };
+
+                mediaRecorder.onstop = () => {
+                    const blob = new Blob(recordedChunks, { type: options.mimeType.split(';')[0] });
+                    const url = URL.createObjectURL(blob);
+                    
+                    const a = document.createElement('a');
+                    a.style.display = 'none';
+                    a.href = url;
+                    a.download = `broken-tooth-lipsync.webm`;
+                    document.body.appendChild(a);
+                    a.click();
+                    
+                    setTimeout(() => {
+                        document.body.removeChild(a);
+                        window.URL.revokeObjectURL(url);
+                    }, 100);
+
+                    overlay.classList.remove('translate-y-4');
+                    overlay.classList.add('-translate-y-20');
+                    state.isRecording = false;
+                };
+
+                overlay.classList.remove('-translate-y-20');
+                overlay.classList.add('translate-y-4');
+
+                state.currentViseme = 'NEUTRAL';
+                renderFrame();
+                
+                await new Promise(r => setTimeout(r, 500)); 
+                mediaRecorder.start();
+                
+                await runLipSync();
+
+                setTimeout(() => {
+                    mediaRecorder.stop();
+                }, 1000);
+
+            } catch (err) {
+                console.error("Recording failed:", err);
+                alert("Recording failed. Your browser might not support canvas recording.");
+                overlay.classList.remove('translate-y-4');
+                overlay.classList.add('-translate-y-20');
+                state.isAnimating = false;
+                state.isRecording = false;
+                btnAnimate.disabled = false;
+                btnRecord.disabled = false;
+            }
+        });
+
+    </script>
+</body>
+</html>

@@ -1,0 +1,600 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Maths 2: Linear Transformation Visualizer</title>
+    <!-- Add Google Fonts -->
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600&family=JetBrains+Mono:wght@400;500&family=Lora:ital@0;1&display=swap" rel="stylesheet">
+    
+    <!-- Phosphor Icons for UI -->
+    <script src="https://unpkg.com/@phosphor-icons/web"></script>
+    
+    <!-- Tailwind CSS -->
+    <script src="https://cdn.tailwindcss.com"></script>
+    <script>
+        tailwind.config = {
+            theme: {
+                extend: {
+                    fontFamily: {
+                        sans: ['Inter', 'sans-serif'],
+                        mono: ['JetBrains Mono', 'monospace'],
+                        serif: ['Lora', 'serif'],
+                    }
+                }
+            }
+        }
+    </script>
+    <style>
+        /* Custom minimal scrollbar */
+        ::-webkit-scrollbar { width: 6px; }
+        ::-webkit-scrollbar-track { background: transparent; }
+        ::-webkit-scrollbar-thumb { background: #cbd5e1; border-radius: 4px; }
+        ::-webkit-scrollbar-thumb:hover { background: #94a3b8; }
+        
+        .matrix-input {
+            width: 3.5rem;
+            text-align: center;
+            background-color: #ffffff;
+            color: #111827;
+            border: 1px solid #d1d5db;
+            border-radius: 0.375rem;
+            padding: 0.375rem;
+            font-size: 1.125rem;
+            box-shadow: 0 1px 2px 0 rgba(0, 0, 0, 0.05);
+            transition: all 0.2s ease;
+        }
+        .matrix-input:focus {
+            outline: none;
+            border-color: #3b82f6;
+            box-shadow: 0 0 0 3px rgba(59, 130, 246, 0.15);
+        }
+        
+        /* Math formatting */
+        .math { font-family: 'Lora', serif; font-style: italic; }
+        .vector-i { color: #dc2626; font-weight: 600; font-family: 'Lora', serif; font-style: italic; }
+        .vector-j { color: #16a34a; font-weight: 600; font-family: 'Lora', serif; font-style: italic; }
+    </style>
+</head>
+<body class="bg-white text-gray-800 h-screen flex flex-col md:flex-row overflow-hidden font-sans antialiased relative">
+
+    <!-- Recording Overlay -->
+    <div id="recording-overlay" class="absolute top-4 left-1/2 -translate-x-1/2 bg-red-600 text-white px-5 py-2.5 rounded-full font-medium text-sm flex items-center gap-2 shadow-lg z-50 transition-transform duration-300 transform -translate-y-20 hidden">
+        <div class="w-3 h-3 bg-white rounded-full animate-pulse"></div>
+        Recording Animation...
+    </div>
+
+    <!-- Sidebar Controls -->
+    <div class="w-full md:w-1/3 lg:w-[400px] bg-gray-50/80 p-8 flex flex-col border-r border-gray-200 z-10 overflow-y-auto">
+        <h1 class="text-2xl font-semibold text-gray-900 mb-1 tracking-tight flex items-center gap-2">
+            <i class="ph-fill ph-function"></i> Maths Visualizer
+        </h1>
+        <p class="text-sm text-gray-500 mb-6 pb-6 border-b border-gray-200">
+            Interactive Linear Transformations <span class="math">T: ℝ² → ℝ²</span>
+        </p>
+
+        <div class="mb-6">
+            <h2 class="text-sm font-medium text-gray-900 mb-2 uppercase tracking-wide">Transformation Matrix <span class="math text-base normal-case">A</span></h2>
+            <p class="text-sm text-gray-500 mb-4 leading-relaxed">
+                Enter the matrix that maps the basis vectors <span class="vector-i">i</span> and <span class="vector-j">j</span>.
+            </p>
+            
+            <div class="flex justify-center items-center bg-white p-6 rounded-xl border border-gray-200 shadow-sm mb-6">
+                <div class="text-5xl font-light text-gray-300 mr-4 font-mono">[</div>
+                <div class="grid grid-cols-2 gap-3 font-mono">
+                    <input type="number" id="m00" class="matrix-input" value="1" step="0.5">
+                    <input type="number" id="m01" class="matrix-input" value="0" step="0.5">
+                    <input type="number" id="m10" class="matrix-input" value="0" step="0.5">
+                    <input type="number" id="m11" class="matrix-input" value="1" step="0.5">
+                </div>
+                <div class="text-5xl font-light text-gray-300 ml-4 font-mono">]</div>
+            </div>
+
+            <!-- Plot Toggles for Functions -->
+            <div class="mb-6 space-y-3">
+                <h3 class="text-xs font-semibold text-gray-400 uppercase tracking-wider mb-2">Overlay Functions</h3>
+                <label class="flex items-center gap-3 cursor-pointer">
+                    <input type="checkbox" id="show-circle" class="w-4 h-4 text-blue-600 rounded border-gray-300 focus:ring-blue-500">
+                    <span class="text-sm text-gray-700 font-medium">Unit Circle <span class="text-xs text-purple-500 math ml-1">x² + y² = 1</span></span>
+                </label>
+                <label class="flex items-center gap-3 cursor-pointer">
+                    <input type="checkbox" id="show-sine" class="w-4 h-4 text-blue-600 rounded border-gray-300 focus:ring-blue-500">
+                    <span class="text-sm text-gray-700 font-medium">Sine Wave <span class="text-xs text-orange-500 math ml-1">y = sin(x)</span></span>
+                </label>
+                <label class="flex items-center gap-3 cursor-pointer">
+                    <input type="checkbox" id="show-parabola" class="w-4 h-4 text-blue-600 rounded border-gray-300 focus:ring-blue-500">
+                    <span class="text-sm text-gray-700 font-medium">Parabola <span class="text-xs text-pink-500 math ml-1">y = 0.2x²</span></span>
+                </label>
+            </div>
+
+            <!-- Action Buttons -->
+            <div class="flex flex-col gap-3">
+                <div class="flex space-x-3">
+                    <button id="btn-animate" class="flex-1 bg-gray-900 hover:bg-gray-800 text-white font-medium py-2.5 px-4 rounded-lg transition-colors shadow-sm focus:ring-2 focus:ring-offset-2 focus:ring-gray-900 outline-none flex justify-center items-center gap-2">
+                        <i class="ph-bold ph-play"></i> Transform
+                    </button>
+                    <button id="btn-reset" class="flex-1 bg-white hover:bg-gray-50 text-gray-700 border border-gray-300 font-medium py-2.5 px-4 rounded-lg transition-colors shadow-sm focus:ring-2 focus:ring-offset-2 focus:ring-gray-200 outline-none flex justify-center items-center gap-2">
+                        <i class="ph-bold ph-arrow-counter-clockwise"></i> Reset
+                    </button>
+                </div>
+                <button id="btn-record" class="w-full bg-blue-600 hover:bg-blue-700 text-white font-medium py-2.5 px-4 rounded-lg transition-colors shadow-sm focus:ring-2 focus:ring-offset-2 focus:ring-blue-600 outline-none flex justify-center items-center gap-2 mt-1">
+                    <i class="ph-fill ph-video-camera text-xl text-blue-200"></i> Record & Export
+                </button>
+            </div>
+        </div>
+
+        <div class="mb-6 pb-6 border-b border-gray-200">
+            <h3 class="text-xs font-semibold text-gray-400 uppercase tracking-wider mb-4">Presets</h3>
+            <div class="flex flex-col space-y-2.5">
+                <button class="preset-btn text-left px-4 py-2.5 bg-white border border-gray-200 hover:border-gray-300 hover:shadow-sm rounded-lg text-sm transition-all text-gray-700 font-medium flex justify-between items-center" data-matrix="0,-1,1,0">
+                    <span>🔄 90° Rotation</span> <span class="text-xs text-gray-400 font-mono">[0, -1, 1, 0]</span>
+                </button>
+                <button class="preset-btn text-left px-4 py-2.5 bg-white border border-gray-200 hover:border-gray-300 hover:shadow-sm rounded-lg text-sm transition-all text-gray-700 font-medium flex justify-between items-center" data-matrix="1,1,0,1">
+                    <span>📐 Horizontal Shear</span> <span class="text-xs text-gray-400 font-mono">[1, 1, 0, 1]</span>
+                </button>
+                <button class="preset-btn text-left px-4 py-2.5 bg-blue-50/50 border border-blue-100 hover:border-blue-200 hover:bg-blue-50 hover:shadow-sm rounded-lg text-sm transition-all text-blue-800 font-medium flex justify-between items-center" data-matrix="1,1,1,1">
+                    <span>📉 Collapse to Line</span> <span class="text-xs text-blue-400 font-mono">[1, 1, 1, 1]</span>
+                </button>
+            </div>
+        </div>
+
+        <div class="text-sm text-gray-500 space-y-3 mt-auto leading-relaxed bg-white/60 p-4 rounded-lg border border-gray-100">
+            <p><strong class="text-gray-800 font-medium">How it works:</strong></p>
+            <p>• <span class="vector-i">Red Arrow</span> = <span class="math">T(1, 0)</span> (Column 1)</p>
+            <p>• <span class="vector-j">Green Arrow</span> = <span class="math">T(0, 1)</span> (Column 2)</p>
+            <p>• Check the overlay functions to see how non-linear curves react to linear space warping.</p>
+        </div>
+    </div>
+
+    <!-- Canvas Area -->
+    <div class="flex-1 relative bg-white cursor-crosshair overflow-hidden">
+        
+        <!-- Subtle radial gradient for depth -->
+        <div class="absolute inset-0 bg-[radial-gradient(ellipse_at_center,_var(--tw-gradient-stops))] from-transparent via-transparent to-gray-50/50 pointer-events-none"></div>
+
+        <!-- Coordinate HUD -->
+        <div class="absolute top-6 right-6 bg-white/90 backdrop-blur-md border border-gray-200 p-4 rounded-xl shadow-sm pointer-events-none z-10">
+            <div class="flex items-center mb-2">
+                <div class="w-2.5 h-2.5 rounded-full bg-red-500 mr-3 shadow-sm"></div>
+                <span class="text-sm text-gray-700 font-mono"><span class="math text-gray-500 mr-1">T(i) =</span>[<span id="val-i-x" class="inline-block w-12 text-right">1.00</span>, <span id="val-i-y" class="inline-block w-12 text-right">0.00</span>]</span>
+            </div>
+            <div class="flex items-center">
+                <div class="w-2.5 h-2.5 rounded-full bg-green-500 mr-3 shadow-sm"></div>
+                <span class="text-sm text-gray-700 font-mono"><span class="math text-gray-500 mr-1">T(j) =</span>[<span id="val-j-x" class="inline-block w-12 text-right">0.00</span>, <span id="val-j-y" class="inline-block w-12 text-right">1.00</span>]</span>
+            </div>
+            <div class="mt-3 pt-3 border-t border-gray-100 text-xs text-gray-500 font-mono flex justify-between items-center">
+                <span>Determinant:</span>
+                <span id="val-det" class="font-medium text-gray-900 text-sm">1.00</span>
+            </div>
+        </div>
+
+        <canvas id="mathCanvas" class="w-full h-full block relative z-0"></canvas>
+    </div>
+
+    <script>
+        const canvas = document.getElementById('mathCanvas');
+        const ctx = canvas.getContext('2d', { alpha: false }); // optimization for recording
+
+        // Inputs
+        const inputs = {
+            m00: document.getElementById('m00'),
+            m01: document.getElementById('m01'),
+            m10: document.getElementById('m10'),
+            m11: document.getElementById('m11')
+        };
+
+        // Toggles
+        const toggles = {
+            circle: document.getElementById('show-circle'),
+            sine: document.getElementById('show-sine'),
+            parabola: document.getElementById('show-parabola')
+        };
+
+        // HUD
+        const hud = {
+            ix: document.getElementById('val-i-x'),
+            iy: document.getElementById('val-i-y'),
+            jx: document.getElementById('val-j-x'),
+            jy: document.getElementById('val-j-y'),
+            det: document.getElementById('val-det')
+        };
+
+        // Configuration
+        const scale = 70; // pixels per unit 
+        let width = 0;
+        let height = 0;
+        
+        // Matrices [m00, m01, m10, m11] representing standard [a, b, c, d]
+        const identityMatrix = [1, 0, 0, 1];
+        let currentMatrix = [...identityMatrix];
+        let targetMatrix = [...identityMatrix];
+        let startMatrix = [...identityMatrix];
+
+        // Animation State
+        let animationId = null;
+        let progress = 1; // 0 to 1
+        const duration = 1500; // ms
+        let startTime = 0;
+        let onAnimationComplete = null;
+
+        // Recording State
+        let isRecording = false;
+
+        // Resize handler
+        function resize() {
+            canvas.width = canvas.clientWidth * window.devicePixelRatio;
+            canvas.height = canvas.clientHeight * window.devicePixelRatio;
+            width = canvas.width;
+            height = canvas.height;
+            ctx.scale(window.devicePixelRatio, window.devicePixelRatio);
+            width /= window.devicePixelRatio;
+            height /= window.devicePixelRatio;
+            draw();
+        }
+        window.addEventListener('resize', resize);
+
+        // Math utilities
+        function transformPoint(x, y, matrix) {
+            // Apply [m00 m01] * [x]
+            //       [m10 m11]   [y]
+            return {
+                x: x * matrix[0] + y * matrix[1],
+                y: x * matrix[2] + y * matrix[3]
+            };
+        }
+
+        function lerp(start, end, t) {
+            return start * (1 - t) + end * t;
+        }
+
+        // Ease In Out Cubic for much smoother, cinematic starts and stops
+        function easeInOutCubic(x) {
+            return x < 0.5 ? 4 * x * x * x : 1 - Math.pow(-2 * x + 2, 3) / 2;
+        }
+
+        // Draw functions
+        function drawLine(p1, p2, color, lineWidth = 1, isDashed = false) {
+            ctx.beginPath();
+            ctx.strokeStyle = color;
+            ctx.lineWidth = lineWidth;
+            if (isDashed) {
+                ctx.setLineDash([5, 5]);
+            } else {
+                ctx.setLineDash([]);
+            }
+            
+            // Convert to screen coordinates (center origin, invert y)
+            const cx = width / 2;
+            const cy = height / 2;
+            
+            ctx.moveTo(cx + p1.x * scale, cy - p1.y * scale);
+            ctx.lineTo(cx + p2.x * scale, cy - p2.y * scale);
+            ctx.stroke();
+            ctx.setLineDash([]); 
+        }
+
+        function drawArrow(x, y, color) {
+            const cx = width / 2;
+            const cy = height / 2;
+            const targetX = cx + x * scale;
+            const targetY = cy - y * scale;
+
+            ctx.beginPath();
+            ctx.strokeStyle = color;
+            ctx.lineWidth = 3.5;
+            ctx.lineCap = 'round';
+            ctx.moveTo(cx, cy);
+            ctx.lineTo(targetX, targetY);
+            ctx.stroke();
+
+            const angle = Math.atan2(-y, x); // negative Y because canvas Y is inverted
+            const headlen = 16; 
+            
+            ctx.beginPath();
+            ctx.fillStyle = color;
+            ctx.lineJoin = 'round';
+            ctx.moveTo(targetX, targetY);
+            ctx.lineTo(targetX - headlen * Math.cos(angle - Math.PI / 7), targetY - headlen * Math.sin(angle - Math.PI / 7));
+            ctx.lineTo(targetX - headlen * Math.cos(angle + Math.PI / 7), targetY - headlen * Math.sin(angle + Math.PI / 7));
+            ctx.fill();
+        }
+
+        function drawFunction(matrix, fn, color, isParametric = false) {
+            ctx.beginPath();
+            ctx.strokeStyle = color;
+            ctx.lineWidth = 3;
+            
+            const cx = width / 2;
+            const cy = height / 2;
+            const steps = 300;
+            const limit = 15;
+
+            let first = true;
+
+            if (isParametric) {
+                // For Unit Circle (fn returns [x, y] given t from 0 to 2PI)
+                for(let i=0; i<=steps; i++) {
+                    const t = (i/steps) * Math.PI * 2;
+                    const [x, y] = fn(t);
+                    const pt = transformPoint(x, y, matrix);
+                    if(first) { ctx.moveTo(cx + pt.x * scale, cy - pt.y * scale); first = false; }
+                    else { ctx.lineTo(cx + pt.x * scale, cy - pt.y * scale); }
+                }
+            } else {
+                // For Standard functions y = f(x)
+                for(let i=0; i<=steps; i++) {
+                    const x = -limit + (i/steps) * (limit * 2);
+                    const y = fn(x);
+                    const pt = transformPoint(x, y, matrix);
+                    if(first) { ctx.moveTo(cx + pt.x * scale, cy - pt.y * scale); first = false; }
+                    else { ctx.lineTo(cx + pt.x * scale, cy - pt.y * scale); }
+                }
+            }
+            ctx.stroke();
+        }
+
+        function updateHUD() {
+            hud.ix.innerText = currentMatrix[0].toFixed(2);
+            hud.iy.innerText = currentMatrix[2].toFixed(2);
+            hud.jx.innerText = currentMatrix[1].toFixed(2);
+            hud.jy.innerText = currentMatrix[3].toFixed(2);
+            
+            const det = (currentMatrix[0] * currentMatrix[3]) - (currentMatrix[1] * currentMatrix[2]);
+            hud.det.innerText = det.toFixed(2);
+            
+            if(Math.abs(det) < 0.001) {
+                hud.det.classList.add('text-red-600');
+                hud.det.classList.remove('text-gray-900');
+            } else {
+                hud.det.classList.remove('text-red-600');
+                hud.det.classList.add('text-gray-900');
+            }
+        }
+
+        function draw() {
+            // Opaque background for clean recording
+            ctx.fillStyle = '#ffffff';
+            ctx.fillRect(0, 0, width, height);
+            
+            const gridLimit = 15; 
+
+            // 1. Draw static background grid (very faint)
+            for (let i = -gridLimit; i <= gridLimit; i++) {
+                if (i === 0) continue;
+                drawLine({x: i, y: -gridLimit}, {x: i, y: gridLimit}, 'rgba(0,0,0,0.03)'); // Vertical
+                drawLine({x: -gridLimit, y: i}, {x: gridLimit, y: i}, 'rgba(0,0,0,0.03)'); // Horizontal
+            }
+
+            // 2. Draw Transformed Grid
+            for (let i = -gridLimit; i <= gridLimit; i++) {
+                let lw = (i === 0) ? 2 : 1;
+                let cV = (i === 0) ? 'rgba(22, 163, 74, 0.4)' : 'rgba(0,0,0,0.08)'; 
+                let cH = (i === 0) ? 'rgba(220, 38, 38, 0.4)' : 'rgba(0,0,0,0.08)'; 
+                
+                let p1v = transformPoint(i, -gridLimit, currentMatrix);
+                let p2v = transformPoint(i, gridLimit, currentMatrix);
+                drawLine(p1v, p2v, cV, lw);
+
+                let p1h = transformPoint(-gridLimit, i, currentMatrix);
+                let p2h = transformPoint(gridLimit, i, currentMatrix);
+                drawLine(p1h, p2h, cH, lw);
+            }
+
+            // 3. Draw Base Axes Overlays
+            drawLine({x: 0, y: -gridLimit}, {x: 0, y: gridLimit}, 'rgba(0,0,0,0.15)', 1);
+            drawLine({x: -gridLimit, y: 0}, {x: gridLimit, y: 0}, 'rgba(0,0,0,0.15)', 1);
+
+            // 4. Draw Overlay Functions
+            if (toggles.circle.checked) {
+                drawFunction(currentMatrix, (t) => [Math.cos(t), Math.sin(t)], 'rgba(168, 85, 247, 0.8)', true); // Purple
+            }
+            if (toggles.sine.checked) {
+                drawFunction(currentMatrix, (x) => Math.sin(x), 'rgba(249, 115, 22, 0.8)'); // Orange
+            }
+            if (toggles.parabola.checked) {
+                drawFunction(currentMatrix, (x) => 0.2 * Math.pow(x, 2), 'rgba(236, 72, 153, 0.8)'); // Pink
+            }
+
+            // 5. Draw Basis Vectors
+            let iHat = transformPoint(1, 0, currentMatrix);
+            let jHat = transformPoint(0, 1, currentMatrix);
+            
+            drawArrow(iHat.x, iHat.y, '#dc2626'); 
+            drawArrow(jHat.x, jHat.y, '#16a34a'); 
+
+            updateHUD();
+        }
+
+        // Animation Loop
+        function animateFrame(timestamp) {
+            if (!startTime) startTime = timestamp;
+            const elapsed = timestamp - startTime;
+            
+            progress = Math.min(elapsed / duration, 1);
+            const t = easeInOutCubic(progress);
+
+            for (let i = 0; i < 4; i++) {
+                currentMatrix[i] = lerp(startMatrix[i], targetMatrix[i], t);
+            }
+
+            draw();
+
+            if (progress < 1) {
+                animationId = requestAnimationFrame(animateFrame);
+            } else {
+                animationId = null;
+                if (onAnimationComplete) {
+                    onAnimationComplete();
+                    onAnimationComplete = null;
+                }
+            }
+        }
+
+        function startAnimation(newTarget, callback = null) {
+            if (animationId) cancelAnimationFrame(animationId);
+            startMatrix = [...currentMatrix];
+            targetMatrix = [...newTarget];
+            startTime = 0;
+            progress = 0;
+            onAnimationComplete = callback;
+            animationId = requestAnimationFrame(animateFrame);
+        }
+
+        // Event Listeners
+        document.getElementById('btn-animate').addEventListener('click', () => {
+            if (isRecording) return;
+            const m00 = parseFloat(inputs.m00.value) || 0;
+            const m01 = parseFloat(inputs.m01.value) || 0;
+            const m10 = parseFloat(inputs.m10.value) || 0;
+            const m11 = parseFloat(inputs.m11.value) || 0;
+            
+            // Always reset to identity so it animates from the beginning reliably
+            currentMatrix = [...identityMatrix];
+
+            startAnimation([m00, m01, m10, m11]);
+        });
+
+        document.getElementById('btn-reset').addEventListener('click', () => {
+            if (isRecording) return;
+            inputs.m00.value = 1;
+            inputs.m01.value = 0;
+            inputs.m10.value = 0;
+            inputs.m11.value = 1;
+            
+            // From whatever state it's in, slide smoothly back to identity
+            startAnimation(identityMatrix);
+        });
+
+        document.querySelectorAll('.preset-btn').forEach(btn => {
+            btn.addEventListener('click', (e) => {
+                if (isRecording) return;
+                const target = e.target.closest('.preset-btn');
+                const vals = target.dataset.matrix.split(',').map(Number);
+                inputs.m00.value = vals[0];
+                inputs.m01.value = vals[1];
+                inputs.m10.value = vals[2];
+                inputs.m11.value = vals[3];
+                
+                // Always reset to identity first for presets to show the exact pure transformation
+                currentMatrix = [...identityMatrix];
+
+                startAnimation(vals);
+            });
+        });
+
+        Object.values(toggles).forEach(toggle => {
+            toggle.addEventListener('change', () => {
+                if(!animationId) draw();
+            });
+        });
+
+        // Recording & Export Engine
+        const btnRecord = document.getElementById('btn-record');
+        const recordingOverlay = document.getElementById('recording-overlay');
+
+        btnRecord.addEventListener('click', async () => {
+            if (isRecording || animationId) return; // Prevent concurrent actions
+            
+            isRecording = true;
+            let mediaRecorder;
+            let recordedChunks = [];
+            
+            try {
+                // High quality stream capture at 60fps
+                const stream = canvas.captureStream(60);
+                
+                let options = { mimeType: 'video/webm;codecs=vp9' };
+                if (!MediaRecorder.isTypeSupported(options.mimeType)) {
+                    options = { mimeType: 'video/webm;codecs=vp8' };
+                    if (!MediaRecorder.isTypeSupported(options.mimeType)) {
+                        options = { mimeType: 'video/webm' };
+                    }
+                }
+
+                options.videoBitsPerSecond = 8000000; // 8 Mbps
+
+                mediaRecorder = new MediaRecorder(stream, options);
+
+                mediaRecorder.ondataavailable = (e) => {
+                    if (e.data.size > 0) recordedChunks.push(e.data);
+                };
+
+                mediaRecorder.onstop = () => {
+                    const blob = new Blob(recordedChunks, { type: options.mimeType.split(';')[0] });
+                    const url = URL.createObjectURL(blob);
+                    
+                    const a = document.createElement('a');
+                    a.style.display = 'none';
+                    a.href = url;
+                    a.download = `math-transformation.webm`;
+                    document.body.appendChild(a);
+                    a.click();
+                    
+                    setTimeout(() => {
+                        document.body.removeChild(a);
+                        window.URL.revokeObjectURL(url);
+                    }, 100);
+
+                    recordingOverlay.classList.remove('translate-y-4');
+                    recordingOverlay.classList.add('-translate-y-20');
+                    setTimeout(() => recordingOverlay.classList.add('hidden'), 300);
+                    isRecording = false;
+                };
+
+                // Show UI
+                recordingOverlay.classList.remove('hidden');
+                // Allow reflow
+                await new Promise(r => setTimeout(r, 10));
+                recordingOverlay.classList.remove('-translate-y-20');
+                recordingOverlay.classList.add('translate-y-4');
+
+                // Read targets
+                const m00 = parseFloat(inputs.m00.value) || 0;
+                const m01 = parseFloat(inputs.m01.value) || 0;
+                const m10 = parseFloat(inputs.m10.value) || 0;
+                const m11 = parseFloat(inputs.m11.value) || 0;
+
+                // Reset to identity so the video ALWAYS shows the full transformation
+                currentMatrix = [...identityMatrix];
+                draw();
+                
+                // 1) Start Recording
+                mediaRecorder.start();
+
+                // 2) Hold initial frame for 0.5s
+                // We use an interval to keep firing dummy frames. 
+                // Some browsers (like Chrome/Safari) aggressively drop canvas frames if nothing "changes", 
+                // causing the exported video to be extremely short or desynced.
+                let idleInterval = setInterval(() => draw(), 33); // ~30fps holding pattern
+                
+                setTimeout(() => {
+                    clearInterval(idleInterval);
+                    
+                    // 3) Run animation
+                    startAnimation([m00, m01, m10, m11], () => {
+                        
+                        // Callback: hold final frame for 1s, then stop
+                        let endInterval = setInterval(() => draw(), 33);
+                        
+                        setTimeout(() => {
+                            clearInterval(endInterval);
+                            mediaRecorder.stop();
+                        }, 1000);
+                    });
+                }, 500);
+
+            } catch (err) {
+                console.error("Recording failed:", err);
+                alert("Recording failed. Your browser might not support canvas recording.");
+                recordingOverlay.classList.add('hidden');
+                isRecording = false;
+            }
+        });
+
+        // Init
+        resize();
+    </script>
+</body>
+</html>

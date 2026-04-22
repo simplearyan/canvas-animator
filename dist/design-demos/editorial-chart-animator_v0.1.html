@@ -1,0 +1,856 @@
+<!DOCTYPE html>
+<html lang="en" class="dark">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+    <title>Editorial Chart Animator</title>
+    
+    <!-- Google Fonts -->
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800;900&display=swap" rel="stylesheet">
+
+    <!-- Tailwind CSS -->
+    <script src="https://cdn.tailwindcss.com"></script>
+    <script>
+        tailwind.config = {
+            darkMode: 'class',
+            theme: {
+                extend: {
+                    fontFamily: {
+                        sans: ['Inter', 'sans-serif'],
+                    },
+                    colors: {
+                        brand: {
+                            500: '#f43f5e', // Rose
+                            600: '#e11d48',
+                        },
+                        vox: {
+                            bg: '#18181b', // zinc-900
+                            grid: '#3f3f46', // zinc-700
+                            text: '#f8fafc',
+                            subtext: '#94a3b8'
+                        }
+                    }
+                }
+            }
+        }
+    </script>
+
+    <!-- Phosphor Icons -->
+    <script src="https://unpkg.com/@phosphor-icons/web"></script>
+
+    <style>
+        body {
+            transition: background-color 0.2s ease, color 0.2s ease;
+            overscroll-behavior-y: none;
+        }
+        
+        /* Custom ranges */
+        input[type=range] {
+            -webkit-appearance: none;
+            width: 100%;
+            background: transparent;
+        }
+        input[type=range]::-webkit-slider-thumb {
+            -webkit-appearance: none;
+            height: 16px;
+            width: 16px;
+            border-radius: 50%;
+            background: #f43f5e;
+            cursor: pointer;
+            margin-top: -6px;
+        }
+        input[type=range]::-webkit-slider-runnable-track {
+            width: 100%;
+            height: 4px;
+            cursor: pointer;
+            background: #cbd5e1;
+            border-radius: 2px;
+        }
+        .dark input[type=range]::-webkit-slider-runnable-track {
+            background: #475569;
+        }
+
+        /* Custom scrollbars */
+        ::-webkit-scrollbar { width: 8px; height: 8px; }
+        ::-webkit-scrollbar-track { background: transparent; }
+        ::-webkit-scrollbar-thumb { background-color: #cbd5e1; border-radius: 4px; }
+        .dark ::-webkit-scrollbar-thumb { background-color: #475569; }
+
+        /* Canvas wrapper styling */
+        #canvas-wrapper {
+            background-color: #09090b;
+            background-image: radial-gradient(#27272a 1px, transparent 1px);
+            background-size: 24px 24px;
+        }
+    </style>
+</head>
+<body class="bg-gray-50 dark:bg-gray-900 text-gray-900 dark:text-gray-100 h-screen flex flex-col overflow-hidden">
+
+    <!-- HEADER -->
+    <header class="h-16 bg-white dark:bg-gray-800 border-b border-gray-200 dark:border-gray-700 flex items-center justify-between px-4 sm:px-6 flex-shrink-0 z-20">
+        <div class="flex items-center gap-2">
+            <div class="bg-brand-500 text-white p-1.5 rounded-lg shadow-sm">
+                <i class="ph-bold ph-presentation-chart text-2xl"></i>
+            </div>
+            <h1 class="text-xl font-bold tracking-tight text-gray-800 dark:text-gray-100 mt-0.5">Editorial Charts</h1>
+        </div>
+        <div class="flex items-center gap-3">
+            <button id="theme-toggle" class="p-2.5 rounded-full bg-gray-100 dark:bg-gray-700 hover:bg-gray-200 dark:hover:bg-gray-600 transition" title="Toggle UI Theme">
+                <i class="ph-fill ph-moon text-xl dark:hidden"></i>
+                <i class="ph-fill ph-sun text-xl hidden dark:block"></i>
+            </button>
+        </div>
+    </header>
+
+    <!-- MAIN APP AREA -->
+    <main class="flex-1 flex flex-col md:flex-row overflow-hidden relative">
+        
+        <!-- Recording Overlay -->
+        <div id="recording-overlay" class="absolute top-4 left-1/2 -translate-x-1/2 bg-red-500 text-white px-5 py-2.5 rounded-full font-medium text-sm flex items-center gap-2 shadow-lg z-50 transition-transform duration-300 transform -translate-y-20">
+            <div class="w-3 h-3 bg-white rounded-full animate-pulse"></div>
+            Recording Video...
+        </div>
+
+        <!-- TOOLBAR / SIDEBAR -->
+        <aside class="w-full md:w-[440px] bg-white dark:bg-gray-800 border-b md:border-b-0 md:border-r border-gray-200 dark:border-gray-700 p-4 md:p-5 flex flex-col gap-5 overflow-y-auto z-10 flex-shrink-0 h-[50vh] md:h-full">
+            
+            <!-- Quick Templates -->
+            <div class="flex flex-col gap-2 flex-shrink-0">
+                <h2 class="text-xs font-bold uppercase tracking-wider text-gray-500 dark:text-gray-400">Recreate References</h2>
+                <div class="grid grid-cols-2 gap-2">
+                    <button class="template-btn py-1.5 bg-gray-100 dark:bg-gray-700 hover:bg-gray-200 hover:text-brand-500 dark:hover:bg-gray-600 rounded text-[13px] font-medium transition truncate px-2 text-left" data-template="space">🚀 Space Launch (Vertical)</button>
+                    <button class="template-btn py-1.5 bg-gray-100 dark:bg-gray-700 hover:bg-gray-200 hover:text-brand-500 dark:hover:bg-gray-600 rounded text-[13px] font-medium transition truncate px-2 text-left" data-template="gdp">📈 GDP Growth (Horizontal)</button>
+                    <button class="template-btn py-1.5 bg-gray-100 dark:bg-gray-700 hover:bg-gray-200 hover:text-brand-500 dark:hover:bg-gray-600 rounded text-[13px] font-medium transition truncate px-2 text-left" data-template="electricity">⚡ Electricity Mix (Pie)</button>
+                    <button class="template-btn py-1.5 bg-gray-100 dark:bg-gray-700 hover:bg-gray-200 hover:text-brand-500 dark:hover:bg-gray-600 rounded text-[13px] font-medium transition truncate px-2 text-left" data-template="ev">🚗 EV Market (Vertical)</button>
+                </div>
+            </div>
+
+            <!-- Content Editor -->
+            <div class="flex flex-col gap-3 flex-shrink-0">
+                <h2 class="text-xs font-bold uppercase tracking-wider text-gray-500 dark:text-gray-400">Chart Metadata</h2>
+                <input type="text" id="chart-title" value="Space Launch Costs to LEO ($/kg)" class="w-full p-2 rounded border border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-700 text-sm font-semibold outline-none focus:ring-2 focus:ring-brand-500" placeholder="Chart Title">
+                <input type="text" id="chart-subtitle" value="SpaceX's Starship is projected to drop costs dramatically compared to legacy launchers." class="w-full p-2 rounded border border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-700 text-sm outline-none focus:ring-2 focus:ring-brand-500" placeholder="Chart Subtitle">
+                <input type="text" id="chart-source" value="SOURCE: CENTER FOR STRATEGIC AND INTERNATIONAL STUDIES" class="w-full p-2 rounded border border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-700 text-xs uppercase outline-none focus:ring-2 focus:ring-brand-500" placeholder="Source Attribution">
+            </div>
+
+            <!-- Data Editor -->
+            <div class="flex flex-col gap-2 flex-1 min-h-[160px]">
+                <div class="flex justify-between items-center">
+                    <h2 class="text-xs font-bold uppercase tracking-wider text-gray-500 dark:text-gray-400">Chart Data (CSV)</h2>
+                </div>
+                <p class="text-[11px] text-gray-500">Format: Label, Value. Optional 3rd column for hex color.</p>
+                <textarea id="data-input" class="w-full flex-1 p-3 rounded-lg border border-gray-300 dark:border-gray-600 bg-gray-50 dark:bg-gray-900 text-[13px] font-mono focus:ring-2 focus:ring-brand-500 focus:border-brand-500 outline-none resize-none whitespace-pre" spellcheck="false">
+Label,Value,Color
+Shuttle,54500,#ff5c77
+SLS,22000,#ffba3b
+Delta IV,11000,#00d28c
+Falcon 9,2720,#4f9eff
+Falcon Heavy,1400,#8b78db
+Starship,200,#b589d6</textarea>
+            </div>
+
+            <!-- Appearance Settings -->
+            <div class="flex flex-col gap-4 flex-shrink-0">
+                <h2 class="text-xs font-bold uppercase tracking-wider text-gray-500 dark:text-gray-400">Layout & Style</h2>
+                
+                <div class="grid grid-cols-2 gap-4">
+                    <div>
+                        <label class="block text-sm font-medium mb-1 text-gray-700 dark:text-gray-300">Chart Type</label>
+                        <select id="chart-type" class="w-full p-2 rounded-lg border border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-700 text-sm outline-none focus:ring-2 focus:ring-brand-500">
+                            <option value="vertical">Vertical Bar</option>
+                            <option value="horizontal">Horizontal Bar</option>
+                            <option value="pie">Pie Chart</option>
+                        </select>
+                    </div>
+                    <div>
+                        <label class="block text-sm font-medium mb-1 text-gray-700 dark:text-gray-300">Theme</label>
+                        <select id="bg-style" class="w-full p-2 rounded-lg border border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-700 text-sm outline-none focus:ring-2 focus:ring-brand-500">
+                            <option value="dark">Vox Dark (#18181b)</option>
+                            <option value="light">Vox Light (#ffffff)</option>
+                            <option value="slate">Slate Gray (#1e293b)</option>
+                        </select>
+                    </div>
+                </div>
+
+                <div class="grid grid-cols-2 gap-4">
+                    <div>
+                        <div class="flex justify-between items-center mb-1">
+                            <label class="block text-sm font-medium text-gray-700 dark:text-gray-300">Animation Speed</label>
+                            <span id="duration-val" class="text-xs text-gray-500">2.0s</span>
+                        </div>
+                        <input type="range" id="anim-duration" min="0.5" max="5" step="0.5" value="2.0" class="w-full mt-2">
+                    </div>
+                    <div class="flex flex-col justify-center">
+                        <label class="flex items-center gap-2 mt-4 cursor-pointer">
+                            <input type="checkbox" id="show-legend" checked class="w-4 h-4 text-brand-500 rounded border-gray-300 focus:ring-brand-500">
+                            <span class="text-sm font-medium text-gray-700 dark:text-gray-300">Show Legend</span>
+                        </label>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Action Buttons -->
+            <div class="flex flex-col gap-3 mt-auto pt-2 pb-6 md:pb-0">
+                <button id="btn-animate" class="flex items-center justify-center gap-2 w-full py-3 px-4 bg-gray-200 text-gray-900 dark:bg-gray-700 dark:text-white hover:bg-gray-300 dark:hover:bg-gray-600 rounded-lg font-bold transition disabled:opacity-50">
+                    <i class="ph-fill ph-play-circle text-xl"></i> Preview Animation
+                </button>
+                <button id="btn-record" class="flex items-center justify-center gap-2 w-full py-3 px-4 bg-brand-500 hover:bg-brand-600 text-white rounded-lg font-bold transition shadow-md disabled:opacity-50 group">
+                    <i class="ph-fill ph-video-camera text-xl text-rose-200 group-hover:text-white transition"></i> Record & Export Video
+                </button>
+            </div>
+        </aside>
+
+        <!-- CANVAS AREA -->
+        <section id="canvas-wrapper" class="flex-1 relative overflow-hidden flex items-center justify-center p-4 sm:p-8">
+            <!-- 16:9 1080p Canvas -->
+            <canvas id="export-canvas" class="w-full max-w-[1200px] aspect-video shadow-2xl rounded-lg bg-black"></canvas>
+        </section>
+
+    </main>
+
+    <script>
+        // --- Template Data ---
+        const templates = {
+            'space': {
+                title: 'Space Launch Costs to LEO ($/kg)',
+                subtitle: "SpaceX's Starship is projected to drop costs dramatically compared to legacy launchers.",
+                source: 'SOURCE: CENTER FOR STRATEGIC AND INTERNATIONAL STUDIES',
+                type: 'vertical',
+                theme: 'dark',
+                csv: `Label,Value,Color
+Shuttle,54500,#ff5c77
+SLS,22000,#ffba3b
+Delta IV,11000,#00d28c
+Falcon 9,2720,#4f9eff
+Falcon Heavy,1400,#8b78db
+Starship,200,#b589d6`
+            },
+            'gdp': {
+                title: 'Global GDP Growth Projections',
+                subtitle: 'Dark mode fullscreen experience.',
+                source: 'SOURCE: IMF WORLD ECONOMIC OUTLOOK',
+                type: 'horizontal',
+                theme: 'dark',
+                csv: `Label,Value,Color
+India,6.5,#10b981
+China,4.6,#3b82f6
+USA,2.1,#a855f7
+Euro Area,0.9,#f59e0b
+Japan,0.9,#f43f5e
+UK,0.6,#94a3b8`
+            },
+            'electricity': {
+                title: 'Global Electricity Mix (2025)',
+                subtitle: 'Renewables are gaining ground, but fossil fuels remain dominant.',
+                source: 'SOURCE: EMBER CLIMATE',
+                type: 'pie',
+                theme: 'dark',
+                csv: `Label,Value,Color
+Coal,34.0,#52525b
+Gas,22.0,#71717a
+Hydro,15.0,#3b82f6
+Wind & Solar,18.0,#10b981
+Nuclear,9.0,#fbbf24
+Bio/Other,2.0,#f43f5e`
+            },
+            'ev': {
+                title: 'Global EV Market Share (2025)',
+                subtitle: 'The rapid rise of Chinese manufacturers continues to reshape the landscape.',
+                source: 'SOURCE: INTERNATIONAL ENERGY AGENCY (IEA)',
+                type: 'vertical',
+                theme: 'light',
+                csv: `Label,Value,Color
+BYD,35,#3b82f6
+Tesla,18,#10b981
+VW Group,12,#f59e0b
+SAIC,8,#f43f5e
+Geely,6,#a855f7
+Others,21,#94a3b8`
+            }
+        };
+
+        // --- App State & Data ---
+        const state = {
+            data: [], // Array of { label, value, color }
+            maxVal: 0,
+            progress: 1.0,
+            isAnimating: false,
+            isRecording: false,
+            
+            // UI Inputs
+            title: '',
+            subtitle: '',
+            source: '',
+            type: 'vertical',
+            theme: 'dark',
+            duration: 2000,
+            showLegend: true
+        };
+
+        // Fallback colors if none provided in CSV
+        const defaultColors = ['#ef4444', '#3b82f6', '#10b981', '#f59e0b', '#a855f7', '#ec4899', '#06b6d4', '#8b5cf6'];
+
+        const canvas = document.getElementById('export-canvas');
+        const ctx = canvas.getContext('2d', { alpha: false });
+        
+        // Fixed 1080p resolution
+        canvas.width = 1920;
+        canvas.height = 1080;
+
+        // DOM Elements
+        const uiTitle = document.getElementById('chart-title');
+        const uiSubtitle = document.getElementById('chart-subtitle');
+        const uiSource = document.getElementById('chart-source');
+        const dataInput = document.getElementById('data-input');
+        const typeSelect = document.getElementById('chart-type');
+        const themeSelect = document.getElementById('bg-style');
+        const durationSlider = document.getElementById('anim-duration');
+        const legendCheck = document.getElementById('show-legend');
+
+        // --- Data Parsing ---
+        function updateStateFromUI() {
+            state.title = uiTitle.value;
+            state.subtitle = uiSubtitle.value;
+            state.source = uiSource.value;
+            state.type = typeSelect.value;
+            state.theme = themeSelect.value;
+            state.showLegend = legendCheck.checked;
+            
+            const raw = dataInput.value.trim();
+            if (!raw) return;
+
+            const lines = raw.split('\n');
+            state.data = [];
+            state.maxVal = 0;
+            
+            // Skip header if it contains non-numeric value in second column
+            let startIdx = 0;
+            if (lines.length > 0) {
+                const firstRow = lines[0].split(',');
+                if (firstRow.length >= 2 && isNaN(parseFloat(firstRow[1]))) {
+                    startIdx = 1;
+                }
+            }
+
+            for (let i = startIdx; i < lines.length; i++) {
+                const row = lines[i].split(',').map(c => c.trim());
+                if (row.length < 2) continue;
+                
+                const label = row[0];
+                const value = parseFloat(row[1]) || 0;
+                let color = row.length >= 3 && row[2].startsWith('#') ? row[2] : defaultColors[state.data.length % defaultColors.length];
+                
+                state.data.push({ label, value, color });
+                if (value > state.maxVal) state.maxVal = value;
+            }
+
+            // Clean up max val for grids
+            if (state.maxVal > 0 && state.type !== 'pie') {
+                const mag = Math.pow(10, Math.floor(Math.log10(state.maxVal)));
+                // Nice rounding logic
+                let norm = state.maxVal / mag;
+                if (norm <= 1.5) norm = 1.5;
+                else if (norm <= 2) norm = 2;
+                else if (norm <= 5) norm = 5;
+                else norm = 10;
+                state.maxVal = norm * mag;
+            }
+        }
+
+        // --- Easing Function ---
+        // Quintic ease out for a very snappy Vox-like entrance
+        function easeOutQuint(x) {
+            return 1 - Math.pow(1 - x, 5);
+        }
+
+        // --- Canvas Rendering Engine ---
+        function renderFrame(progress) {
+            const easeP = easeOutQuint(progress);
+
+            // 1. Theme Setup
+            let bgColor, textColor, subTextColor, gridColor;
+            if (state.theme === 'dark') {
+                bgColor = '#18181b'; // zinc-900
+                textColor = '#ffffff';
+                subTextColor = '#a1a1aa'; // zinc-400
+                gridColor = '#3f3f46'; // zinc-700
+            } else if (state.theme === 'slate') {
+                bgColor = '#0f172a'; // slate-900
+                textColor = '#f8fafc';
+                subTextColor = '#94a3b8';
+                gridColor = '#334155';
+            } else { // light
+                bgColor = '#ffffff';
+                textColor = '#18181b';
+                subTextColor = '#71717a';
+                gridColor = '#e4e4e7'; // zinc-200
+            }
+
+            ctx.fillStyle = bgColor;
+            ctx.fillRect(0, 0, canvas.width, canvas.height);
+
+            // 2. Draw Header & Footer
+            ctx.textAlign = 'left';
+            
+            // Title
+            ctx.textBaseline = 'top';
+            ctx.font = '800 64px Inter';
+            ctx.fillStyle = textColor;
+            ctx.fillText(state.title, 80, 70);
+
+            // Subtitle
+            ctx.font = '400 38px Inter';
+            ctx.fillStyle = subTextColor;
+            ctx.fillText(state.subtitle, 80, 150);
+
+            // Source
+            ctx.textBaseline = 'bottom';
+            ctx.font = '600 20px Inter';
+            ctx.fillStyle = subTextColor;
+            ctx.fillText(state.source, 80, canvas.height - 40);
+
+            // Separator lines
+            ctx.beginPath();
+            ctx.moveTo(80, 220);
+            ctx.lineTo(canvas.width - 80, 220);
+            ctx.strokeStyle = gridColor;
+            ctx.lineWidth = 2;
+            ctx.stroke();
+
+            ctx.beginPath();
+            ctx.moveTo(80, canvas.height - 80);
+            ctx.lineTo(canvas.width - 80, canvas.height - 80);
+            ctx.stroke();
+
+            if (state.data.length === 0) return;
+
+            // 3. Draw Legend
+            if (state.showLegend) {
+                drawLegend(textColor);
+            }
+
+            // 4. Draw Chart Data
+            const chartArea = {
+                x: 120,
+                y: 280,
+                w: canvas.width - 240,
+                h: canvas.height - (state.showLegend ? 480 : 400) // Leave room for legend and footer
+            };
+
+            if (state.type === 'vertical') {
+                drawVerticalChart(chartArea, easeP, textColor, gridColor);
+            } else if (state.type === 'horizontal') {
+                drawHorizontalChart(chartArea, easeP, textColor, gridColor);
+            } else if (state.type === 'pie') {
+                drawPieChart(chartArea, easeP, textColor);
+            }
+        }
+
+        function drawLegend(textColor) {
+            ctx.textAlign = 'left';
+            ctx.textBaseline = 'middle';
+            ctx.font = '700 24px Inter';
+            
+            const legendY = canvas.height - 140;
+            let totalWidth = 0;
+            const itemPadding = 40;
+            const boxSize = 20;
+
+            // Calculate total width to center it
+            state.data.forEach(item => {
+                totalWidth += boxSize + 10 + ctx.measureText(item.label).width + itemPadding;
+            });
+            totalWidth -= itemPadding; // remove last padding
+
+            let currentX = (canvas.width - totalWidth) / 2;
+
+            state.data.forEach(item => {
+                // Box
+                ctx.fillStyle = item.color;
+                ctx.beginPath();
+                ctx.roundRect(currentX, legendY - boxSize/2, boxSize, boxSize, 4);
+                ctx.fill();
+
+                // Text
+                ctx.fillStyle = textColor;
+                ctx.fillText(item.label, currentX + boxSize + 10, legendY + 2);
+
+                currentX += boxSize + 10 + ctx.measureText(item.label).width + itemPadding;
+            });
+        }
+
+        function drawVerticalChart(area, progress, textColor, gridColor) {
+            // Y-Axis Grid
+            const steps = 4;
+            ctx.textAlign = 'right';
+            ctx.textBaseline = 'middle';
+            ctx.font = '700 20px Inter';
+            ctx.fillStyle = textColor;
+
+            for (let i = 0; i <= steps; i++) {
+                const val = (state.maxVal / steps) * i;
+                const y = area.y + area.h - (i / steps) * area.h;
+
+                // Faint dashed line
+                ctx.beginPath();
+                ctx.setLineDash([8, 8]);
+                ctx.moveTo(area.x + 80, y);
+                ctx.lineTo(area.x + area.w, y);
+                ctx.strokeStyle = gridColor;
+                ctx.lineWidth = 2;
+                ctx.stroke();
+                ctx.setLineDash([]);
+
+                // Label
+                if (i > 0) { // Don't draw 0 label on the axis
+                    ctx.fillText(val.toLocaleString(), area.x + 60, y);
+                } else {
+                    ctx.fillText("0", area.x + 60, y);
+                }
+            }
+
+            // Draw Bars
+            const numBars = state.data.length;
+            // Calculate width considering padding (20% of slot width)
+            const slotWidth = (area.w - 100) / numBars;
+            const barWidth = slotWidth * 0.8;
+            
+            ctx.textAlign = 'center';
+
+            state.data.forEach((item, index) => {
+                const x = area.x + 100 + (index * slotWidth) + (slotWidth - barWidth)/2;
+                const targetH = (item.value / state.maxVal) * area.h;
+                const currentH = targetH * progress;
+                const y = area.y + area.h - currentH;
+
+                // Bar
+                ctx.fillStyle = item.color;
+                ctx.fillRect(x, y, barWidth, currentH);
+
+                // X-Axis Label (always visible, or fade in?)
+                ctx.textBaseline = 'top';
+                ctx.font = '700 24px Inter';
+                ctx.fillStyle = textColor;
+                ctx.globalAlpha = Math.min(1, progress * 2); // Fade in faster
+                ctx.fillText(item.label, x + barWidth/2, area.y + area.h + 15);
+
+                // Value Label floating on top
+                if (progress > 0.1) {
+                    ctx.textBaseline = 'bottom';
+                    ctx.font = '800 28px Inter';
+                    // ctx.fillStyle = textColor;
+                    ctx.fillText(Math.round(item.value * progress).toLocaleString(), x + barWidth/2, y - 10);
+                }
+                ctx.globalAlpha = 1.0;
+            });
+        }
+
+        function drawHorizontalChart(area, progress, textColor, gridColor) {
+            // Need more space on left for labels
+            const labelSpace = 250;
+            const actualAreaW = area.w - labelSpace;
+
+            // X-Axis Grid (Vertical lines)
+            const steps = 4;
+            ctx.textAlign = 'center';
+            ctx.textBaseline = 'top';
+            ctx.font = '700 20px Inter';
+            ctx.fillStyle = textColor;
+
+            for (let i = 0; i <= steps; i++) {
+                const val = (state.maxVal / steps) * i;
+                const x = area.x + labelSpace + (i / steps) * actualAreaW;
+
+                // Faint dashed line
+                ctx.beginPath();
+                ctx.setLineDash([8, 8]);
+                ctx.moveTo(x, area.y);
+                ctx.lineTo(x, area.y + area.h);
+                ctx.strokeStyle = gridColor;
+                ctx.lineWidth = 2;
+                ctx.stroke();
+                ctx.setLineDash([]);
+
+                // Label at bottom
+                ctx.fillText(val.toLocaleString(), x, area.y + area.h + 15);
+            }
+
+            // Draw Bars
+            const numBars = state.data.length;
+            const slotHeight = area.h / numBars;
+            const barHeight = slotHeight * 0.75;
+            
+            ctx.textAlign = 'right';
+            ctx.textBaseline = 'middle';
+
+            state.data.forEach((item, index) => {
+                const targetW = (item.value / state.maxVal) * actualAreaW;
+                const currentW = targetW * progress;
+                const y = area.y + (index * slotHeight) + (slotHeight - barHeight)/2;
+                const startX = area.x + labelSpace;
+
+                // Y-Axis Label
+                ctx.font = '800 24px Inter';
+                ctx.fillStyle = textColor;
+                ctx.globalAlpha = Math.min(1, progress * 2);
+                ctx.fillText(item.label, startX - 20, y + barHeight/2);
+
+                // Bar
+                ctx.fillStyle = item.color;
+                ctx.globalAlpha = 1.0;
+                ctx.fillRect(startX, y, currentW, barHeight);
+
+                // Value Label floating to the right
+                if (progress > 0.1) {
+                    ctx.textAlign = 'left';
+                    ctx.font = '800 28px Inter';
+                    ctx.fillStyle = textColor;
+                    // Format appropriately if it has decimals (like GDP)
+                    let displayVal = (item.value * progress);
+                    displayVal = displayVal % 1 === 0 ? displayVal.toLocaleString() : displayVal.toFixed(1);
+                    ctx.fillText(displayVal, startX + currentW + 15, y + barHeight/2);
+                    ctx.textAlign = 'right'; // reset for next label
+                }
+            });
+        }
+
+        function drawPieChart(area, progress, textColor) {
+            // Calculate Total
+            const total = state.data.reduce((sum, item) => sum + item.value, 0);
+            
+            const centerX = area.x + area.w * 0.35; // Offset left to leave room for large legend
+            const centerY = area.y + area.h / 2;
+            const radius = Math.min(area.w, area.h) * 0.45;
+
+            // Draw Sweep
+            // The whole pie sweeps in over the progress
+            const targetTotalRadian = Math.PI * 2 * progress;
+            let currentRadian = -Math.PI / 2; // Start at 12 o'clock
+
+            // Large side legend layout
+            const legendStartX = area.x + area.w * 0.7;
+            const legendStartY = area.y + area.h * 0.2;
+            const legendSpacing = 80;
+
+            state.data.forEach((item, index) => {
+                const sliceAngle = (item.value / total) * targetTotalRadian;
+                
+                // Draw Slice
+                ctx.beginPath();
+                ctx.moveTo(centerX, centerY);
+                ctx.arc(centerX, centerY, radius, currentRadian, currentRadian + sliceAngle);
+                ctx.closePath();
+                
+                ctx.fillStyle = item.color;
+                ctx.fill();
+                
+                // Draw separation stroke
+                ctx.lineWidth = 3;
+                ctx.strokeStyle = state.theme === 'light' ? '#ffffff' : '#18181b';
+                ctx.stroke();
+
+                currentRadian += sliceAngle;
+
+                // Draw Side Legend (Vox style big numbers next to pie)
+                if (progress > 0.5) { // Fade in halfway through
+                    const row = Math.floor(index / 2);
+                    const col = index % 2;
+                    const lx = legendStartX + (col * 200);
+                    const ly = legendStartY + (row * legendSpacing);
+
+                    ctx.globalAlpha = (progress - 0.5) * 2;
+                    
+                    // Color box
+                    ctx.fillStyle = item.color;
+                    ctx.beginPath();
+                    ctx.roundRect(lx, ly, 24, 24, 6);
+                    ctx.fill();
+
+                    // Label
+                    ctx.textAlign = 'left';
+                    ctx.textBaseline = 'top';
+                    ctx.font = '800 24px Inter';
+                    ctx.fillStyle = textColor;
+                    ctx.fillText(item.label.toUpperCase(), lx + 40, ly - 2);
+
+                    // Value / Percentage
+                    ctx.font = '700 22px Inter';
+                    ctx.fillStyle = textColor;
+                    const pct = ((item.value / total) * 100).toFixed(1);
+                    ctx.fillText(`${pct}%`, lx + 40, ly + 28);
+                    
+                    ctx.globalAlpha = 1.0;
+                }
+            });
+        }
+
+        // --- Interaction & Update Loops ---
+        function updateAndRender() {
+            updateStateFromUI();
+            renderFrame(1.0); // Show final state
+        }
+
+        // Setup Template Buttons
+        document.querySelectorAll('.template-btn').forEach(btn => {
+            btn.addEventListener('click', () => {
+                const template = btn.getAttribute('data-template');
+                if (templates[template]) {
+                    uiTitle.value = templates[template].title;
+                    uiSubtitle.value = templates[template].subtitle;
+                    uiSource.value = templates[template].source;
+                    typeSelect.value = templates[template].type;
+                    themeSelect.value = templates[template].theme;
+                    dataInput.value = templates[template].csv;
+                    updateAndRender();
+                }
+            });
+        });
+
+        // UI Listeners
+        const inputs = [uiTitle, uiSubtitle, uiSource, dataInput];
+        inputs.forEach(el => el.addEventListener('input', updateAndRender));
+        
+        typeSelect.addEventListener('change', updateAndRender);
+        themeSelect.addEventListener('change', updateAndRender);
+        legendCheck.addEventListener('change', updateAndRender);
+        
+        durationSlider.addEventListener('input', (e) => { 
+            state.duration = parseFloat(e.target.value) * 1000;
+            document.getElementById('duration-val').textContent = e.target.value + 's';
+        });
+
+        document.getElementById('theme-toggle').addEventListener('click', () => {
+            document.documentElement.classList.toggle('dark');
+        });
+
+        // Initialize
+        updateAndRender();
+
+        // --- Animation & Recording Logic ---
+        const btnAnimate = document.getElementById('btn-animate');
+        const btnRecord = document.getElementById('btn-record');
+        const overlay = document.getElementById('recording-overlay');
+
+        async function runAnimation(recordCallback = null) {
+            if (state.isAnimating) return;
+            state.isAnimating = true;
+            btnAnimate.disabled = true;
+            btnRecord.disabled = true;
+
+            updateStateFromUI(); // Ensure fresh data
+            
+            if (recordCallback) await recordCallback();
+
+            const startTime = performance.now();
+            const durationMs = state.duration;
+
+            return new Promise((resolve) => {
+                function animLoop(currentTime) {
+                    const elapsed = Math.max(0, currentTime - startTime);
+                    let p = durationMs > 0 ? elapsed / durationMs : 1.0;
+                    p = Math.max(0, Math.min(1, p));
+                    
+                    state.progress = p;
+                    renderFrame(p);
+
+                    if (p < 1.0) {
+                        requestAnimationFrame(animLoop);
+                    } else {
+                        state.isAnimating = false;
+                        btnAnimate.disabled = false;
+                        btnRecord.disabled = false;
+                        resolve();
+                    }
+                }
+                requestAnimationFrame(animLoop);
+            });
+        }
+
+        btnAnimate.addEventListener('click', () => runAnimation());
+
+        btnRecord.addEventListener('click', async () => {
+            if (state.isAnimating || state.isRecording) return;
+            
+            let mediaRecorder;
+            let recordedChunks = [];
+            state.isRecording = true;
+            
+            try {
+                // High quality stream capture
+                const stream = canvas.captureStream(60);
+                
+                let options = { mimeType: 'video/webm;codecs=vp9' };
+                if (!MediaRecorder.isTypeSupported(options.mimeType)) {
+                    options = { mimeType: 'video/webm;codecs=vp8' };
+                    if (!MediaRecorder.isTypeSupported(options.mimeType)) {
+                        options = { mimeType: 'video/webm' };
+                    }
+                }
+
+                // High bitrate for crisp charts
+                options.videoBitsPerSecond = 8000000; // 8 Mbps
+
+                mediaRecorder = new MediaRecorder(stream, options);
+
+                mediaRecorder.ondataavailable = (e) => {
+                    if (e.data.size > 0) recordedChunks.push(e.data);
+                };
+
+                mediaRecorder.onstop = () => {
+                    const blob = new Blob(recordedChunks, { type: options.mimeType.split(';')[0] });
+                    const url = URL.createObjectURL(blob);
+                    
+                    const a = document.createElement('a');
+                    a.style.display = 'none';
+                    a.href = url;
+                    a.download = `editorial-chart.webm`;
+                    document.body.appendChild(a);
+                    a.click();
+                    
+                    setTimeout(() => {
+                        document.body.removeChild(a);
+                        window.URL.revokeObjectURL(url);
+                    }, 100);
+
+                    overlay.classList.remove('translate-y-4');
+                    overlay.classList.add('-translate-y-20');
+                    state.isRecording = false;
+                    state.progress = 1.0;
+                    renderFrame(1.0); // Reset UI
+                };
+
+                overlay.classList.remove('-translate-y-20');
+                overlay.classList.add('translate-y-4');
+
+                // Record: Hold first frame 0.5s, animate, hold last frame 2s
+                state.progress = 0;
+                renderFrame(0);
+                
+                await new Promise(r => setTimeout(r, 500)); // Pre-roll
+                mediaRecorder.start();
+                
+                await runAnimation();
+
+                // Post-animation hold
+                setTimeout(() => {
+                    mediaRecorder.stop();
+                }, 2000);
+
+            } catch (err) {
+                console.error("Recording failed:", err);
+                alert("Recording failed. Your browser might not support canvas recording.");
+                overlay.classList.remove('translate-y-4');
+                overlay.classList.add('-translate-y-20');
+                state.isAnimating = false;
+                state.isRecording = false;
+                btnAnimate.disabled = false;
+                btnRecord.disabled = false;
+                renderFrame(1.0);
+            }
+        });
+
+    </script>
+</body>
+</html>
