@@ -13,10 +13,14 @@ export class Exporter {
      */
     async renderOffline(format = 'mp4', fps = 60, durationMs = 5000, onProgress = null) {
         return new Promise(async (resolve, reject) => {
-            const worker = new Worker(new URL('./mediabunny.worker.js', import.meta.url), { type: 'module' });
+            const isPngSeq = format === 'png-sequence' || format === 'png_sequence';
+            const workerUrl = isPngSeq 
+                ? new URL('./zip.worker.js', import.meta.url) 
+                : new URL('./mediabunny.worker.js', import.meta.url);
+            
+            const worker = new Worker(workerUrl, { type: 'module' });
             
             const numFrames = Math.ceil((durationMs / 1000) * fps);
-            const frameDurationUs = Math.floor((1000 / fps) * 1000);
             const microDtMs = 1000000 / fps;
 
             let currentFrame = 0;
@@ -26,19 +30,14 @@ export class Exporter {
                 const { type, data, error } = e.data;
                 
                 if (type === 'READY') {
-                    // Optimized Loop inspired by chart-studio-web
                     const pushNextBatch = async () => {
                         while (currentFrame <= numFrames) {
-                            // BACKPRESSURE: If worker is falling behind, wait
                             if (pendingFrames > 12) {
                                 await new Promise(r => setTimeout(r, 20));
                                 continue;
                             }
 
                             const progress = Math.min(1.0, currentFrame / numFrames);
-                            const timeMs = progress * durationMs;
-
-                            // UI YIELDING: Give the main thread a dedicated tick
                             await this.renderFrameFn(progress);
                             await new Promise(r => setTimeout(r, 0)); 
                             
@@ -57,28 +56,25 @@ export class Exporter {
                             pendingFrames++;
 
                             if (onProgress) {
-                                onProgress({
-                                    current: currentFrame,
-                                    total: numFrames,
-                                    pending: pendingFrames
-                                });
+                                onProgress({ current: currentFrame, total: numFrames, pending: pendingFrames });
                             }
                         }
-                        
                         worker.postMessage({ type: 'FINALIZE' });
                     };
-                    
                     pushNextBatch();
-                }
-                else if (type === 'PROGRESS') {
-                    // Internal worker progress
                 }
                 else if (type === 'FRAME_DONE') {
                     pendingFrames--;
                 }
                 else if (type === 'COMPLETE') {
-                    const blob = new Blob([data], { type: format === 'webm' ? 'video/webm' : 'video/mp4' });
-                    this._downloadBlob(blob, `animation-render.${format}`);
+                    let mimeType = 'video/mp4';
+                    if (format === 'webm') mimeType = 'video/webm';
+                    if (format === 'mov') mimeType = 'video/quicktime';
+                    if (isPngSeq) mimeType = 'application/zip';
+                    
+                    const blob = new Blob([data], { type: mimeType });
+                    const ext = isPngSeq ? 'zip' : format;
+                    this._downloadBlob(blob, `animation-render.${ext}`);
                     worker.terminate();
                     resolve();
                 }
@@ -96,7 +92,7 @@ export class Exporter {
                     height: this.canvas.height,
                     fps: fps,
                     format: format,
-                    bitrate: 8000000 // 8 mbps
+                    bitrate: 8000000
                 }
             });
         });
