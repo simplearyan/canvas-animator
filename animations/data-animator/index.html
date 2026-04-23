@@ -95,7 +95,7 @@
         </div>
 
         <!-- SIDEBAR -->
-        <aside class="order-2 lg:order-1 w-full lg:w-[420px] bg-white dark:bg-gray-800 border-t lg:border-t-0 lg:border-r border-gray-200 dark:border-gray-700 flex flex-col z-10 flex-shrink-0 flex-1 lg:flex-none">
+        <aside class="order-2 lg:order-1 w-full lg:w-[420px] bg-white dark:bg-gray-800 border-t lg:border-t-0 lg:border-r border-gray-200 dark:border-gray-700 flex flex-col z-10 flex-shrink-0 flex-1 min-h-0 lg:flex-none overflow-hidden">
             
             <!-- Tab Navigation -->
             <div class="flex border-b border-gray-200 dark:border-gray-700 flex-shrink-0">
@@ -212,6 +212,13 @@ Microsoft,211,#a855f7</textarea>
                 <div id="tab-export" class="tab-content hidden flex flex-col gap-6">
                     <div class="flex flex-col gap-4">
                         <div>
+                            <label class="block text-[10px] font-black uppercase text-gray-400 mb-2">Render Mode</label>
+                            <select id="export-mode" class="w-full p-3 rounded-lg border border-gray-200 dark:border-gray-700 bg-gray-50 dark:bg-gray-900 text-sm font-bold focus:ring-2 focus:ring-brand-500 outline-none cursor-pointer border-r-8 border-transparent">
+                                <option value="offline" selected>High-Quality Offline (WebCodecs)</option>
+                                <option value="realtime">Fast Record (Real-time)</option>
+                            </select>
+                        </div>
+                        <div>
                             <label class="block text-[10px] font-black uppercase text-gray-400 mb-2">Delivery Format</label>
                             <select id="export-format" class="w-full p-3 rounded-lg border border-gray-200 dark:border-gray-700 bg-gray-50 dark:bg-gray-900 text-sm font-bold focus:ring-2 focus:ring-brand-500 outline-none cursor-pointer border-r-8 border-transparent">
                                 <option value="mp4">MP4 Video (.mp4)</option>
@@ -250,14 +257,9 @@ Microsoft,211,#a855f7</textarea>
                 <button id="btn-preview" class="w-full py-3 lg:py-4 bg-gray-200 dark:bg-gray-700 text-gray-900 dark:text-white rounded-xl font-black uppercase tracking-widest text-[11px] hover:bg-gray-300 dark:hover:bg-gray-600 transition flex items-center justify-center gap-2">
                     <i class="ph-fill ph-play-circle text-lg"></i> Preview Animation
                 </button>
-                <div class="flex gap-2">
-                    <button id="btn-record" class="flex-1 py-3 lg:py-4 bg-red-500 text-white rounded-xl font-black uppercase tracking-widest text-[10px] sm:text-[11px] hover:bg-red-600 transition shadow-lg shadow-red-500/20 flex items-center justify-center gap-1 sm:gap-2">
-                        <i class="ph-fill ph-record text-base sm:text-lg"></i> Fast Record
-                    </button>
-                    <button id="btn-render" class="flex-1 py-3 lg:py-4 bg-brand-600 text-white rounded-xl font-black uppercase tracking-widest text-[10px] sm:text-[11px] hover:bg-brand-700 transition shadow-lg shadow-brand-500/20 flex items-center justify-center gap-1 sm:gap-2">
-                        <i class="ph-fill ph-cpu text-base sm:text-lg"></i> HQ Render
-                    </button>
-                </div>
+                <button id="btn-export" class="w-full py-3 lg:py-4 bg-brand-600 text-white rounded-xl font-black uppercase tracking-widest text-[11px] hover:bg-brand-700 transition shadow-lg shadow-brand-500/20 flex items-center justify-center gap-2">
+                    <i class="ph-fill ph-export text-lg"></i> Export Animation
+                </button>
             </div>
         </aside>
 
@@ -624,40 +626,28 @@ Microsoft,211,#a855f7</textarea>
             requestAnimationFrame(anim);
         };
 
-        document.getElementById('btn-record').onclick = async () => {
+        document.getElementById('btn-export').onclick = async () => {
             rendererIsExporting = true;
+            const mode = document.getElementById('export-mode').value;
             const fmt = document.getElementById('export-format').value;
             const fps = parseInt(document.getElementById('export-fps').value);
             
             overlay.classList.remove('-translate-y-24', 'opacity-0');
             overlay.classList.add('translate-y-0', 'opacity-100');
-            
-            overlayText.innerText = `Recording Real-Time...`;
             
             try {
-                await exporter.recordRealtime(fmt, fps, state.duration);
+                if (mode === 'realtime') {
+                    overlayText.innerText = `Recording Real-Time...`;
+                    await exporter.recordRealtime(fmt, fps, state.duration);
+                } else {
+                    await exporter.renderOffline(fmt, fps, state.duration, (prog) => {
+                        overlayText.innerText = `Rendering: ${prog.current} / ${prog.total}`;
+                    });
+                }
             } catch (err) {
                 console.error(err);
-                alert("Recording failed: " + err.message);
+                alert("Export failed: " + err.message);
             }
-            
-            overlay.classList.add('-translate-y-24', 'opacity-0');
-            overlay.classList.remove('translate-y-0', 'opacity-100');
-            rendererIsExporting = false;
-            syncState();
-        };
-
-        document.getElementById('btn-render').onclick = async () => {
-            rendererIsExporting = true;
-            const fmt = document.getElementById('export-format').value;
-            const fps = parseInt(document.getElementById('export-fps').value);
-            
-            overlay.classList.remove('-translate-y-24', 'opacity-0');
-            overlay.classList.add('translate-y-0', 'opacity-100');
-            
-            await exporter.renderOffline(fmt, fps, state.duration, (prog) => {
-                overlayText.innerText = `Rendering: ${prog.current} / ${prog.total}`;
-            });
             
             overlay.classList.add('-translate-y-24', 'opacity-0');
             overlay.classList.remove('translate-y-0', 'opacity-100');
