@@ -1,209 +1,672 @@
 <!DOCTYPE html>
-<html lang="en">
+<html lang="en" class="dark">
 <head>
     <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Data Animator (Blueprint Node)</title>
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+    <title>Data Animator Pro // Component Lab</title>
+    
+    <!-- Google Fonts -->
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Carrois+Gothic&family=Caveat:wght@600;700&family=Inter:wght@400;500;600;700;800;900&family=JetBrains+Mono:wght@400;500;700&family=Playfair+Display:wght@600;700&family=Roboto:wght@400;500;700;900&display=swap" rel="stylesheet">
+
+    <!-- Tailwind CSS -->
+    <script src="https://cdn.tailwindcss.com"></script>
+    <script>
+        tailwind.config = {
+            darkMode: 'class',
+            theme: {
+                extend: {
+                    fontFamily: {
+                        sans: ['Inter', 'sans-serif'],
+                        mono: ['JetBrains Mono', 'monospace'],
+                    },
+                    colors: {
+                        brand: {
+                            500: '#3b82f6', 
+                            600: '#2563eb',
+                        }
+                    }
+                }
+            }
+        }
+    </script>
     <!-- Phosphor Icons -->
     <script src="https://unpkg.com/@phosphor-icons/web"></script>
-    <script src="https://cdn.tailwindcss.com"></script>
+
     <style>
-        body { overscroll-behavior-y: none; }
-        /* Blueprint Pattern */
-        #canvas-container {
-            background-color: #f1f5f9;
-            background-image: 
-                radial-gradient(#cbd5e1 1px, transparent 1px),
-                radial-gradient(#cbd5e1 1px, transparent 1px);
+        body { transition: background-color 0.2s ease, color 0.2s ease; overscroll-behavior-y: none; }
+        
+        /* Custom ranges */
+        input[type=range] { -webkit-appearance: none; width: 100%; background: transparent; }
+        input[type=range]::-webkit-slider-thumb {
+            -webkit-appearance: none; height: 16px; width: 16px; border-radius: 50%;
+            background: #3b82f6; cursor: pointer; margin-top: -6px;
+        }
+        input[type=range]::-webkit-slider-runnable-track {
+            width: 100%; height: 4px; cursor: pointer; background: #cbd5e1; border-radius: 2px;
+        }
+        .dark input[type=range]::-webkit-slider-runnable-track { background: #475569; }
+
+        ::-webkit-scrollbar { width: 6px; height: 6px; }
+        ::-webkit-scrollbar-thumb { background-color: #cbd5e1; border-radius: 3px; }
+        .dark ::-webkit-scrollbar-thumb { background-color: #475569; }
+
+        #canvas-preview-container {
+            touch-action: none;
             background-size: 20px 20px;
             background-position: 0 0, 10px 10px;
+            transition: background-color 0.3s ease;
+        }
+
+        .blueprint-grid {
+            background-image: radial-gradient(rgba(59, 130, 246, 0.1) 1px, transparent 1px);
+            background-size: 20px 20px;
         }
     </style>
 </head>
-<body class="bg-gray-50 text-gray-900 h-screen flex flex-col overflow-hidden font-sans">
+<body class="bg-gray-50 dark:bg-gray-900 text-gray-900 dark:text-gray-100 h-screen flex flex-col overflow-hidden">
 
     <!-- HEADER -->
-    <header class="h-16 bg-white border-b border-gray-200 flex items-center justify-between px-6 flex-shrink-0 z-20">
+    <header class="h-16 bg-white dark:bg-gray-800 border-b border-gray-200 dark:border-gray-700 flex items-center justify-between px-6 flex-shrink-0 z-20">
         <div class="flex items-center gap-3">
-            <div class="bg-blue-600 text-white p-1.5 rounded-lg shadow-sm">
+            <a href="../index.html" class="p-2 hover:bg-gray-100 dark:hover:bg-gray-700 rounded-lg transition" title="Go Back">
+                <i class="ph ph-arrow-left text-xl"></i>
+            </a>
+            <div class="bg-brand-600 text-white p-1.5 rounded-lg shadow-sm">
                 <i class="ph-bold ph-chart-bar text-2xl"></i>
             </div>
-            <h1 class="text-xl font-bold tracking-tight text-gray-800 mt-0.5">Data Animator UI</h1>
+            <h1 class="text-xl font-bold tracking-tight mt-0.5">Data Animator <span class="text-brand-500">Pro</span></h1>
+        </div>
+        <div class="flex items-center gap-4">
+            <button id="theme-toggle" class="p-2 rounded-lg bg-gray-100 dark:bg-gray-700 hover:bg-gray-200 dark:hover:bg-gray-600 transition">
+                <i class="ph-fill ph-moon text-xl dark:hidden"></i>
+                <i class="ph-fill ph-sun text-xl hidden dark:block"></i>
+            </button>
         </div>
     </header>
 
-    <!-- MAIN APP AREA -->
-    <main class="flex-1 flex flex-col md:flex-row overflow-hidden relative">
+    <main class="flex-1 flex flex-col lg:flex-row overflow-hidden relative">
         
-        <!-- Recording Overlay -->
-        <div id="recording-overlay" class="absolute top-4 left-1/2 -translate-x-1/2 bg-red-600 text-white px-5 py-2.5 rounded-full font-medium text-sm flex items-center gap-2 shadow-lg z-50 transition-transform duration-300 transform -translate-y-20">
+        <!-- Recording/Rendering Overlay -->
+        <div id="status-overlay" class="absolute top-4 left-1/2 -translate-x-1/2 bg-brand-600 text-white px-6 py-3 rounded-full font-bold text-sm flex items-center gap-3 shadow-2xl z-50 transition-all duration-300 transform -translate-y-24 opacity-0">
             <div class="w-3 h-3 bg-white rounded-full animate-pulse"></div>
-            Processing Media...
+            <span id="status-text">Processing Media...</span>
         </div>
 
-        <!-- TOOLBAR / SIDEBAR -->
-        <aside class="w-full md:w-[320px] bg-white border-b md:border-b-0 md:border-r border-gray-200 p-5 flex flex-col gap-6 overflow-y-auto z-10 flex-shrink-0">
+        <!-- SIDEBAR -->
+        <aside class="order-2 lg:order-1 w-full lg:w-[420px] bg-white dark:bg-gray-800 border-t lg:border-t-0 lg:border-r border-gray-200 dark:border-gray-700 flex flex-col z-10 flex-shrink-0 flex-1 lg:flex-none">
             
-            <div class="flex flex-col gap-4">
-                <h2 class="text-xs font-bold uppercase tracking-wider text-gray-500">Export Settings</h2>
+            <!-- Tab Navigation -->
+            <div class="flex border-b border-gray-200 dark:border-gray-700 flex-shrink-0">
+                <button class="nav-tab flex-1 py-3 text-xs font-bold uppercase tracking-widest border-b-2 border-brand-500 text-brand-600" data-tab="data">Data</button>
+                <button class="nav-tab flex-1 py-3 text-xs font-bold uppercase tracking-widest border-b-2 border-transparent opacity-50" data-tab="style">Style</button>
+                <button class="nav-tab flex-1 py-3 text-xs font-bold uppercase tracking-widest border-b-2 border-transparent opacity-50" data-tab="export">Export</button>
+            </div>
+
+            <div class="flex-1 overflow-y-auto p-5 pb-10">
                 
-                <div>
-                    <label class="block text-xs font-medium mb-1 text-gray-700">Format</label>
-                    <select id="export-format" class="w-full p-2.5 rounded-lg border border-gray-300 bg-white text-sm outline-none focus:ring-2 focus:ring-blue-500 shadow-sm cursor-pointer border-r-8 border-transparent">
-                        <option value="mp4">MP4 Video (.mp4)</option>
-                        <option value="webm">WebM Video (.webm)</option>
-                        <option value="mov">QuickTime (.mov)</option>
-                        <option value="png-sequence">PNG Sequence (.zip)</option>
-                    </select>
+                <!-- DATA TAB -->
+                <div id="tab-data" class="tab-content flex flex-col gap-6">
+                    <div class="flex flex-col gap-2">
+                        <h3 class="text-[10px] font-black uppercase text-gray-400">Quick Templates</h3>
+                        <div class="grid grid-cols-2 gap-2">
+                            <button class="template-btn p-2 bg-gray-50 dark:bg-gray-900 border border-gray-200 dark:border-gray-700 rounded text-xs font-bold hover:border-brand-500 transition" data-template="tech">💻 Tech Giants</button>
+                            <button class="template-btn p-2 bg-gray-50 dark:bg-gray-900 border border-gray-200 dark:border-gray-700 rounded text-xs font-bold hover:border-brand-500 transition" data-template="crypto">🪙 Crypto Top 5</button>
+                            <button class="template-btn p-2 bg-gray-50 dark:bg-gray-900 border border-gray-200 dark:border-gray-700 rounded text-xs font-bold hover:border-brand-500 transition" data-template="social">📱 Social MAUs</button>
+                            <button class="template-btn p-2 bg-gray-50 dark:bg-gray-900 border border-gray-200 dark:border-gray-700 rounded text-xs font-bold hover:border-brand-500 transition" data-template="custom">✨ Blank Start</button>
+                        </div>
+                    </div>
+
+                    <div class="flex flex-col gap-3">
+                        <h3 class="text-[10px] font-black uppercase text-gray-400">Metadata</h3>
+                        <input type="text" id="ui-title" value="Market Leaders Overview" class="w-full p-3 rounded-lg border border-gray-200 dark:border-gray-700 bg-gray-50 dark:bg-gray-900 text-sm font-bold focus:ring-2 focus:ring-brand-500 outline-none" placeholder="Primary Title">
+                        <input type="text" id="ui-subtitle" value="Comparing annual performance metrics for Q3 2025" class="w-full p-3 rounded-lg border border-gray-200 dark:border-gray-700 bg-gray-50 dark:bg-gray-900 text-xs focus:ring-2 focus:ring-brand-500 outline-none" placeholder="Sub-heading description">
+                        <input type="text" id="ui-source" value="SOURCE: INDUSTRY BENCHMARKS DATA" class="w-full p-3 rounded-lg border border-gray-200 dark:border-gray-700 bg-gray-50 dark:bg-gray-900 text-[10px] uppercase font-bold tracking-widest focus:ring-2 focus:ring-brand-500 outline-none" placeholder="Data Source">
+                    </div>
+
+                    <div class="flex flex-col gap-2">
+                        <h3 class="text-[10px] font-black uppercase text-gray-400">CSV Data</h3>
+                        <textarea id="ui-csv" class="w-full h-48 p-3 rounded-lg border border-gray-200 dark:border-gray-700 bg-gray-50 dark:bg-gray-900 text-[12px] font-mono focus:ring-2 focus:ring-brand-500 outline-none resize-none" spellcheck="false">Label,Value,Color
+Apple,383,#3b82f6
+Amazon,574,#f59e0b
+Google,305,#10b981
+Microsoft,211,#a855f7</textarea>
+                    </div>
                 </div>
 
-                <div>
-                    <label class="block text-xs font-medium mb-1 text-gray-700">Framerate</label>
-                    <select id="export-fps" class="w-full p-2.5 rounded-lg border border-gray-300 bg-white text-sm outline-none focus:ring-2 focus:ring-blue-500 shadow-sm cursor-pointer border-r-8 border-transparent">
-                        <option value="12">12 FPS (Stuttered)</option>
-                        <option value="24">24 FPS (Cinematic)</option>
-                        <option value="30">30 FPS (Standard)</option>
-                        <option value="60" selected>60 FPS (Smooth)</option>
-                    </select>
+                <!-- STYLE TAB -->
+                <div id="tab-style" class="tab-content hidden flex flex-col gap-6">
+                    <div class="grid grid-cols-2 gap-4">
+                        <div>
+                            <label class="block text-[10px] font-black uppercase text-gray-400 mb-2">Chart Type</label>
+                            <select id="ui-chart-type" class="w-full p-2.5 rounded-lg border border-gray-200 dark:border-gray-700 bg-gray-50 dark:bg-gray-900 text-sm font-bold focus:ring-2 focus:ring-brand-500 outline-none cursor-pointer border-r-8 border-transparent">
+                                <option value="vertical">Vertical Bar</option>
+                                <option value="horizontal">Horizontal Bar</option>
+                                <option value="pie">Pie Chart</option>
+                            </select>
+                        </div>
+                        <div>
+                            <label class="block text-[10px] font-black uppercase text-gray-400 mb-2">Palette</label>
+                            <select id="ui-palette" class="w-full p-2.5 rounded-lg border border-gray-200 dark:border-gray-700 bg-gray-50 dark:bg-gray-900 text-sm font-bold focus:ring-2 focus:ring-brand-500 outline-none cursor-pointer border-r-8 border-transparent">
+                                <option value="vibrant">Vibrant</option>
+                                <option value="pastel">Pastel</option>
+                                <option value="neon">Neon</option>
+                                <option value="sunset">Sunset</option>
+                                <option value="ocean">Ocean</option>
+                            </select>
+                        </div>
+                    </div>
+
+                    <div class="grid grid-cols-2 gap-4">
+                        <div>
+                            <label class="block text-[10px] font-black uppercase text-gray-400 mb-2">Font Style</label>
+                            <select id="ui-font" class="w-full p-2.5 rounded-lg border border-gray-200 dark:border-gray-700 bg-gray-50 dark:bg-gray-900 text-sm font-bold focus:ring-2 focus:ring-brand-500 outline-none cursor-pointer border-r-8 border-transparent">
+                                <option value="Inter">Inter (Sans)</option>
+                                <option value="Carrois Gothic">Carrois (Editorial)</option>
+                                <option value="Playfair Display">Playfair (Serif)</option>
+                                <option value="JetBrains Mono">JetBrains (Mono)</option>
+                            </select>
+                        </div>
+                        <div>
+                            <label class="block text-[10px] font-black uppercase text-gray-400 mb-2">Format</label>
+                            <select id="ui-format" class="w-full p-2.5 rounded-lg border border-gray-200 dark:border-gray-700 bg-gray-50 dark:bg-gray-900 text-sm font-bold focus:ring-2 focus:ring-brand-500 outline-none cursor-pointer border-r-8 border-transparent">
+                                <option value="number">Numeric</option>
+                                <option value="currency">Currency ($)</option>
+                                <option value="percent">Percent (%)</option>
+                            </select>
+                        </div>
+                    </div>
+
+                    <div class="flex flex-col gap-4 p-4 bg-gray-50 dark:bg-gray-900/50 rounded-xl border border-gray-100 dark:border-gray-700/50">
+                        <h4 class="text-[10px] font-black uppercase text-gray-400">Canvas Colors</h4>
+                        <div class="grid grid-cols-3 gap-3">
+                            <div class="flex flex-col gap-2">
+                                <label class="text-[9px] font-bold uppercase text-gray-500">Background</label>
+                                <input type="color" id="ui-color-bg" value="#0f172a" class="w-full h-8 rounded border-none cursor-pointer">
+                            </div>
+                            <div class="flex flex-col gap-2">
+                                <label class="text-[9px] font-bold uppercase text-gray-500">Title</label>
+                                <input type="color" id="ui-color-title" value="#ffffff" class="w-full h-8 rounded border-none cursor-pointer">
+                            </div>
+                            <div class="flex flex-col gap-2">
+                                <label class="text-[9px] font-bold uppercase text-gray-500">Text</label>
+                                <input type="color" id="ui-color-text" value="#94a3b8" class="w-full h-8 rounded border-none cursor-pointer">
+                            </div>
+                        </div>
+                    </div>
+
+                    <div class="flex flex-col gap-4">
+                        <div class="flex items-center justify-between">
+                            <h4 class="text-[10px] font-black uppercase text-gray-400">Safe Zones Filter</h4>
+                            <label class="relative inline-flex items-center cursor-pointer">
+                                <input type="checkbox" id="ui-safe-zones" class="sr-only peer">
+                                <div class="w-9 h-5 bg-gray-200 peer-focus:outline-none rounded-full peer dark:bg-gray-700 peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border-gray-300 after:border after:rounded-full after:h-4 after:w-4 after:transition-all peer-checked:bg-brand-600"></div>
+                            </label>
+                        </div>
+                        <p class="text-[11px] text-gray-500 italic">Toggle TikTok/Reels framing guides to avoid UI occlusion.</p>
+                    </div>
+                </div>
+
+                <!-- EXPORT TAB -->
+                <div id="tab-export" class="tab-content hidden flex flex-col gap-6">
+                    <div class="flex flex-col gap-4">
+                        <div>
+                            <label class="block text-[10px] font-black uppercase text-gray-400 mb-2">Delivery Format</label>
+                            <select id="export-format" class="w-full p-3 rounded-lg border border-gray-200 dark:border-gray-700 bg-gray-50 dark:bg-gray-900 text-sm font-bold focus:ring-2 focus:ring-brand-500 outline-none cursor-pointer border-r-8 border-transparent">
+                                <option value="mp4">MP4 Video (.mp4)</option>
+                                <option value="webm">WebM Video (.webm)</option>
+                                <option value="mov">QuickTime (.mov)</option>
+                                <option value="png-sequence">PNG Sequence (.zip)</option>
+                            </select>
+                        </div>
+                        <div>
+                            <label class="block text-[10px] font-black uppercase text-gray-400 mb-2">Framerate</label>
+                            <select id="export-fps" class="w-full p-3 rounded-lg border border-gray-200 dark:border-gray-700 bg-gray-50 dark:bg-gray-900 text-sm font-bold focus:ring-2 focus:ring-brand-500 outline-none cursor-pointer border-r-8 border-transparent">
+                                <option value="12">12 FPS (Creative)</option>
+                                <option value="24">24 FPS (Cinema)</option>
+                                <option value="30">30 FPS (Standard)</option>
+                                <option value="60" selected>60 FPS (Ultra-Smooth)</option>
+                            </select>
+                        </div>
+                        <div>
+                            <label class="block text-[10px] font-black uppercase text-gray-400 mb-2">Animation Timing</label>
+                            <div class="flex items-center gap-4">
+                                <input type="range" id="ui-duration" min="1" max="10" step="0.5" value="4" class="flex-1">
+                                <span id="val-duration" class="text-xs font-mono font-bold w-10 text-brand-600">4.0s</span>
+                            </div>
+                        </div>
+                    </div>
+
+                    <div class="mt-4 p-4 bg-blue-50 dark:bg-blue-900/20 border border-blue-100 dark:border-blue-800 rounded-xl">
+                        <h4 class="text-[10px] font-black uppercase text-blue-500 mb-2">Optimization Tip</h4>
+                        <p class="text-[11px] text-blue-600 dark:text-blue-400">Render mode uses high-fidelity WebCodecs. If your browser supports it, choose MP4 for best general compatibility.</p>
+                    </div>
                 </div>
             </div>
 
-            <!-- Action Buttons -->
-            <div class="flex flex-col gap-3 mt-auto pt-4 border-t border-gray-100">
-                <button id="btn-animate" class="flex items-center justify-center gap-2 w-full py-3 px-4 bg-gray-100 text-gray-900 hover:bg-gray-200 rounded-lg font-bold transition disabled:opacity-50">
-                    <i class="ph-fill ph-play-circle text-xl"></i> Preview Play
+            <!-- ACTION FOOTER -->
+            <div class="p-4 lg:p-5 border-t border-gray-200 dark:border-gray-700 bg-gray-50 dark:bg-gray-900/50 flex flex-col gap-2 relative z-20 shadow-[0_-4px_6px_-1px_rgba(0,0,0,0.1)] lg:shadow-none">
+                <button id="btn-preview" class="w-full py-3 lg:py-4 bg-gray-200 dark:bg-gray-700 text-gray-900 dark:text-white rounded-xl font-black uppercase tracking-widest text-[11px] hover:bg-gray-300 dark:hover:bg-gray-600 transition flex items-center justify-center gap-2">
+                    <i class="ph-fill ph-play-circle text-lg"></i> Preview Animation
                 </button>
-                <div class="flex flex-col gap-2">
-                    <button id="btn-record" class="flex-1 bg-red-500 hover:bg-red-600 text-white rounded-lg font-bold py-3 transition shadow-md disabled:opacity-50 flex items-center justify-center gap-2">
-                        <i class="ph-fill ph-record text-xl"></i> Fast Record stream()
+                <div class="flex gap-2">
+                    <button id="btn-record" class="flex-1 py-3 lg:py-4 bg-red-500 text-white rounded-xl font-black uppercase tracking-widest text-[10px] sm:text-[11px] hover:bg-red-600 transition shadow-lg shadow-red-500/20 flex items-center justify-center gap-1 sm:gap-2">
+                        <i class="ph-fill ph-record text-base sm:text-lg"></i> Fast Record
                     </button>
-                    <button id="btn-render" class="flex-1 bg-blue-600 hover:bg-blue-700 text-white rounded-lg font-bold py-3 transition shadow-md disabled:opacity-50 flex items-center justify-center gap-2">
-                        <i class="ph-fill ph-cpu text-xl text-blue-200"></i> Render WebCodec
+                    <button id="btn-render" class="flex-1 py-3 lg:py-4 bg-brand-600 text-white rounded-xl font-black uppercase tracking-widest text-[10px] sm:text-[11px] hover:bg-brand-700 transition shadow-lg shadow-brand-500/20 flex items-center justify-center gap-1 sm:gap-2">
+                        <i class="ph-fill ph-cpu text-base sm:text-lg"></i> HQ Render
                     </button>
                 </div>
             </div>
         </aside>
 
-        <!-- CANVAS AREA -->
-        <section id="canvas-container" class="flex-1 relative overflow-hidden flex items-center justify-center p-4 sm:p-8">
-            <canvas id="main-canvas" class="w-full max-w-[1280px] aspect-video shadow-2xl rounded-lg bg-white border border-gray-200"></canvas>
+        <!-- MAIN CANVAS VIEW -->
+        <section id="canvas-preview-container" class="order-1 lg:order-2 h-[45vh] lg:h-auto flex-none lg:flex-1 overflow-hidden flex flex-col items-center justify-center p-2 sm:p-4 lg:p-12 blueprint-grid">
+            <div class="relative w-full h-full max-w-[1240px] max-h-[80vh] bg-black group shadow-2xl lg:rounded-xl overflow-hidden rounded-lg border-2 border-brand-500/20 flex flex-col items-center justify-center">
+                <canvas id="export-canvas" class="w-full h-full object-contain display-block"></canvas>
+                <div class="absolute bottom-2 right-2 lg:bottom-4 lg:right-4 bg-black/40 backdrop-blur text-[9px] font-bold text-white/50 px-2 py-1 rounded pointer-events-none">1920x1080 // RENDERING_NODE</div>
+            </div>
         </section>
 
     </main>
 
-    <!-- App Logic handled by Vite automatically parsing <script type="module"> -->
     <script type="module">
         import { Exporter } from '../core/exporter.js';
 
-        const canvas = document.getElementById('main-canvas');
+        // --- GLOBAL STATE ---
+        const state = {
+            data: [],
+            maxVal: 0,
+            progress: 1.0,
+            isDark: true,
+            
+            title: '',
+            subtitle: '',
+            source: '',
+            
+            font: 'Inter',
+            palette: 'vibrant',
+            chartType: 'vertical',
+            format: 'number',
+            
+            colorBg: '#0f172a',
+            colorTitle: '#ffffff',
+            colorText: '#94a3b8',
+            
+            showSafeZones: false,
+            duration: 4000
+        };
+
+        const palettes = {
+            vibrant: ['#3b82f6', '#ef4444', '#10b981', '#f59e0b', '#a855f7', '#ec4899'],
+            pastel: ['#93c5fd', '#fca5a5', '#6ee7b7', '#fcd34d', '#d8b4fe', '#f9a8d4'],
+            neon: ['#00ffff', '#ff00ff', '#39ff14', '#ffff00', '#ff4d00'],
+            sunset: ['#f43f5e', '#f97316', '#fbbf24', '#8b5cf6', '#d946ef'],
+            ocean: ['#0ea5e9', '#0284c7', '#0369a1', '#7dd3fc', '#bae6fd']
+        };
+
+        const templates = {
+            'tech': {
+                title: 'Tech Giants Revenue ($B)', subtitle: 'Annual revenue for fiscal year 2024',
+                source: 'SOURCE: COMPANY EARNING REPORTS (SEC)',
+                csv: 'Label,Value,Color\nApple,383,#acb3be\nAmazon,574,#f59e0b\nGoogle,305,#3b82f6\nMicrosoft,211,#10b981'
+            },
+            'crypto': {
+                title: 'Cryptocurrency Market Cap ($B)', subtitle: 'Relative market dominant assets',
+                source: 'SOURCE: COINMARKETCAP GLOBAL',
+                csv: 'Label,Value,Color\nBitcoin,1200,#f59e0b\nEthereum,400,#6366f1\nTether,100,#10b981\nBNB,95,#eab308\nSolana,60,#8b5cf6'
+            },
+            'social': {
+                title: 'Social Media MAUs (Millions)', subtitle: 'Monthly active user baseline 2025',
+                source: 'SOURCE: DIGITAL GLOBAL STATS',
+                csv: 'Label,Value,Color\nFacebook,3030,#3b82f6\nYouTube,2500,#ef4444\nWhatsApp,2000,#22c55e\nTikTok,1600,#000000'
+            }
+        };
+
+        // --- DOM ELEMENTS ---
+        const canvas = document.getElementById('export-canvas');
         const ctx = canvas.getContext('2d', { alpha: false });
-        // Fixed 1080p
         canvas.width = 1920;
         canvas.height = 1080;
 
-        const durationMs = 4000;
-
-        let lastData = [100, 200, 150, 400, 250];
-
-        // The exact draw function to render any time `progress` between 0.0 and 1.0
-        async function drawFrame(progress) {
-            // Easing
-            const easeP = progress < 0.5 ? 4 * progress * progress * progress : 1 - Math.pow(-2 * progress + 2, 3) / 2;
-
-            ctx.fillStyle = '#ffffff';
-            ctx.fillRect(0, 0, canvas.width, canvas.height);
-
-            ctx.fillStyle = '#1e293b';
-            ctx.font = 'bold 80px "Inter", sans-serif';
-            ctx.fillText('Data Animator Core Module', 100, 150);
-
-            // Draw some animated bars
-            const originX = 100;
-            const originY = 900;
-            const barWidth = 120;
-            const gap = 40;
-
-            for (let i = 0; i < lastData.length; i++) {
-                const targetH = lastData[i] * 1.5;
-                const currentH = targetH * easeP;
-                
-                const x = originX + (i * (barWidth + gap));
-                const y = originY - currentH;
-
-                ctx.fillStyle = '#2563eb';
-                // Add staggered effect
-                const localP = Math.max(0, Math.min(1, (easeP - (i * 0.05)) * 1.2));
-                
-                ctx.beginPath();
-                ctx.roundRect(x, originY - (targetH * localP), barWidth, targetH * localP, [16, 16, 0, 0]);
-                ctx.fill();
-            }
-
-            // Draw progress circle
-            ctx.beginPath();
-            ctx.arc(1700, 150, 60, 0, Math.PI * 2 * easeP);
-            ctx.strokeStyle = '#ef4444';
-            ctx.lineWidth = 16;
-            ctx.lineCap = 'round';
-            ctx.stroke();
-        }
-
-        // Initialize our central Exporter
         const exporter = new Exporter(canvas, drawFrame);
 
-        drawFrame(1.0); // Initial static draw
+        // --- UTILS ---
+        function formatValue(val) {
+            const rounded = Math.round(val);
+            if (state.format === 'currency') return '$' + Number(rounded).toLocaleString();
+            if (state.format === 'percent') return rounded + '%';
+            return Number(rounded).toLocaleString();
+        }
 
-        // UI Binding
-        const btnAnimate = document.getElementById('btn-animate');
-        const btnRecord = document.getElementById('btn-record');
-        const btnRender = document.getElementById('btn-render');
-        const overlay = document.getElementById('recording-overlay');
-        
-        function setUI(state) {
-            btnAnimate.disabled = state;
-            btnRecord.disabled = state;
-            btnRender.disabled = state;
-            if (state) {
-                overlay.classList.remove('-translate-y-20');
-                overlay.classList.add('translate-y-4');
-            } else {
-                overlay.classList.remove('translate-y-4');
-                overlay.classList.add('-translate-y-20');
+        function easeOutQuint(x) {
+            return 1 - Math.pow(1 - x, 5);
+        }
+
+        // --- CORE DRAWING ENGINE ---
+        async function drawFrame(progress) {
+            const easeP = easeOutQuint(progress);
+            const fontBase = state.font;
+            const activePalette = palettes[state.palette];
+
+            // Clear Background
+            ctx.fillStyle = state.colorBg;
+            ctx.fillRect(0, 0, canvas.width, canvas.height);
+
+            // Draw Header Metadata
+            ctx.textAlign = 'left';
+            ctx.textBaseline = 'top';
+            
+            // Title
+            ctx.font = `800 80px "${fontBase}"`;
+            ctx.fillStyle = state.colorTitle;
+            ctx.fillText(state.title, 100, 100);
+
+            // Subtitle
+            ctx.font = `400 42px "${fontBase}"`;
+            ctx.fillStyle = state.colorText;
+            ctx.fillText(state.subtitle, 100, 195);
+
+            // Source (Footer)
+            ctx.font = `700 24px "${fontBase}"`;
+            ctx.textBaseline = 'bottom';
+            ctx.fillText(state.source, 100, 1000);
+
+            // Separators
+            ctx.beginPath();
+            ctx.moveTo(100, 270); ctx.lineTo(1820, 270);
+            ctx.moveTo(100, 940); ctx.lineTo(1820, 940);
+            ctx.strokeStyle = state.isDark ? 'rgba(255,255,255,0.1)' : 'rgba(0,0,0,0.1)';
+            ctx.lineWidth = 4;
+            ctx.stroke();
+
+            // CHART AREA
+            const area = { x: 100, y: 320, w: 1720, h: 560 };
+
+            if (state.chartType === 'vertical') drawVertical(area, easeP, activePalette, fontBase);
+            else if (state.chartType === 'horizontal') drawHorizontal(area, easeP, activePalette, fontBase);
+            else if (state.chartType === 'pie') drawPie(area, easeP, activePalette, fontBase);
+
+            // SAFE ZONES (Preview Only - if we wanted export only, we'd add checks)
+            if (state.showSafeZones && !rendererIsExporting) {
+                drawSafeZones();
             }
         }
 
-        btnAnimate.addEventListener('click', async () => {
-            setUI(true);
+        function drawVertical(area, progress, palette, font) {
+            const numPoints = state.data.length;
+            if (numPoints === 0) return;
+            
+            const gap = 40;
+            const itemWidth = (area.w - (gap * (numPoints - 1))) / numPoints;
+            
+            state.data.forEach((item, idx) => {
+                const color = item.color || palette[idx % palette.length];
+                const targetH = (item.value / state.maxVal) * area.h;
+                const currentH = targetH * progress;
+                
+                const x = area.x + (idx * (itemWidth + gap));
+                const y = (area.y + area.h) - currentH;
+
+                // Draw Bar
+                ctx.fillStyle = color;
+                ctx.beginPath();
+                ctx.roundRect(x, y, itemWidth, currentH, [16, 16, 0, 0]);
+                ctx.fill();
+
+                // Value Text (atop bar)
+                if (progress > 0.1) {
+                    ctx.fillStyle = state.colorTitle;
+                    ctx.font = `bold 32px "${font}"`;
+                    ctx.textAlign = 'center';
+                    ctx.fillText(formatValue(item.value * progress), x + itemWidth/2, y - 15);
+                }
+
+                // Label (below bar)
+                ctx.fillStyle = state.colorText;
+                ctx.font = `700 24px "${font}"`;
+                ctx.textAlign = 'center';
+                ctx.fillText(item.label, x + itemWidth/2, area.y + area.h + 40);
+            });
+        }
+
+        function drawHorizontal(area, progress, palette, font) {
+            const numPoints = state.data.length;
+            const gap = 30;
+            const nameSpace = 300;
+            const barAreaW = area.w - nameSpace - 100;
+            const itemHeight = (area.h - (gap * (numPoints - 1))) / numPoints;
+
+            state.data.forEach((item, idx) => {
+                const color = item.color || palette[idx % palette.length];
+                const targetW = (item.value / state.maxVal) * barAreaW;
+                const currentW = targetW * progress;
+                const y = area.y + (idx * (itemHeight + gap));
+
+                // Name
+                ctx.fillStyle = state.colorText;
+                ctx.font = `bold 28px "${font}"`;
+                ctx.textAlign = 'right';
+                ctx.textBaseline = 'middle';
+                ctx.fillText(item.label, area.x + nameSpace - 20, y + itemHeight/2);
+
+                // Bar
+                ctx.fillStyle = color;
+                ctx.beginPath();
+                ctx.roundRect(area.x + nameSpace, y, currentW, itemHeight, [0, 10, 10, 0]);
+                ctx.fill();
+
+                // Value
+                if (progress > 0.1) {
+                    ctx.fillStyle = state.colorTitle;
+                    ctx.textAlign = 'left';
+                    ctx.fillText(formatValue(item.value * progress), area.x + nameSpace + currentW + 20, y + itemHeight/2);
+                }
+            });
+        }
+
+        function drawPie(area, progress, palette, font) {
+            const cx = area.x + area.w / 2;
+            const cy = area.y + area.h / 2;
+            const radius = Math.min(area.h, area.w) / 2;
+            let currentAngle = -Math.PI / 2;
+            const total = state.data.reduce((sum, d) => sum + d.value, 0);
+
+            state.data.forEach((item, idx) => {
+                const sliceAngle = ((item.value / total) * Math.PI * 2) * progress;
+                const color = item.color || palette[idx % palette.length];
+
+                ctx.beginPath();
+                ctx.moveTo(cx, cy);
+                ctx.arc(cx, cy, radius, currentAngle, currentAngle + sliceAngle);
+                ctx.closePath();
+                ctx.fillStyle = color;
+                ctx.fill();
+
+                // Simple Label
+                if (progress > 0.8) {
+                    const midAngle = currentAngle + sliceAngle / 2;
+                    const lx = cx + Math.cos(midAngle) * (radius * 1.2);
+                    const ly = cy + Math.sin(midAngle) * (radius * 1.2);
+                    
+                    ctx.fillStyle = state.colorText;
+                    ctx.font = `bold 22px "${font}"`;
+                    ctx.textAlign = lx > cx ? 'left' : 'right';
+                    ctx.fillText(item.label, lx, ly);
+                }
+
+                currentAngle += sliceAngle;
+            });
+        }
+
+        function drawSafeZones() {
+            // TikTok/Reels framing estimates
+            ctx.strokeStyle = 'rgba(255, 60, 60, 0.4)';
+            ctx.lineWidth = 4;
+            ctx.setLineDash([20, 20]);
+            
+            // Interaction Zones (TikTok typically has buttons on the right ~20% and bottom ~25%)
+            ctx.strokeRect(1530, 200, 300, 700); // Right side buttons
+            ctx.strokeRect(100, 750, 1400, 200); // Caption area
+
+            ctx.fillStyle = 'rgba(255, 60, 60, 0.4)';
+            ctx.font = 'bold 20px Inter';
+            ctx.textAlign = 'center';
+            ctx.fillText("TIKTOK UI ZONE", 1680, 550);
+            ctx.fillText("CAPTION ZONE", 800, 850);
+            
+            ctx.setLineDash([]);
+        }
+
+        // --- APP LOGIC ---
+        let rendererIsExporting = false;
+
+        function syncState() {
+            state.title = document.getElementById('ui-title').value;
+            state.subtitle = document.getElementById('ui-subtitle').value;
+            state.source = document.getElementById('ui-source').value;
+            state.chartType = document.getElementById('ui-chart-type').value;
+            state.palette = document.getElementById('ui-palette').value;
+            state.font = document.getElementById('ui-font').value;
+            state.format = document.getElementById('ui-format').value;
+            state.colorBg = document.getElementById('ui-color-bg').value;
+            state.colorTitle = document.getElementById('ui-color-title').value;
+            state.colorText = document.getElementById('ui-color-text').value;
+            state.showSafeZones = document.getElementById('ui-safe-zones').checked;
+            state.duration = parseFloat(document.getElementById('ui-duration').value) * 1000;
+            
+            // CSV Parsing
+            const csv = document.getElementById('ui-csv').value.trim();
+            const lines = csv.split('\n');
+            state.data = [];
+            state.maxVal = 0;
+            
+            lines.forEach((line, i) => {
+                const parts = line.split(',');
+                if (i === 0 && isNaN(parseFloat(parts[1]))) return; // Skip header
+                if (parts.length < 2) return;
+                
+                const val = parseFloat(parts[1]) || 0;
+                state.data.push({
+                    label: parts[0],
+                    value: val,
+                    color: parts[2] && parts[2].startsWith('#') ? parts[2] : null
+                });
+                if (val > state.maxVal) state.maxVal = val;
+            });
+            
+            if (state.maxVal === 0) state.maxVal = 100;
+            else state.maxVal *= 1.1; // Headroom
+            
+            drawFrame(1.0);
+        }
+
+        // BIND EVENTS
+        ['ui-title', 'ui-subtitle', 'ui-source', 'ui-chart-type', 'ui-palette', 'ui-font', 'ui-format', 'ui-color-bg', 'ui-color-title', 'ui-color-text', 'ui-safe-zones', 'ui-csv', 'ui-duration'].forEach(id => {
+            document.getElementById(id).addEventListener('input', syncState);
+        });
+
+        document.getElementById('ui-duration').addEventListener('input', (e) => {
+            document.getElementById('val-duration').innerText = parseFloat(e.target.value).toFixed(1) + 's';
+        });
+
+        document.querySelectorAll('.nav-tab').forEach(btn => {
+            btn.onclick = () => {
+                document.querySelectorAll('.nav-tab').forEach(b => {
+                    b.classList.remove('border-brand-500', 'text-brand-600');
+                    b.classList.add('border-transparent', 'opacity-50');
+                });
+                btn.classList.add('border-brand-500', 'text-brand-600');
+                btn.classList.remove('border-transparent', 'opacity-50');
+                
+                document.querySelectorAll('.tab-content').forEach(c => c.classList.add('hidden'));
+                document.getElementById('tab-' + btn.dataset.tab).classList.remove('hidden');
+            };
+        });
+
+        document.querySelectorAll('.template-btn').forEach(btn => {
+            btn.onclick = () => {
+                const t = templates[btn.dataset.template];
+                if (!t) {
+                    if (btn.dataset.template === 'custom') {
+                        document.getElementById('ui-csv').value = 'Item,Value\nSample,50';
+                        document.getElementById('ui-title').value = 'New Project';
+                        document.getElementById('ui-subtitle').value = 'Add your description here';
+                    }
+                    syncState();
+                    return;
+                }
+                document.getElementById('ui-title').value = t.title;
+                document.getElementById('ui-subtitle').value = t.subtitle;
+                document.getElementById('ui-source').value = t.source;
+                document.getElementById('ui-csv').value = t.csv;
+                syncState();
+            };
+        });
+
+        document.getElementById('theme-toggle').onclick = () => {
+            document.documentElement.classList.toggle('dark');
+            state.isDark = document.documentElement.classList.contains('dark');
+            syncState();
+        };
+
+        const overlay = document.getElementById('status-overlay');
+        const overlayText = document.getElementById('status-text');
+
+        document.getElementById('btn-preview').onclick = () => {
             const start = performance.now();
-            const anim = (time) => {
-                const p = Math.min(1.0, (time - start) / durationMs);
+            const anim = (t) => {
+                const p = Math.min(1.0, (t-start) / state.duration);
                 drawFrame(p);
                 if (p < 1) requestAnimationFrame(anim);
-                else setUI(false);
-            }
+            };
             requestAnimationFrame(anim);
-        });
+        };
 
-        btnRecord.addEventListener('click', async () => {
+        document.getElementById('btn-record').onclick = async () => {
+            rendererIsExporting = true;
             const fmt = document.getElementById('export-format').value;
-            const fps = parseInt(document.getElementById('export-fps').value, 10);
+            const fps = parseInt(document.getElementById('export-fps').value);
             
-            setUI(true);
-            await exporter.recordRealtime(fmt, fps, durationMs);
-            setUI(false);
-        });
+            overlay.classList.remove('-translate-y-24', 'opacity-0');
+            overlay.classList.add('translate-y-0', 'opacity-100');
+            
+            overlayText.innerText = `Recording Real-Time...`;
+            
+            try {
+                await exporter.recordRealtime(fmt, fps, state.duration);
+            } catch (err) {
+                console.error(err);
+                alert("Recording failed: " + err.message);
+            }
+            
+            overlay.classList.add('-translate-y-24', 'opacity-0');
+            overlay.classList.remove('translate-y-0', 'opacity-100');
+            rendererIsExporting = false;
+            syncState();
+        };
 
-        btnRender.addEventListener('click', async () => {
+        document.getElementById('btn-render').onclick = async () => {
+            rendererIsExporting = true;
             const fmt = document.getElementById('export-format').value;
-            const fps = parseInt(document.getElementById('export-fps').value, 10);
+            const fps = parseInt(document.getElementById('export-fps').value);
             
-            setUI(true);
-            await exporter.renderOffline(fmt, fps, durationMs, (progress) => {
-                overlay.innerHTML = `<div class="w-3 h-3 bg-white rounded-full animate-pulse"></div> Rendering: ${progress.current} / ${progress.total}`;
+            overlay.classList.remove('-translate-y-24', 'opacity-0');
+            overlay.classList.add('translate-y-0', 'opacity-100');
+            
+            await exporter.renderOffline(fmt, fps, state.duration, (prog) => {
+                overlayText.innerText = `Rendering: ${prog.current} / ${prog.total}`;
             });
-            setUI(false);
-            overlay.innerHTML = `<div class="w-3 h-3 bg-white rounded-full animate-pulse"></div> Processing Media...`;
-        });
+            
+            overlay.classList.add('-translate-y-24', 'opacity-0');
+            overlay.classList.remove('translate-y-0', 'opacity-100');
+            rendererIsExporting = false;
+            syncState();
+        };
+
+        // Init
+        syncState();
 
     </script>
 </body>
