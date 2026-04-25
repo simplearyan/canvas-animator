@@ -30,7 +30,7 @@ module.exports = {
             icon: '📋',
             desc: 'Infinte canvas and artistic whiteboard prototypes.'
         },
-        'animations': {
+        '_templates': {
             label: 'Independent Animators',
             icon: '🎬',
             desc: 'Modular animator apps powered by the mediabunny WebCodec worker core.'
