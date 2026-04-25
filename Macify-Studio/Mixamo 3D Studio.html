@@ -1,0 +1,655 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Mixamo 3D Studio</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
+    <script src="https://unpkg.com/lucide@latest"></script>
+    <style>
+        body { font-family: 'Inter', sans-serif; background-color: #09090b; color: #f4f4f5; overflow: hidden; }
+        ::-webkit-scrollbar { width: 8px; height: 8px; }
+        ::-webkit-scrollbar-track { background: #18181b; }
+        ::-webkit-scrollbar-thumb { background: #3f3f46; border-radius: 4px; }
+        ::-webkit-scrollbar-thumb:hover { background: #52525b; }
+        
+        #webgl-container { position: relative; width: 100%; height: 100%; background: #18181b; outline: none; }
+        canvas { display: block; width: 100%; height: 100%; outline: none; }
+
+        .drop-zone {
+            border: 2px dashed #3b82f6;
+            background: rgba(59, 130, 246, 0.1);
+            transition: all 0.2s ease;
+        }
+        .drag-over {
+            background: rgba(59, 130, 246, 0.2);
+            border-color: #60a5fa;
+            transform: scale(1.02);
+        }
+    </style>
+
+    <!-- Modern Three.js Module Import Map -->
+    <script type="importmap">
+        {
+            "imports": {
+                "three": "https://cdn.jsdelivr.net/npm/three@0.158.0/build/three.module.js",
+                "three/addons/": "https://cdn.jsdelivr.net/npm/three@0.158.0/examples/jsm/"
+            }
+        }
+    </script>
+</head>
+<body class="flex flex-col h-screen">
+
+    <!-- Header -->
+    <header class="h-16 border-b border-zinc-800 bg-zinc-950 flex items-center justify-between px-6 flex-shrink-0 z-20">
+        <div class="flex items-center gap-3">
+            <div class="w-8 h-8 rounded bg-blue-600 flex items-center justify-center shadow-lg shadow-blue-900/50">
+                <i data-lucide="box" class="w-5 h-5 text-white"></i>
+            </div>
+            <div>
+                <h1 class="font-bold text-md tracking-tight leading-tight">3D Animation Studio</h1>
+                <p class="text-[10px] text-zinc-500 font-medium tracking-widest uppercase">Mixamo Compatible</p>
+            </div>
+        </div>
+
+        <div class="flex items-center gap-4">
+            <div id="fps-counter" class="hidden sm:flex items-center gap-2 px-3 py-1 bg-zinc-900 rounded border border-zinc-800 text-xs font-mono text-zinc-400">
+                <span class="w-2 h-2 rounded-full bg-green-500"></span>
+                <span id="fps-val">60 FPS</span>
+            </div>
+
+            <button id="btn-export" class="flex items-center gap-2 px-4 py-1.5 rounded bg-blue-600 hover:bg-blue-500 text-white text-sm font-medium transition-colors shadow-lg shadow-blue-900/20">
+                <div class="w-2 h-2 rounded-full bg-white shadow-sm" id="record-indicator"></div>
+                <span id="export-text">Record WebM</span>
+            </button>
+        </div>
+    </header>
+
+    <!-- Main Workspace -->
+    <div class="flex flex-1 overflow-hidden relative">
+        
+        <!-- Left Sidebar: Controls -->
+        <aside class="w-72 border-r border-zinc-800 bg-zinc-950 flex flex-col overflow-y-auto flex-shrink-0 z-10 shadow-xl">
+            
+            <!-- Asset Loading -->
+            <div class="p-5 border-b border-zinc-800">
+                <h2 class="text-xs font-semibold text-zinc-500 uppercase tracking-wider mb-4 flex items-center gap-2">
+                    <i data-lucide="upload-cloud" class="w-4 h-4"></i> Asset Loader
+                </h2>
+                
+                <div class="space-y-3">
+                    <button id="btn-load-char" class="w-full flex items-center justify-center gap-2 px-4 py-3 rounded-lg bg-zinc-900 hover:bg-zinc-800 border border-zinc-800 text-sm font-medium transition-colors">
+                        <i data-lucide="user" class="w-4 h-4 text-blue-400"></i> Load Character (.fbx/.glb)
+                    </button>
+                    <button id="btn-load-anim" class="w-full flex items-center justify-center gap-2 px-4 py-3 rounded-lg bg-zinc-900 hover:bg-zinc-800 border border-zinc-800 text-sm font-medium transition-colors opacity-50 cursor-not-allowed" disabled>
+                        <i data-lucide="activity" class="w-4 h-4 text-emerald-400"></i> Load Animation (.fbx)
+                    </button>
+                </div>
+                <p class="text-[11px] text-zinc-500 mt-3 leading-relaxed">
+                    Download characters from Mixamo (FBX/GLTF) and drop them in. Then apply Mixamo animations.
+                </p>
+                <input type="file" id="file-input-char" accept=".fbx,.glb,.gltf" class="hidden">
+                <input type="file" id="file-input-anim" accept=".fbx" class="hidden">
+            </div>
+
+            <!-- Playback Controls -->
+            <div class="p-5 border-b border-zinc-800">
+                <h2 class="text-xs font-semibold text-zinc-500 uppercase tracking-wider mb-4 flex items-center gap-2">
+                    <i data-lucide="play-circle" class="w-4 h-4"></i> Playback
+                </h2>
+                <div class="flex items-center gap-3 mb-4">
+                    <button id="btn-play" class="w-10 h-10 rounded-full bg-zinc-800 hover:bg-zinc-700 flex items-center justify-center transition-colors">
+                        <i data-lucide="pause" class="w-5 h-5 text-white" id="icon-play"></i>
+                    </button>
+                    <div class="flex-1">
+                        <div class="flex justify-between items-center mb-1">
+                            <label class="text-[10px] text-zinc-400 uppercase font-semibold">Speed</label>
+                            <span id="speed-val" class="text-xs text-zinc-300 font-mono">1.0x</span>
+                        </div>
+                        <input type="range" id="slider-speed" min="0.1" max="2" step="0.1" value="1" class="w-full accent-blue-500">
+                    </div>
+                </div>
+            </div>
+
+            <!-- Low-End PC Optimizations -->
+            <div class="p-5">
+                <h2 class="text-xs font-semibold text-zinc-500 uppercase tracking-wider mb-4 flex items-center gap-2">
+                    <i data-lucide="cpu" class="w-4 h-4"></i> Performance (Low-End PC)
+                </h2>
+                
+                <div class="space-y-5">
+                    <!-- Resolution Scale -->
+                    <div>
+                        <div class="flex justify-between items-center mb-1">
+                            <label class="text-xs text-zinc-300">Resolution Scale</label>
+                            <span id="res-val" class="text-xs text-zinc-500 font-mono">100%</span>
+                        </div>
+                        <input type="range" id="slider-res" min="0.1" max="1" step="0.1" value="1" class="w-full accent-emerald-500">
+                        <p class="text-[10px] text-zinc-500 mt-1">Lower this if the app is lagging.</p>
+                    </div>
+
+                    <!-- Toggle Shadows -->
+                    <div class="flex items-center justify-between">
+                        <div>
+                            <span class="text-xs text-zinc-300 block">Render Shadows</span>
+                            <span class="text-[10px] text-zinc-500">High GPU usage</span>
+                        </div>
+                        <label class="relative inline-flex items-center cursor-pointer">
+                            <input type="checkbox" id="toggle-shadows" class="sr-only peer" checked>
+                            <div class="w-9 h-5 bg-zinc-700 peer-focus:outline-none rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border-gray-300 after:border after:rounded-full after:h-4 after:w-4 after:transition-all peer-checked:bg-blue-600"></div>
+                        </label>
+                    </div>
+
+                    <!-- Low Poly Material -->
+                    <div class="flex items-center justify-between">
+                        <div>
+                            <span class="text-xs text-zinc-300 block">Basic Materials</span>
+                            <span class="text-[10px] text-zinc-500">Removes complex lighting</span>
+                        </div>
+                        <label class="relative inline-flex items-center cursor-pointer">
+                            <input type="checkbox" id="toggle-materials" class="sr-only peer">
+                            <div class="w-9 h-5 bg-zinc-700 peer-focus:outline-none rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border-gray-300 after:border after:rounded-full after:h-4 after:w-4 after:transition-all peer-checked:bg-blue-600"></div>
+                        </label>
+                    </div>
+                </div>
+            </div>
+        </aside>
+
+        <!-- 3D Canvas Area -->
+        <main class="flex-1 relative bg-black flex items-center justify-center" id="main-view">
+            
+            <div id="webgl-container"></div>
+            
+            <!-- Drag & Drop Overlay -->
+            <div id="drop-overlay" class="absolute inset-4 rounded-xl border-2 border-dashed border-zinc-700 bg-black/50 backdrop-blur-sm flex flex-col items-center justify-center opacity-0 pointer-events-none transition-opacity z-50">
+                <i data-lucide="package-open" class="w-16 h-16 text-zinc-400 mb-4 animate-bounce"></i>
+                <h2 class="text-xl font-bold text-white mb-2">Drop Mixamo FBX/GLB Here</h2>
+                <p class="text-sm text-zinc-400">Loads as character or animation automatically.</p>
+            </div>
+
+            <!-- Loading Spinner -->
+            <div id="loader" class="absolute inset-0 bg-zinc-950/80 backdrop-blur-sm flex flex-col items-center justify-center z-40 transition-opacity opacity-0 pointer-events-none">
+                <div class="w-10 h-10 border-4 border-zinc-700 border-t-blue-500 rounded-full animate-spin mb-4"></div>
+                <p class="text-sm font-medium text-white" id="loader-text">Parsing 3D Model...</p>
+            </div>
+            
+            <!-- Instruction Toast (Initial state) -->
+            <div id="initial-instruction" class="absolute bottom-8 left-1/2 transform -translate-x-1/2 bg-zinc-900/90 border border-zinc-800 text-zinc-300 px-6 py-3 rounded-full text-sm shadow-2xl backdrop-blur-md flex items-center gap-3">
+                <i data-lucide="info" class="w-4 h-4 text-blue-400"></i>
+                Drag & Drop a Mixamo Character (.fbx) to begin.
+            </div>
+        </main>
+    </div>
+
+    <!-- Toast Notifications -->
+    <div id="toast-container" class="fixed bottom-6 right-6 z-50 flex flex-col gap-2 pointer-events-none"></div>
+
+    <!-- Application Logic (Module) -->
+    <script type="module">
+        import * as THREE from 'three';
+        import { OrbitControls } from 'three/addons/controls/OrbitControls.js';
+        import { FBXLoader } from 'three/addons/loaders/FBXLoader.js';
+        import { GLTFLoader } from 'three/addons/loaders/GLTFLoader.js';
+
+        // Initialize Lucide Icons
+        lucide.createIcons();
+
+        // --- STATE MANAGEMENT ---
+        const state = {
+            scene: null,
+            camera: null,
+            renderer: null,
+            controls: null,
+            clock: new THREE.Clock(),
+            
+            model: null,           // The current 3D Character
+            mixer: null,           // Animation Mixer
+            currentAction: null,   // Currently playing animation
+            isPlaying: true,
+            playbackSpeed: 1.0,
+            
+            // Performance
+            shadowsEnabled: true,
+            basicMaterials: false,
+            resolutionScale: 1.0,
+
+            // Recording
+            isRecording: false,
+            mediaRecorder: null,
+            recordedChunks: []
+        };
+
+        const container = document.getElementById('webgl-container');
+        
+        // --- CORE THREE.JS SETUP ---
+        function initThree() {
+            // 1. Scene
+            state.scene = new THREE.Scene();
+            state.scene.background = new THREE.Color(0x18181b); // Zinc-900 background
+            state.scene.fog = new THREE.Fog(0x18181b, 10, 50);
+
+            // 2. Camera
+            state.camera = new THREE.PerspectiveCamera(45, container.clientWidth / container.clientHeight, 0.1, 100);
+            state.camera.position.set(0, 1.5, 5);
+
+            // 3. Renderer (Optimized for low-end by default logic)
+            state.renderer = new THREE.WebGLRenderer({ antialias: true, powerPreference: "high-performance" });
+            state.renderer.setSize(container.clientWidth, container.clientHeight);
+            state.renderer.setPixelRatio(window.devicePixelRatio * state.resolutionScale);
+            state.renderer.shadowMap.enabled = state.shadowsEnabled;
+            state.renderer.shadowMap.type = THREE.PCFSoftShadowMap;
+            state.renderer.outputColorSpace = THREE.SRGBColorSpace;
+            container.appendChild(state.renderer.domElement);
+
+            // 4. Controls
+            state.controls = new OrbitControls(state.camera, state.renderer.domElement);
+            state.controls.enableDamping = true;
+            state.controls.dampingFactor = 0.05;
+            state.controls.target.set(0, 1, 0);
+
+            // 5. Lights
+            const hemiLight = new THREE.HemisphereLight(0xffffff, 0x444444, 0.6);
+            hemiLight.position.set(0, 20, 0);
+            state.scene.add(hemiLight);
+
+            const dirLight = new THREE.DirectionalLight(0xffffff, 1.2);
+            dirLight.position.set(3, 10, 5);
+            dirLight.castShadow = state.shadowsEnabled;
+            dirLight.shadow.camera.top = 2;
+            dirLight.shadow.camera.bottom = -2;
+            dirLight.shadow.camera.left = -2;
+            dirLight.shadow.camera.right = 2;
+            dirLight.shadow.camera.near = 0.1;
+            dirLight.shadow.camera.far = 40;
+            state.scene.add(dirLight);
+            state.dirLight = dirLight; // Store for toggling
+
+            // 6. Environment (Floor Grid)
+            const mesh = new THREE.Mesh(
+                new THREE.PlaneGeometry(100, 100),
+                new THREE.MeshPhongMaterial({ color: 0x18181b, depthWrite: false })
+            );
+            mesh.rotation.x = -Math.PI / 2;
+            mesh.receiveShadow = true;
+            state.scene.add(mesh);
+
+            const grid = new THREE.GridHelper(100, 100, 0x3f3f46, 0x27272a);
+            grid.material.opacity = 0.5;
+            grid.material.transparent = true;
+            state.scene.add(grid);
+
+            // Resize Handler
+            window.addEventListener('resize', onWindowResize);
+            
+            // Start Loop
+            animate();
+        }
+
+        function onWindowResize() {
+            state.camera.aspect = container.clientWidth / container.clientHeight;
+            state.camera.updateProjectionMatrix();
+            state.renderer.setSize(container.clientWidth, container.clientHeight);
+        }
+
+        // --- ANIMATION LOOP ---
+        let frames = 0;
+        let lastFpsTime = performance.now();
+
+        function animate() {
+            requestAnimationFrame(animate);
+
+            const delta = state.clock.getDelta();
+            
+            // Update Mixer
+            if (state.mixer && state.isPlaying) {
+                state.mixer.update(delta * state.playbackSpeed);
+            }
+
+            state.controls.update();
+            state.renderer.render(state.scene, state.camera);
+
+            // FPS Counter
+            frames++;
+            const now = performance.now();
+            if (now - lastFpsTime >= 1000) {
+                document.getElementById('fps-val').innerText = `${frames} FPS`;
+                frames = 0;
+                lastFpsTime = now;
+            }
+        }
+
+        // --- ASSET LOADING (MIXAMO SUPPORT) ---
+        const fbxLoader = new FBXLoader();
+        const gltfLoader = new GLTFLoader();
+
+        function showLoader(text) {
+            document.getElementById('loader-text').innerText = text;
+            document.getElementById('loader').classList.remove('opacity-0', 'pointer-events-none');
+        }
+
+        function hideLoader() {
+            document.getElementById('loader').classList.add('opacity-0', 'pointer-events-none');
+        }
+
+        function processModelMaterials(object) {
+            object.traverse(function (child) {
+                if (child.isMesh) {
+                    child.castShadow = state.shadowsEnabled;
+                    child.receiveShadow = state.shadowsEnabled;
+                    
+                    // Low-end PC Material Override
+                    if (state.basicMaterials) {
+                        const oldMat = child.material;
+                        child.material = new THREE.MeshLambertMaterial({ 
+                            color: oldMat.color || 0xffffff,
+                            map: oldMat.map || null,
+                            skinning: true // Crucial for rigged Mixamo models
+                        });
+                    }
+                }
+            });
+        }
+
+        function loadCharacter(file) {
+            showLoader('Loading Character...');
+            const url = URL.createObjectURL(file);
+            const extension = file.name.split('.').pop().toLowerCase();
+
+            const onLoad = (object) => {
+                // If GLTF, the actual scene is in object.scene
+                const model = extension === 'glb' || extension === 'gltf' ? object.scene : object;
+
+                // Remove existing
+                if (state.model) {
+                    state.scene.remove(state.model);
+                    state.mixer = null;
+                }
+
+                // Setup new model
+                state.model = model;
+                
+                // Scale Mixamo FBX (often 100x too big in Three.js)
+                if (extension === 'fbx') {
+                    model.scale.set(0.01, 0.01, 0.01);
+                }
+
+                processModelMaterials(model);
+                state.scene.add(model);
+
+                // Setup Mixer & Default Animation
+                state.mixer = new THREE.AnimationMixer(model);
+                const animations = extension === 'glb' || extension === 'gltf' ? object.animations : object.animations;
+                
+                if (animations && animations.length > 0) {
+                    playAnimation(animations[0]);
+                }
+
+                URL.revokeObjectURL(url);
+                hideLoader();
+                document.getElementById('initial-instruction').style.display = 'none';
+                
+                // Enable Anim Upload Button
+                const btnAnim = document.getElementById('btn-load-anim');
+                btnAnim.disabled = false;
+                btnAnim.classList.remove('opacity-50', 'cursor-not-allowed');
+                
+                showToast('Character loaded successfully!', 'success');
+            };
+
+            const onError = (e) => {
+                console.error(e);
+                hideLoader();
+                showToast('Failed to parse model file.', 'error');
+            };
+
+            if (extension === 'fbx') fbxLoader.load(url, onLoad, undefined, onError);
+            else gltfLoader.load(url, onLoad, undefined, onError);
+        }
+
+        function loadAnimation(file) {
+            if (!state.model) {
+                showToast('Load a character first!', 'error');
+                return;
+            }
+
+            showLoader('Loading Animation...');
+            const url = URL.createObjectURL(file);
+            const extension = file.name.split('.').pop().toLowerCase();
+
+            // Mixamo animations are typically downloaded as FBX (Without Skin)
+            if (extension !== 'fbx') {
+                hideLoader();
+                showToast('Please upload a Mixamo .fbx animation file.', 'error');
+                return;
+            }
+
+            fbxLoader.load(url, (object) => {
+                if (object.animations && object.animations.length > 0) {
+                    // Extract animation and apply to existing character mixer
+                    const anim = object.animations[0];
+                    playAnimation(anim);
+                    showToast('Animation applied!', 'success');
+                } else {
+                    showToast('No animation data found in file.', 'error');
+                }
+                URL.revokeObjectURL(url);
+                hideLoader();
+            }, undefined, (e) => {
+                console.error(e);
+                hideLoader();
+                showToast('Failed to load animation.', 'error');
+            });
+        }
+
+        function playAnimation(clip) {
+            if (state.currentAction) {
+                // Smoothly fade from old animation to new one over 0.5s
+                const prevAction = state.currentAction;
+                state.currentAction = state.mixer.clipAction(clip);
+                state.currentAction.reset();
+                state.currentAction.play();
+                state.currentAction.crossFadeFrom(prevAction, 0.5, true);
+            } else {
+                state.currentAction = state.mixer.clipAction(clip);
+                state.currentAction.play();
+            }
+        }
+
+        // --- UI & PERFORMANCE EVENT LISTENERS ---
+        
+        // Play/Pause
+        document.getElementById('btn-play').addEventListener('click', () => {
+            state.isPlaying = !state.isPlaying;
+            const icon = document.getElementById('icon-play');
+            icon.setAttribute('data-lucide', state.isPlaying ? 'pause' : 'play');
+            lucide.createIcons();
+        });
+
+        // Speed
+        document.getElementById('slider-speed').addEventListener('input', (e) => {
+            state.playbackSpeed = parseFloat(e.target.value);
+            document.getElementById('speed-val').innerText = state.playbackSpeed.toFixed(1) + 'x';
+        });
+
+        // Resolution Scale
+        document.getElementById('slider-res').addEventListener('change', (e) => {
+            state.resolutionScale = parseFloat(e.target.value);
+            document.getElementById('res-val').innerText = Math.round(state.resolutionScale * 100) + '%';
+            state.renderer.setPixelRatio(window.devicePixelRatio * state.resolutionScale);
+        });
+
+        // Toggle Shadows
+        document.getElementById('toggle-shadows').addEventListener('change', (e) => {
+            state.shadowsEnabled = e.target.checked;
+            state.renderer.shadowMap.enabled = state.shadowsEnabled;
+            state.dirLight.castShadow = state.shadowsEnabled;
+            
+            if (state.model) {
+                state.model.traverse(child => {
+                    if (child.isMesh) {
+                        child.castShadow = state.shadowsEnabled;
+                        child.receiveShadow = state.shadowsEnabled;
+                    }
+                });
+            }
+            // Materials need update when shadow state changes
+            state.scene.traverse(child => { if(child.material) child.material.needsUpdate = true; });
+        });
+
+        // Toggle Materials (Low Poly)
+        document.getElementById('toggle-materials').addEventListener('change', (e) => {
+            state.basicMaterials = e.target.checked;
+            if (state.model) {
+                // Reloading the scene object materials is tricky without keeping original refs.
+                // For a robust single file, we'll notify user to reload character to apply deep material changes.
+                showToast('Material setting changed. Reload character to apply.', 'info');
+            }
+        });
+
+        // File Inputs
+        document.getElementById('btn-load-char').addEventListener('click', () => document.getElementById('file-input-char').click());
+        document.getElementById('btn-load-anim').addEventListener('click', () => document.getElementById('file-input-anim').click());
+        
+        document.getElementById('file-input-char').addEventListener('change', (e) => {
+            if (e.target.files.length > 0) loadCharacter(e.target.files[0]);
+        });
+        document.getElementById('file-input-anim').addEventListener('change', (e) => {
+            if (e.target.files.length > 0) loadAnimation(e.target.files[0]);
+        });
+
+        // Drag and Drop Logic
+        const mainView = document.getElementById('main-view');
+        const overlay = document.getElementById('drop-overlay');
+
+        mainView.addEventListener('dragover', (e) => {
+            e.preventDefault();
+            overlay.classList.remove('opacity-0', 'pointer-events-none');
+            overlay.classList.add('flex');
+        });
+
+        mainView.addEventListener('dragleave', (e) => {
+            e.preventDefault();
+            overlay.classList.add('opacity-0', 'pointer-events-none');
+        });
+
+        mainView.addEventListener('drop', (e) => {
+            e.preventDefault();
+            overlay.classList.add('opacity-0', 'pointer-events-none');
+            
+            if (e.dataTransfer.files.length > 0) {
+                const file = e.dataTransfer.files[0];
+                const name = file.name.toLowerCase();
+                
+                // Smart Routing: If model exists and file implies animation, load as anim. Else load as char.
+                if (state.model && (name.includes('anim') || name.includes('mixamo.com') || document.getElementById('btn-load-anim').disabled === false)) {
+                    // Ask user to be safe if they drop directly
+                    if(confirm("Apply as animation to current character?\nCancel to load as entirely new character.")) {
+                        loadAnimation(file);
+                        return;
+                    }
+                }
+                loadCharacter(file);
+            }
+        });
+
+        // --- VIDEO EXPORT / RECORDING ---
+        document.getElementById('btn-export').addEventListener('click', () => {
+            if (state.isRecording) {
+                stopRecording();
+            } else {
+                startRecording();
+            }
+        });
+
+        function startRecording() {
+            if (!state.model) {
+                showToast('Nothing to record! Load a character first.', 'error');
+                return;
+            }
+
+            try {
+                // Ensure canvas doesn't clear its buffer during extraction
+                const canvas = state.renderer.domElement;
+                const stream = canvas.captureStream(60); // Record at smooth 60fps
+                
+                state.recordedChunks = [];
+                state.mediaRecorder = new MediaRecorder(stream, { 
+                    mimeType: 'video/webm; codecs=vp9',
+                    videoBitsPerSecond: 10000000 // 10 Mbps for high quality 3D recording
+                });
+
+                state.mediaRecorder.ondataavailable = (e) => {
+                    if (e.data.size > 0) state.recordedChunks.push(e.data);
+                };
+
+                state.mediaRecorder.onstop = () => {
+                    const blob = new Blob(state.recordedChunks, { type: 'video/webm' });
+                    const url = URL.createObjectURL(blob);
+                    const link = document.createElement('a');
+                    link.href = url;
+                    link.download = `mixamo-render-${Date.now()}.webm`;
+                    link.click();
+                    URL.revokeObjectURL(url);
+                    showToast('Video saved successfully!', 'success');
+                };
+
+                state.mediaRecorder.start();
+                state.isRecording = true;
+
+                // UI Update
+                const btn = document.getElementById('btn-export');
+                btn.classList.add('bg-red-600', 'hover:bg-red-700');
+                btn.classList.remove('bg-blue-600', 'hover:bg-blue-500');
+                document.getElementById('export-text').innerText = 'Stop Recording';
+                document.getElementById('record-indicator').classList.add('animate-pulse', 'bg-red-200');
+                
+                showToast('Recording started...');
+
+            } catch (err) {
+                console.error(err);
+                showToast('Recording failed. Browser not supported.', 'error');
+            }
+        }
+
+        function stopRecording() {
+            if (!state.isRecording || !state.mediaRecorder) return;
+            
+            state.mediaRecorder.stop();
+            state.isRecording = false;
+            
+            // UI Update
+            const btn = document.getElementById('btn-export');
+            btn.classList.remove('bg-red-600', 'hover:bg-red-700');
+            btn.classList.add('bg-blue-600', 'hover:bg-blue-500');
+            document.getElementById('export-text').innerText = 'Record WebM';
+            document.getElementById('record-indicator').classList.remove('animate-pulse', 'bg-red-200');
+        }
+
+        // --- TOAST UTILS ---
+        function showToast(message, type = 'info') {
+            const container = document.getElementById('toast-container');
+            const toast = document.createElement('div');
+            
+            const colors = { success: 'bg-green-600', error: 'bg-red-600', info: 'bg-blue-600' };
+            toast.className = `${colors[type]} text-white px-4 py-3 rounded-lg shadow-xl flex items-center gap-3 transform transition-all translate-y-8 opacity-0`;
+            
+            let icon = type === 'success' ? 'check-circle' : (type === 'error' ? 'alert-triangle' : 'info');
+            toast.innerHTML = `<i data-lucide="${icon}" class="w-5 h-5"></i> <span class="text-sm font-medium">${message}</span>`;
+            
+            container.appendChild(toast);
+            lucide.createIcons();
+
+            requestAnimationFrame(() => toast.classList.remove('translate-y-8', 'opacity-0'));
+            setTimeout(() => {
+                toast.classList.add('translate-y-8', 'opacity-0');
+                setTimeout(() => toast.remove(), 300);
+            }, 3000);
+        }
+
+        // Boot the engine
+        initThree();
+
+    </script>
+</body>
+</html>

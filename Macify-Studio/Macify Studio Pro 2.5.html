@@ -1,0 +1,725 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Macify Studio Pro</title>
+    <!-- Tailwind CSS -->
+    <script src="https://cdn.tailwindcss.com"></script>
+    <!-- Google Fonts -->
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
+    <!-- Lucide Icons -->
+    <script src="https://unpkg.com/lucide@latest"></script>
+    <style>
+        body {
+            font-family: 'Inter', sans-serif;
+            background-color: #09090b; 
+            color: #ececf1;
+            overflow: hidden;
+            touch-action: none;
+            -webkit-font-smoothing: antialiased;
+        }
+
+        ::-webkit-scrollbar { width: 6px; height: 6px; }
+        ::-webkit-scrollbar-track { background: transparent; }
+        ::-webkit-scrollbar-thumb { background: rgba(255, 255, 255, 0.1); border-radius: 10px; }
+        ::-webkit-scrollbar-thumb:hover { background: rgba(255, 255, 255, 0.2); }
+
+        .workspace-grid {
+            background-size: 24px 24px;
+            background-image: radial-gradient(circle, rgba(255,255,255,0.05) 1px, transparent 1px);
+        }
+
+        input[type="range"] {
+            -webkit-appearance: none;
+            height: 4px;
+            background: rgba(255, 255, 255, 0.1);
+            border-radius: 2px;
+            outline: none;
+        }
+        input[type="range"]::-webkit-slider-thumb {
+            -webkit-appearance: none;
+            width: 16px;
+            height: 16px;
+            border-radius: 50%;
+            background: #fff;
+            box-shadow: 0 2px 6px rgba(0,0,0,0.4);
+            cursor: pointer;
+            transition: transform 0.1s;
+        }
+        input[type="range"]::-webkit-slider-thumb:hover { transform: scale(1.1); }
+
+        input[type="color"] {
+            -webkit-appearance: none;
+            border: none;
+            width: 28px;
+            height: 28px;
+            border-radius: 50%;
+            padding: 0;
+            cursor: pointer;
+            background: transparent;
+        }
+        input[type="color"]::-webkit-color-swatch-wrapper { padding: 0; }
+        input[type="color"]::-webkit-color-swatch { border: none; border-radius: 50%; box-shadow: inset 0 0 0 1px rgba(255,255,255,0.1); }
+
+        .segmented-btn { transition: all 0.2s cubic-bezier(0.4, 0, 0.2, 1); }
+        .segmented-btn.active {
+            background: rgba(255, 255, 255, 0.1);
+            color: white;
+            box-shadow: 0 1px 3px rgba(0,0,0,0.2), inset 0 1px 0 rgba(255,255,255,0.1);
+        }
+
+        #preview-canvas {
+            box-shadow: 0 0 0 1px rgba(255,255,255,0.05), 0 25px 50px -12px rgba(0,0,0,0.5);
+            max-width: 100%;
+            max-height: 100%;
+            object-fit: contain;
+            border-radius: 8px;
+            background-image: 
+                linear-gradient(45deg, #18181b 25%, transparent 25%, transparent 75%, #18181b 75%, #18181b), 
+                linear-gradient(45deg, #18181b 25%, transparent 25%, transparent 75%, #18181b 75%, #18181b);
+            background-size: 20px 20px;
+            background-position: 0 0, 10px 10px;
+            transition: all 0.3s ease;
+        }
+
+        .gradient-btn { transition: transform 0.1s; }
+        .gradient-btn:hover { transform: scale(1.05); }
+        
+        /* Sidebar transition for mobile hiding */
+        #inspector-sidebar { transition: transform 0.3s cubic-bezier(0.4, 0, 0.2, 1), opacity 0.3s ease; }
+        .sidebar-hidden { transform: translateY(100%); opacity: 0; pointer-events: none; position: absolute; }
+        @media (min-width: 768px) {
+            .sidebar-hidden { transform: translateX(-100%); position: absolute; }
+        }
+    </style>
+</head>
+<body class="flex flex-col h-screen text-sm">
+
+    <!-- Glass Header -->
+    <header class="absolute top-0 w-full h-14 bg-zinc-900/80 backdrop-blur-2xl border-b border-white/5 flex items-center justify-between px-4 sm:px-6 z-40">
+        <div class="flex items-center gap-3">
+            <div class="w-7 h-7 rounded-lg bg-gradient-to-b from-sky-400 to-blue-600 flex items-center justify-center shadow-inner shadow-white/20">
+                <i data-lucide="monitor" class="w-4 h-4 text-white"></i>
+            </div>
+            <h1 class="font-semibold text-zinc-100 tracking-tight hidden sm:block">Macify <span class="text-[10px] bg-blue-600 px-1.5 py-0.5 rounded ml-1 uppercase font-bold tracking-wider">Pro</span></h1>
+        </div>
+
+        <div class="flex items-center gap-2">
+            <!-- Templates Dropdown (Desktop only) -->
+            <div class="relative group hidden lg:block">
+                <button class="flex items-center gap-2 px-3 py-1.5 rounded-lg bg-white/5 hover:bg-white/10 text-zinc-200 font-medium transition-all ring-1 ring-white/5">
+                    <i data-lucide="layout-template" class="w-4 h-4"></i> Templates <i data-lucide="chevron-down" class="w-3 h-3"></i>
+                </button>
+                <div class="absolute right-0 top-full mt-2 w-48 bg-zinc-800 border border-white/10 rounded-xl shadow-2xl opacity-0 invisible group-hover:opacity-100 group-hover:visible transition-all overflow-hidden">
+                    <button onclick="generateCodeMock()" class="w-full text-left px-4 py-2 hover:bg-white/5 flex items-center gap-2 text-zinc-300 hover:text-white"><i data-lucide="code" class="w-4 h-4"></i> Code Editor</button>
+                    <button onclick="generateBrowserMock()" class="w-full text-left px-4 py-2 hover:bg-white/5 flex items-center gap-2 text-zinc-300 hover:text-white"><i data-lucide="globe" class="w-4 h-4"></i> Web Browser</button>
+                </div>
+            </div>
+
+            <div class="w-px h-4 bg-white/10 mx-1 hidden md:block"></div>
+
+            <button onclick="document.getElementById('file-upload').click()" class="flex items-center gap-2 px-3 py-1.5 rounded-lg bg-white/5 hover:bg-white/10 text-zinc-200 font-medium transition-all ring-1 ring-white/5" title="Upload Image">
+                <i data-lucide="upload-cloud" class="w-4 h-4"></i>
+                <span class="hidden md:inline">Upload</span>
+            </button>
+            <input type="file" id="file-upload" accept="image/*" class="hidden" onchange="handleImageUpload(event)">
+            
+            <div class="w-px h-4 bg-white/10 mx-1"></div>
+            
+            <!-- Export Options -->
+            <div class="flex bg-blue-600 rounded-lg shadow-lg shadow-blue-600/20 ring-1 ring-inset ring-white/20 transition-all hover:bg-blue-500">
+                <select id="export-res" class="bg-transparent text-white font-medium pl-2 pr-1 py-1.5 outline-none cursor-pointer appearance-none text-xs border-r border-blue-400/30">
+                    <option value="1920" class="bg-zinc-800" selected>HD</option>
+                    <option value="2560" class="bg-zinc-800">2K</option>
+                    <option value="3840" class="bg-zinc-800">4K</option>
+                </select>
+                <button onclick="exportImage()" class="flex items-center gap-2 px-2.5 py-1.5 text-white hover:bg-white/10 transition-colors border-r border-blue-400/30" title="Export PNG">
+                    <i data-lucide="image" class="w-4 h-4"></i>
+                </button>
+                <button onclick="exportVideo()" class="flex items-center gap-2 px-2.5 py-1.5 text-white hover:bg-white/10 transition-colors rounded-r-lg" title="Export Video">
+                    <i data-lucide="video" class="w-4 h-4"></i>
+                </button>
+            </div>
+
+            <div class="w-px h-4 bg-white/10 mx-1"></div>
+
+            <!-- Toggle Sidebar -->
+            <button onclick="toggleInspector()" class="p-1.5 rounded-lg bg-white/5 hover:bg-white/10 text-zinc-200 transition-all ring-1 ring-white/5" title="Toggle Inspector">
+                <i data-lucide="sidebar" class="w-4 h-4"></i>
+            </button>
+        </div>
+    </header>
+
+    <div class="flex flex-1 pt-14 relative overflow-hidden flex-col-reverse md:flex-row">
+        
+        <!-- Glass Inspector Sidebar -->
+        <aside id="inspector-sidebar" class="w-full md:w-80 flex-shrink-0 bg-zinc-900/60 backdrop-blur-3xl border-r border-white/5 z-30 h-[50%] md:h-full flex flex-col shadow-2xl md:shadow-none relative">
+            
+            <!-- Tab Navigation -->
+            <div class="p-3 border-b border-white/5 bg-zinc-900/50">
+                <div class="flex p-1 bg-black/40 rounded-xl ring-1 ring-white/5">
+                    <button class="segmented-tab active flex-1 py-1.5 rounded-lg text-[11px] font-medium text-zinc-400 flex justify-center items-center gap-1.5" onclick="switchTab('style')">
+                        <i data-lucide="palette" class="w-3.5 h-3.5"></i> Style
+                    </button>
+                    <button class="segmented-tab flex-1 py-1.5 rounded-lg text-[11px] font-medium text-zinc-400 flex justify-center items-center gap-1.5" onclick="switchTab('layout')">
+                        <i data-lucide="layout" class="w-3.5 h-3.5"></i> Layout
+                    </button>
+                    <button class="segmented-tab flex-1 py-1.5 rounded-lg text-[11px] font-medium text-zinc-400 flex justify-center items-center gap-1.5" onclick="switchTab('motion')">
+                        <i data-lucide="film" class="w-3.5 h-3.5"></i> Motion
+                    </button>
+                </div>
+            </div>
+
+            <!-- Tab Content Area -->
+            <div class="flex-1 overflow-y-auto p-4 space-y-5">
+                
+                <!-- ================= TAB: STYLE ================= -->
+                <div id="tab-style" class="space-y-5 block">
+                    <!-- Theme -->
+                    <div>
+                        <div class="flex items-center justify-between mb-2">
+                            <label class="text-[10px] font-bold text-zinc-500 uppercase tracking-widest block">Window Theme</label>
+                            <label class="flex items-center gap-2 cursor-pointer text-[10px] text-zinc-400 hover:text-white transition-colors">
+                                <input type="checkbox" class="accent-blue-500 w-3 h-3" onchange="state.windowTransparent = this.checked; renderCanvas();"> Glass
+                            </label>
+                        </div>
+                        <div class="flex p-1 bg-black/20 rounded-xl ring-1 ring-white/5">
+                            <button class="segmented-btn active flex-1 py-1.5 rounded-lg text-xs text-zinc-400 flex justify-center items-center gap-2" data-theme="dark" onclick="setTheme('dark')">
+                                <i data-lucide="moon" class="w-3.5 h-3.5"></i> Dark
+                            </button>
+                            <button class="segmented-btn flex-1 py-1.5 rounded-lg text-xs text-zinc-400 flex justify-center items-center gap-2" data-theme="light" onclick="setTheme('light')">
+                                <i data-lucide="sun" class="w-3.5 h-3.5"></i> Light
+                            </button>
+                        </div>
+                    </div>
+
+                    <!-- Background Customization -->
+                    <div class="bg-white/5 rounded-2xl p-3 ring-1 ring-white/5">
+                        <div class="flex items-center justify-between mb-3">
+                            <label class="text-[10px] font-bold text-zinc-500 uppercase tracking-widest block">Background</label>
+                            <label class="flex items-center gap-1.5 cursor-pointer text-[10px] text-zinc-400 hover:text-white transition-colors">
+                                <input type="checkbox" id="bg-transparent-toggle" class="accent-blue-500 w-3 h-3" onchange="state.bgTransparent = this.checked; renderCanvas();"> Transparent
+                            </label>
+                        </div>
+                        <div class="grid grid-cols-5 gap-2">
+                            <button class="gradient-btn w-full aspect-square rounded-lg shadow-sm border border-white/10" style="background: linear-gradient(135deg, #ec4899, #8b5cf6);" onclick="setGradient('#ec4899', '#8b5cf6')"></button>
+                            <button class="gradient-btn w-full aspect-square rounded-lg shadow-sm border border-white/10" style="background: linear-gradient(135deg, #3b82f6, #2dd4bf);" onclick="setGradient('#3b82f6', '#2dd4bf')"></button>
+                            <button class="gradient-btn w-full aspect-square rounded-lg shadow-sm border border-white/10" style="background: linear-gradient(135deg, #f59e0b, #ef4444);" onclick="setGradient('#f59e0b', '#ef4444')"></button>
+                            <button class="gradient-btn w-full aspect-square rounded-lg shadow-sm border border-white/10" style="background: linear-gradient(135deg, #10b981, #3b82f6);" onclick="setGradient('#10b981', '#3b82f6')"></button>
+                            <button class="gradient-btn w-full aspect-square rounded-lg shadow-sm border border-white/10" style="background: linear-gradient(135deg, #6366f1, #a855f7);" onclick="setGradient('#6366f1', '#a855f7')"></button>
+                            <button class="gradient-btn w-full aspect-square rounded-lg shadow-sm border border-white/10" style="background: linear-gradient(135deg, #0f172a, #1e293b);" onclick="setGradient('#0f172a', '#1e293b')"></button>
+                            <button class="gradient-btn w-full aspect-square rounded-lg shadow-sm border border-white/10" style="background: linear-gradient(135deg, #f8fafc, #e2e8f0);" onclick="setGradient('#f8fafc', '#e2e8f0')"></button>
+                            <button class="gradient-btn w-full aspect-square rounded-lg shadow-sm border border-white/10" style="background: #18181b;" onclick="setSolid('#18181b')"></button>
+                            <button class="gradient-btn w-full aspect-square rounded-lg shadow-sm border border-white/10" style="background: #ef4444;" onclick="setSolid('#ef4444')"></button>
+                            <div class="relative w-full aspect-square rounded-lg shadow-sm border border-white/10 bg-[url('data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAAAoAAAAKCAYAAACNMs+9AAAAAXNSR0IArs4c6QAAACVJREFUKFNjZCASMDKgAnv37v3/n0QciwZkR+BThM8wUshwQxgAYeAU/6+E4wYAAAAASUVORK5CYII=')] overflow-hidden cursor-pointer">
+                                 <input type="color" class="absolute opacity-0 w-full h-full inset-0 cursor-pointer" onchange="setSolid(this.value)" oninput="setSolid(this.value)">
+                            </div>
+                        </div>
+                    </div>
+
+                    <!-- Structure -->
+                    <div class="space-y-4">
+                        <label class="text-[10px] font-bold text-zinc-500 uppercase tracking-widest block">Structure</label>
+                        <div>
+                            <span class="text-[10px] text-zinc-400 block mb-1.5">Window Title (Optional)</span>
+                            <input type="text" placeholder="e.g. index.js" class="w-full bg-black/20 border border-white/10 rounded-lg text-xs text-zinc-300 px-3 py-2 outline-none focus:ring-1 focus:ring-blue-500" oninput="state.title = this.value; renderCanvas();">
+                        </div>
+                        <div>
+                            <div class="flex justify-between items-center mb-1.5"><span class="text-[10px] text-zinc-400">Padding</span><span id="padding-val" class="text-[10px] text-zinc-500">64px</span></div>
+                            <input type="range" min="0" max="200" value="64" class="w-full accent-blue-500" oninput="state.padding = parseInt(this.value); document.getElementById('padding-val').innerText = this.value + 'px'; renderCanvas();">
+                        </div>
+                        <div>
+                            <div class="flex justify-between items-center mb-1.5"><span class="text-[10px] text-zinc-400">Border Radius</span><span id="radius-val" class="text-[10px] text-zinc-500">12px</span></div>
+                            <input type="range" min="0" max="40" value="12" class="w-full accent-blue-500" oninput="state.borderRadius = parseInt(this.value); document.getElementById('radius-val').innerText = this.value + 'px'; renderCanvas();">
+                        </div>
+                        <div>
+                            <div class="flex justify-between items-center mb-1.5"><span class="text-[10px] text-zinc-400">Shadow Intensity</span><span id="shadow-val" class="text-[10px] text-zinc-500">40</span></div>
+                            <input type="range" min="0" max="100" value="40" class="w-full accent-blue-500" oninput="state.shadowSize = parseInt(this.value); document.getElementById('shadow-val').innerText = this.value; renderCanvas();">
+                        </div>
+                    </div>
+                </div>
+
+                <!-- ================= TAB: LAYOUT ================= -->
+                <div id="tab-layout" class="space-y-6 hidden">
+                    <!-- Image Cropping -->
+                    <div class="bg-white/5 rounded-2xl p-4 ring-1 ring-white/5 space-y-3">
+                        <label class="text-[10px] font-bold text-zinc-500 uppercase tracking-widest block flex items-center gap-1.5"><i data-lucide="crop" class="w-3 h-3"></i> Image Cropping</label>
+                        <div class="grid grid-cols-2 gap-x-4 gap-y-4">
+                            <div>
+                                <div class="flex justify-between items-center mb-1.5"><span class="text-[10px] text-zinc-400">Top</span><span id="cropT-val" class="text-[10px] text-zinc-500">0%</span></div>
+                                <input type="range" min="0" max="49" value="0" class="w-full accent-emerald-500" oninput="state.cropT = parseInt(this.value); document.getElementById('cropT-val').innerText = this.value + '%'; renderCanvas();">
+                            </div>
+                            <div>
+                                <div class="flex justify-between items-center mb-1.5"><span class="text-[10px] text-zinc-400">Bottom</span><span id="cropB-val" class="text-[10px] text-zinc-500">0%</span></div>
+                                <input type="range" min="0" max="49" value="0" class="w-full accent-emerald-500" oninput="state.cropB = parseInt(this.value); document.getElementById('cropB-val').innerText = this.value + '%'; renderCanvas();">
+                            </div>
+                            <div>
+                                <div class="flex justify-between items-center mb-1.5"><span class="text-[10px] text-zinc-400">Left</span><span id="cropL-val" class="text-[10px] text-zinc-500">0%</span></div>
+                                <input type="range" min="0" max="49" value="0" class="w-full accent-emerald-500" oninput="state.cropL = parseInt(this.value); document.getElementById('cropL-val').innerText = this.value + '%'; renderCanvas();">
+                            </div>
+                            <div>
+                                <div class="flex justify-between items-center mb-1.5"><span class="text-[10px] text-zinc-400">Right</span><span id="cropR-val" class="text-[10px] text-zinc-500">0%</span></div>
+                                <input type="range" min="0" max="49" value="0" class="w-full accent-emerald-500" oninput="state.cropR = parseInt(this.value); document.getElementById('cropR-val').innerText = this.value + '%'; renderCanvas();">
+                            </div>
+                        </div>
+                    </div>
+
+                    <!-- Camera -->
+                    <div class="space-y-4">
+                        <label class="text-[10px] font-bold text-zinc-500 uppercase tracking-widest block">Camera POV</label>
+                        <div>
+                            <div class="flex justify-between items-center mb-1.5">
+                                <span class="text-[10px] text-zinc-400">Static Zoom</span>
+                                <span id="zoom-val" class="text-[10px] text-zinc-500">100%</span>
+                            </div>
+                            <input type="range" min="1" max="3" step="0.1" value="1" class="w-full accent-emerald-500" oninput="state.zoom = parseFloat(this.value); document.getElementById('zoom-val').innerText = Math.round(this.value * 100) + '%'; renderCanvas();">
+                        </div>
+                        <div>
+                            <span class="text-[10px] text-zinc-400 block mb-1.5">Camera Focus Point</span>
+                            <select class="w-full bg-black/20 border border-white/10 rounded-lg text-xs text-zinc-300 px-3 py-2 outline-none focus:ring-1 focus:ring-emerald-500 appearance-none" onchange="state.align = this.value; renderCanvas();">
+                                <option value="center">Center Base</option>
+                                <option value="top-left">Top Left Edge</option>
+                                <option value="top-center">Top Center</option>
+                                <option value="top-right">Top Right Edge</option>
+                                <option value="center-left">Middle Left</option>
+                                <option value="center-right">Middle Right</option>
+                                <option value="bottom-left">Bottom Left</option>
+                                <option value="bottom-center">Bottom Center</option>
+                                <option value="bottom-right">Bottom Right</option>
+                            </select>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- ================= TAB: MOTION ================= -->
+                <div id="tab-motion" class="space-y-5 hidden">
+                    <div class="bg-indigo-500/10 rounded-2xl p-4 ring-1 ring-indigo-500/30 space-y-4">
+                        <div class="flex items-center justify-between">
+                            <label class="text-[10px] font-bold text-indigo-400 uppercase tracking-widest block flex items-center gap-1.5"><i data-lucide="film" class="w-3 h-3"></i> Cinematic Engine</label>
+                        </div>
+
+                        <div>
+                            <span class="text-[10px] text-zinc-400 block mb-1.5">Movement Type</span>
+                            <select class="w-full bg-black/40 border border-indigo-500/30 rounded-lg text-xs text-zinc-300 px-3 py-2 outline-none focus:ring-1 focus:ring-indigo-500 appearance-none" onchange="state.animType = this.value; renderCanvas();">
+                                <option value="none">No Animation (Static)</option>
+                                <option value="zoom-in">Cinematic Zoom In</option>
+                                <option value="zoom-out">Cinematic Zoom Out</option>
+                                <option value="pan-right">Pan Right (Slide)</option>
+                                <option value="pan-left">Pan Left (Slide)</option>
+                                <option value="slide-up">Slide Up</option>
+                                <option value="slide-down">Slide Down</option>
+                            </select>
+                        </div>
+
+                        <div>
+                            <div class="flex justify-between items-center mb-1.5">
+                                <span class="text-[10px] text-zinc-400">Duration (Seconds)</span>
+                                <span id="duration-val" class="text-[10px] text-indigo-300 font-bold">4s</span>
+                            </div>
+                            <input type="range" min="1" max="10" step="0.5" value="4" class="w-full accent-indigo-500" oninput="state.animDuration = parseFloat(this.value); document.getElementById('duration-val').innerText = this.value + 's';">
+                        </div>
+
+                        <button onclick="togglePreview()" id="btn-preview" class="w-full py-2 bg-indigo-600 hover:bg-indigo-500 text-white rounded-lg text-xs font-bold transition-colors flex items-center justify-center gap-2">
+                            <i data-lucide="play" class="w-3.5 h-3.5" id="icon-preview"></i> <span id="text-preview">Play Preview</span>
+                        </button>
+                    </div>
+                    <p class="text-[10px] text-zinc-500 text-center px-4">Animation will render as a 60FPS WebM video upon export.</p>
+                </div>
+
+            </div>
+        </aside>
+
+        <!-- Canvas Preview Area -->
+        <main class="flex-1 workspace-grid relative overflow-hidden flex items-center justify-center p-4 sm:p-8 z-10 min-h-[50vh]">
+            <div id="dropzone" class="absolute inset-4 rounded-2xl border-2 border-dashed border-blue-500 bg-blue-500/10 backdrop-blur-sm flex flex-col items-center justify-center opacity-0 pointer-events-none transition-all z-50">
+                <i data-lucide="image-plus" class="w-12 h-12 text-blue-400 mb-4 animate-bounce"></i>
+                <h2 class="text-lg font-bold text-white">Drop Screenshot Here</h2>
+            </div>
+            
+            <div id="status-indicator" class="absolute top-6 left-6 flex items-center gap-2 bg-indigo-500/10 border border-indigo-500/50 text-indigo-400 px-3 py-1.5 rounded-full shadow-lg opacity-0 transition-opacity duration-300 pointer-events-none backdrop-blur-sm z-50">
+                <div class="w-1.5 h-1.5 rounded-full bg-indigo-400 animate-pulse" id="status-dot"></div>
+                <span class="text-[10px] font-bold tracking-wide uppercase" id="status-text">Playing</span>
+            </div>
+
+            <canvas id="preview-canvas"></canvas>
+        </main>
+    </div>
+
+    <!-- Toasts -->
+    <div id="toast-container" class="fixed top-20 right-6 z-50 flex flex-col gap-2 pointer-events-none"></div>
+
+    <script>
+        lucide.createIcons();
+
+        const canvas = document.getElementById('preview-canvas');
+        const ctx = canvas.getContext('2d', { willReadFrequently: true });
+        
+        const state = {
+            image: null, title: '',
+            animType: 'none', animDuration: 4, animProgress: 1, isPlaying: false, isExportingVideo: false,
+            cropT: 0, cropB: 0, cropL: 0, cropR: 0,
+            padding: 64, borderRadius: 12, shadowSize: 40,
+            zoom: 1, align: 'center', 
+            bgType: 'gradient', solidColor: '#18181b', gradStart: '#ec4899', gradEnd: '#8b5cf6', bgTransparent: false,
+            windowTheme: 'dark', windowTransparent: false,
+            isSidebarVisible: true
+        };
+
+        // --- UI Logic ---
+        function switchTab(tabId) {
+            document.querySelectorAll('.segmented-tab').forEach(t => t.classList.remove('active', 'bg-white/10', 'text-white'));
+            event.currentTarget.classList.add('active', 'bg-white/10', 'text-white');
+            
+            document.getElementById('tab-style').classList.add('hidden');
+            document.getElementById('tab-layout').classList.add('hidden');
+            document.getElementById('tab-motion').classList.add('hidden');
+            document.getElementById('tab-' + tabId).classList.remove('hidden');
+        }
+        
+        // Initialize first tab styles
+        document.querySelector('.segmented-tab').classList.add('bg-white/10', 'text-white');
+
+        function toggleInspector() {
+            state.isSidebarVisible = !state.isSidebarVisible;
+            const sidebar = document.getElementById('inspector-sidebar');
+            if(state.isSidebarVisible) {
+                sidebar.classList.remove('sidebar-hidden');
+            } else {
+                sidebar.classList.add('sidebar-hidden');
+            }
+        }
+
+        function drawRoundedRect(targetCtx, x, y, width, height, radii) {
+            let tl = 0, tr = 0, br = 0, bl = 0;
+            if (typeof radii === 'number') { tl = tr = br = bl = radii; } 
+            else if (Array.isArray(radii)) {
+                if (radii.length >= 4) [tl, tr, br, bl] = radii;
+                else if (radii.length === 1) tl = tr = br = bl = radii[0];
+            }
+            tl = Math.min(tl, width/2, height/2); tr = Math.min(tr, width/2, height/2);
+            br = Math.min(br, width/2, height/2); bl = Math.min(bl, width/2, height/2);
+            targetCtx.beginPath();
+            targetCtx.moveTo(x + tl, y); targetCtx.lineTo(x + width - tr, y); targetCtx.quadraticCurveTo(x + width, y, x + width, y + tr);
+            targetCtx.lineTo(x + width, y + height - br); targetCtx.quadraticCurveTo(x + width, y + height, x + width - br, y + height);
+            targetCtx.lineTo(x + bl, y + height); targetCtx.quadraticCurveTo(x, y + height, x, y + height - bl);
+            targetCtx.lineTo(x, y + tl); targetCtx.quadraticCurveTo(x, y, x + tl, y); targetCtx.closePath();
+        }
+
+        function easeInOutSine(x) { return -(Math.cos(Math.PI * x) - 1) / 2; }
+
+        // --- Mock Generators ---
+        function applyGeneratedImage(tempCanvas) {
+            const img = new Image();
+            img.onload = () => { state.image = img; renderCanvas(); };
+            img.src = tempCanvas.toDataURL();
+        }
+
+        function generateCodeMock() {
+            const mockCanvas = document.createElement('canvas'); mockCanvas.width = 900; mockCanvas.height = 600;
+            const mCtx = mockCanvas.getContext('2d');
+            mCtx.fillStyle = '#1e1e1e'; mCtx.fillRect(0, 0, 900, 600);
+            mCtx.font = "18px monospace"; const colors = ['#569cd6', '#4ec9b0', '#ce9178', '#dcdcaa', '#c586c0'];
+            mCtx.fillStyle = '#608b4e'; mCtx.fillText("// Setup your Express server", 40, 60);
+            let y = 100;
+            ["const express = require('express');", "const app = express();", "const port = 3000;", "", "app.get('/', (req, res) => {", "    res.send('Macify Studio Pro is awesome!');", "});"].forEach(line => {
+                let x = 40; if (line.startsWith('    ')) x += 40;
+                if (line.length > 0) { mCtx.fillStyle = colors[Math.floor(Math.random() * colors.length)]; mCtx.fillText(line, x, y); }
+                y += 30;
+            });
+            state.title = 'server.js';
+            applyGeneratedImage(mockCanvas);
+            showToast('Code Mockup Loaded');
+        }
+
+        function generateBrowserMock() {
+            const mockCanvas = document.createElement('canvas'); mockCanvas.width = 1200; mockCanvas.height = 800;
+            const mCtx = mockCanvas.getContext('2d');
+            mCtx.fillStyle = '#ffffff'; mCtx.fillRect(0, 0, 1200, 800);
+            mCtx.fillStyle = '#f1f5f9'; mCtx.fillRect(0, 0, 1200, 60);
+            mCtx.fillStyle = '#e2e8f0'; drawRoundedRect(mCtx, 150, 15, 900, 30, 15); mCtx.fill();
+            mCtx.fillStyle = '#94a3b8'; mCtx.font = "14px sans-serif"; mCtx.fillText("https://macify.studio/pro", 170, 35);
+            mCtx.fillStyle = '#3b82f6'; mCtx.fillRect(100, 120, 1000, 300);
+            mCtx.fillStyle = '#ffffff'; mCtx.font = "bold 48px sans-serif"; mCtx.fillText("Create Stunning Mockups", 150, 250);
+            state.title = '';
+            applyGeneratedImage(mockCanvas);
+            showToast('Browser Mockup Loaded');
+        }
+
+        function setTheme(theme) {
+            state.windowTheme = theme;
+            document.querySelectorAll('[data-theme]').forEach(btn => { btn.classList.remove('active', 'bg-white/10', 'text-white'); if(btn.dataset.theme === theme) btn.classList.add('active', 'bg-white/10', 'text-white'); });
+            renderCanvas();
+        }
+        function setGradient(start, end) { state.bgType = 'gradient'; state.gradStart = start; state.gradEnd = end; state.bgTransparent = false; document.getElementById('bg-transparent-toggle').checked = false; renderCanvas(); }
+        function setSolid(color) { state.bgType = 'solid'; state.solidColor = color; state.bgTransparent = false; document.getElementById('bg-transparent-toggle').checked = false; renderCanvas(); }
+
+        function showToast(message, type = 'info') {
+            const container = document.getElementById('toast-container');
+            const toast = document.createElement('div');
+            toast.className = `bg-zinc-800/90 backdrop-blur-md text-white px-4 py-3 rounded-xl shadow-2xl ring-1 ring-white/10 flex items-center gap-3 transform transition-all -translate-y-4 opacity-0 z-50`;
+            let icon = type === 'success' ? 'check-circle' : (type === 'error' ? 'alert-triangle' : 'info');
+            let color = type === 'success' ? 'text-green-400' : (type === 'error' ? 'text-red-400' : 'text-blue-400');
+            toast.innerHTML = `<i data-lucide="${icon}" class="w-4 h-4 ${color}"></i> <span class="text-xs font-medium">${message}</span>`;
+            container.appendChild(toast); lucide.createIcons();
+            requestAnimationFrame(() => toast.classList.remove('-translate-y-4', 'opacity-0'));
+            setTimeout(() => { toast.classList.add('-translate-y-4', 'opacity-0'); setTimeout(() => toast.remove(), 300); }, 3000);
+        }
+
+        function handleImageUpload(e) { if (e.target.files[0]) processFile(e.target.files[0]); }
+        function processFile(file) {
+            if (!file.type.startsWith('image/')) return showToast('Please upload a valid image file.', 'error');
+            const reader = new FileReader();
+            reader.onload = (event) => {
+                const img = new Image();
+                img.onload = () => { state.image = img; state.title = file.name || ''; renderCanvas(); showToast('Image imported!', 'success'); };
+                img.src = event.target.result;
+            };
+            reader.readAsDataURL(file);
+        }
+
+        const mainArea = document.querySelector('main'); const dropzone = document.getElementById('dropzone');
+        mainArea.addEventListener('dragover', (e) => { e.preventDefault(); dropzone.classList.remove('opacity-0', 'pointer-events-none'); });
+        mainArea.addEventListener('dragleave', (e) => { e.preventDefault(); dropzone.classList.add('opacity-0', 'pointer-events-none'); });
+        mainArea.addEventListener('drop', (e) => { e.preventDefault(); dropzone.classList.add('opacity-0', 'pointer-events-none'); if (e.dataTransfer.files.length > 0) processFile(e.dataTransfer.files[0]); });
+
+        // --- Canvas Rendering Engine ---
+        function drawToContext(targetCtx, targetWidth, targetHeight, globalScale) {
+            if (!state.image) return;
+
+            targetCtx.clearRect(0, 0, targetWidth, targetHeight);
+            targetCtx.save();
+            targetCtx.scale(globalScale, globalScale);
+
+            const cLeft = (state.cropL / 100) * state.image.width;
+            const cRight = (state.cropR / 100) * state.image.width;
+            const cTop = (state.cropT / 100) * state.image.height;
+            const cBottom = (state.cropB / 100) * state.image.height;
+
+            const effW = state.image.width - cLeft - cRight;
+            const effH = state.image.height - cTop - cBottom;
+
+            const headerHeight = 36;
+            const windowW = effW;
+            const windowH = effH + headerHeight;
+            const winX = state.padding;
+            const winY = state.padding;
+
+            const baseW = windowW + (state.padding * 2);
+            const baseH = windowH + (state.padding * 2);
+
+            let animScale = 1.0; let animTx = 0; let animTy = 0;
+            if (state.animType !== 'none') {
+                const p = easeInOutSine(state.animProgress); 
+                const intensity = 0.15; 
+                const slideDist = 150;
+                switch (state.animType) {
+                    case 'zoom-in': animScale = 1.0 + (intensity * p); break;
+                    case 'zoom-out': animScale = (1.0 + intensity) - (intensity * p); break;
+                    case 'pan-right': animTx = -slideDist + (slideDist * 2 * p); break;
+                    case 'pan-left': animTx = slideDist - (slideDist * 2 * p); break;
+                    case 'slide-up': animTy = slideDist - (slideDist * 2 * p); break;
+                    case 'slide-down': animTy = -slideDist + (slideDist * 2 * p); break;
+                }
+            }
+
+            targetCtx.translate(baseW/2, baseH/2);
+            targetCtx.scale(animScale, animScale);
+            targetCtx.translate(-baseW/2 + animTx, -baseH/2 + animTy);
+
+            if (!state.bgTransparent) {
+                const bleed = 1000; 
+                if (state.bgType === 'solid') {
+                    targetCtx.fillStyle = state.solidColor;
+                    targetCtx.fillRect(-bleed, -bleed, baseW + bleed*2, baseH + bleed*2);
+                } else {
+                    const grad = targetCtx.createLinearGradient(0, 0, baseW, baseH);
+                    grad.addColorStop(0, state.gradStart); grad.addColorStop(1, state.gradEnd);
+                    targetCtx.fillStyle = grad; targetCtx.fillRect(-bleed, -bleed, baseW + bleed*2, baseH + bleed*2);
+                }
+            }
+
+            let originX = baseW / 2; let originY = baseH / 2;
+            switch (state.align) {
+                case 'top-left': originX = 0; originY = 0; break;
+                case 'top-center': originX = baseW / 2; originY = 0; break;
+                case 'top-right': originX = baseW; originY = 0; break;
+                case 'center-left': originX = 0; originY = baseH / 2; break;
+                case 'center-right': originX = baseW; originY = baseH / 2; break;
+                case 'bottom-left': originX = 0; originY = baseH; break;
+                case 'bottom-center': originX = baseW / 2; originY = baseH; break;
+                case 'bottom-right': originX = baseW; originY = baseH; break;
+                case 'center': default: originX = baseW / 2; originY = baseH / 2; break;
+            }
+            targetCtx.translate(originX, originY);
+            targetCtx.scale(state.zoom, state.zoom);
+            targetCtx.translate(-originX, -originY);
+
+            targetCtx.shadowColor = 'rgba(0, 0, 0, 0.4)';
+            targetCtx.shadowBlur = state.shadowSize * 1.5;
+            targetCtx.shadowOffsetY = state.shadowSize * 0.8;
+
+            drawRoundedRect(targetCtx, winX, winY, windowW, windowH, state.borderRadius);
+            targetCtx.globalAlpha = state.windowTransparent ? 0.6 : 1.0;
+            targetCtx.fillStyle = state.windowTheme === 'dark' ? '#1c1c1c' : '#f6f6f6';
+            targetCtx.fill();
+            targetCtx.shadowColor = 'transparent'; targetCtx.shadowBlur = 0; targetCtx.shadowOffsetY = 0;
+
+            targetCtx.globalAlpha = state.windowTransparent ? 0.8 : 1.0;
+            drawRoundedRect(targetCtx, winX, winY, windowW, headerHeight + 10, [state.borderRadius, state.borderRadius, 0, 0]);
+            targetCtx.fillStyle = state.windowTheme === 'dark' ? '#2d2d2d' : '#e6e6e6';
+            targetCtx.fill();
+            targetCtx.globalAlpha = 1.0;
+
+            const btnColors = ['#ff5f56', '#ffbd2e', '#27c93f'];
+            const btnBorders = ['#e0443e', '#dea123', '#1aab29'];
+            btnColors.forEach((color, i) => {
+                targetCtx.beginPath(); targetCtx.arc(winX + 16 + (i * 18), winY + (headerHeight / 2), 5, 0, Math.PI * 2);
+                targetCtx.fillStyle = color; targetCtx.fill();
+                targetCtx.lineWidth = 0.5; targetCtx.strokeStyle = btnBorders[i]; targetCtx.stroke();
+            });
+
+            if (state.title.trim() !== '') {
+                targetCtx.font = "600 12px Inter, sans-serif";
+                targetCtx.textAlign = "center"; targetCtx.textBaseline = "middle";
+                targetCtx.fillStyle = state.windowTheme === 'dark' ? '#a1a1aa' : '#52525b';
+                let displayTitle = state.title;
+                if (targetCtx.measureText(displayTitle).width > windowW - 120) displayTitle = displayTitle.substring(0, 20) + '...';
+                targetCtx.fillText(displayTitle, winX + (windowW / 2), winY + (headerHeight / 2) + 1);
+            }
+
+            targetCtx.save();
+            drawRoundedRect(targetCtx, winX, winY + headerHeight, windowW, effH, [0, 0, state.borderRadius, state.borderRadius]);
+            targetCtx.clip();
+            targetCtx.drawImage(state.image, cLeft, cTop, effW, effH, winX, winY + headerHeight, windowW, effH);
+            targetCtx.restore();
+            
+            drawRoundedRect(targetCtx, winX, winY, windowW, windowH, state.borderRadius);
+            targetCtx.lineWidth = 1; targetCtx.strokeStyle = state.windowTheme === 'dark' ? 'rgba(255,255,255,0.1)' : 'rgba(0,0,0,0.1)'; targetCtx.stroke();
+            targetCtx.restore(); 
+        }
+
+        function renderCanvas() {
+            if (!state.image) return;
+            const effW = state.image.width * (1 - (state.cropL + state.cropR) / 100);
+            const effH = state.image.height * (1 - (state.cropT + state.cropB) / 100);
+            const baseW = effW + (state.padding * 2);
+            const baseH = effH + 40 + (state.padding * 2);
+            const previewScale = Math.min(1, 1920 / baseW);
+            
+            canvas.width = baseW * previewScale;
+            canvas.height = baseH * previewScale;
+            drawToContext(ctx, canvas.width, canvas.height, previewScale);
+        }
+
+        // --- Animation & Video Engine ---
+        let animStartTime = 0; let animationReqId = null;
+
+        function updatePlayUI(playing) {
+            const btnPreview = document.getElementById('btn-preview');
+            const ind = document.getElementById('status-indicator');
+            const dot = document.getElementById('status-dot');
+            const txt = document.getElementById('status-text');
+
+            if (playing) {
+                ind.classList.remove('opacity-0');
+                if (state.isExportingVideo) {
+                    btnPreview.disabled = true;
+                    ind.classList.replace('bg-indigo-500/10', 'bg-red-500/10'); ind.classList.replace('border-indigo-500/50', 'border-red-500/50'); ind.classList.replace('text-indigo-400', 'text-red-500');
+                    dot.classList.replace('bg-indigo-400', 'bg-red-500');
+                } else {
+                    btnPreview.innerHTML = `<i data-lucide="square" class="w-3.5 h-3.5"></i> <span>Stop Preview</span>`;
+                    btnPreview.classList.replace('bg-indigo-600', 'bg-red-600'); btnPreview.classList.replace('hover:bg-indigo-500', 'hover:bg-red-500');
+                    ind.classList.replace('bg-red-500/10', 'bg-indigo-500/10'); ind.classList.replace('border-red-500/50', 'border-indigo-500/50'); ind.classList.replace('text-red-500', 'text-indigo-400');
+                    dot.classList.replace('bg-red-500', 'bg-indigo-400'); txt.innerText = 'Previewing';
+                }
+            } else {
+                btnPreview.disabled = false;
+                btnPreview.innerHTML = `<i data-lucide="play" class="w-3.5 h-3.5"></i> <span>Play Preview</span>`;
+                btnPreview.classList.replace('bg-red-600', 'bg-indigo-600'); btnPreview.classList.replace('hover:bg-red-500', 'hover:bg-indigo-500');
+                ind.classList.add('opacity-0');
+            }
+            lucide.createIcons();
+        }
+
+        function togglePreview() {
+            if (state.isPlaying) {
+                state.isPlaying = false; state.animProgress = 1;
+                cancelAnimationFrame(animationReqId); updatePlayUI(false); renderCanvas();
+                return;
+            }
+            if (state.animType === 'none') return showToast('Select an animation type first!', 'info');
+
+            state.isPlaying = true; state.isExportingVideo = false; updatePlayUI(true);
+            animStartTime = performance.now();
+            function loop(now) {
+                if (!state.isPlaying) return;
+                let progress = ((now - animStartTime) / 1000) / state.animDuration;
+                if (progress >= 1) { progress = 1; state.isPlaying = false; updatePlayUI(false); }
+                state.animProgress = progress; renderCanvas();
+                if (state.isPlaying) animationReqId = requestAnimationFrame(loop);
+            }
+            animationReqId = requestAnimationFrame(loop);
+        }
+
+        function exportImage() {
+            if (!state.image) return showToast('No image to export!', 'error');
+            try {
+                showToast('Rendering high-res PNG...', 'info');
+                state.animProgress = 1; 
+                const targetWidth = parseInt(document.getElementById('export-res').value);
+                const effW = state.image.width * (1 - (state.cropL + state.cropR) / 100);
+                const effH = state.image.height * (1 - (state.cropT + state.cropB) / 100);
+                const baseW = effW + (state.padding * 2);
+                const baseH = effH + 40 + (state.padding * 2);
+                const exportScale = targetWidth / baseW;
+                const targetHeight = baseH * exportScale;
+                const tempCanvas = document.createElement('canvas'); tempCanvas.width = targetWidth; tempCanvas.height = targetHeight;
+                drawToContext(tempCanvas.getContext('2d'), targetWidth, targetHeight, exportScale);
+                const link = document.createElement('a'); link.download = `macify-pro-${targetWidth}w-${Date.now()}.png`; link.href = tempCanvas.toDataURL('image/png'); link.click();
+                showToast('PNG Export complete!', 'success');
+            } catch (e) { showToast('Export failed.', 'error'); }
+        }
+
+        function exportVideo() {
+            if (!state.image) return showToast('No image to export!', 'error');
+            if (state.animType === 'none') return showToast('Select an animation to record!', 'info');
+            if (state.isPlaying) return;
+
+            try {
+                const targetWidth = parseInt(document.getElementById('export-res').value);
+                const effW = state.image.width * (1 - (state.cropL + state.cropR) / 100);
+                const effH = state.image.height * (1 - (state.cropT + state.cropB) / 100);
+                const baseW = effW + (state.padding * 2); const baseH = effH + 40 + (state.padding * 2);
+                const exportScale = targetWidth / baseW; const targetHeight = baseH * exportScale;
+
+                const rCanvas = document.createElement('canvas'); rCanvas.width = targetWidth; rCanvas.height = targetHeight;
+                const rCtx = rCanvas.getContext('2d');
+                const stream = rCanvas.captureStream(60); const chunks = [];
+                const mediaRecorder = new MediaRecorder(stream, { mimeType: 'video/webm; codecs=vp9', videoBitsPerSecond: 15000000 });
+                mediaRecorder.ondataavailable = (e) => { if (e.data.size > 0) chunks.push(e.data); };
+                mediaRecorder.onstop = () => {
+                    const url = URL.createObjectURL(new Blob(chunks, { type: 'video/webm' }));
+                    const link = document.createElement('a'); link.download = `macify-pro-${targetWidth}w-${Date.now()}.webm`; link.href = url; link.click();
+                    URL.revokeObjectURL(url); showToast('Video Export complete!', 'success');
+                    state.isExportingVideo = false; state.isPlaying = false; updatePlayUI(false); state.animProgress = 1; renderCanvas();
+                };
+
+                mediaRecorder.start(); state.isPlaying = true; state.isExportingVideo = true; updatePlayUI(true);
+                const renderStartTime = performance.now();
+                function recordLoop(now) {
+                    let progress = ((now - renderStartTime) / 1000) / state.animDuration;
+                    if (progress >= 1) progress = 1;
+                    state.animProgress = progress;
+                    drawToContext(rCtx, targetWidth, targetHeight, exportScale); renderCanvas();
+                    if (state.isExportingVideo) document.getElementById('status-text').innerText = `Recording Video... ${Math.round(progress * 100)}%`;
+                    if (progress < 1) requestAnimationFrame(recordLoop); else setTimeout(() => mediaRecorder.stop(), 500);
+                }
+                showToast('Starting video render...', 'info'); requestAnimationFrame(recordLoop);
+            } catch (err) { showToast('Video Export failed. Browser may not support HD WebM.', 'error'); }
+        }
+
+        generateCodeMock();
+    </script>
+</body>
+</html>

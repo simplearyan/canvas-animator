@@ -1,0 +1,659 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Rough Animation Studio</title>
+    <!-- Tailwind CSS -->
+    <script src="https://cdn.tailwindcss.com"></script>
+    <!-- Google Fonts -->
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
+    <!-- Lucide Icons -->
+    <script src="https://unpkg.com/lucide@latest"></script>
+    <!-- Rough.js for Hand-drawn rendering -->
+    <script src="https://unpkg.com/roughjs@4.6.6/bundled/rough.js"></script>
+    <style>
+        body {
+            font-family: 'Inter', sans-serif;
+            background-color: #0f1115;
+            color: #e2e8f0;
+            overflow: hidden;
+            touch-action: none;
+        }
+        
+        ::-webkit-scrollbar { width: 8px; height: 8px; }
+        ::-webkit-scrollbar-track { background: #1e293b; }
+        ::-webkit-scrollbar-thumb { background: #475569; border-radius: 4px; }
+        ::-webkit-scrollbar-thumb:hover { background: #64748b; }
+
+        .workspace-grid {
+            background-size: 20px 20px;
+            background-image: radial-gradient(circle, #334155 1px, transparent 1px);
+        }
+
+        #canvas-wrapper {
+            position: relative;
+            width: 100%;
+            height: 100%;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            padding: 20px;
+        }
+
+        #draw-canvas {
+            background-color: white;
+            box-shadow: 0 25px 50px -12px rgba(0, 0, 0, 0.5);
+            max-width: 100%;
+            max-height: 100%;
+            object-fit: contain;
+            cursor: crosshair;
+            border-radius: 4px;
+        }
+
+        input[type="color"] {
+            -webkit-appearance: none;
+            border: none;
+            width: 100%;
+            height: 40px;
+            border-radius: 6px;
+            padding: 0;
+            cursor: pointer;
+            background: transparent;
+        }
+        input[type="color"]::-webkit-color-swatch-wrapper { padding: 0; }
+        input[type="color"]::-webkit-color-swatch { border: none; border-radius: 6px; }
+
+        .tool-btn.active {
+            background-color: #3b82f6;
+            color: white;
+            border-color: #3b82f6;
+        }
+        
+        /* Custom Toggle Switch */
+        .toggle-checkbox:checked { right: 0; border-color: #3b82f6; }
+        .toggle-checkbox:checked + .toggle-label { background-color: #3b82f6; }
+        .toggle-checkbox:checked + .toggle-label:after { transform: translateX(100%); border-color: white; }
+    </style>
+</head>
+<body class="flex flex-col h-screen">
+
+    <!-- Header -->
+    <header class="h-16 border-b border-gray-800 bg-gray-950 flex items-center justify-between px-6 flex-shrink-0 z-20">
+        <div class="flex items-center gap-3">
+            <div class="w-8 h-8 rounded bg-gradient-to-br from-indigo-500 to-purple-600 flex items-center justify-center">
+                <i data-lucide="pen-tool" class="w-5 h-5 text-white"></i>
+            </div>
+            <h1 class="font-bold text-lg tracking-tight hidden sm:block">Rough Animator</h1>
+        </div>
+
+        <div class="flex items-center gap-3">
+            <button onclick="clearCanvas()" id="btn-clear" class="flex items-center gap-2 px-3 py-1.5 rounded hover:bg-gray-800 text-sm font-medium transition-colors text-gray-400 hover:text-white border border-gray-800 hover:border-gray-700">
+                <i data-lucide="trash-2" class="w-4 h-4"></i> <span class="hidden sm:inline">Clear</span>
+            </button>
+            
+            <div class="w-px h-6 bg-gray-700 mx-1"></div>
+
+            <button onclick="togglePreview()" id="btn-preview" class="flex items-center gap-2 px-4 py-1.5 rounded bg-gray-800 hover:bg-gray-700 text-white text-sm font-medium transition-colors border border-gray-700">
+                <i data-lucide="play" class="w-4 h-4" id="icon-preview"></i>
+                <span id="text-preview">Preview</span>
+            </button>
+
+            <button onclick="exportAnimation()" id="btn-export" class="flex items-center gap-2 px-4 py-1.5 rounded bg-blue-600 hover:bg-blue-500 text-white text-sm font-medium transition-colors shadow-lg shadow-blue-900/20">
+                <i data-lucide="download" class="w-4 h-4"></i>
+                <span id="text-export">Export WebM</span>
+            </button>
+        </div>
+    </header>
+
+    <!-- Main Content -->
+    <div class="flex flex-1 overflow-hidden relative">
+        
+        <!-- Sidebar Tools -->
+        <aside class="w-20 md:w-72 border-r border-gray-800 bg-gray-950 flex flex-col overflow-y-auto flex-shrink-0 z-10" id="sidebar">
+            
+            <!-- Shapes -->
+            <div class="p-5 border-b border-gray-800">
+                <h2 class="text-xs font-semibold text-gray-500 uppercase tracking-wider mb-4 hidden md:block">Shapes</h2>
+                <div class="flex flex-col md:flex-row gap-2">
+                    <button class="tool-btn active flex-1 py-2 px-3 rounded border border-gray-700 text-gray-400 text-sm flex justify-center items-center gap-2 transition-colors" data-tool="rect" onclick="setTool('rect')">
+                        <i data-lucide="square" class="w-4 h-4"></i><span class="hidden md:inline">Rect</span>
+                    </button>
+                    <button class="tool-btn flex-1 py-2 px-3 rounded border border-gray-700 text-gray-400 text-sm flex justify-center items-center gap-2 transition-colors" data-tool="ellipse" onclick="setTool('ellipse')">
+                        <i data-lucide="circle" class="w-4 h-4"></i><span class="hidden md:inline">Circle</span>
+                    </button>
+                    <button class="tool-btn flex-1 py-2 px-3 rounded border border-gray-700 text-gray-400 text-sm flex justify-center items-center gap-2 transition-colors" data-tool="line" onclick="setTool('line')">
+                        <i data-lucide="minus" class="w-4 h-4"></i><span class="hidden md:inline">Line</span>
+                    </button>
+                </div>
+            </div>
+
+            <!-- Rough Engine Toggle -->
+            <div class="p-5 border-b border-gray-800 bg-gray-900/50">
+                <div class="flex items-center justify-between mb-2">
+                    <h2 class="text-sm font-semibold text-white flex items-center gap-2">
+                        <i data-lucide="pen" class="w-4 h-4 text-purple-400"></i> <span class="hidden md:inline">Rough Style</span>
+                    </h2>
+                    <label class="relative inline-flex items-center cursor-pointer">
+                        <input type="checkbox" id="rough-toggle" class="sr-only peer" checked onchange="state.useRough = this.checked; updateUI();">
+                        <div class="w-9 h-5 bg-gray-700 peer-focus:outline-none rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border-gray-300 after:border after:rounded-full after:h-4 after:w-4 after:transition-all peer-checked:bg-purple-500"></div>
+                    </label>
+                </div>
+                
+                <div id="rough-controls" class="space-y-4 mt-4">
+                    <div>
+                        <div class="flex justify-between items-center mb-1 hidden md:flex">
+                            <label class="text-xs text-gray-400">Roughness</label>
+                            <span id="roughness-val" class="text-xs text-gray-300 font-mono">1.5</span>
+                        </div>
+                        <input type="range" min="0" max="5" step="0.1" value="1.5" class="w-full accent-purple-500" oninput="state.roughness = parseFloat(this.value); document.getElementById('roughness-val').innerText = this.value;">
+                    </div>
+                    
+                    <div class="hidden md:block">
+                        <label class="text-xs text-gray-400 block mb-1">Fill Style</label>
+                        <select id="fill-style" class="w-full bg-gray-950 border border-gray-700 rounded text-sm text-gray-300 px-2 py-1.5 outline-none" onchange="state.roughFillStyle = this.value">
+                            <option value="hachure">Hachure (Sketchy)</option>
+                            <option value="solid">Solid</option>
+                            <option value="zigzag">Zig-Zag</option>
+                            <option value="cross-hatch">Cross-Hatch</option>
+                        </select>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Appearance Properties -->
+            <div class="p-5 border-b border-gray-800">
+                <h2 class="text-xs font-semibold text-gray-500 uppercase tracking-wider mb-4 hidden md:block">Appearance</h2>
+                
+                <div class="grid grid-cols-1 md:grid-cols-2 gap-4 mb-4">
+                    <div>
+                        <label class="text-xs text-gray-400 block mb-2 hidden md:block">Stroke</label>
+                        <input type="color" id="stroke-color" value="#000000" onchange="state.strokeColor = this.value" oninput="state.strokeColor = this.value">
+                    </div>
+                    <div>
+                        <div class="flex items-center justify-between mb-2">
+                            <label class="text-xs text-gray-400 hidden md:block">Fill</label>
+                            <label class="hidden md:flex items-center gap-1 text-[10px] text-gray-500 cursor-pointer">
+                                <input type="checkbox" checked onchange="state.enableFill = this.checked" class="accent-blue-500"> Enable
+                            </label>
+                        </div>
+                        <input type="color" id="fill-color" value="#a855f7" onchange="state.fillColor = this.value" oninput="state.fillColor = this.value">
+                    </div>
+                </div>
+
+                <div>
+                    <div class="flex justify-between items-center mb-1 hidden md:flex">
+                        <label class="text-xs text-gray-400">Stroke Width</label>
+                        <span id="width-val" class="text-xs text-gray-300 font-mono">3px</span>
+                    </div>
+                    <div class="md:hidden flex justify-center mb-1 text-gray-500">
+                        <i data-lucide="menu" class="w-4 h-4"></i>
+                    </div>
+                    <input type="range" min="1" max="30" value="3" class="w-full accent-blue-500" oninput="state.strokeWidth = parseInt(this.value); document.getElementById('width-val').innerText = this.value + 'px';">
+                </div>
+            </div>
+        </aside>
+
+        <!-- Canvas Area -->
+        <main class="flex-1 bg-gray-900 workspace-grid relative overflow-hidden">
+            <div id="canvas-wrapper">
+                <!-- Internal high-res 720p canvas -->
+                <canvas id="draw-canvas" width="1280" height="720"></canvas>
+            </div>
+            
+            <!-- Indicator -->
+            <div id="status-indicator" class="absolute top-6 left-6 flex items-center gap-2 bg-purple-500/10 border border-purple-500/50 text-purple-500 px-4 py-2 rounded-full shadow-lg opacity-0 transition-opacity duration-300 pointer-events-none backdrop-blur-sm z-50">
+                <i data-lucide="play-circle" class="w-4 h-4 animate-pulse"></i>
+                <span class="text-xs font-bold tracking-wide uppercase" id="status-text">Playing Preview</span>
+            </div>
+        </main>
+    </div>
+
+    <!-- Toasts -->
+    <div id="toast-container" class="fixed bottom-6 right-6 z-50 flex flex-col gap-2 pointer-events-none"></div>
+
+    <script>
+        lucide.createIcons();
+
+        // --- Core Application Setup ---
+        const canvas = document.getElementById('draw-canvas');
+        const ctx = canvas.getContext('2d', { willReadFrequently: true });
+        
+        // Initialize Rough.js on our canvas
+        const rc = rough.canvas(canvas);
+        
+        const state = {
+            tool: 'rect', // 'rect', 'ellipse', 'line'
+            useRough: true,
+            roughness: 1.5,
+            roughFillStyle: 'hachure',
+            
+            strokeColor: '#000000',
+            fillColor: '#a855f7',
+            enableFill: true,
+            strokeWidth: 3,
+            
+            isDragging: false,
+            currentShape: null,
+            shapes: [], 
+            
+            logicalTime: 0,
+            lastEventTime: 0,
+            
+            isPlaying: false,
+            isExporting: false,
+            playbackStartTime: 0,
+            elapsedTime: 0,
+            lastFrameTime: 0,
+            
+            mediaRecorder: null,
+            recordedChunks: []
+        };
+
+        // --- UI Updaters ---
+        function setTool(tool) {
+            if (state.isPlaying) return;
+            state.tool = tool;
+            document.querySelectorAll('.tool-btn').forEach(btn => {
+                btn.classList.remove('active');
+                if(btn.dataset.tool === tool) btn.classList.add('active');
+            });
+        }
+
+        function updateUI() {
+            const controls = document.getElementById('rough-controls');
+            if (state.useRough) {
+                controls.classList.remove('opacity-50', 'pointer-events-none');
+            } else {
+                controls.classList.add('opacity-50', 'pointer-events-none');
+            }
+        }
+
+        function showToast(message, type = 'info') {
+            const container = document.getElementById('toast-container');
+            const toast = document.createElement('div');
+            
+            const colors = { success: 'bg-green-600', error: 'bg-red-600', info: 'bg-blue-600' };
+            toast.className = `${colors[type]} text-white px-4 py-3 rounded-lg shadow-xl flex items-center gap-3 transform transition-all translate-y-8 opacity-0`;
+            
+            let icon = type === 'success' ? 'check-circle' : (type === 'error' ? 'alert-triangle' : 'info');
+            toast.innerHTML = `<i data-lucide="${icon}" class="w-5 h-5"></i> <span class="text-sm font-medium">${message}</span>`;
+            
+            container.appendChild(toast);
+            lucide.createIcons();
+
+            requestAnimationFrame(() => toast.classList.remove('translate-y-8', 'opacity-0'));
+            setTimeout(() => {
+                toast.classList.add('translate-y-8', 'opacity-0');
+                setTimeout(() => toast.remove(), 300);
+            }, 3000);
+        }
+
+        // --- Drawing Logic ---
+        function clearCanvasInternal() {
+            ctx.fillStyle = '#ffffff';
+            ctx.fillRect(0, 0, canvas.width, canvas.height);
+        }
+
+        function clearCanvas() {
+            if (state.isPlaying || state.isExporting) return;
+            if (confirm('Clear the entire canvas?')) {
+                clearCanvasInternal();
+                state.shapes = [];
+                state.logicalTime = 0;
+                state.lastEventTime = performance.now();
+                showToast('Canvas cleared', 'success');
+            }
+        }
+
+        function drawShape(shape, progress = 1) {
+            // Linear Interpolation for drawing animation
+            const p = Math.max(0, Math.min(1, progress));
+            const curX = shape.startX + (shape.endX - shape.startX) * p;
+            const curY = shape.startY + (shape.endY - shape.startY) * p;
+
+            if (shape.useRough) {
+                // ROUGH.JS RENDERING
+                const options = {
+                    stroke: shape.strokeColor,
+                    strokeWidth: shape.strokeWidth,
+                    roughness: shape.roughness,
+                    bowing: 1, // Standard bow
+                    seed: shape.seed, // CRITICAL: Keeps sketchy lines stable during animation
+                };
+
+                if (shape.enableFill && shape.tool !== 'line') {
+                    options.fill = shape.fillColor;
+                    options.fillStyle = shape.roughFillStyle;
+                }
+
+                if (shape.tool === 'rect') {
+                    rc.rectangle(shape.startX, shape.startY, curX - shape.startX, curY - shape.startY, options);
+                } 
+                else if (shape.tool === 'ellipse') {
+                    // Ellipse needs center point and width/height
+                    const width = Math.abs(curX - shape.startX);
+                    const height = Math.abs(curY - shape.startY);
+                    const cx = shape.startX + (curX - shape.startX) / 2;
+                    const cy = shape.startY + (curY - shape.startY) / 2;
+                    rc.ellipse(cx, cy, width, height, options);
+                }
+                else if (shape.tool === 'line') {
+                    rc.line(shape.startX, shape.startY, curX, curY, options);
+                }
+            } else {
+                // STANDARD CANVAS RENDERING
+                ctx.beginPath();
+                ctx.strokeStyle = shape.strokeColor;
+                ctx.lineWidth = shape.strokeWidth;
+                ctx.lineCap = 'round';
+                ctx.lineJoin = 'round';
+                
+                if (shape.enableFill && shape.tool !== 'line') {
+                    ctx.fillStyle = shape.fillColor;
+                }
+
+                if (shape.tool === 'rect') {
+                    ctx.rect(shape.startX, shape.startY, curX - shape.startX, curY - shape.startY);
+                    if (shape.enableFill) ctx.fill();
+                    ctx.stroke();
+                } 
+                else if (shape.tool === 'ellipse') {
+                    const width = Math.abs(curX - shape.startX) / 2;
+                    const height = Math.abs(curY - shape.startY) / 2;
+                    const cx = shape.startX + (curX - shape.startX) / 2;
+                    const cy = shape.startY + (curY - shape.startY) / 2;
+                    ctx.ellipse(cx, cy, width, height, 0, 0, 2 * Math.PI);
+                    if (shape.enableFill) ctx.fill();
+                    ctx.stroke();
+                }
+                else if (shape.tool === 'line') {
+                    ctx.moveTo(shape.startX, shape.startY);
+                    ctx.lineTo(curX, curY);
+                    ctx.stroke();
+                }
+            }
+        }
+
+        function renderScene() {
+            clearCanvasInternal();
+            
+            // Draw all completed shapes fully
+            state.shapes.forEach(shape => drawShape(shape, 1));
+
+            // Draw current active shape
+            if (state.isDragging && state.currentShape) {
+                // We fake the progress to 1 because the currentX/Y are stored in endX/Y temporarily
+                drawShape(state.currentShape, 1);
+            }
+        }
+
+        // --- Input Events ---
+        function getMousePos(e) {
+            const rect = canvas.getBoundingClientRect();
+            const scaleX = canvas.width / rect.width;
+            const scaleY = canvas.height / rect.height;
+            return {
+                x: (e.clientX - rect.left) * scaleX,
+                y: (e.clientY - rect.top) * scaleY
+            };
+        }
+
+        canvas.addEventListener('pointerdown', (e) => {
+            if (state.isPlaying) return;
+            e.preventDefault();
+            
+            state.isDragging = true;
+            canvas.setPointerCapture(e.pointerId);
+            const pos = getMousePos(e);
+            
+            let now = performance.now();
+            if (state.shapes.length === 0) {
+                state.logicalTime = 0;
+            } else {
+                let diff = now - state.lastEventTime;
+                if (diff > 1000) diff = 1000; // Cap idle time between drawings
+                state.logicalTime += diff;
+            }
+            state.lastEventTime = now;
+
+            state.currentShape = {
+                tool: state.tool,
+                useRough: state.useRough,
+                roughness: state.roughness,
+                roughFillStyle: state.roughFillStyle,
+                strokeColor: state.strokeColor,
+                fillColor: state.fillColor,
+                enableFill: state.enableFill,
+                strokeWidth: state.strokeWidth,
+                seed: Math.floor(Math.random() * 2147483648), // Unique seed for stable rendering
+                
+                startX: pos.x,
+                startY: pos.y,
+                endX: pos.x, 
+                endY: pos.y,
+                
+                startTime: state.logicalTime,
+                endTime: state.logicalTime
+            };
+        });
+
+        canvas.addEventListener('pointermove', (e) => {
+            if (!state.isDragging || state.isPlaying) return;
+            e.preventDefault();
+            
+            const pos = getMousePos(e);
+            
+            let now = performance.now();
+            let diff = now - state.lastEventTime;
+            state.logicalTime += diff;
+            state.lastEventTime = now;
+
+            state.currentShape.endX = pos.x;
+            state.currentShape.endY = pos.y;
+            state.currentShape.endTime = state.logicalTime;
+
+            renderScene();
+        });
+
+        canvas.addEventListener('pointerup', (e) => {
+            if (!state.isDragging || state.isPlaying) return;
+            state.isDragging = false;
+            canvas.releasePointerCapture(e.pointerId);
+            
+            if (state.currentShape) {
+                let dx = Math.abs(state.currentShape.endX - state.currentShape.startX);
+                let dy = Math.abs(state.currentShape.endY - state.currentShape.startY);
+                
+                // Save if it's an actual drag, not an accidental click
+                if (dx > 5 || dy > 5) {
+                    state.shapes.push({...state.currentShape});
+                }
+                state.currentShape = null;
+            }
+            renderScene();
+        });
+
+        // --- Playback & Export Engine ---
+        function setPlayUI(playing) {
+            document.querySelectorAll('.tool-btn, input, select').forEach(b => b.disabled = playing);
+            document.getElementById('btn-clear').disabled = playing;
+            document.getElementById('btn-export').disabled = playing;
+            document.getElementById('rough-toggle').disabled = playing;
+            
+            const btnPreview = document.getElementById('btn-preview');
+            const indicator = document.getElementById('status-indicator');
+            
+            if (playing) {
+                indicator.classList.remove('opacity-0');
+                if (state.isExporting) {
+                    btnPreview.disabled = true;
+                    indicator.classList.replace('bg-purple-500/10', 'bg-red-500/10');
+                    indicator.classList.replace('border-purple-500/50', 'border-red-500/50');
+                    indicator.classList.replace('text-purple-500', 'text-red-500');
+                    document.getElementById('status-text').innerText = 'Recording Video...';
+                } else {
+                    btnPreview.disabled = false;
+                    btnPreview.classList.add('bg-red-900/50', 'text-red-400', 'border-red-800');
+                    btnPreview.classList.remove('bg-gray-800', 'text-white', 'border-gray-700');
+                    document.getElementById('text-preview').innerText = 'Stop';
+                    document.getElementById('icon-preview').setAttribute('data-lucide', 'square');
+                    
+                    indicator.classList.replace('bg-red-500/10', 'bg-purple-500/10');
+                    indicator.classList.replace('border-red-500/50', 'border-purple-500/50');
+                    indicator.classList.replace('text-red-500', 'text-purple-500');
+                    document.getElementById('status-text').innerText = 'Playing Preview';
+                }
+            } else {
+                btnPreview.disabled = false;
+                btnPreview.classList.remove('bg-red-900/50', 'text-red-400', 'border-red-800');
+                btnPreview.classList.add('bg-gray-800', 'text-white', 'border-gray-700');
+                document.getElementById('text-preview').innerText = 'Preview';
+                document.getElementById('icon-preview').setAttribute('data-lucide', 'play');
+                
+                indicator.classList.add('opacity-0');
+            }
+            lucide.createIcons();
+        }
+
+        function togglePreview() {
+            if (state.isPlaying) {
+                if (!state.isExporting) {
+                    stopPlayback();
+                    showToast('Preview stopped');
+                }
+                return;
+            }
+
+            if (state.shapes.length === 0) {
+                showToast('Draw something first!', 'error');
+                return;
+            }
+
+            state.isPlaying = true;
+            state.isExporting = false;
+            setPlayUI(true);
+            
+            requestAnimationFrame((timestamp) => {
+                state.elapsedTime = 0;
+                state.lastFrameTime = timestamp;
+                playbackLoop(timestamp);
+            });
+        }
+
+        function playbackLoop(timestamp) {
+            if (!state.isPlaying) return;
+            
+            let delta = timestamp - state.lastFrameTime;
+            if (delta > 100) delta = 16.66; // Prevent massive jumps
+            state.elapsedTime += delta;
+            state.lastFrameTime = timestamp;
+            
+            let elapsed = state.elapsedTime;
+            let isFinished = true;
+            let totalTime = state.shapes[state.shapes.length - 1].endTime;
+
+            clearCanvasInternal();
+
+            state.shapes.forEach(shape => {
+                if (elapsed >= shape.startTime) {
+                    let progress = 1;
+                    let duration = shape.endTime - shape.startTime;
+                    
+                    if (duration > 0 && elapsed < shape.endTime) {
+                        progress = (elapsed - shape.startTime) / duration;
+                        isFinished = false; 
+                    }
+                    drawShape(shape, progress);
+                } else {
+                    isFinished = false;
+                }
+            });
+
+            if (state.isExporting && totalTime > 0) {
+                let pct = Math.min(100, Math.round((elapsed / totalTime) * 100));
+                document.getElementById('status-text').innerText = `Recording... ${pct}%`;
+            }
+
+            // Finish check with a slight 800ms pause at the end
+            if (isFinished && elapsed > totalTime + 800) {
+                if (state.isExporting) {
+                    document.getElementById('status-text').innerText = `Processing...`;
+                    setTimeout(stopPlayback, 500);
+                } else {
+                    stopPlayback();
+                }
+                return;
+            }
+
+            requestAnimationFrame(playbackLoop);
+        }
+
+        function stopPlayback() {
+            state.isPlaying = false;
+            if (state.isExporting && state.mediaRecorder) {
+                if (state.mediaRecorder.state !== 'inactive') state.mediaRecorder.stop();
+                state.isExporting = false;
+            }
+            setPlayUI(false);
+            renderScene(); // Snap to final frame immediately
+        }
+
+        function exportAnimation() {
+            if (state.shapes.length === 0) {
+                showToast('Draw something first!', 'error');
+                return;
+            }
+            if (state.isPlaying) return;
+
+            try {
+                // High bitrate WebM VP9 export for crisp rough lines
+                const stream = canvas.captureStream(60); 
+                state.recordedChunks = [];
+                state.mediaRecorder = new MediaRecorder(stream, { 
+                    mimeType: 'video/webm; codecs=vp9',
+                    videoBitsPerSecond: 15000000 // 15 Mbps
+                });
+                
+                state.mediaRecorder.ondataavailable = (e) => {
+                    if (e.data.size > 0) state.recordedChunks.push(e.data);
+                };
+
+                state.mediaRecorder.onstop = () => {
+                    const blob = new Blob(state.recordedChunks, { type: 'video/webm' });
+                    const url = URL.createObjectURL(blob);
+                    const link = document.createElement('a');
+                    link.href = url;
+                    link.download = `rough-animation-${Date.now()}.webm`;
+                    link.click();
+                    URL.revokeObjectURL(url);
+                    showToast('Video exported successfully!', 'success');
+                };
+
+                state.mediaRecorder.start();
+                
+                state.isPlaying = true;
+                state.isExporting = true;
+                setPlayUI(true);
+                
+                requestAnimationFrame((timestamp) => {
+                    state.elapsedTime = 0;
+                    state.lastFrameTime = timestamp;
+                    playbackLoop(timestamp);
+                });
+                showToast('Rendering video export...');
+
+            } catch (err) {
+                console.error(err);
+                showToast('Export failed. Browser not supported.', 'error');
+                stopPlayback();
+            }
+        }
+
+        // Initial Paint
+        clearCanvasInternal();
+        updateUI();
+
+    </script>
+</body>
+</html>

@@ -1,0 +1,663 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Macify Browser Studio</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
+    <script src="https://unpkg.com/lucide@latest"></script>
+    <style>
+        body {
+            font-family: 'Inter', sans-serif;
+            background-color: #09090b; 
+            color: #ececf1;
+            overflow: hidden;
+            touch-action: none;
+            -webkit-font-smoothing: antialiased;
+        }
+
+        ::-webkit-scrollbar { width: 6px; height: 6px; }
+        ::-webkit-scrollbar-track { background: transparent; }
+        ::-webkit-scrollbar-thumb { background: rgba(255, 255, 255, 0.1); border-radius: 10px; }
+        ::-webkit-scrollbar-thumb:hover { background: rgba(255, 255, 255, 0.2); }
+
+        .workspace-grid {
+            background-size: 24px 24px;
+            background-image: radial-gradient(circle, rgba(255,255,255,0.05) 1px, transparent 1px);
+        }
+
+        input[type="range"] {
+            -webkit-appearance: none;
+            height: 4px;
+            background: rgba(255, 255, 255, 0.1);
+            border-radius: 2px;
+            outline: none;
+        }
+        input[type="range"]::-webkit-slider-thumb {
+            -webkit-appearance: none;
+            width: 16px;
+            height: 16px;
+            border-radius: 50%;
+            background: #fff;
+            box-shadow: 0 2px 6px rgba(0,0,0,0.4);
+            cursor: pointer;
+            transition: transform 0.1s;
+        }
+
+        .segmented-btn { transition: all 0.2s cubic-bezier(0.4, 0, 0.2, 1); }
+        .segmented-btn.active {
+            background: rgba(255, 255, 255, 0.1);
+            color: white;
+            box-shadow: 0 1px 3px rgba(0,0,0,0.2), inset 0 1px 0 rgba(255,255,255,0.1);
+        }
+
+        #preview-canvas {
+            box-shadow: 0 0 0 1px rgba(255,255,255,0.05), 0 25px 50px -12px rgba(0,0,0,0.5);
+            max-width: 100%;
+            max-height: 100%;
+            object-fit: contain;
+            border-radius: 8px;
+            background-image: linear-gradient(45deg, #18181b 25%, transparent 25%, transparent 75%, #18181b 75%, #18181b), linear-gradient(45deg, #18181b 25%, transparent 25%, transparent 75%, #18181b 75%, #18181b);
+            background-size: 20px 20px; background-position: 0 0, 10px 10px;
+            transition: opacity 0.3s;
+        }
+
+        /* Live Iframe Styling */
+        #live-iframe-container {
+            box-shadow: 0 0 0 1px rgba(255,255,255,0.05), 0 25px 50px -12px rgba(0,0,0,0.8);
+            border-radius: 12px;
+            overflow: hidden;
+            display: flex;
+            flex-direction: column;
+            width: 90%;
+            height: 80%;
+            max-width: 1400px;
+            transition: opacity 0.3s;
+        }
+        
+        .mac-header {
+            height: 48px;
+            display: flex;
+            align-items: center;
+            padding: 0 16px;
+            position: relative;
+        }
+        .traffic-lights { display: flex; gap: 8px; }
+        .t-light { width: 12px; height: 12px; border-radius: 50%; }
+        .t-red { background: #ff5f56; border: 1px solid #e0443e; }
+        .t-yellow { background: #ffbd2e; border: 1px solid #dea123; }
+        .t-green { background: #27c93f; border: 1px solid #1aab29; }
+        
+        .address-bar {
+            position: absolute;
+            left: 50%;
+            transform: translateX(-50%);
+            width: 50%;
+            max-width: 500px;
+            height: 28px;
+            border-radius: 6px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-size: 13px;
+            gap: 6px;
+        }
+    </style>
+</head>
+<body class="flex flex-col h-screen text-sm">
+
+    <!-- Glass Header -->
+    <header class="absolute top-0 w-full h-14 bg-zinc-900/80 backdrop-blur-2xl border-b border-white/5 flex items-center justify-between px-4 sm:px-6 z-40">
+        <div class="flex items-center gap-3">
+            <div class="w-7 h-7 rounded-lg bg-gradient-to-b from-blue-400 to-indigo-600 flex items-center justify-center shadow-inner shadow-white/20">
+                <i data-lucide="globe" class="w-4 h-4 text-white"></i>
+            </div>
+            <h1 class="font-semibold text-zinc-100 tracking-tight hidden sm:block">Mac Browser <span class="text-[10px] bg-indigo-600 px-1.5 py-0.5 rounded ml-1 uppercase font-bold tracking-wider">Studio</span></h1>
+        </div>
+
+        <div class="flex items-center gap-2">
+            <!-- Source Toggle -->
+            <div class="flex p-1 bg-black/40 rounded-xl ring-1 ring-white/5 mr-2">
+                <button class="segmented-btn active px-3 py-1 rounded-lg text-[11px] font-medium text-zinc-400 flex items-center gap-1.5" onclick="setMode('image')">
+                    <i data-lucide="image" class="w-3.5 h-3.5"></i> Image
+                </button>
+                <button class="segmented-btn px-3 py-1 rounded-lg text-[11px] font-medium text-zinc-400 flex items-center gap-1.5" onclick="setMode('iframe')">
+                    <i data-lucide="layout-template" class="w-3.5 h-3.5"></i> Live URL
+                </button>
+            </div>
+
+            <div class="w-px h-4 bg-white/10 mx-1"></div>
+
+            <div id="export-controls" class="flex bg-blue-600 rounded-lg shadow-lg shadow-blue-600/20 ring-1 ring-inset ring-white/20 transition-all hover:bg-blue-500">
+                <select id="export-res" class="bg-transparent text-white font-medium pl-2 pr-1 py-1.5 outline-none cursor-pointer appearance-none text-xs border-r border-blue-400/30">
+                    <option value="1920" class="bg-zinc-800" selected>HD</option>
+                    <option value="2560" class="bg-zinc-800">2K</option>
+                    <option value="3840" class="bg-zinc-800">4K</option>
+                </select>
+                <button onclick="exportImage()" class="flex items-center gap-2 px-2.5 py-1.5 text-white hover:bg-white/10 transition-colors border-r border-blue-400/30" title="Export PNG">
+                    <i data-lucide="download" class="w-4 h-4"></i>
+                </button>
+                <button onclick="exportVideo()" class="flex items-center gap-2 px-2.5 py-1.5 text-white hover:bg-white/10 transition-colors rounded-r-lg" title="Export Video (WebM)">
+                    <i data-lucide="video" class="w-4 h-4"></i>
+                </button>
+            </div>
+
+            <!-- Fake export for iframe mode -->
+            <div id="iframe-export-warning" class="hidden text-[10px] text-yellow-500 font-medium flex items-center gap-1 px-3 py-1.5 bg-yellow-500/10 rounded-lg ring-1 ring-yellow-500/20">
+                <i data-lucide="alert-triangle" class="w-3 h-3"></i> Use Screen Recorder (OBS)
+            </div>
+        </div>
+    </header>
+
+    <div class="flex flex-1 pt-14 relative overflow-hidden flex-col-reverse md:flex-row">
+        
+        <!-- Glass Inspector Sidebar -->
+        <aside class="w-full md:w-80 flex-shrink-0 bg-zinc-900/60 backdrop-blur-3xl border-r border-white/5 z-30 h-[50%] md:h-full flex flex-col shadow-2xl md:shadow-none">
+            
+            <div class="flex-1 overflow-y-auto p-4 space-y-6">
+                
+                <!-- Browser Content Setup -->
+                <div class="bg-white/5 rounded-2xl p-4 ring-1 ring-white/5 space-y-4">
+                    <label class="text-[11px] font-bold text-blue-400 uppercase tracking-widest block flex items-center gap-1.5"><i data-lucide="globe" class="w-3 h-3"></i> Browser Setup</label>
+                    
+                    <div>
+                        <span class="text-[10px] text-zinc-400 block mb-1.5">Fake Address Bar URL</span>
+                        <div class="flex items-center bg-black/20 border border-white/10 rounded-lg px-3 py-2 focus-within:ring-1 focus-within:ring-blue-500">
+                            <i data-lucide="lock" class="w-3 h-3 text-emerald-400 mr-2"></i>
+                            <input type="text" id="url-input" value="https://svg.designcode.io" class="w-full bg-transparent text-xs text-zinc-200 outline-none" oninput="state.browserUrl = this.value; renderCanvas(); updateIframe();">
+                        </div>
+                    </div>
+
+                    <div id="image-upload-section">
+                        <span class="text-[10px] text-zinc-400 block mb-1.5">Browser Screenshot</span>
+                        <button onclick="document.getElementById('file-upload').click()" class="w-full py-2 bg-white/10 hover:bg-white/20 text-white rounded-lg text-xs font-medium transition-colors flex items-center justify-center gap-2">
+                            <i data-lucide="upload-cloud" class="w-4 h-4"></i> Upload Windows Snapshot
+                        </button>
+                        <input type="file" id="file-upload" accept="image/*" class="hidden" onchange="handleImageUpload(event)">
+                    </div>
+                </div>
+
+                <!-- Windows Cropper (Only visible in Image mode) -->
+                <div id="crop-section" class="bg-rose-500/10 rounded-2xl p-4 ring-1 ring-rose-500/20 space-y-3">
+                    <label class="text-[11px] font-bold text-rose-400 uppercase tracking-widest block flex items-center gap-1.5"><i data-lucide="scissors" class="w-3 h-3"></i> Remove Windows UI</label>
+                    <p class="text-[10px] text-zinc-400 mb-2">Drag the top slider to cut off the Windows tabs/address bar before generating the Mac header.</p>
+                    
+                    <div>
+                        <div class="flex justify-between items-center mb-1.5"><span class="text-[10px] text-white font-medium">Top Crop (Header)</span><span id="cropT-val" class="text-[10px] text-zinc-400">0%</span></div>
+                        <input type="range" min="0" max="40" value="0" step="0.5" class="w-full accent-rose-500" oninput="state.cropT = parseFloat(this.value); document.getElementById('cropT-val').innerText = this.value + '%'; renderCanvas();">
+                    </div>
+                    
+                    <div class="grid grid-cols-2 gap-4 mt-2">
+                        <div>
+                            <div class="flex justify-between items-center mb-1"><span class="text-[10px] text-zinc-500">Left</span><span id="cropL-val" class="text-[10px] text-zinc-500">0%</span></div>
+                            <input type="range" min="0" max="20" value="0" class="w-full accent-zinc-500" oninput="state.cropL = parseInt(this.value); document.getElementById('cropL-val').innerText = this.value + '%'; renderCanvas();">
+                        </div>
+                        <div>
+                            <div class="flex justify-between items-center mb-1"><span class="text-[10px] text-zinc-500">Right</span><span id="cropR-val" class="text-[10px] text-zinc-500">0%</span></div>
+                            <input type="range" min="0" max="20" value="0" class="w-full accent-zinc-500" oninput="state.cropR = parseInt(this.value); document.getElementById('cropR-val').innerText = this.value + '%'; renderCanvas();">
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Theme -->
+                <div>
+                    <label class="text-[10px] font-bold text-zinc-500 uppercase tracking-widest block mb-2">Browser Theme</label>
+                    <div class="flex p-1 bg-black/20 rounded-xl ring-1 ring-white/5">
+                        <button class="segmented-btn active flex-1 py-1.5 rounded-lg text-xs text-zinc-400 flex justify-center items-center gap-2" data-theme="dark" onclick="setTheme('dark')">
+                            <i data-lucide="moon" class="w-3.5 h-3.5"></i> Safari Dark
+                        </button>
+                        <button class="segmented-btn flex-1 py-1.5 rounded-lg text-xs text-zinc-400 flex justify-center items-center gap-2" data-theme="light" onclick="setTheme('light')">
+                            <i data-lucide="sun" class="w-3.5 h-3.5"></i> Safari Light
+                        </button>
+                    </div>
+                </div>
+
+                <!-- Cinematic Motion (Image Mode Only) -->
+                <div id="motion-section" class="bg-indigo-500/10 rounded-2xl p-4 ring-1 ring-indigo-500/20 space-y-4">
+                    <div class="flex items-center justify-between">
+                        <label class="text-[11px] font-bold text-indigo-400 uppercase tracking-widest block flex items-center gap-1.5"><i data-lucide="film" class="w-3 h-3"></i> Cinematic Motion</label>
+                        <button onclick="togglePreview()" id="btn-preview" class="text-[10px] bg-indigo-600 hover:bg-indigo-500 text-white px-2 py-1 rounded font-bold transition-colors flex items-center gap-1">
+                            <i data-lucide="play" class="w-3 h-3" id="icon-preview"></i> <span id="text-preview">Play</span>
+                        </button>
+                    </div>
+
+                    <div>
+                        <select class="w-full bg-black/40 border border-indigo-500/30 rounded-lg text-xs text-zinc-300 px-3 py-2 outline-none focus:ring-1 focus:ring-indigo-500 appearance-none" onchange="state.animType = this.value; renderCanvas();">
+                            <option value="none">No Animation (Static)</option>
+                            <option value="zoom-in">Cinematic Zoom In</option>
+                            <option value="zoom-out">Cinematic Zoom Out</option>
+                            <option value="pan-up">Scroll Down (Pan Up)</option>
+                        </select>
+                    </div>
+                </div>
+
+                <!-- Background Customization -->
+                <div>
+                    <div class="flex items-center justify-between mb-3">
+                        <label class="text-[10px] font-bold text-zinc-500 uppercase tracking-widest block">Background</label>
+                    </div>
+                    <div class="grid grid-cols-5 gap-2">
+                        <button class="w-full aspect-square rounded-lg shadow-sm border border-white/10" style="background: linear-gradient(135deg, #0f172a, #1e293b);" onclick="setGradient('#0f172a', '#1e293b')"></button>
+                        <button class="w-full aspect-square rounded-lg shadow-sm border border-white/10" style="background: linear-gradient(135deg, #ec4899, #8b5cf6);" onclick="setGradient('#ec4899', '#8b5cf6')"></button>
+                        <button class="w-full aspect-square rounded-lg shadow-sm border border-white/10" style="background: linear-gradient(135deg, #3b82f6, #2dd4bf);" onclick="setGradient('#3b82f6', '#2dd4bf')"></button>
+                        <button class="w-full aspect-square rounded-lg shadow-sm border border-white/10" style="background: linear-gradient(135deg, #f59e0b, #ef4444);" onclick="setGradient('#f59e0b', '#ef4444')"></button>
+                        <div class="relative w-full aspect-square rounded-lg shadow-sm border border-white/10 bg-[url('data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAAAoAAAAKCAYAAACNMs+9AAAAAXNSR0IArs4c6QAAACVJREFUKFNjZCASMDKgAnv37v3/n0QciwZkR+BThM8wUshwQxgAYeAU/6+E4wYAAAAASUVORK5CYII=')] overflow-hidden cursor-pointer" title="Transparent">
+                            <input type="checkbox" id="bg-transparent-toggle" class="absolute w-full h-full opacity-0 cursor-pointer" onchange="state.bgTransparent = this.checked; renderCanvas(); updateIframe();">
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </aside>
+
+        <!-- Preview Area -->
+        <main class="flex-1 workspace-grid relative overflow-hidden flex items-center justify-center p-4 sm:p-8 z-10 min-h-[50vh]">
+            
+            <!-- Canvas (Image Mode) -->
+            <canvas id="preview-canvas"></canvas>
+
+            <!-- Iframe (Live Mode) -->
+            <div id="live-iframe-container" class="hidden">
+                <div class="mac-header" id="iframe-header">
+                    <div class="traffic-lights">
+                        <div class="t-light t-red"></div>
+                        <div class="t-light t-yellow"></div>
+                        <div class="t-light t-green"></div>
+                    </div>
+                    <div class="address-bar" id="iframe-address">
+                        <i data-lucide="lock" class="w-3 h-3 text-emerald-500"></i>
+                        <span id="iframe-url-text" class="truncate">https://svg.designcode.io</span>
+                    </div>
+                </div>
+                <iframe id="live-iframe" src="https://example.com" class="w-full flex-1 bg-white border-none"></iframe>
+            </div>
+
+        </main>
+    </div>
+
+    <!-- Toasts -->
+    <div id="toast-container" class="fixed top-20 right-6 z-50 flex flex-col gap-2 pointer-events-none"></div>
+
+    <script>
+        lucide.createIcons();
+
+        const canvas = document.getElementById('preview-canvas');
+        const ctx = canvas.getContext('2d', { willReadFrequently: true });
+        
+        const state = {
+            mode: 'image', // 'image', 'iframe'
+            image: null, 
+            browserUrl: 'https://svg.designcode.io',
+            
+            animType: 'none', animDuration: 4, animProgress: 1, isPlaying: false, isExportingVideo: false,
+            
+            // Cropping (0 to 40%)
+            cropT: 0, cropB: 0, cropL: 0, cropR: 0,
+            
+            // Struct
+            padding: 64, borderRadius: 12, shadowSize: 40,
+            
+            // Appearance
+            bgType: 'gradient', solidColor: '#18181b', gradStart: '#0f172a', gradEnd: '#1e293b', bgTransparent: false,
+            windowTheme: 'dark'
+        };
+
+        // --- Core UI Logic ---
+        function setMode(mode) {
+            state.mode = mode;
+            document.querySelectorAll('header .segmented-btn').forEach(btn => btn.classList.remove('active', 'bg-white/10', 'text-white'));
+            event.currentTarget.classList.add('active', 'bg-white/10', 'text-white');
+
+            const c = document.getElementById('preview-canvas');
+            const i = document.getElementById('live-iframe-container');
+            const cropSec = document.getElementById('crop-section');
+            const motionSec = document.getElementById('motion-section');
+            const expControls = document.getElementById('export-controls');
+            const iframeWarn = document.getElementById('iframe-export-warning');
+            const imgUpload = document.getElementById('image-upload-section');
+
+            if (mode === 'image') {
+                c.classList.remove('hidden'); i.classList.add('hidden');
+                cropSec.classList.remove('hidden'); motionSec.classList.remove('hidden'); imgUpload.classList.remove('hidden');
+                expControls.classList.remove('hidden'); iframeWarn.classList.add('hidden');
+                renderCanvas();
+            } else {
+                c.classList.add('hidden'); i.classList.remove('hidden');
+                cropSec.classList.add('hidden'); motionSec.classList.add('hidden'); imgUpload.classList.add('hidden');
+                expControls.classList.add('hidden'); iframeWarn.classList.remove('hidden');
+                updateIframe();
+            }
+        }
+
+        function setTheme(theme) {
+            state.windowTheme = theme;
+            document.querySelectorAll('aside [data-theme]').forEach(btn => { btn.classList.remove('active', 'bg-white/10', 'text-white'); if(btn.dataset.theme === theme) btn.classList.add('active', 'bg-white/10', 'text-white'); });
+            renderCanvas();
+            updateIframe();
+        }
+
+        function setGradient(start, end) { 
+            state.bgType = 'gradient'; state.gradStart = start; state.gradEnd = end; 
+            state.bgTransparent = false; document.getElementById('bg-transparent-toggle').checked = false; 
+            renderCanvas(); updateIframe();
+        }
+        function setSolid(color) { 
+            state.bgType = 'solid'; state.solidColor = color; 
+            state.bgTransparent = false; document.getElementById('bg-transparent-toggle').checked = false; 
+            renderCanvas(); updateIframe();
+        }
+
+        function showToast(message, type = 'info') {
+            const container = document.getElementById('toast-container');
+            const toast = document.createElement('div');
+            toast.className = `bg-zinc-800/90 backdrop-blur-md text-white px-4 py-3 rounded-xl shadow-2xl ring-1 ring-white/10 flex items-center gap-3 transform transition-all -translate-y-4 opacity-0 z-50`;
+            let icon = type === 'success' ? 'check-circle' : (type === 'error' ? 'alert-triangle' : 'info');
+            let color = type === 'success' ? 'text-green-400' : (type === 'error' ? 'text-red-400' : 'text-blue-400');
+            toast.innerHTML = `<i data-lucide="${icon}" class="w-4 h-4 ${color}"></i> <span class="text-xs font-medium">${message}</span>`;
+            container.appendChild(toast); lucide.createIcons();
+            requestAnimationFrame(() => toast.classList.remove('-translate-y-4', 'opacity-0'));
+            setTimeout(() => { toast.classList.add('-translate-y-4', 'opacity-0'); setTimeout(() => toast.remove(), 300); }, 3000);
+        }
+
+        // --- Live Iframe Engine ---
+        function updateIframe() {
+            const container = document.getElementById('live-iframe-container');
+            const iframe = document.getElementById('live-iframe');
+            const header = document.getElementById('iframe-header');
+            const address = document.getElementById('iframe-address');
+            
+            // Format URL
+            let formattedUrl = state.browserUrl;
+            if (!formattedUrl.startsWith('http://') && !formattedUrl.startsWith('https://')) {
+                formattedUrl = 'https://' + formattedUrl;
+            }
+            if(iframe.src !== formattedUrl) iframe.src = formattedUrl;
+            document.getElementById('iframe-url-text').innerText = state.browserUrl;
+
+            // Theme
+            const isDark = state.windowTheme === 'dark';
+            header.style.backgroundColor = isDark ? '#1c1c1e' : '#f5f5f7';
+            address.style.backgroundColor = isDark ? '#2d2d2d' : '#ffffff';
+            address.style.color = isDark ? '#a1a1aa' : '#64748b';
+            address.style.boxShadow = isDark ? 'none' : '0 1px 2px rgba(0,0,0,0.05)';
+            
+            // Background
+            const main = document.querySelector('main');
+            if (state.bgTransparent) {
+                main.style.background = 'transparent';
+            } else if (state.bgType === 'solid') {
+                main.style.background = state.solidColor;
+            } else {
+                main.style.background = `linear-gradient(135deg, ${state.gradStart}, ${state.gradEnd})`;
+            }
+        }
+
+        // --- File Handling (Image Mode) ---
+        function handleImageUpload(e) { if (e.target.files[0]) processFile(e.target.files[0]); }
+        function processFile(file) {
+            if (!file.type.startsWith('image/')) return showToast('Please upload a valid image file.', 'error');
+            const reader = new FileReader();
+            reader.onload = (event) => {
+                const img = new Image();
+                img.onload = () => { 
+                    state.image = img; 
+                    // Auto-detect a reasonable crop if it's a windows full screen (rough guess, user adjusts)
+                    state.cropT = 0; document.getElementById('cropT-val').innerText = '0%';
+                    document.querySelector('input[oninput*="state.cropT"]').value = 0;
+                    renderCanvas(); 
+                    showToast('Windows snapshot imported! Use Top Crop to remove headers.', 'success'); 
+                };
+                img.src = event.target.result;
+            };
+            reader.readAsDataURL(file);
+        }
+
+        // --- Canvas Drawing Math ---
+        function drawRoundedRect(targetCtx, x, y, width, height, radii) {
+            let tl = 0, tr = 0, br = 0, bl = 0;
+            if (typeof radii === 'number') { tl = tr = br = bl = radii; } 
+            else if (Array.isArray(radii)) {
+                if (radii.length >= 4) [tl, tr, br, bl] = radii;
+                else if (radii.length === 1) tl = tr = br = bl = radii[0];
+            }
+            tl = Math.min(tl, width/2, height/2); tr = Math.min(tr, width/2, height/2);
+            br = Math.min(br, width/2, height/2); bl = Math.min(bl, width/2, height/2);
+            targetCtx.beginPath();
+            targetCtx.moveTo(x + tl, y); targetCtx.lineTo(x + width - tr, y); targetCtx.quadraticCurveTo(x + width, y, x + width, y + tr);
+            targetCtx.lineTo(x + width, y + height - br); targetCtx.quadraticCurveTo(x + width, y + height, x + width - br, y + height);
+            targetCtx.lineTo(x + bl, y + height); targetCtx.quadraticCurveTo(x, y + height, x, y + height - bl);
+            targetCtx.lineTo(x, y + tl); targetCtx.quadraticCurveTo(x, y, x + tl, y); targetCtx.closePath();
+        }
+
+        function easeInOutSine(x) { return -(Math.cos(Math.PI * x) - 1) / 2; }
+
+        // --- Canvas Rendering Engine ---
+        function drawToContext(targetCtx, targetWidth, targetHeight, globalScale) {
+            if (!state.image) return;
+
+            targetCtx.clearRect(0, 0, targetWidth, targetHeight);
+            targetCtx.save();
+            targetCtx.scale(globalScale, globalScale);
+
+            const cLeft = (state.cropL / 100) * state.image.width;
+            const cRight = (state.cropR / 100) * state.image.width;
+            const cTop = (state.cropT / 100) * state.image.height;
+            const cBottom = (state.cropB / 100) * state.image.height;
+
+            const effW = state.image.width - cLeft - cRight;
+            const effH = state.image.height - cTop - cBottom;
+
+            const headerHeight = 52; // Taller for Safari look
+            const windowW = effW;
+            const windowH = effH + headerHeight;
+            const winX = state.padding;
+            const winY = state.padding;
+
+            const baseW = windowW + (state.padding * 2);
+            const baseH = windowH + (state.padding * 2);
+
+            // 1. Cinematic Animation Transform
+            let animScale = 1.0; let animTy = 0;
+            if (state.animType !== 'none') {
+                const p = easeInOutSine(state.animProgress); 
+                const intensity = 0.15; 
+                
+                switch (state.animType) {
+                    case 'zoom-in': animScale = 1.0 + (intensity * p); break;
+                    case 'zoom-out': animScale = (1.0 + intensity) - (intensity * p); break;
+                    case 'pan-up': animTy = -effH * 0.3 * p; break; // Scroll down effect (pans camera up)
+                }
+            }
+
+            targetCtx.translate(baseW/2, baseH/2);
+            targetCtx.scale(animScale, animScale);
+            targetCtx.translate(-baseW/2, -baseH/2 + animTy);
+
+            // 2. Background
+            if (!state.bgTransparent) {
+                const bleed = 2000; 
+                if (state.bgType === 'solid') {
+                    targetCtx.fillStyle = state.solidColor;
+                    targetCtx.fillRect(-bleed, -bleed, baseW + bleed*2, baseH + bleed*2);
+                } else {
+                    const grad = targetCtx.createLinearGradient(0, 0, baseW, baseH);
+                    grad.addColorStop(0, state.gradStart); grad.addColorStop(1, state.gradEnd);
+                    targetCtx.fillStyle = grad; targetCtx.fillRect(-bleed, -bleed, baseW + bleed*2, baseH + bleed*2);
+                }
+            }
+
+            // 3. Drop Shadow
+            targetCtx.shadowColor = 'rgba(0, 0, 0, 0.4)';
+            targetCtx.shadowBlur = state.shadowSize * 1.5;
+            targetCtx.shadowOffsetY = state.shadowSize * 0.8;
+
+            const isDark = state.windowTheme === 'dark';
+
+            // 4. Window Base
+            drawRoundedRect(targetCtx, winX, winY, windowW, windowH, state.borderRadius);
+            targetCtx.fillStyle = isDark ? '#1e1e1e' : '#ffffff';
+            targetCtx.fill();
+            targetCtx.shadowColor = 'transparent'; targetCtx.shadowBlur = 0; targetCtx.shadowOffsetY = 0;
+
+            // 5. Browser Header (Safari/Chrome style)
+            drawRoundedRect(targetCtx, winX, winY, windowW, headerHeight + 10, [state.borderRadius, state.borderRadius, 0, 0]);
+            targetCtx.fillStyle = isDark ? '#2d2d2d' : '#f5f5f7';
+            targetCtx.fill();
+
+            // 6. Traffic Lights
+            const btnColors = ['#ff5f56', '#ffbd2e', '#27c93f'];
+            const btnBorders = ['#e0443e', '#dea123', '#1aab29'];
+            btnColors.forEach((color, i) => {
+                targetCtx.beginPath(); targetCtx.arc(winX + 20 + (i * 20), winY + (headerHeight / 2), 6, 0, Math.PI * 2);
+                targetCtx.fillStyle = color; targetCtx.fill();
+                targetCtx.lineWidth = 0.5; targetCtx.strokeStyle = btnBorders[i]; targetCtx.stroke();
+            });
+
+            // 7. Address Bar
+            const abWidth = Math.min(windowW * 0.5, 500);
+            const abX = winX + (windowW - abWidth) / 2;
+            const abY = winY + (headerHeight - 28) / 2;
+            drawRoundedRect(targetCtx, abX, abY, abWidth, 28, 6);
+            targetCtx.fillStyle = isDark ? '#1c1c1e' : '#ffffff';
+            targetCtx.fill();
+            if(!isDark) { targetCtx.lineWidth = 1; targetCtx.strokeStyle = 'rgba(0,0,0,0.05)'; targetCtx.stroke(); }
+
+            targetCtx.fillStyle = isDark ? '#a1a1aa' : '#64748b';
+            targetCtx.font = "13px Inter, sans-serif";
+            targetCtx.textAlign = "center"; targetCtx.textBaseline = "middle";
+            targetCtx.fillText(state.browserUrl || "https://example.com", abX + abWidth/2, abY + 14);
+
+            // 8. Image Content
+            targetCtx.save();
+            drawRoundedRect(targetCtx, winX, winY + headerHeight, windowW, effH, [0, 0, state.borderRadius, state.borderRadius]);
+            targetCtx.clip();
+            targetCtx.drawImage(state.image, cLeft, cTop, effW, effH, winX, winY + headerHeight, windowW, effH);
+            targetCtx.restore();
+            
+            // 9. Inner Stroke
+            drawRoundedRect(targetCtx, winX, winY, windowW, windowH, state.borderRadius);
+            targetCtx.lineWidth = 1; targetCtx.strokeStyle = isDark ? 'rgba(255,255,255,0.1)' : 'rgba(0,0,0,0.1)'; targetCtx.stroke();
+
+            targetCtx.restore(); 
+        }
+
+        function renderCanvas() {
+            if (!state.image || state.mode !== 'image') return;
+            const effW = state.image.width * (1 - (state.cropL + state.cropR) / 100);
+            const effH = state.image.height * (1 - (state.cropT + state.cropB) / 100);
+            const baseW = effW + (state.padding * 2);
+            const baseH = effH + 52 + (state.padding * 2);
+            const previewScale = Math.min(1, 1920 / baseW);
+            
+            canvas.width = baseW * previewScale;
+            canvas.height = baseH * previewScale;
+            drawToContext(ctx, canvas.width, canvas.height, previewScale);
+        }
+
+        // --- Mock Data ---
+        function applyGeneratedImage(tempCanvas) {
+            const img = new Image(); img.onload = () => { state.image = img; renderCanvas(); }; img.src = tempCanvas.toDataURL();
+        }
+
+        // --- Animation & Video Engine ---
+        let animStartTime = 0; let animationReqId = null;
+
+        function togglePreview() {
+            if (state.isPlaying) {
+                state.isPlaying = false; state.animProgress = 1;
+                cancelAnimationFrame(animationReqId); renderCanvas();
+                document.getElementById('icon-preview').setAttribute('data-lucide', 'play');
+                document.getElementById('text-preview').innerText = 'Play';
+                lucide.createIcons();
+                return;
+            }
+            if (state.animType === 'none') return showToast('Select an animation type first!', 'info');
+
+            state.isPlaying = true; state.isExportingVideo = false;
+            document.getElementById('icon-preview').setAttribute('data-lucide', 'square');
+            document.getElementById('text-preview').innerText = 'Stop';
+            lucide.createIcons();
+
+            animStartTime = performance.now();
+            function loop(now) {
+                if (!state.isPlaying) return;
+                let progress = ((now - animStartTime) / 1000) / state.animDuration;
+                if (progress >= 1) { 
+                    progress = 1; state.isPlaying = false; 
+                    document.getElementById('icon-preview').setAttribute('data-lucide', 'play');
+                    document.getElementById('text-preview').innerText = 'Play';
+                    lucide.createIcons();
+                }
+                state.animProgress = progress; renderCanvas();
+                if (state.isPlaying) animationReqId = requestAnimationFrame(loop);
+            }
+            animationReqId = requestAnimationFrame(loop);
+        }
+
+        function exportImage() {
+            if (!state.image) return showToast('No image to export!', 'error');
+            try {
+                showToast('Rendering high-res PNG...', 'info');
+                state.animProgress = 1; 
+                const targetWidth = parseInt(document.getElementById('export-res').value);
+                const effW = state.image.width * (1 - (state.cropL + state.cropR) / 100);
+                const effH = state.image.height * (1 - (state.cropT + state.cropB) / 100);
+                const baseW = effW + (state.padding * 2);
+                const baseH = effH + 52 + (state.padding * 2);
+                const exportScale = targetWidth / baseW;
+                const targetHeight = baseH * exportScale;
+                const tempCanvas = document.createElement('canvas'); tempCanvas.width = targetWidth; tempCanvas.height = targetHeight;
+                drawToContext(tempCanvas.getContext('2d'), targetWidth, targetHeight, exportScale);
+                const link = document.createElement('a'); link.download = `mac-browser-${targetWidth}w-${Date.now()}.png`; link.href = tempCanvas.toDataURL('image/png'); link.click();
+                showToast('PNG Export complete!', 'success');
+            } catch (e) { showToast('Export failed.', 'error'); }
+        }
+
+        function exportVideo() {
+            if (!state.image) return showToast('No image to export!', 'error');
+            if (state.animType === 'none') return showToast('Select an animation to record!', 'info');
+            if (state.isPlaying) return;
+
+            try {
+                const targetWidth = parseInt(document.getElementById('export-res').value);
+                const effW = state.image.width * (1 - (state.cropL + state.cropR) / 100);
+                const effH = state.image.height * (1 - (state.cropT + state.cropB) / 100);
+                const baseW = effW + (state.padding * 2); const baseH = effH + 52 + (state.padding * 2);
+                const exportScale = targetWidth / baseW; const targetHeight = baseH * exportScale;
+
+                const rCanvas = document.createElement('canvas'); rCanvas.width = targetWidth; rCanvas.height = targetHeight;
+                const rCtx = rCanvas.getContext('2d');
+                const stream = rCanvas.captureStream(60); const chunks = [];
+                const mediaRecorder = new MediaRecorder(stream, { mimeType: 'video/webm; codecs=vp9', videoBitsPerSecond: 15000000 });
+                mediaRecorder.ondataavailable = (e) => { if (e.data.size > 0) chunks.push(e.data); };
+                mediaRecorder.onstop = () => {
+                    const url = URL.createObjectURL(new Blob(chunks, { type: 'video/webm' }));
+                    const link = document.createElement('a'); link.download = `mac-browser-${targetWidth}w-${Date.now()}.webm`; link.href = url; link.click();
+                    URL.revokeObjectURL(url); showToast('Video Export complete!', 'success');
+                    state.isExportingVideo = false; state.isPlaying = false; state.animProgress = 1; renderCanvas();
+                };
+
+                mediaRecorder.start(); state.isPlaying = true; state.isExportingVideo = true;
+                const renderStartTime = performance.now();
+                function recordLoop(now) {
+                    let progress = ((now - renderStartTime) / 1000) / state.animDuration;
+                    if (progress >= 1) progress = 1;
+                    state.animProgress = progress;
+                    drawToContext(rCtx, targetWidth, targetHeight, exportScale); renderCanvas();
+                    if (progress < 1) requestAnimationFrame(recordLoop); else setTimeout(() => mediaRecorder.stop(), 500);
+                }
+                showToast('Starting video render...', 'info'); requestAnimationFrame(recordLoop);
+            } catch (err) { showToast('Video Export failed. Browser may not support HD WebM.', 'error'); }
+        }
+
+        // Init
+        const initCanvas = document.createElement('canvas'); initCanvas.width = 1200; initCanvas.height = 800;
+        const iCtx = initCanvas.getContext('2d'); iCtx.fillStyle = '#ffffff'; iCtx.fillRect(0,0,1200,800);
+        iCtx.fillStyle = '#3b82f6'; iCtx.fillRect(100, 100, 1000, 300);
+        iCtx.fillStyle = '#ffffff'; iCtx.font = "bold 48px sans-serif"; iCtx.fillText("Upload Windows Screenshot", 250, 250);
+        applyGeneratedImage(initCanvas);
+        updateIframe();
+
+    </script>
+</body>
+</html>

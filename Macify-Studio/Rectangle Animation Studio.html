@@ -1,0 +1,577 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Rectangle Animation Studio</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
+    <script src="https://unpkg.com/lucide@latest"></script>
+    <style>
+        body {
+            font-family: 'Inter', sans-serif;
+            background-color: #0f1115;
+            color: #e2e8f0;
+            overflow: hidden;
+            touch-action: none; /* Prevents mobile scrolling while drawing */
+        }
+        
+        ::-webkit-scrollbar { width: 8px; height: 8px; }
+        ::-webkit-scrollbar-track { background: #1e293b; }
+        ::-webkit-scrollbar-thumb { background: #475569; border-radius: 4px; }
+        ::-webkit-scrollbar-thumb:hover { background: #64748b; }
+
+        .workspace-grid {
+            background-size: 20px 20px;
+            background-image: radial-gradient(circle, #334155 1px, transparent 1px);
+        }
+
+        #canvas-wrapper {
+            position: relative;
+            width: 100%;
+            height: 100%;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            padding: 20px;
+        }
+
+        #draw-canvas {
+            background-color: white;
+            box-shadow: 0 25px 50px -12px rgba(0, 0, 0, 0.5);
+            max-width: 100%;
+            max-height: 100%;
+            object-fit: contain;
+            cursor: crosshair;
+            border-radius: 4px;
+        }
+
+        input[type="color"] {
+            -webkit-appearance: none;
+            border: none;
+            width: 100%;
+            height: 40px;
+            border-radius: 6px;
+            padding: 0;
+            cursor: pointer;
+            background: transparent;
+        }
+        input[type="color"]::-webkit-color-swatch-wrapper { padding: 0; }
+        input[type="color"]::-webkit-color-swatch { border: none; border-radius: 6px; }
+
+        .mode-btn.active {
+            background-color: #3b82f6;
+            color: white;
+            border-color: #3b82f6;
+        }
+    </style>
+</head>
+<body class="flex flex-col h-screen">
+
+    <!-- Header -->
+    <header class="h-16 border-b border-gray-800 bg-gray-950 flex items-center justify-between px-6 flex-shrink-0 z-20">
+        <div class="flex items-center gap-3">
+            <div class="w-8 h-8 rounded bg-gradient-to-br from-blue-500 to-indigo-600 flex items-center justify-center">
+                <i data-lucide="square" class="w-5 h-5 text-white"></i>
+            </div>
+            <h1 class="font-bold text-lg tracking-tight hidden sm:block">Rectangle Animator</h1>
+        </div>
+
+        <div class="flex items-center gap-3">
+            <button onclick="clearCanvas()" id="btn-clear" class="flex items-center gap-2 px-3 py-1.5 rounded hover:bg-gray-800 text-sm font-medium transition-colors text-gray-400 hover:text-white border border-gray-800 hover:border-gray-700">
+                <i data-lucide="trash-2" class="w-4 h-4"></i> <span class="hidden sm:inline">Clear</span>
+            </button>
+            
+            <div class="w-px h-6 bg-gray-700 mx-1"></div>
+
+            <button onclick="togglePreview()" id="btn-preview" class="flex items-center gap-2 px-4 py-1.5 rounded bg-gray-800 hover:bg-gray-700 text-white text-sm font-medium transition-colors border border-gray-700">
+                <i data-lucide="play" class="w-4 h-4" id="icon-preview"></i>
+                <span id="text-preview">Preview</span>
+            </button>
+
+            <button onclick="exportAnimation()" id="btn-export" class="flex items-center gap-2 px-4 py-1.5 rounded bg-blue-600 hover:bg-blue-500 text-white text-sm font-medium transition-colors">
+                <i data-lucide="download" class="w-4 h-4"></i>
+                <span id="text-export">Export WebM</span>
+            </button>
+        </div>
+    </header>
+
+    <!-- Main Content -->
+    <div class="flex flex-1 overflow-hidden relative">
+        
+        <!-- Tools Sidebar -->
+        <aside class="w-20 md:w-72 border-r border-gray-800 bg-gray-950 flex flex-col overflow-y-auto flex-shrink-0 z-10" id="sidebar">
+            
+            <div class="p-5 border-b border-gray-800">
+                <h2 class="text-xs font-semibold text-gray-500 uppercase tracking-wider mb-4 hidden md:block">Draw Mode</h2>
+                <div class="flex flex-col md:flex-row gap-2">
+                    <button class="mode-btn active flex-1 py-2 px-3 rounded border border-gray-700 text-gray-400 text-sm flex justify-center items-center gap-2 transition-colors" data-mode="outline" onclick="setMode('outline')">
+                        <i data-lucide="square" class="w-4 h-4"></i><span class="hidden md:inline">Outline</span>
+                    </button>
+                    <button class="mode-btn flex-1 py-2 px-3 rounded border border-gray-700 text-gray-400 text-sm flex justify-center items-center gap-2 transition-colors" data-mode="fill" onclick="setMode('fill')">
+                        <i data-lucide="square-dashed-bottom" class="w-4 h-4"></i><span class="hidden md:inline">Fill</span>
+                    </button>
+                    <button class="mode-btn flex-1 py-2 px-3 rounded border border-gray-700 text-gray-400 text-sm flex justify-center items-center gap-2 transition-colors" data-mode="both" onclick="setMode('both')">
+                        <i data-lucide="layout-template" class="w-4 h-4"></i><span class="hidden md:inline">Both</span>
+                    </button>
+                </div>
+            </div>
+
+            <div class="p-5 border-b border-gray-800">
+                <h2 class="text-xs font-semibold text-gray-500 uppercase tracking-wider mb-4 hidden md:block">Stroke Properties</h2>
+                
+                <div class="mb-4">
+                    <label class="text-xs text-gray-400 block mb-2 hidden md:block">Stroke Color</label>
+                    <input type="color" id="stroke-color" value="#000000" onchange="state.strokeColor = this.value" oninput="state.strokeColor = this.value">
+                </div>
+
+                <div>
+                    <div class="flex justify-between items-center mb-1 hidden md:flex">
+                        <label class="text-xs text-gray-400">Stroke Width</label>
+                        <span id="width-val" class="text-xs text-gray-300 font-mono">5px</span>
+                    </div>
+                    <div class="md:hidden flex justify-center mb-1 text-gray-500">
+                        <i data-lucide="menu" class="w-4 h-4"></i>
+                    </div>
+                    <input type="range" min="1" max="50" value="5" class="w-full accent-blue-500" oninput="updateLineWidth(this.value)">
+                </div>
+            </div>
+
+            <div class="p-5 border-b border-gray-800">
+                <h2 class="text-xs font-semibold text-gray-500 uppercase tracking-wider mb-4 hidden md:block">Fill Properties</h2>
+                
+                <div class="mb-2">
+                    <label class="text-xs text-gray-400 block mb-2 hidden md:block">Fill Color</label>
+                    <input type="color" id="fill-color" value="#3b82f6" onchange="state.fillColor = this.value" oninput="state.fillColor = this.value">
+                </div>
+            </div>
+            
+            <div class="p-5">
+                <p class="text-xs text-gray-500 hidden md:block leading-relaxed">
+                    <strong>Instructions:</strong> Click and drag on the canvas to draw rectangles. 
+                    The speed and direction of your drag will be recorded. Click 'Preview' to watch the animation, or 'Export' to render it to video.
+                </p>
+            </div>
+        </aside>
+
+        <!-- Canvas Area -->
+        <main class="flex-1 bg-gray-900 workspace-grid relative overflow-hidden">
+            <div id="canvas-wrapper">
+                <canvas id="draw-canvas" width="1280" height="720"></canvas>
+            </div>
+            
+            <!-- Playback/Recording Indicator -->
+            <div id="status-indicator" class="absolute top-6 left-6 flex items-center gap-2 bg-blue-500/10 border border-blue-500/50 text-blue-500 px-4 py-2 rounded-full shadow-lg opacity-0 transition-opacity duration-300 pointer-events-none backdrop-blur-sm z-50">
+                <i data-lucide="play-circle" class="w-4 h-4 animate-pulse"></i>
+                <span class="text-xs font-bold tracking-wide uppercase" id="status-text">Playing Preview</span>
+            </div>
+        </main>
+    </div>
+
+    <!-- Toast Notifications -->
+    <div id="toast-container" class="fixed bottom-6 right-6 z-50 flex flex-col gap-2 pointer-events-none"></div>
+
+    <script>
+        lucide.createIcons();
+
+        // --- Core Application State ---
+        const canvas = document.getElementById('draw-canvas');
+        const ctx = canvas.getContext('2d', { willReadFrequently: true });
+        
+        const state = {
+            drawMode: 'outline', // 'outline', 'fill', 'both'
+            strokeColor: '#000000',
+            fillColor: '#3b82f6',
+            lineWidth: 5,
+            
+            // Interaction
+            isDragging: false,
+            currentRect: null,
+            shapes: [], // Stores all completed rectangles
+            
+            // Timing Engine
+            logicalTime: 0,
+            lastEventTime: 0,
+            
+            // Playback & Export Engine
+            isPlaying: false,
+            isExporting: false,
+            playbackStartTime: 0,
+            mediaRecorder: null,
+            recordedChunks: []
+        };
+
+        // --- UI Updaters ---
+        function setMode(mode) {
+            if (state.isPlaying) return;
+            state.drawMode = mode;
+            document.querySelectorAll('.mode-btn').forEach(btn => {
+                btn.classList.remove('active');
+                if(btn.dataset.mode === mode) btn.classList.add('active');
+            });
+        }
+
+        function updateLineWidth(val) {
+            state.lineWidth = parseInt(val);
+            document.getElementById('width-val').innerText = val + 'px';
+        }
+
+        function showToast(message, type = 'info') {
+            const container = document.getElementById('toast-container');
+            const toast = document.createElement('div');
+            
+            const colors = { success: 'bg-green-600', error: 'bg-red-600', info: 'bg-blue-600' };
+            toast.className = `${colors[type]} text-white px-4 py-3 rounded-lg shadow-xl flex items-center gap-3 transform transition-all translate-y-8 opacity-0`;
+            
+            let icon = type === 'success' ? 'check-circle' : (type === 'error' ? 'alert-triangle' : 'info');
+            toast.innerHTML = `<i data-lucide="${icon}" class="w-5 h-5"></i> <span class="text-sm font-medium">${message}</span>`;
+            
+            container.appendChild(toast);
+            lucide.createIcons();
+
+            requestAnimationFrame(() => toast.classList.remove('translate-y-8', 'opacity-0'));
+            setTimeout(() => {
+                toast.classList.add('translate-y-8', 'opacity-0');
+                setTimeout(() => toast.remove(), 300);
+            }, 3000);
+        }
+
+        function setUIState(playing) {
+            document.querySelectorAll('.mode-btn').forEach(b => b.disabled = playing);
+            document.getElementById('btn-clear').disabled = playing;
+            document.getElementById('btn-export').disabled = playing;
+            
+            const btnPreview = document.getElementById('btn-preview');
+            const indicator = document.getElementById('status-indicator');
+            
+            if (playing) {
+                indicator.classList.remove('opacity-0');
+                if (state.isExporting) {
+                    btnPreview.disabled = true;
+                    indicator.classList.replace('bg-blue-500/10', 'bg-red-500/10');
+                    indicator.classList.replace('border-blue-500/50', 'border-red-500/50');
+                    indicator.classList.replace('text-blue-500', 'text-red-500');
+                    document.getElementById('status-text').innerText = 'Recording Video...';
+                } else {
+                    btnPreview.disabled = false;
+                    btnPreview.classList.add('bg-red-900/50', 'text-red-400', 'border-red-800');
+                    btnPreview.classList.remove('bg-gray-800', 'text-white', 'border-gray-700');
+                    document.getElementById('text-preview').innerText = 'Stop';
+                    document.getElementById('icon-preview').setAttribute('data-lucide', 'square');
+                    
+                    indicator.classList.replace('bg-red-500/10', 'bg-blue-500/10');
+                    indicator.classList.replace('border-red-500/50', 'border-blue-500/50');
+                    indicator.classList.replace('text-red-500', 'text-blue-500');
+                    document.getElementById('status-text').innerText = 'Playing Preview';
+                }
+            } else {
+                btnPreview.disabled = false;
+                btnPreview.classList.remove('bg-red-900/50', 'text-red-400', 'border-red-800');
+                btnPreview.classList.add('bg-gray-800', 'text-white', 'border-gray-700');
+                document.getElementById('text-preview').innerText = 'Preview';
+                document.getElementById('icon-preview').setAttribute('data-lucide', 'play');
+                
+                indicator.classList.add('opacity-0');
+            }
+            lucide.createIcons();
+        }
+
+        // --- Canvas Drawing Logic ---
+        function clearCanvasInternal() {
+            ctx.fillStyle = '#ffffff';
+            ctx.fillRect(0, 0, canvas.width, canvas.height);
+        }
+
+        function clearCanvas() {
+            if (state.isPlaying || state.isExporting) return;
+            if (state.shapes.length === 0 && !state.currentRect) return;
+            
+            if (confirm('Are you sure you want to clear the canvas?')) {
+                clearCanvasInternal();
+                state.shapes = [];
+                state.logicalTime = 0;
+                state.lastEventTime = performance.now();
+                showToast('Canvas cleared', 'success');
+            }
+        }
+
+        // Draws a single rectangle given start and current/end coordinates
+        function drawRectangle(x1, y1, x2, y2, rectData) {
+            ctx.beginPath();
+            
+            // Calculate width and height natively allowing for negative dimensions (drawing right-to-left)
+            let width = x2 - x1;
+            let height = y2 - y1;
+            
+            ctx.rect(x1, y1, width, height);
+
+            if (rectData.mode === 'fill' || rectData.mode === 'both') {
+                ctx.fillStyle = rectData.fillColor;
+                ctx.fill();
+            }
+            if (rectData.mode === 'outline' || rectData.mode === 'both') {
+                ctx.strokeStyle = rectData.strokeColor;
+                ctx.lineWidth = rectData.lineWidth;
+                ctx.lineCap = 'square';
+                ctx.lineJoin = 'miter';
+                ctx.stroke();
+            }
+        }
+
+        function renderScene() {
+            clearCanvasInternal();
+            
+            // Draw all completed shapes
+            state.shapes.forEach(shape => {
+                drawRectangle(shape.startX, shape.startY, shape.endX, shape.endY, shape);
+            });
+
+            // Draw the shape currently being dragged
+            if (state.isDragging && state.currentRect) {
+                drawRectangle(
+                    state.currentRect.startX, 
+                    state.currentRect.startY, 
+                    state.currentRect.currentX, 
+                    state.currentRect.currentY, 
+                    state.currentRect
+                );
+            }
+        }
+
+        function getMousePos(e) {
+            const rect = canvas.getBoundingClientRect();
+            const scaleX = canvas.width / rect.width;
+            const scaleY = canvas.height / rect.height;
+            return {
+                x: (e.clientX - rect.left) * scaleX,
+                y: (e.clientY - rect.top) * scaleY
+            };
+        }
+
+        // --- Input Events ---
+        canvas.addEventListener('pointerdown', (e) => {
+            if (state.isPlaying) return;
+            e.preventDefault();
+            
+            state.isDragging = true;
+            canvas.setPointerCapture(e.pointerId);
+            const pos = getMousePos(e);
+            
+            let now = performance.now();
+            if (state.shapes.length === 0) {
+                state.logicalTime = 0;
+            } else {
+                let diff = now - state.lastEventTime;
+                // Cap idle time to 1 second so animations don't have massive pauses
+                if (diff > 1000) diff = 1000;
+                state.logicalTime += diff;
+            }
+            state.lastEventTime = now;
+
+            state.currentRect = {
+                mode: state.drawMode,
+                strokeColor: state.strokeColor,
+                fillColor: state.fillColor,
+                lineWidth: state.lineWidth,
+                startX: pos.x,
+                startY: pos.y,
+                currentX: pos.x, // Used while dragging
+                currentY: pos.y,
+                endX: pos.x,     // Finalized on mouseup
+                endY: pos.y,
+                startTime: state.logicalTime,
+                endTime: state.logicalTime // Updated dynamically
+            };
+        });
+
+        canvas.addEventListener('pointermove', (e) => {
+            if (!state.isDragging || state.isPlaying) return;
+            e.preventDefault();
+            
+            const pos = getMousePos(e);
+            
+            let now = performance.now();
+            let diff = now - state.lastEventTime;
+            state.logicalTime += diff;
+            state.lastEventTime = now;
+
+            state.currentRect.currentX = pos.x;
+            state.currentRect.currentY = pos.y;
+            state.currentRect.endTime = state.logicalTime;
+
+            renderScene();
+        });
+
+        canvas.addEventListener('pointerup', (e) => {
+            if (!state.isDragging || state.isPlaying) return;
+            state.isDragging = false;
+            canvas.releasePointerCapture(e.pointerId);
+            
+            if (state.currentRect) {
+                // Ignore tiny accidental clicks (must drag at least 5 pixels)
+                let dx = Math.abs(state.currentRect.currentX - state.currentRect.startX);
+                let dy = Math.abs(state.currentRect.currentY - state.currentRect.startY);
+                
+                if (dx > 5 || dy > 5) {
+                    state.currentRect.endX = state.currentRect.currentX;
+                    state.currentRect.endY = state.currentRect.currentY;
+                    state.shapes.push({...state.currentRect});
+                }
+                state.currentRect = null;
+            }
+            renderScene();
+        });
+
+        // --- Animation Playback Engine ---
+        function togglePreview() {
+            if (state.isPlaying) {
+                if (!state.isExporting) {
+                    stopPlayback();
+                    showToast('Preview stopped');
+                } else {
+                    showToast('Exporting in progress...', 'info');
+                }
+                return;
+            }
+
+            if (state.shapes.length === 0) {
+                showToast('Draw some rectangles first!', 'error');
+                return;
+            }
+
+            state.isPlaying = true;
+            state.isExporting = false;
+            setUIState(true);
+            
+            requestAnimationFrame((timestamp) => {
+                state.playbackStartTime = timestamp;
+                playbackLoop(timestamp);
+            });
+        }
+
+        // Linear interpolation function
+        function lerp(start, end, t) {
+            return start + (end - start) * t;
+        }
+
+        function playbackLoop(timestamp) {
+            if (!state.isPlaying) return;
+            
+            let elapsed = timestamp - state.playbackStartTime;
+            let isFinished = true;
+
+            clearCanvasInternal();
+
+            // Render shapes based on elapsed time
+            state.shapes.forEach(shape => {
+                if (elapsed >= shape.startTime) {
+                    let progress = 1; // Default fully drawn
+                    let duration = shape.endTime - shape.startTime;
+                    
+                    if (duration > 0 && elapsed < shape.endTime) {
+                        progress = (elapsed - shape.startTime) / duration;
+                        isFinished = false; // Still animating something
+                    }
+                    
+                    // Interpolate the rectangle size to mimic drawing motion
+                    let animX = lerp(shape.startX, shape.endX, progress);
+                    let animY = lerp(shape.startY, shape.endY, progress);
+                    
+                    drawRectangle(shape.startX, shape.startY, animX, animY, shape);
+                } else {
+                    isFinished = false; // Hasn't started drawing yet
+                }
+            });
+
+            // Update Recording Progress UI if exporting
+            if (state.isExporting) {
+                let totalTime = state.shapes[state.shapes.length - 1].endTime;
+                let pct = totalTime > 0 ? Math.min(100, Math.round((elapsed / totalTime) * 100)) : 100;
+                document.getElementById('status-text').innerText = `Recording Video... ${pct}%`;
+            }
+
+            if (isFinished && elapsed > state.shapes[state.shapes.length - 1].endTime + 500) {
+                // Added a 500ms delay at the end so it doesn't instantly cut off
+                if (state.isExporting) {
+                    document.getElementById('status-text').innerText = `Processing file...`;
+                    setTimeout(stopPlayback, 500);
+                } else {
+                    stopPlayback();
+                }
+                return;
+            }
+
+            requestAnimationFrame(playbackLoop);
+        }
+
+        function stopPlayback() {
+            state.isPlaying = false;
+            if (state.isExporting) {
+                if (state.mediaRecorder && state.mediaRecorder.state !== 'inactive') {
+                    state.mediaRecorder.stop();
+                }
+                state.isExporting = false;
+            }
+            setUIState(false);
+            
+            // Re-render everything to exact final state immediately
+            renderScene();
+        }
+
+        // --- Export Engine ---
+        function exportAnimation() {
+            if (state.shapes.length === 0) {
+                showToast('Draw some rectangles first!', 'error');
+                return;
+            }
+            if (state.isPlaying) return;
+
+            try {
+                // High bitrate for crisp shapes
+                const stream = canvas.captureStream(60); 
+                state.recordedChunks = [];
+                state.mediaRecorder = new MediaRecorder(stream, { 
+                    mimeType: 'video/webm; codecs=vp9',
+                    videoBitsPerSecond: 10000000 // 10 Mbps
+                });
+                
+                state.mediaRecorder.ondataavailable = (e) => {
+                    if (e.data.size > 0) state.recordedChunks.push(e.data);
+                };
+
+                state.mediaRecorder.onstop = () => {
+                    const blob = new Blob(state.recordedChunks, { type: 'video/webm' });
+                    const url = URL.createObjectURL(blob);
+                    const link = document.createElement('a');
+                    link.href = url;
+                    link.download = `rect-animation-${Date.now()}.webm`;
+                    link.click();
+                    URL.revokeObjectURL(url);
+                    showToast('Video exported successfully!', 'success');
+                };
+
+                state.mediaRecorder.start();
+                
+                state.isPlaying = true;
+                state.isExporting = true;
+                setUIState(true);
+                
+                requestAnimationFrame((timestamp) => {
+                    state.playbackStartTime = timestamp;
+                    playbackLoop(timestamp);
+                });
+                showToast('Rendering export...');
+
+            } catch (err) {
+                console.error(err);
+                showToast('Export failed. Browser not supported.', 'error');
+                stopPlayback();
+            }
+        }
+
+        // Initial Paint
+        clearCanvasInternal();
+
+    </script>
+</body>
+</html>

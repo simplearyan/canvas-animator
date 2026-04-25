@@ -1,0 +1,591 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Rough Animator Pro</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
+    <script src="https://unpkg.com/lucide@latest"></script>
+    <script src="https://unpkg.com/roughjs@4.6.6/bundled/rough.js"></script>
+    <style>
+        body {
+            font-family: 'Inter', sans-serif;
+            background-color: #09090b; /* Zinc 950 */
+            color: #ececf1;
+            overflow: hidden;
+            touch-action: none;
+            -webkit-font-smoothing: antialiased;
+        }
+
+        /* macOS style scrollbars */
+        ::-webkit-scrollbar { width: 6px; height: 6px; }
+        ::-webkit-scrollbar-track { background: transparent; }
+        ::-webkit-scrollbar-thumb { background: rgba(255, 255, 255, 0.1); border-radius: 10px; }
+        ::-webkit-scrollbar-thumb:hover { background: rgba(255, 255, 255, 0.2); }
+
+        .workspace-grid {
+            background-size: 24px 24px;
+            background-image: radial-gradient(circle, rgba(255,255,255,0.05) 1px, transparent 1px);
+        }
+
+        /* Sleek Range Sliders */
+        input[type="range"] {
+            -webkit-appearance: none;
+            height: 4px;
+            background: rgba(255, 255, 255, 0.1);
+            border-radius: 2px;
+            outline: none;
+        }
+        input[type="range"]::-webkit-slider-thumb {
+            -webkit-appearance: none;
+            width: 16px;
+            height: 16px;
+            border-radius: 50%;
+            background: #fff;
+            box-shadow: 0 2px 6px rgba(0,0,0,0.4);
+            cursor: pointer;
+            transition: transform 0.1s;
+        }
+        input[type="range"]::-webkit-slider-thumb:hover { transform: scale(1.1); }
+
+        /* Color Picker Reset */
+        input[type="color"] {
+            -webkit-appearance: none;
+            border: none;
+            width: 28px;
+            height: 28px;
+            border-radius: 50%;
+            padding: 0;
+            cursor: pointer;
+            background: transparent;
+        }
+        input[type="color"]::-webkit-color-swatch-wrapper { padding: 0; }
+        input[type="color"]::-webkit-color-swatch { border: none; border-radius: 50%; box-shadow: inset 0 0 0 1px rgba(255,255,255,0.1); }
+
+        /* Segmented Control Active State */
+        .segmented-btn { transition: all 0.2s cubic-bezier(0.4, 0, 0.2, 1); }
+        .segmented-btn.active {
+            background: rgba(255, 255, 255, 0.1);
+            color: white;
+            box-shadow: 0 1px 3px rgba(0,0,0,0.2), inset 0 1px 0 rgba(255,255,255,0.1);
+        }
+
+        #draw-canvas {
+            background-color: #ffffff;
+            border-radius: 12px;
+            box-shadow: 0 0 0 1px rgba(255,255,255,0.05), 0 20px 40px -10px rgba(0,0,0,0.8);
+            object-fit: contain;
+            cursor: crosshair;
+        }
+    </style>
+</head>
+<body class="flex flex-col h-screen text-sm">
+
+    <header class="absolute top-0 w-full h-14 bg-zinc-900/60 backdrop-blur-xl border-b border-white/5 flex items-center justify-between px-4 sm:px-6 z-40">
+        <div class="flex items-center gap-3">
+            <div class="w-7 h-7 rounded-lg bg-gradient-to-b from-indigo-500 to-purple-600 flex items-center justify-center shadow-inner shadow-white/20">
+                <i data-lucide="pen-tool" class="w-4 h-4 text-white"></i>
+            </div>
+            <h1 class="font-semibold text-zinc-100 tracking-tight hidden sm:block">Rough Animator</h1>
+        </div>
+
+        <div class="absolute left-1/2 -translate-x-1/2 flex items-center gap-1 opacity-0 sm:opacity-100">
+            <div class="text-[11px] font-medium text-zinc-400 bg-white/5 px-3 py-1 rounded-full ring-1 ring-white/5 flex items-center gap-2">
+                <div class="w-1.5 h-1.5 rounded-full bg-green-400 animate-pulse" id="rec-dot" style="display: none;"></div>
+                <span id="header-status">Ready</span>
+            </div>
+        </div>
+
+        <div class="flex items-center gap-2">
+            <button onclick="clearCanvas()" class="p-2 rounded-lg text-zinc-400 hover:text-white hover:bg-white/5 transition-all" title="Clear Canvas">
+                <i data-lucide="trash-2" class="w-4 h-4"></i>
+            </button>
+            <div class="w-px h-4 bg-white/10 mx-1"></div>
+            <button onclick="togglePreview()" id="btn-preview" class="flex items-center gap-2 px-3 py-1.5 rounded-lg bg-white/5 hover:bg-white/10 text-zinc-200 font-medium transition-all ring-1 ring-white/5">
+                <i data-lucide="play" class="w-4 h-4" id="icon-preview"></i>
+                <span id="text-preview" class="hidden sm:inline">Preview</span>
+            </button>
+            <button onclick="exportAnimation()" id="btn-export" class="flex items-center gap-2 px-3 py-1.5 rounded-lg bg-indigo-600 hover:bg-indigo-500 text-white font-medium transition-all shadow-lg shadow-indigo-600/20 ring-1 ring-inset ring-white/20">
+                <i data-lucide="download" class="w-4 h-4"></i>
+                <span id="text-export" class="hidden sm:inline">Export</span>
+            </button>
+        </div>
+    </header>
+
+    <div class="flex flex-1 pt-14 relative overflow-hidden">
+        
+        <aside class="hidden md:flex w-72 flex-col bg-zinc-900/40 backdrop-blur-2xl border-r border-white/5 z-30 h-full">
+            
+            <div class="p-5 overflow-y-auto space-y-6">
+                <div>
+                    <label class="text-[11px] font-semibold text-zinc-500 uppercase tracking-widest mb-2 block">Shape Tool</label>
+                    <div class="flex p-1 bg-black/40 rounded-xl ring-1 ring-white/5">
+                        <button class="segmented-btn active flex-1 py-1.5 rounded-lg text-zinc-400 flex justify-center items-center gap-2" data-tool="rect" onclick="setTool('rect')">
+                            <i data-lucide="square" class="w-4 h-4"></i>
+                        </button>
+                        <button class="segmented-btn flex-1 py-1.5 rounded-lg text-zinc-400 flex justify-center items-center gap-2" data-tool="ellipse" onclick="setTool('ellipse')">
+                            <i data-lucide="circle" class="w-4 h-4"></i>
+                        </button>
+                        <button class="segmented-btn flex-1 py-1.5 rounded-lg text-zinc-400 flex justify-center items-center gap-2" data-tool="line" onclick="setTool('line')">
+                            <i data-lucide="minus" class="w-4 h-4"></i>
+                        </button>
+                    </div>
+                </div>
+
+                <div class="bg-white/5 rounded-2xl p-4 ring-1 ring-white/5">
+                    <label class="text-[11px] font-semibold text-zinc-500 uppercase tracking-widest mb-3 block">Colors</label>
+                    <div class="space-y-4">
+                        <div class="flex items-center justify-between">
+                            <span class="text-zinc-300">Stroke</span>
+                            <input type="color" value="#ffffff" onchange="state.strokeColor = this.value" oninput="state.strokeColor = this.value">
+                        </div>
+                        <div class="h-px w-full bg-white/5"></div>
+                        <div class="flex items-center justify-between">
+                            <div class="flex items-center gap-2">
+                                <span class="text-zinc-300">Fill</span>
+                                <input type="checkbox" checked onchange="state.enableFill = this.checked" class="w-3 h-3 accent-indigo-500 rounded">
+                            </div>
+                            <input type="color" value="#6366f1" onchange="state.fillColor = this.value" oninput="state.fillColor = this.value">
+                        </div>
+                    </div>
+                </div>
+
+                <div>
+                    <div class="flex justify-between items-center mb-2">
+                        <label class="text-[11px] font-semibold text-zinc-500 uppercase tracking-widest">Stroke Width</label>
+                        <span id="width-val" class="text-xs text-zinc-400">3</span>
+                    </div>
+                    <input type="range" min="1" max="20" value="3" class="w-full" oninput="state.strokeWidth = parseInt(this.value); document.getElementById('width-val').innerText = this.value;">
+                </div>
+
+                <div class="h-px w-full bg-white/5"></div>
+
+                <div>
+                    <div class="flex items-center justify-between mb-4">
+                        <label class="text-[11px] font-semibold text-indigo-400 uppercase tracking-widest flex items-center gap-1.5">
+                            <i data-lucide="sparkles" class="w-3 h-3"></i> Rough Engine
+                        </label>
+                        <label class="relative inline-flex items-center cursor-pointer">
+                            <input type="checkbox" id="rough-toggle" class="sr-only peer" checked onchange="state.useRough = this.checked; updateUI();">
+                            <div class="w-8 h-4 bg-zinc-700 peer-focus:outline-none rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border-gray-300 after:border after:rounded-full after:h-3 after:w-3 after:transition-all peer-checked:bg-indigo-500"></div>
+                        </label>
+                    </div>
+                    
+                    <div id="rough-controls" class="space-y-4 transition-opacity">
+                        <div>
+                            <div class="flex justify-between items-center mb-2">
+                                <span class="text-xs text-zinc-300">Roughness</span>
+                                <span id="roughness-val" class="text-xs text-zinc-400">1.5</span>
+                            </div>
+                            <input type="range" min="0" max="5" step="0.1" value="1.5" class="w-full" oninput="state.roughness = parseFloat(this.value); document.getElementById('roughness-val').innerText = this.value;">
+                        </div>
+                        
+                        <div>
+                            <span class="text-xs text-zinc-300 block mb-2">Fill Style</span>
+                            <select id="fill-style" class="w-full bg-black/40 border border-white/5 rounded-lg text-sm text-zinc-300 px-3 py-2 outline-none focus:ring-1 focus:ring-indigo-500 appearance-none" onchange="state.roughFillStyle = this.value">
+                                <option value="hachure">Sketchy (Hachure)</option>
+                                <option value="solid">Solid</option>
+                                <option value="zigzag">Zig-Zag</option>
+                                <option value="cross-hatch">Cross-Hatch</option>
+                            </select>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </aside>
+
+        <main class="flex-1 workspace-grid relative overflow-hidden flex items-center justify-center p-4 sm:p-8 z-10" id="main-view">
+            <div class="relative w-full h-full max-w-5xl max-h-[800px] flex items-center justify-center">
+                <canvas id="draw-canvas" width="1920" height="1080" class="w-full h-full"></canvas>
+            </div>
+        </main>
+    </div>
+
+    <div class="md:hidden fixed bottom-6 left-1/2 -translate-x-1/2 z-50">
+        <div class="flex items-center gap-2 p-1.5 bg-zinc-900/80 backdrop-blur-2xl rounded-2xl ring-1 ring-white/10 shadow-2xl">
+            <button class="segmented-btn active p-3 rounded-xl text-zinc-400 hover:text-white" data-tool="rect" onclick="setTool('rect')"><i data-lucide="square" class="w-5 h-5"></i></button>
+            <button class="segmented-btn p-3 rounded-xl text-zinc-400 hover:text-white" data-tool="ellipse" onclick="setTool('ellipse')"><i data-lucide="circle" class="w-5 h-5"></i></button>
+            <button class="segmented-btn p-3 rounded-xl text-zinc-400 hover:text-white" data-tool="line" onclick="setTool('line')"><i data-lucide="minus" class="w-5 h-5"></i></button>
+            <div class="w-px h-6 bg-white/10 mx-1"></div>
+            <input type="color" value="#ffffff" class="ml-1 mr-2" onchange="state.strokeColor = this.value" oninput="state.strokeColor = this.value">
+        </div>
+    </div>
+
+    <div id="toast-container" class="fixed top-20 right-6 z-50 flex flex-col gap-2 pointer-events-none"></div>
+
+    <script>
+        lucide.createIcons();
+
+        // --- Core Application Setup ---
+        const canvas = document.getElementById('draw-canvas');
+        const ctx = canvas.getContext('2d', { willReadFrequently: true });
+        const rc = rough.canvas(canvas);
+        
+        const state = {
+            tool: 'rect',
+            useRough: true,
+            roughness: 1.5,
+            roughFillStyle: 'hachure',
+            
+            strokeColor: '#ffffff',
+            fillColor: '#6366f1',
+            enableFill: true,
+            strokeWidth: 3,
+            
+            isDragging: false,
+            currentShape: null,
+            shapes: [], 
+            
+            logicalTime: 0,
+            lastEventTime: 0,
+            
+            isPlaying: false,
+            isExporting: false,
+            playbackStartTime: 0,
+            elapsedTime: 0,
+            lastFrameTime: 0,
+            
+            mediaRecorder: null,
+            recordedChunks: []
+        };
+
+        function setTool(tool) {
+            if (state.isPlaying) return;
+            state.tool = tool;
+            document.querySelectorAll('.segmented-btn').forEach(btn => {
+                btn.classList.remove('active');
+                if(btn.dataset.tool === tool) btn.classList.add('active');
+            });
+        }
+
+        function updateUI() {
+            const controls = document.getElementById('rough-controls');
+            if (state.useRough) {
+                controls.style.opacity = '1';
+                controls.style.pointerEvents = 'auto';
+            } else {
+                controls.style.opacity = '0.4';
+                controls.style.pointerEvents = 'none';
+            }
+        }
+
+        function showToast(message, type = 'info') {
+            const container = document.getElementById('toast-container');
+            const toast = document.createElement('div');
+            
+            toast.className = `bg-zinc-800/90 backdrop-blur-md text-white px-4 py-3 rounded-xl shadow-2xl ring-1 ring-white/10 flex items-center gap-3 transform transition-all -translate-y-4 opacity-0`;
+            
+            let icon = type === 'success' ? 'check-circle' : (type === 'error' ? 'alert-triangle' : 'info');
+            let color = type === 'success' ? 'text-green-400' : (type === 'error' ? 'text-red-400' : 'text-blue-400');
+            
+            toast.innerHTML = `<i data-lucide="${icon}" class="w-4 h-4 ${color}"></i> <span class="text-sm font-medium">${message}</span>`;
+            
+            container.appendChild(toast);
+            lucide.createIcons();
+
+            requestAnimationFrame(() => toast.classList.remove('-translate-y-4', 'opacity-0'));
+            setTimeout(() => {
+                toast.classList.add('-translate-y-4', 'opacity-0');
+                setTimeout(() => toast.remove(), 300);
+            }, 3000);
+        }
+
+        // --- Drawing Logic ---
+        function clearCanvasInternal() {
+            ctx.fillStyle = '#18181b'; // Match Dark Canvas to Zinc-900 instead of pure white for Pro look
+            ctx.fillRect(0, 0, canvas.width, canvas.height);
+        }
+
+        function clearCanvas() {
+            if (state.isPlaying || state.isExporting) return;
+            if (confirm('Clear the entire canvas?')) {
+                clearCanvasInternal();
+                state.shapes = [];
+                state.logicalTime = 0;
+                state.lastEventTime = performance.now();
+                showToast('Canvas cleared', 'success');
+            }
+        }
+
+        function drawShape(shape, progress = 1) {
+            const p = Math.max(0, Math.min(1, progress));
+            const curX = shape.startX + (shape.endX - shape.startX) * p;
+            const curY = shape.startY + (shape.endY - shape.startY) * p;
+
+            if (shape.useRough) {
+                const options = {
+                    stroke: shape.strokeColor,
+                    strokeWidth: shape.strokeWidth,
+                    roughness: shape.roughness,
+                    bowing: 1,
+                    seed: shape.seed, 
+                };
+
+                if (shape.enableFill && shape.tool !== 'line') {
+                    options.fill = shape.fillColor;
+                    options.fillStyle = shape.roughFillStyle;
+                }
+
+                if (shape.tool === 'rect') rc.rectangle(shape.startX, shape.startY, curX - shape.startX, curY - shape.startY, options);
+                else if (shape.tool === 'ellipse') {
+                    const width = Math.abs(curX - shape.startX);
+                    const height = Math.abs(curY - shape.startY);
+                    const cx = shape.startX + (curX - shape.startX) / 2;
+                    const cy = shape.startY + (curY - shape.startY) / 2;
+                    rc.ellipse(cx, cy, width, height, options);
+                }
+                else if (shape.tool === 'line') rc.line(shape.startX, shape.startY, curX, curY, options);
+            } else {
+                ctx.beginPath();
+                ctx.strokeStyle = shape.strokeColor;
+                ctx.lineWidth = shape.strokeWidth;
+                ctx.lineCap = 'round';
+                ctx.lineJoin = 'round';
+                
+                if (shape.enableFill && shape.tool !== 'line') ctx.fillStyle = shape.fillColor;
+
+                if (shape.tool === 'rect') {
+                    ctx.rect(shape.startX, shape.startY, curX - shape.startX, curY - shape.startY);
+                    if (shape.enableFill) ctx.fill();
+                    ctx.stroke();
+                } 
+                else if (shape.tool === 'ellipse') {
+                    const width = Math.abs(curX - shape.startX) / 2;
+                    const height = Math.abs(curY - shape.startY) / 2;
+                    const cx = shape.startX + (curX - shape.startX) / 2;
+                    const cy = shape.startY + (curY - shape.startY) / 2;
+                    ctx.ellipse(cx, cy, width, height, 0, 0, 2 * Math.PI);
+                    if (shape.enableFill) ctx.fill();
+                    ctx.stroke();
+                }
+                else if (shape.tool === 'line') {
+                    ctx.moveTo(shape.startX, shape.startY);
+                    ctx.lineTo(curX, curY);
+                    ctx.stroke();
+                }
+            }
+        }
+
+        function renderScene() {
+            clearCanvasInternal();
+            state.shapes.forEach(shape => drawShape(shape, 1));
+            if (state.isDragging && state.currentShape) drawShape(state.currentShape, 1);
+        }
+
+        // --- Input Events ---
+        function getMousePos(e) {
+            const rect = canvas.getBoundingClientRect();
+            const scaleX = canvas.width / rect.width;
+            const scaleY = canvas.height / rect.height;
+            return {
+                x: (e.clientX - rect.left) * scaleX,
+                y: (e.clientY - rect.top) * scaleY
+            };
+        }
+
+        canvas.addEventListener('pointerdown', (e) => {
+            if (state.isPlaying) return;
+            e.preventDefault();
+            
+            state.isDragging = true;
+            canvas.setPointerCapture(e.pointerId);
+            const pos = getMousePos(e);
+            
+            let now = performance.now();
+            if (state.shapes.length === 0) state.logicalTime = 0;
+            else {
+                let diff = now - state.lastEventTime;
+                if (diff > 1000) diff = 1000;
+                state.logicalTime += diff;
+            }
+            state.lastEventTime = now;
+
+            state.currentShape = {
+                tool: state.tool,
+                useRough: state.useRough,
+                roughness: state.roughness,
+                roughFillStyle: state.roughFillStyle,
+                strokeColor: state.strokeColor,
+                fillColor: state.fillColor,
+                enableFill: state.enableFill,
+                strokeWidth: state.strokeWidth,
+                seed: Math.floor(Math.random() * 2147483648),
+                startX: pos.x, startY: pos.y, endX: pos.x, endY: pos.y,
+                startTime: state.logicalTime, endTime: state.logicalTime
+            };
+        });
+
+        canvas.addEventListener('pointermove', (e) => {
+            if (!state.isDragging || state.isPlaying) return;
+            e.preventDefault();
+            const pos = getMousePos(e);
+            let now = performance.now();
+            state.logicalTime += (now - state.lastEventTime);
+            state.lastEventTime = now;
+            state.currentShape.endX = pos.x;
+            state.currentShape.endY = pos.y;
+            state.currentShape.endTime = state.logicalTime;
+            renderScene();
+        });
+
+        canvas.addEventListener('pointerup', (e) => {
+            if (!state.isDragging || state.isPlaying) return;
+            state.isDragging = false;
+            canvas.releasePointerCapture(e.pointerId);
+            
+            if (state.currentShape) {
+                let dx = Math.abs(state.currentShape.endX - state.currentShape.startX);
+                let dy = Math.abs(state.currentShape.endY - state.currentShape.startY);
+                if (dx > 5 || dy > 5) state.shapes.push({...state.currentShape});
+                state.currentShape = null;
+            }
+            renderScene();
+        });
+
+        // --- Playback & Export Engine ---
+        function setPlayUI(playing) {
+            document.querySelectorAll('button:not(#btn-preview), input, select').forEach(b => b.disabled = playing);
+            
+            const btnPreview = document.getElementById('btn-preview');
+            const statusLabel = document.getElementById('header-status');
+            const recDot = document.getElementById('rec-dot');
+            
+            if (playing) {
+                if (state.isExporting) {
+                    btnPreview.disabled = true;
+                    statusLabel.innerText = 'Recording Video...';
+                    recDot.style.display = 'block';
+                } else {
+                    btnPreview.innerHTML = `<i data-lucide="square" class="w-4 h-4"></i><span class="hidden sm:inline">Stop</span>`;
+                    btnPreview.classList.add('bg-red-500/20', 'text-red-400', 'ring-red-500/50');
+                    btnPreview.classList.remove('bg-white/5', 'text-zinc-200');
+                    statusLabel.innerText = 'Previewing';
+                }
+            } else {
+                btnPreview.innerHTML = `<i data-lucide="play" class="w-4 h-4"></i><span class="hidden sm:inline">Preview</span>`;
+                btnPreview.classList.remove('bg-red-500/20', 'text-red-400', 'ring-red-500/50');
+                btnPreview.classList.add('bg-white/5', 'text-zinc-200');
+                btnPreview.disabled = false;
+                statusLabel.innerText = 'Ready';
+                recDot.style.display = 'none';
+            }
+            lucide.createIcons();
+        }
+
+        function togglePreview() {
+            if (state.isPlaying) {
+                if (!state.isExporting) stopPlayback();
+                return;
+            }
+            if (state.shapes.length === 0) return showToast('Draw something first!', 'error');
+
+            state.isPlaying = true;
+            state.isExporting = false;
+            setPlayUI(true);
+            
+            requestAnimationFrame((timestamp) => {
+                state.elapsedTime = 0;
+                state.lastFrameTime = timestamp;
+                playbackLoop(timestamp);
+            });
+        }
+
+        function playbackLoop(timestamp) {
+            if (!state.isPlaying) return;
+            
+            let delta = timestamp - state.lastFrameTime;
+            if (delta > 100) delta = 16.66;
+            state.elapsedTime += delta;
+            state.lastFrameTime = timestamp;
+            
+            let elapsed = state.elapsedTime;
+            let isFinished = true;
+            let totalTime = state.shapes[state.shapes.length - 1].endTime;
+
+            clearCanvasInternal();
+
+            state.shapes.forEach(shape => {
+                if (elapsed >= shape.startTime) {
+                    let progress = 1;
+                    let duration = shape.endTime - shape.startTime;
+                    if (duration > 0 && elapsed < shape.endTime) {
+                        progress = (elapsed - shape.startTime) / duration;
+                        isFinished = false; 
+                    }
+                    drawShape(shape, progress);
+                } else isFinished = false;
+            });
+
+            if (state.isExporting && totalTime > 0) {
+                let pct = Math.min(100, Math.round((elapsed / totalTime) * 100));
+                document.getElementById('header-status').innerText = `Recording... ${pct}%`;
+            }
+
+            if (isFinished && elapsed > totalTime + 800) {
+                if (state.isExporting) {
+                    document.getElementById('header-status').innerText = `Processing...`;
+                    setTimeout(stopPlayback, 500);
+                } else stopPlayback();
+                return;
+            }
+
+            requestAnimationFrame(playbackLoop);
+        }
+
+        function stopPlayback() {
+            state.isPlaying = false;
+            if (state.isExporting && state.mediaRecorder) {
+                if (state.mediaRecorder.state !== 'inactive') state.mediaRecorder.stop();
+                state.isExporting = false;
+            }
+            setPlayUI(false);
+            renderScene(); 
+        }
+
+        function exportAnimation() {
+            if (state.shapes.length === 0) return showToast('Draw something first!', 'error');
+            if (state.isPlaying) return;
+
+            try {
+                const stream = canvas.captureStream(60); 
+                state.recordedChunks = [];
+                state.mediaRecorder = new MediaRecorder(stream, { 
+                    mimeType: 'video/webm; codecs=vp9',
+                    videoBitsPerSecond: 15000000
+                });
+                
+                state.mediaRecorder.ondataavailable = (e) => { if (e.data.size > 0) state.recordedChunks.push(e.data); };
+                state.mediaRecorder.onstop = () => {
+                    const blob = new Blob(state.recordedChunks, { type: 'video/webm' });
+                    const url = URL.createObjectURL(blob);
+                    const link = document.createElement('a');
+                    link.href = url;
+                    link.download = `rough-pro-${Date.now()}.webm`;
+                    link.click();
+                    URL.revokeObjectURL(url);
+                    showToast('Video exported successfully!', 'success');
+                };
+
+                state.mediaRecorder.start();
+                state.isPlaying = true;
+                state.isExporting = true;
+                setPlayUI(true);
+                
+                requestAnimationFrame((timestamp) => {
+                    state.elapsedTime = 0;
+                    state.lastFrameTime = timestamp;
+                    playbackLoop(timestamp);
+                });
+
+            } catch (err) {
+                console.error(err);
+                showToast('Export failed. Browser not supported.', 'error');
+                stopPlayback();
+            }
+        }
+
+        clearCanvasInternal();
+    </script>
+</body>
+</html>

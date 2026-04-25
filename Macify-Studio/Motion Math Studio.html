@@ -1,0 +1,802 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Motion Math Studio</title>
+    
+    <!-- Tailwind CSS -->
+    <script src="https://cdn.tailwindcss.com"></script>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
+    
+    <!-- Lucide Icons -->
+    <script src="https://unpkg.com/lucide@latest"></script>
+
+    <!-- MathJax Configuration (CRITICAL for Canvas SVG rendering) -->
+    <script>
+        window.MathJax = {
+            tex: { inlineMath: [['$', '$'], ['\\(', '\\)']] },
+            svg: { 
+                fontCache: 'none' // Crucial: Embeds paths in EVERY svg instead of using a global cache, so it converts to Image() correctly.
+            },
+            startup: {
+                pageReady: () => {
+                    return MathJax.startup.defaultPageReady().then(() => {
+                        window.mathJaxReady = true;
+                        document.getElementById('mathjax-loading').classList.add('hidden');
+                    });
+                }
+            }
+        };
+    </script>
+    <!-- MathJax Library -->
+    <script id="MathJax-script" async src="https://cdn.jsdelivr.net/npm/mathjax@3/es5/tex-svg.js"></script>
+
+    <style>
+        body {
+            font-family: 'Inter', sans-serif;
+            background-color: #0f1115;
+            color: #e2e8f0;
+            overflow: hidden;
+            touch-action: none;
+        }
+        
+        ::-webkit-scrollbar { width: 8px; height: 8px; }
+        ::-webkit-scrollbar-track { background: #1e293b; }
+        ::-webkit-scrollbar-thumb { background: #475569; border-radius: 4px; }
+        ::-webkit-scrollbar-thumb:hover { background: #64748b; }
+
+        .workspace-grid {
+            background-size: 40px 40px;
+            background-image: 
+                linear-gradient(to right, rgba(255, 255, 255, 0.05) 1px, transparent 1px),
+                linear-gradient(to bottom, rgba(255, 255, 255, 0.05) 1px, transparent 1px);
+        }
+
+        #canvas-wrapper {
+            position: relative;
+            width: 100%;
+            height: 100%;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            padding: 20px;
+        }
+
+        #draw-canvas {
+            background-color: #1a1a24; /* Manim-like dark bg */
+            box-shadow: 0 25px 50px -12px rgba(0, 0, 0, 0.5);
+            max-width: 100%;
+            max-height: 100%;
+            object-fit: contain;
+            border-radius: 4px;
+        }
+
+        input[type="color"] {
+            -webkit-appearance: none;
+            border: none;
+            width: 32px;
+            height: 32px;
+            border-radius: 6px;
+            padding: 0;
+            cursor: pointer;
+            background: transparent;
+        }
+        input[type="color"]::-webkit-color-swatch-wrapper { padding: 0; }
+        input[type="color"]::-webkit-color-swatch { border: none; border-radius: 6px; }
+
+        .layer-item.active {
+            background-color: #1e293b;
+            border-left: 3px solid #3b82f6;
+        }
+    </style>
+</head>
+<body class="flex flex-col h-screen">
+
+    <!-- MathJax Loading Overlay -->
+    <div id="mathjax-loading" class="fixed inset-0 bg-black/90 z-[100] flex flex-col items-center justify-center text-white">
+        <div class="w-10 h-10 border-4 border-gray-600 border-t-blue-500 rounded-full animate-spin mb-4"></div>
+        <p class="font-medium">Initializing Math Engine...</p>
+    </div>
+
+    <!-- Header -->
+    <header class="h-16 border-b border-gray-800 bg-gray-950 flex items-center justify-between px-6 flex-shrink-0 z-20">
+        <div class="flex items-center gap-3">
+            <div class="w-8 h-8 rounded bg-gradient-to-br from-cyan-500 to-blue-600 flex items-center justify-center">
+                <i data-lucide="sigma" class="w-5 h-5 text-white"></i>
+            </div>
+            <div>
+                <h1 class="font-bold text-sm tracking-tight leading-none">Motion Math Studio</h1>
+                <p class="text-[10px] text-gray-500 uppercase tracking-widest mt-1">LaTeX Animation Engine</p>
+            </div>
+        </div>
+
+        <div class="flex items-center gap-3">
+            <div class="text-xs text-gray-400 font-mono bg-gray-900 px-3 py-1.5 rounded border border-gray-800 hidden sm:block">
+                Time: <span id="time-display">0.00</span>s
+            </div>
+
+            <div class="w-px h-6 bg-gray-800 mx-1"></div>
+
+            <button onclick="togglePlayback()" id="btn-play" class="flex items-center gap-2 px-4 py-1.5 rounded bg-gray-800 hover:bg-gray-700 text-white text-sm font-medium transition-colors border border-gray-700">
+                <i data-lucide="play" class="w-4 h-4" id="icon-play"></i>
+                <span id="text-play">Preview</span>
+            </button>
+
+            <button onclick="exportAnimation()" id="btn-export" class="flex items-center gap-2 px-4 py-1.5 rounded bg-blue-600 hover:bg-blue-500 text-white text-sm font-medium transition-colors shadow-lg shadow-blue-900/20">
+                <i data-lucide="video" class="w-4 h-4"></i>
+                <span id="text-export">Export WebM</span>
+            </button>
+        </div>
+    </header>
+
+    <!-- Main Workspace -->
+    <div class="flex flex-1 overflow-hidden relative">
+        
+        <!-- Left Sidebar: Layers & Elements -->
+        <aside class="w-64 border-r border-gray-800 bg-gray-950 flex flex-col flex-shrink-0 z-10">
+            <div class="p-4 border-b border-gray-800 flex gap-2">
+                <button onclick="addElement('text')" class="flex-1 flex items-center justify-center gap-2 py-2 bg-gray-800 hover:bg-gray-700 rounded text-xs font-medium text-gray-200 transition-colors">
+                    <i data-lucide="type" class="w-4 h-4"></i> Text
+                </button>
+                <button onclick="addElement('latex')" class="flex-1 flex items-center justify-center gap-2 py-2 bg-gray-800 hover:bg-gray-700 rounded text-xs font-medium text-gray-200 transition-colors">
+                    <i data-lucide="pi" class="w-4 h-4"></i> Math
+                </button>
+            </div>
+            
+            <div class="flex-1 overflow-y-auto p-2" id="layers-list">
+                <!-- Layers populated dynamically -->
+            </div>
+        </aside>
+
+        <!-- Canvas Area -->
+        <main class="flex-1 bg-gray-900 workspace-grid relative overflow-hidden" id="main-view">
+            <div id="canvas-wrapper">
+                <!-- 1080p Canvas for crisp exports -->
+                <canvas id="anim-canvas" width="1920" height="1080" class="cursor-grab active:cursor-grabbing"></canvas>
+            </div>
+            
+            <!-- Playback/Recording Indicator -->
+            <div id="status-indicator" class="absolute top-6 left-6 flex items-center gap-2 bg-blue-500/10 border border-blue-500/50 text-blue-500 px-4 py-2 rounded-full shadow-lg opacity-0 transition-opacity duration-300 pointer-events-none backdrop-blur-sm z-50">
+                <i data-lucide="play-circle" class="w-4 h-4 animate-pulse"></i>
+                <span class="text-xs font-bold tracking-wide uppercase" id="status-text">Playing Preview</span>
+            </div>
+        </main>
+
+        <!-- Right Sidebar: Properties -->
+        <aside class="w-72 border-l border-gray-800 bg-gray-950 flex flex-col overflow-y-auto flex-shrink-0 z-10" id="properties-panel">
+            <div class="p-4 border-b border-gray-800 flex items-center justify-between">
+                <h2 class="text-xs font-semibold text-gray-500 uppercase tracking-wider">Properties</h2>
+                <div class="text-[10px] text-gray-500 px-2 py-1 bg-gray-900 rounded border border-gray-800" id="prop-type">None</div>
+            </div>
+
+            <div id="no-selection" class="flex-1 flex flex-col items-center justify-center p-6 text-center text-gray-500">
+                <i data-lucide="mouse-pointer-click" class="w-8 h-8 mb-3 opacity-50"></i>
+                <p class="text-xs">Select an element to edit properties.</p>
+            </div>
+
+            <div id="has-selection" class="hidden flex-col w-full">
+                <!-- Content Group -->
+                <div class="p-4 border-b border-gray-800">
+                    <label class="text-xs text-gray-400 block mb-2 font-medium">Content</label>
+                    <textarea id="prop-content" rows="3" class="w-full bg-gray-900 border border-gray-700 rounded px-3 py-2 text-sm text-gray-200 outline-none font-mono" oninput="updateProp('content', this.value)"></textarea>
+                    <p id="latex-hint" class="text-[10px] text-gray-500 mt-2 hidden">Use standard LaTeX. e.g. \int_0^\infty e^{-x^2} dx</p>
+                </div>
+
+                <!-- Appearance Group -->
+                <div class="p-4 border-b border-gray-800 space-y-4">
+                    <div class="flex items-center justify-between">
+                        <label class="text-xs text-gray-400 font-medium">Color</label>
+                        <input type="color" id="prop-color" oninput="updateProp('color', this.value)">
+                    </div>
+                    
+                    <div>
+                        <div class="flex justify-between items-center mb-1">
+                            <label class="text-xs text-gray-400 font-medium">Scale Size</label>
+                            <span id="scale-val" class="text-xs text-gray-500">1x</span>
+                        </div>
+                        <input type="range" id="prop-scale" min="0.5" max="5" step="0.1" value="1" class="w-full accent-blue-500" oninput="updateProp('scale', parseFloat(this.value)); document.getElementById('scale-val').innerText = this.value + 'x';">
+                    </div>
+                </div>
+
+                <!-- Animation Group -->
+                <div class="p-4 border-b border-gray-800 space-y-4">
+                    <h3 class="text-[10px] font-bold text-gray-600 uppercase tracking-wider mb-2">Timeline & Animation</h3>
+                    
+                    <div>
+                        <label class="text-xs text-gray-400 block mb-1 font-medium">Animation Style</label>
+                        <select id="prop-anim-type" class="w-full bg-gray-900 border border-gray-700 rounded text-sm text-gray-300 px-3 py-2 outline-none" onchange="updateProp('animType', this.value)">
+                            <option value="none">Instant Appear</option>
+                            <option value="fade">Fade In</option>
+                            <option value="slide">Slide Up</option>
+                            <option value="reveal">Write / Reveal</option>
+                        </select>
+                    </div>
+
+                    <div class="grid grid-cols-2 gap-3">
+                        <div>
+                            <label class="text-xs text-gray-400 block mb-1 font-medium">Start Time (s)</label>
+                            <input type="number" id="prop-start" min="0" step="0.1" class="w-full bg-gray-900 border border-gray-700 rounded px-3 py-1.5 text-sm outline-none" oninput="updateProp('startTime', parseFloat(this.value) || 0)">
+                        </div>
+                        <div>
+                            <label class="text-xs text-gray-400 block mb-1 font-medium">Duration (s)</label>
+                            <input type="number" id="prop-duration" min="0.1" step="0.1" class="w-full bg-gray-900 border border-gray-700 rounded px-3 py-1.5 text-sm outline-none" oninput="updateProp('duration', parseFloat(this.value) || 0.1)">
+                        </div>
+                    </div>
+                </div>
+
+                <div class="p-4">
+                    <button onclick="deleteSelected()" class="w-full flex items-center justify-center gap-2 px-4 py-2 rounded bg-red-900/20 hover:bg-red-900/40 border border-red-900/50 text-red-400 text-xs font-medium transition-colors">
+                        <i data-lucide="trash-2" class="w-4 h-4"></i> Delete Element
+                    </button>
+                </div>
+            </div>
+        </aside>
+    </div>
+
+    <div id="toast-container" class="fixed bottom-6 right-6 z-50 flex flex-col gap-2 pointer-events-none"></div>
+
+    <script>
+        lucide.createIcons();
+
+        // --- Core State ---
+        const canvas = document.getElementById('anim-canvas');
+        const ctx = canvas.getContext('2d');
+        
+        let idCounter = 1;
+        
+        const state = {
+            elements: [], // Array of animatable elements
+            selectedId: null,
+            
+            // Engine
+            currentTime: 0,
+            isPlaying: false,
+            isExporting: false,
+            lastFrameTime: 0,
+            totalVideoDuration: 5, // Auto-calculated based on last animation
+            
+            // Interaction
+            isDragging: false,
+            dragOffsetX: 0,
+            dragOffsetY: 0,
+            
+            mediaRecorder: null,
+            recordedChunks: []
+        };
+
+        // --- Element Generation & Caching ---
+        
+        // This function turns text or MathJax SVG into a pre-rendered Image object 
+        // that canvas can draw natively and super fast.
+        async function buildElementCache(el) {
+            return new Promise((resolve) => {
+                if (el.type === 'text') {
+                    // Create an offscreen canvas to measure and draw text
+                    const offCanvas = document.createElement('canvas');
+                    const oCtx = offCanvas.getContext('2d');
+                    
+                    const fontSize = 48 * el.scale;
+                    oCtx.font = `bold ${fontSize}px Inter, sans-serif`;
+                    
+                    // Measure
+                    const metrics = oCtx.measureText(el.content);
+                    const width = Math.ceil(metrics.width) + 10;
+                    const height = Math.ceil(fontSize * 1.5); // approximate height
+                    
+                    offCanvas.width = width;
+                    offCanvas.height = height;
+                    
+                    // Redraw on properly sized canvas
+                    oCtx.font = `bold ${fontSize}px Inter, sans-serif`;
+                    oCtx.fillStyle = el.color;
+                    oCtx.textBaseline = 'middle';
+                    oCtx.fillText(el.content, 5, height / 2);
+                    
+                    const img = new Image();
+                    img.onload = () => {
+                        el.cacheImg = img;
+                        el.width = width;
+                        el.height = height;
+                        resolve();
+                    };
+                    img.src = offCanvas.toDataURL();
+                } 
+                else if (el.type === 'latex') {
+                    if (!window.mathJaxReady) return resolve();
+
+                    try {
+                        // Generate SVG using MathJax
+                        const svgNode = MathJax.tex2svg(el.content, {display: true}).querySelector('svg');
+                        
+                        // Force color on paths
+                        svgNode.style.color = el.color;
+                        svgNode.setAttribute('fill', 'currentColor');
+                        
+                        // Scale SVG
+                        const currentWidth = parseFloat(svgNode.getAttribute('width'));
+                        const currentHeight = parseFloat(svgNode.getAttribute('height'));
+                        // MathJax returns dimensions in 'ex'. Convert to pixels (~8px per ex, scaled)
+                        const pixelScale = 12 * el.scale; 
+                        
+                        const w = currentWidth * pixelScale;
+                        const h = currentHeight * pixelScale;
+                        
+                        svgNode.setAttribute('width', w + 'px');
+                        svgNode.setAttribute('height', h + 'px');
+
+                        const svgData = new XMLSerializer().serializeToString(svgNode);
+                        const svgBase64 = btoa(unescape(encodeURIComponent(svgData)));
+                        const imgSrc = `data:image/svg+xml;base64,${svgBase64}`;
+                        
+                        const img = new Image();
+                        img.onload = () => {
+                            el.cacheImg = img;
+                            el.width = w;
+                            el.height = h;
+                            resolve();
+                        };
+                        img.onerror = () => resolve(); // prevent hang
+                        img.src = imgSrc;
+                        
+                    } catch (err) {
+                        console.error("LaTeX rendering error:", err);
+                        resolve();
+                    }
+                }
+            });
+        }
+
+        // --- Data Management ---
+        
+        async function addElement(type) {
+            const el = {
+                id: idCounter++,
+                type: type,
+                content: type === 'text' ? 'Hello World' : 'e^{i\\pi} + 1 = 0',
+                x: canvas.width / 2,
+                y: canvas.height / 2,
+                scale: type === 'text' ? 1.5 : 3,
+                color: '#ffffff',
+                
+                animType: 'reveal', // 'none', 'fade', 'slide', 'reveal'
+                startTime: state.elements.length * 1.5, // Auto-stagger times
+                duration: 1.5,
+                
+                cacheImg: null,
+                width: 0,
+                height: 0
+            };
+            
+            await buildElementCache(el);
+            state.elements.push(el);
+            
+            recalculateTotalDuration();
+            renderLayersList();
+            selectElement(el.id);
+            renderCanvas();
+        }
+
+        async function updateProp(prop, value) {
+            if (!state.selectedId) return;
+            const el = state.elements.find(e => e.id === state.selectedId);
+            if (el) {
+                el[prop] = value;
+                
+                // If visuals changed, rebuild cache
+                if (['content', 'color', 'scale'].includes(prop)) {
+                    await buildElementCache(el);
+                }
+                
+                if (['startTime', 'duration'].includes(prop)) {
+                    recalculateTotalDuration();
+                }
+
+                renderLayersList(); // updates names/times in list
+                renderCanvas();
+            }
+        }
+
+        function deleteSelected() {
+            if (!state.selectedId) return;
+            state.elements = state.elements.filter(e => e.id !== state.selectedId);
+            selectElement(null);
+            recalculateTotalDuration();
+            renderLayersList();
+            renderCanvas();
+        }
+
+        function recalculateTotalDuration() {
+            let max = 2; // min 2 seconds
+            state.elements.forEach(e => {
+                const end = e.startTime + e.duration;
+                if (end > max) max = end;
+            });
+            state.totalVideoDuration = max + 1; // 1 second padding at end
+        }
+
+        // --- UI Interactions ---
+
+        function selectElement(id) {
+            state.selectedId = id;
+            renderLayersList();
+            
+            const noSel = document.getElementById('no-selection');
+            const hasSel = document.getElementById('has-selection');
+            
+            if (id === null) {
+                noSel.classList.remove('hidden');
+                hasSel.classList.add('hidden');
+                document.getElementById('prop-type').innerText = 'None';
+            } else {
+                noSel.classList.add('hidden');
+                hasSel.classList.remove('hidden');
+                
+                const el = state.elements.find(e => e.id === id);
+                document.getElementById('prop-type').innerText = el.type.toUpperCase();
+                document.getElementById('prop-content').value = el.content;
+                document.getElementById('prop-color').value = el.color;
+                document.getElementById('prop-scale').value = el.scale;
+                document.getElementById('scale-val').innerText = el.scale + 'x';
+                
+                document.getElementById('prop-anim-type').value = el.animType;
+                document.getElementById('prop-start').value = el.startTime;
+                document.getElementById('prop-duration').value = el.duration;
+
+                const hint = document.getElementById('latex-hint');
+                if(el.type === 'latex') hint.classList.remove('hidden');
+                else hint.classList.add('hidden');
+            }
+            renderCanvas(); // Redraws bounding box
+        }
+
+        function renderLayersList() {
+            const list = document.getElementById('layers-list');
+            list.innerHTML = '';
+            
+            // Render in reverse to mimic layer stack
+            [...state.elements].reverse().forEach(el => {
+                const div = document.createElement('div');
+                div.className = `layer-item p-3 mb-2 bg-gray-900 border border-gray-800 rounded cursor-pointer transition-colors hover:bg-gray-800 flex items-center justify-between ${state.selectedId === el.id ? 'active' : ''}`;
+                div.onclick = () => selectElement(el.id);
+                
+                const icon = el.type === 'latex' ? 'pi' : 'type';
+                const previewText = el.content.length > 15 ? el.content.substring(0, 15) + '...' : el.content;
+                
+                div.innerHTML = `
+                    <div class="flex items-center gap-3 overflow-hidden">
+                        <i data-lucide="${icon}" class="w-4 h-4 text-gray-400 flex-shrink-0"></i>
+                        <span class="text-xs font-medium text-gray-300 truncate">${previewText}</span>
+                    </div>
+                    <div class="text-[10px] text-gray-500 font-mono bg-black/30 px-1.5 py-0.5 rounded">
+                        ${el.startTime}s
+                    </div>
+                `;
+                list.appendChild(div);
+            });
+            lucide.createIcons();
+        }
+
+        // --- Canvas Rendering Engine ---
+
+        // Easing function for smoother animations
+        function easeOutCubic(x) {
+            return 1 - Math.pow(1 - x, 3);
+        }
+
+        function renderCanvas(forcedTime = null) {
+            ctx.fillStyle = '#1a1a24'; // Manim background
+            ctx.fillRect(0, 0, canvas.width, canvas.height);
+
+            const time = forcedTime !== null ? forcedTime : state.currentTime;
+
+            // Draw grid in edit mode
+            if (!state.isPlaying && !state.isExporting) {
+                ctx.strokeStyle = '#2a2a35';
+                ctx.lineWidth = 2;
+                ctx.beginPath();
+                ctx.moveTo(0, canvas.height/2); ctx.lineTo(canvas.width, canvas.height/2);
+                ctx.moveTo(canvas.width/2, 0); ctx.lineTo(canvas.width/2, canvas.height);
+                ctx.stroke();
+            }
+
+            state.elements.forEach(el => {
+                if (!el.cacheImg) return;
+
+                // Calculate Animation State
+                let progress = 0;
+                if (time >= el.startTime) {
+                    if (el.duration <= 0) progress = 1;
+                    else progress = Math.min(1, (time - el.startTime) / el.duration);
+                }
+
+                if (progress === 0 && el.animType !== 'none') return; // Not visible yet
+
+                const x = el.x - el.width / 2;
+                let y = el.y - el.height / 2;
+                let globalAlpha = 1.0;
+                let clipWidth = el.width;
+
+                // Apply Animation Transformations
+                if (el.animType === 'fade') {
+                    globalAlpha = progress;
+                } 
+                else if (el.animType === 'slide') {
+                    const eased = easeOutCubic(progress);
+                    y = y + 50 * (1 - eased); // Slide up 50px
+                    globalAlpha = progress;
+                }
+                else if (el.animType === 'reveal') {
+                    // Simulate writing left-to-right by clipping width
+                    clipWidth = el.width * easeOutCubic(progress);
+                }
+
+                ctx.save();
+                ctx.globalAlpha = globalAlpha;
+
+                if (el.animType === 'reveal') {
+                    // Clip region for drawing
+                    ctx.beginPath();
+                    ctx.rect(x, y - 20, clipWidth, el.height + 40); // extra padding for tall math symbols
+                    ctx.clip();
+                }
+
+                // Draw Cached Image
+                ctx.drawImage(el.cacheImg, x, y);
+
+                ctx.restore();
+
+                // Draw selection bounding box (only in edit mode)
+                if (!state.isPlaying && !state.isExporting && state.selectedId === el.id) {
+                    ctx.strokeStyle = '#3b82f6';
+                    ctx.lineWidth = 2;
+                    ctx.setLineDash([6, 6]);
+                    ctx.strokeRect(x - 5, y - 5, el.width + 10, el.height + 10);
+                    ctx.setLineDash([]);
+                }
+            });
+
+            // Update Time UI
+            if (state.isPlaying || state.isExporting) {
+                document.getElementById('time-display').innerText = time.toFixed(2);
+            }
+        }
+
+        // --- Dragging Interactions ---
+        
+        function getMousePos(e) {
+            const rect = canvas.getBoundingClientRect();
+            const scaleX = canvas.width / rect.width;
+            const scaleY = canvas.height / rect.height;
+            return {
+                x: (e.clientX - rect.left) * scaleX,
+                y: (e.clientY - rect.top) * scaleY
+            };
+        }
+
+        canvas.addEventListener('pointerdown', (e) => {
+            if (state.isPlaying || state.isExporting) return;
+            const pos = getMousePos(e);
+            
+            // Collision detection (Reverse order to grab top layer first)
+            for (let i = state.elements.length - 1; i >= 0; i--) {
+                const el = state.elements[i];
+                const halfW = el.width / 2;
+                const halfH = el.height / 2;
+                
+                if (pos.x >= el.x - halfW && pos.x <= el.x + halfW &&
+                    pos.y >= el.y - halfH && pos.y <= el.y + halfH) {
+                    
+                    selectElement(el.id);
+                    state.isDragging = true;
+                    state.dragOffsetX = pos.x - el.x;
+                    state.dragOffsetY = pos.y - el.y;
+                    canvas.setPointerCapture(e.pointerId);
+                    return;
+                }
+            }
+            
+            // Clicked empty space
+            selectElement(null);
+        });
+
+        canvas.addEventListener('pointermove', (e) => {
+            if (!state.isDragging) return;
+            const pos = getMousePos(e);
+            const el = state.elements.find(e => e.id === state.selectedId);
+            if (el) {
+                el.x = pos.x - state.dragOffsetX;
+                el.y = pos.y - state.dragOffsetY;
+                renderCanvas();
+            }
+        });
+
+        canvas.addEventListener('pointerup', (e) => {
+            state.isDragging = false;
+            canvas.releasePointerCapture(e.pointerId);
+        });
+
+        // --- Playback Engine ---
+
+        function setPlayUI(playing) {
+            const btnPlay = document.getElementById('btn-play');
+            const btnExport = document.getElementById('btn-export');
+            const ind = document.getElementById('status-indicator');
+            
+            if (playing) {
+                ind.classList.remove('opacity-0');
+                if (state.isExporting) {
+                    btnPlay.disabled = true;
+                    ind.classList.replace('bg-blue-500/10', 'bg-red-500/10');
+                    ind.classList.replace('border-blue-500/50', 'border-red-500/50');
+                    ind.classList.replace('text-blue-500', 'text-red-500');
+                } else {
+                    btnPlay.innerHTML = `<i data-lucide="square" class="w-4 h-4"></i><span>Stop</span>`;
+                    btnPlay.classList.add('bg-red-900/50', 'text-red-400');
+                    btnPlay.classList.remove('bg-gray-800', 'text-white');
+                    btnExport.disabled = true;
+                    
+                    ind.classList.replace('bg-red-500/10', 'bg-blue-500/10');
+                    ind.classList.replace('border-red-500/50', 'border-blue-500/50');
+                    ind.classList.replace('text-red-500', 'text-blue-500');
+                    document.getElementById('status-text').innerText = 'Playing Preview';
+                }
+            } else {
+                btnPlay.innerHTML = `<i data-lucide="play" class="w-4 h-4"></i><span>Preview</span>`;
+                btnPlay.classList.remove('bg-red-900/50', 'text-red-400');
+                btnPlay.classList.add('bg-gray-800', 'text-white');
+                btnPlay.disabled = false;
+                btnExport.disabled = false;
+                ind.classList.add('opacity-0');
+                
+                // Reset time UI to 0
+                document.getElementById('time-display').innerText = '0.00';
+            }
+            lucide.createIcons();
+        }
+
+        function togglePlayback() {
+            if (state.isPlaying) {
+                stopPlayback();
+                return;
+            }
+            
+            if (state.elements.length === 0) {
+                showToast('Add some text or math to preview!', 'error');
+                return;
+            }
+
+            state.isPlaying = true;
+            setPlayUI(true);
+            
+            requestAnimationFrame((timestamp) => {
+                state.currentTime = 0;
+                state.lastFrameTime = timestamp;
+                playbackLoop(timestamp);
+            });
+        }
+
+        function playbackLoop(timestamp) {
+            if (!state.isPlaying) return;
+            
+            let delta = (timestamp - state.lastFrameTime) / 1000; // in seconds
+            if (delta > 0.1) delta = 1/60; // Prevent massive jumps if tab inactive
+            
+            state.currentTime += delta;
+            state.lastFrameTime = timestamp;
+
+            renderCanvas();
+
+            if (state.isExporting) {
+                let pct = Math.min(100, Math.round((state.currentTime / state.totalVideoDuration) * 100));
+                document.getElementById('status-text').innerText = `Rendering Video... ${pct}%`;
+            }
+
+            // End of timeline check
+            if (state.currentTime >= state.totalVideoDuration) {
+                if (state.isExporting) {
+                    document.getElementById('status-text').innerText = `Finalizing File...`;
+                    setTimeout(stopPlayback, 500); // Small buffer to ensure recorder grabs final frame
+                } else {
+                    stopPlayback();
+                }
+                return;
+            }
+
+            requestAnimationFrame(playbackLoop);
+        }
+
+        function stopPlayback() {
+            state.isPlaying = false;
+            if (state.isExporting && state.mediaRecorder) {
+                if(state.mediaRecorder.state !== 'inactive') state.mediaRecorder.stop();
+                state.isExporting = false;
+            }
+            setPlayUI(false);
+            
+            // Reset canvas to end-state or edit-state
+            state.currentTime = state.totalVideoDuration;
+            renderCanvas();
+        }
+
+        // --- Export Engine ---
+        function exportAnimation() {
+            if (state.elements.length === 0) {
+                showToast('Add some elements to export!', 'error');
+                return;
+            }
+            if (state.isPlaying) return;
+
+            try {
+                // 60FPS stream from canvas
+                const stream = canvas.captureStream(60); 
+                state.recordedChunks = [];
+                
+                // Extremely High Bitrate (20Mbps) to guarantee mathematical text remains perfectly sharp
+                state.mediaRecorder = new MediaRecorder(stream, { 
+                    mimeType: 'video/webm; codecs=vp9',
+                    videoBitsPerSecond: 20000000 
+                });
+                
+                state.mediaRecorder.ondataavailable = (e) => {
+                    if (e.data.size > 0) state.recordedChunks.push(e.data);
+                };
+
+                state.mediaRecorder.onstop = () => {
+                    const blob = new Blob(state.recordedChunks, { type: 'video/webm' });
+                    const url = URL.createObjectURL(blob);
+                    const link = document.createElement('a');
+                    link.href = url;
+                    link.download = `math-animation-${Date.now()}.webm`;
+                    link.click();
+                    URL.revokeObjectURL(url);
+                    showToast('Video exported successfully!', 'success');
+                };
+
+                state.mediaRecorder.start();
+                
+                state.isPlaying = true;
+                state.isExporting = true;
+                setPlayUI(true);
+                
+                requestAnimationFrame((timestamp) => {
+                    state.currentTime = 0;
+                    state.lastFrameTime = timestamp;
+                    playbackLoop(timestamp);
+                });
+                showToast('Rendering export...');
+
+            } catch (err) {
+                console.error(err);
+                showToast('Export failed. Browser might not support VP9 encoding.', 'error');
+                stopPlayback();
+            }
+        }
+
+        // --- Utilities ---
+        function showToast(message, type = 'info') {
+            const container = document.getElementById('toast-container');
+            const toast = document.createElement('div');
+            
+            const colors = { success: 'bg-green-600', error: 'bg-red-600', info: 'bg-blue-600' };
+            toast.className = `${colors[type]} text-white px-4 py-3 rounded-lg shadow-xl flex items-center gap-3 transform transition-all translate-y-8 opacity-0`;
+            
+            let icon = type === 'success' ? 'check-circle' : (type === 'error' ? 'alert-triangle' : 'info');
+            toast.innerHTML = `<i data-lucide="${icon}" class="w-5 h-5"></i> <span class="text-sm font-medium">${message}</span>`;
+            
+            container.appendChild(toast);
+            lucide.createIcons();
+
+            requestAnimationFrame(() => toast.classList.remove('translate-y-8', 'opacity-0'));
+            setTimeout(() => {
+                toast.classList.add('translate-y-8', 'opacity-0');
+                setTimeout(() => toast.remove(), 300);
+            }, 3000);
+        }
+
+        // Initial Paint
+        renderCanvas();
+
+    </script>
+</body>
+</html>
