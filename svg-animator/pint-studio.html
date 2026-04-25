@@ -1,0 +1,534 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Canvas Painting Studio</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
+    <script src="https://unpkg.com/lucide@latest"></script>
+    <style>
+        body {
+            font-family: 'Inter', sans-serif;
+            background-color: #0f1115;
+            color: #e2e8f0;
+            overflow: hidden;
+            touch-action: none; /* Prevent scrolling on touch devices while drawing */
+        }
+        
+        ::-webkit-scrollbar { width: 8px; height: 8px; }
+        ::-webkit-scrollbar-track { background: #1e293b; }
+        ::-webkit-scrollbar-thumb { background: #475569; border-radius: 4px; }
+        ::-webkit-scrollbar-thumb:hover { background: #64748b; }
+
+        .workspace-grid {
+            background-size: 20px 20px;
+            background-image: radial-gradient(circle, #334155 1px, transparent 1px);
+        }
+
+        /* Scaled canvas container for responsiveness */
+        #canvas-wrapper {
+            position: relative;
+            width: 100%;
+            height: 100%;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            padding: 20px;
+        }
+
+        #draw-canvas {
+            background-color: white;
+            box-shadow: 0 25px 50px -12px rgba(0, 0, 0, 0.5);
+            max-width: 100%;
+            max-height: 100%;
+            object-fit: contain;
+            cursor: crosshair;
+            border-radius: 4px;
+        }
+
+        .tool-btn {
+            display: flex;
+            align-items: center;
+            gap: 0.75rem;
+            padding: 0.75rem;
+            border-radius: 0.5rem;
+            width: 100%;
+            transition: all 0.2s;
+            color: #94a3b8;
+        }
+        .tool-btn:hover {
+            background-color: #1e293b;
+            color: white;
+        }
+        .tool-btn.active {
+            background-color: #3b82f6;
+            color: white;
+        }
+
+        input[type="color"] {
+            -webkit-appearance: none;
+            border: none;
+            width: 100%;
+            height: 40px;
+            border-radius: 6px;
+            padding: 0;
+            cursor: pointer;
+            background: transparent;
+        }
+        input[type="color"]::-webkit-color-swatch-wrapper { padding: 0; }
+        input[type="color"]::-webkit-color-swatch { border: none; border-radius: 6px; }
+    </style>
+</head>
+<body class="flex flex-col h-screen">
+
+    <!-- Header -->
+    <header class="h-16 border-b border-gray-800 bg-gray-950 flex items-center justify-between px-6 flex-shrink-0 z-20">
+        <div class="flex items-center gap-3">
+            <div class="w-8 h-8 rounded bg-gradient-to-br from-pink-500 to-orange-400 flex items-center justify-center">
+                <i data-lucide="palette" class="w-5 h-5 text-white"></i>
+            </div>
+            <h1 class="font-bold text-lg tracking-tight">Paint Studio</h1>
+        </div>
+
+        <div class="flex items-center gap-4">
+            <div class="flex items-center gap-2 border border-gray-700 rounded-md p-1 bg-gray-900 hidden sm:flex">
+                <select id="fps-selector" class="bg-transparent text-sm text-gray-300 outline-none px-2 py-1 cursor-pointer">
+                    <option value="12">12 FPS</option>
+                    <option value="30" selected>30 FPS</option>
+                    <option value="60">60 FPS</option>
+                </select>
+            </div>
+            
+            <button onclick="clearCanvas()" class="flex items-center gap-2 px-3 py-1.5 rounded hover:bg-gray-800 text-sm font-medium transition-colors text-gray-400 hover:text-white border border-gray-800 hover:border-gray-700">
+                <i data-lucide="trash-2" class="w-4 h-4"></i> Clear
+            </button>
+            
+            <button onclick="takeSnapshot()" class="flex items-center gap-2 px-3 py-1.5 rounded bg-gray-800 hover:bg-gray-700 text-sm font-medium transition-colors">
+                <i data-lucide="camera" class="w-4 h-4"></i> Snapshot
+            </button>
+
+            <button onclick="toggleRecording()" id="btn-record" class="flex items-center gap-2 px-4 py-1.5 rounded bg-blue-600 hover:bg-blue-500 text-white text-sm font-medium transition-colors">
+                <div class="w-2.5 h-2.5 rounded-full bg-white shadow-sm" id="icon-record"></div>
+                <span id="text-record">Record WebM</span>
+            </button>
+        </div>
+    </header>
+
+    <!-- Main Content -->
+    <div class="flex flex-1 overflow-hidden relative">
+        
+        <!-- Tools Sidebar -->
+        <aside class="w-20 md:w-64 border-r border-gray-800 bg-gray-950 flex flex-col overflow-y-auto flex-shrink-0 z-10">
+            
+            <!-- Tool Selection -->
+            <div class="p-4 border-b border-gray-800">
+                <h2 class="text-xs font-semibold text-gray-500 uppercase tracking-wider mb-3 hidden md:block">Brushes</h2>
+                <div class="flex flex-col gap-2">
+                    <button class="tool-btn active" data-tool="pen" onclick="setTool('pen')">
+                        <i data-lucide="pen-tool" class="w-5 h-5 flex-shrink-0"></i>
+                        <span class="text-sm font-medium hidden md:block">Solid Pen</span>
+                    </button>
+                    <button class="tool-btn" data-tool="marker" onclick="setTool('marker')">
+                        <i data-lucide="edit-3" class="w-5 h-5 flex-shrink-0"></i>
+                        <span class="text-sm font-medium hidden md:block">Marker (Blend)</span>
+                    </button>
+                    <button class="tool-btn" data-tool="spray" onclick="setTool('spray')">
+                        <i data-lucide="spray-can" class="w-5 h-5 flex-shrink-0"></i>
+                        <span class="text-sm font-medium hidden md:block">Spray Paint</span>
+                    </button>
+                    <button class="tool-btn" data-tool="eraser" onclick="setTool('eraser')">
+                        <i data-lucide="eraser" class="w-5 h-5 flex-shrink-0"></i>
+                        <span class="text-sm font-medium hidden md:block">Eraser</span>
+                    </button>
+                </div>
+            </div>
+
+            <!-- Properties -->
+            <div class="p-4 border-b border-gray-800">
+                <h2 class="text-xs font-semibold text-gray-500 uppercase tracking-wider mb-4 hidden md:block">Properties</h2>
+                
+                <!-- Color Picker -->
+                <div class="mb-6">
+                    <label class="text-xs text-gray-400 block mb-2 hidden md:block">Color</label>
+                    <div class="flex flex-col gap-3">
+                        <input type="color" id="color-picker" value="#000000" onchange="setColor(this.value)" oninput="setColor(this.value)">
+                        
+                        <!-- Quick Colors -->
+                        <div class="grid grid-cols-2 md:grid-cols-5 gap-2">
+                            <button class="w-full aspect-square rounded-md bg-black border border-gray-700" onclick="setColor('#000000')"></button>
+                            <button class="w-full aspect-square rounded-md bg-white border border-gray-700" onclick="setColor('#ffffff')"></button>
+                            <button class="w-full aspect-square rounded-md bg-red-500" onclick="setColor('#ef4444')"></button>
+                            <button class="w-full aspect-square rounded-md bg-blue-500" onclick="setColor('#3b82f6')"></button>
+                            <button class="w-full aspect-square rounded-md bg-green-500" onclick="setColor('#22c55e')"></button>
+                            <button class="w-full aspect-square rounded-md bg-yellow-400" onclick="setColor('#facc15')"></button>
+                            <button class="w-full aspect-square rounded-md bg-purple-500" onclick="setColor('#a855f7')"></button>
+                            <button class="w-full aspect-square rounded-md bg-pink-500" onclick="setColor('#ec4899')"></button>
+                            <button class="w-full aspect-square rounded-md bg-orange-500" onclick="setColor('#f97316')"></button>
+                            <button class="w-full aspect-square rounded-md bg-teal-500" onclick="setColor('#14b8a6')"></button>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Size Slider -->
+                <div>
+                    <div class="flex justify-between items-center mb-2 hidden md:flex">
+                        <label class="text-xs text-gray-400">Brush Size</label>
+                        <span id="size-val" class="text-xs text-gray-300 font-mono">5px</span>
+                    </div>
+                    <!-- Icon for mobile instead of label -->
+                    <div class="md:hidden flex justify-center mb-2 text-gray-500">
+                        <i data-lucide="circle-dot" class="w-5 h-5"></i>
+                    </div>
+                    <input type="range" id="size-slider" min="1" max="100" value="5" class="w-full accent-blue-500" oninput="setSize(this.value)">
+                </div>
+            </div>
+
+        </aside>
+
+        <!-- Canvas Area -->
+        <main class="flex-1 bg-gray-900 workspace-grid relative overflow-hidden">
+            <div id="canvas-wrapper">
+                <!-- Internal resolution is fixed (1280x720) for consistent video recording, CSS handles scaling -->
+                <canvas id="draw-canvas" width="1280" height="720"></canvas>
+            </div>
+            
+            <!-- Recording Indicator -->
+            <div id="recording-indicator" class="absolute top-6 left-6 flex items-center gap-2 bg-red-500/10 border border-red-500/50 text-red-500 px-3 py-1.5 rounded-full shadow-lg opacity-0 transition-opacity duration-300 pointer-events-none">
+                <div class="w-2 h-2 rounded-full bg-red-500 animate-pulse"></div>
+                <span class="text-xs font-bold tracking-wide">REC <span id="rec-time">00:00</span></span>
+            </div>
+        </main>
+    </div>
+
+    <!-- Toast Container -->
+    <div id="toast-container" class="fixed bottom-6 right-6 z-50 flex flex-col gap-2"></div>
+
+    <script>
+        lucide.createIcons();
+
+        // --- STATE & SETUP ---
+        const canvas = document.getElementById('draw-canvas');
+        const ctx = canvas.getContext('2d');
+        
+        const state = {
+            isDrawing: false,
+            tool: 'pen', // pen, marker, spray, eraser
+            color: '#000000',
+            size: 5,
+            lastX: 0,
+            lastY: 0,
+            
+            // Recording
+            isRecording: false,
+            mediaRecorder: null,
+            recordingData: [],
+            recStartTime: 0,
+            recIntervalId: null
+        };
+
+        // Initialize Canvas Background
+        function initCanvas() {
+            ctx.fillStyle = '#ffffff';
+            ctx.fillRect(0, 0, canvas.width, canvas.height);
+            ctx.lineCap = 'round';
+            ctx.lineJoin = 'round';
+        }
+        initCanvas();
+
+        function clearCanvas() {
+            if(confirm('Are you sure you want to clear the entire canvas?')) {
+                ctx.fillStyle = '#ffffff';
+                ctx.fillRect(0, 0, canvas.width, canvas.height);
+                showToast('Canvas cleared');
+            }
+        }
+
+        // --- TOOLS & UI ---
+        function setTool(toolName) {
+            state.tool = toolName;
+            
+            // Update UI
+            document.querySelectorAll('.tool-btn').forEach(btn => {
+                btn.classList.remove('active');
+                if(btn.dataset.tool === toolName) {
+                    btn.classList.add('active');
+                }
+            });
+            
+            // Specific tool adjustments
+            if (toolName === 'marker') {
+                ctx.globalAlpha = 0.1;
+            } else {
+                ctx.globalAlpha = 1.0;
+            }
+        }
+
+        function setColor(colorHex) {
+            state.color = colorHex;
+            document.getElementById('color-picker').value = colorHex;
+        }
+
+        function setSize(val) {
+            state.size = parseInt(val);
+            document.getElementById('size-val').innerText = val + 'px';
+        }
+
+        // --- DRAWING LOGIC ---
+
+        // Helper to get correct coordinates based on CSS scaling
+        function getMousePos(e) {
+            const rect = canvas.getBoundingClientRect();
+            // Calculate scale based on actual display size vs internal size
+            const scaleX = canvas.width / rect.width;
+            const scaleY = canvas.height / rect.height;
+            
+            // Determine if it's a touch event or mouse event
+            const clientX = e.touches ? e.touches[0].clientX : e.clientX;
+            const clientY = e.touches ? e.touches[0].clientY : e.clientY;
+
+            return {
+                x: (clientX - rect.left) * scaleX,
+                y: (clientY - rect.top) * scaleY
+            };
+        }
+
+        function startDrawing(e) {
+            e.preventDefault();
+            state.isDrawing = true;
+            const pos = getMousePos(e);
+            state.lastX = pos.x;
+            state.lastY = pos.y;
+            
+            // For single clicks/dots
+            draw(e);
+        }
+
+        function stopDrawing() {
+            state.isDrawing = false;
+            ctx.beginPath(); // Reset path to avoid connecting lines
+        }
+
+        function draw(e) {
+            if (!state.isDrawing) return;
+            e.preventDefault();
+            
+            const pos = getMousePos(e);
+            
+            ctx.lineWidth = state.size;
+            
+            if (state.tool === 'pen') {
+                ctx.globalCompositeOperation = 'source-over';
+                ctx.globalAlpha = 1.0;
+                ctx.strokeStyle = state.color;
+                
+                ctx.beginPath();
+                ctx.moveTo(state.lastX, state.lastY);
+                ctx.lineTo(pos.x, pos.y);
+                ctx.stroke();
+                
+            } else if (state.tool === 'marker') {
+                ctx.globalCompositeOperation = 'source-over';
+                ctx.globalAlpha = 0.05; // Build up opacity slowly
+                ctx.strokeStyle = state.color;
+                
+                ctx.beginPath();
+                ctx.moveTo(state.lastX, state.lastY);
+                ctx.lineTo(pos.x, pos.y);
+                ctx.stroke();
+                
+            } else if (state.tool === 'eraser') {
+                // Eraser simply paints white in this setup (since background is white)
+                // Alternatively, use destination-out if we want a transparent background.
+                ctx.globalCompositeOperation = 'source-over';
+                ctx.globalAlpha = 1.0;
+                ctx.strokeStyle = '#ffffff';
+                
+                ctx.beginPath();
+                ctx.moveTo(state.lastX, state.lastY);
+                ctx.lineTo(pos.x, pos.y);
+                ctx.stroke();
+                
+            } else if (state.tool === 'spray') {
+                ctx.globalCompositeOperation = 'source-over';
+                ctx.globalAlpha = 1.0;
+                ctx.fillStyle = state.color;
+                
+                const density = 50; // dots per frame
+                for (let i = 0; i < density; i++) {
+                    const radius = state.size;
+                    const offsetX = getRandomOffset(-radius, radius);
+                    const offsetY = getRandomOffset(-radius, radius);
+                    
+                    // Spray in a circular pattern
+                    if (offsetX * offsetX + offsetY * offsetY <= radius * radius) {
+                        ctx.fillRect(pos.x + offsetX, pos.y + offsetY, 1.5, 1.5);
+                    }
+                }
+            }
+
+            state.lastX = pos.x;
+            state.lastY = pos.y;
+        }
+
+        function getRandomOffset(min, max) {
+            return Math.random() * (max - min) + min;
+        }
+
+        // Event Listeners
+        canvas.addEventListener('mousedown', startDrawing);
+        canvas.addEventListener('mousemove', draw);
+        canvas.addEventListener('mouseup', stopDrawing);
+        canvas.addEventListener('mouseout', stopDrawing);
+
+        // Touch support
+        canvas.addEventListener('touchstart', startDrawing, {passive: false});
+        canvas.addEventListener('touchmove', draw, {passive: false});
+        canvas.addEventListener('touchend', stopDrawing);
+        canvas.addEventListener('touchcancel', stopDrawing);
+
+
+        // --- RECORDING & EXPORT ---
+        
+        function takeSnapshot() {
+            const dataURL = canvas.toDataURL('image/png');
+            const link = document.createElement('a');
+            link.download = `painting-snapshot-${Date.now()}.png`;
+            link.href = dataURL;
+            link.click();
+            
+            // Visual Flash
+            const flash = document.createElement('div');
+            flash.className = 'absolute inset-0 bg-white z-50 pointer-events-none transition-opacity duration-500 opacity-50';
+            document.getElementById('canvas-wrapper').appendChild(flash);
+            setTimeout(() => flash.style.opacity = '0', 50);
+            setTimeout(() => flash.remove(), 550);
+            
+            showToast('Snapshot saved', 'success');
+        }
+
+        function toggleRecording() {
+            if (state.isRecording) {
+                stopRecording();
+            } else {
+                startRecording();
+            }
+        }
+
+        function startRecording() {
+            const fps = parseInt(document.getElementById('fps-selector').value) || 30;
+            
+            try {
+                // Capture the canvas stream
+                const stream = canvas.captureStream(fps);
+                state.recordingData = [];
+                
+                // Configure MediaRecorder
+                state.mediaRecorder = new MediaRecorder(stream, {
+                    mimeType: 'video/webm; codecs=vp9'
+                });
+
+                state.mediaRecorder.ondataavailable = (e) => {
+                    if (e.data.size > 0) {
+                        state.recordingData.push(e.data);
+                    }
+                };
+
+                state.mediaRecorder.onstop = () => {
+                    const blob = new Blob(state.recordingData, { type: 'video/webm' });
+                    const url = URL.createObjectURL(blob);
+                    const link = document.createElement('a');
+                    link.href = url;
+                    link.download = `painting-timelapse-${fps}fps-${Date.now()}.webm`;
+                    link.click();
+                    URL.revokeObjectURL(url);
+                    showToast('Timelapse saved successfully!', 'success');
+                };
+
+                state.mediaRecorder.start(100); // Record in chunks
+                state.isRecording = true;
+
+                // Update UI for Recording State
+                const btn = document.getElementById('btn-record');
+                btn.classList.add('bg-red-600', 'hover:bg-red-700');
+                btn.classList.remove('bg-blue-600', 'hover:bg-blue-500');
+                
+                document.getElementById('icon-record').classList.replace('bg-white', 'bg-red-200');
+                document.getElementById('icon-record').classList.add('animate-pulse');
+                document.getElementById('text-record').innerText = 'Stop Recording';
+                
+                const indicator = document.getElementById('recording-indicator');
+                indicator.classList.remove('opacity-0');
+                
+                // Timer
+                state.recStartTime = Date.now();
+                state.recIntervalId = setInterval(() => {
+                    const elapsed = Math.floor((Date.now() - state.recStartTime) / 1000);
+                    const mins = String(Math.floor(elapsed / 60)).padStart(2, '0');
+                    const secs = String(elapsed % 60).padStart(2, '0');
+                    document.getElementById('rec-time').innerText = `${mins}:${secs}`;
+                }, 1000);
+
+                showToast(`Started recording at ${fps} FPS`);
+
+            } catch (err) {
+                console.error(err);
+                showToast('Recording failed. Your browser might not support this feature.', 'error');
+            }
+        }
+
+        function stopRecording() {
+            if (!state.isRecording || !state.mediaRecorder) return;
+            
+            state.mediaRecorder.stop();
+            state.isRecording = false;
+            clearInterval(state.recIntervalId);
+            
+            // Reset UI
+            const btn = document.getElementById('btn-record');
+            btn.classList.remove('bg-red-600', 'hover:bg-red-700');
+            btn.classList.add('bg-blue-600', 'hover:bg-blue-500');
+            
+            document.getElementById('icon-record').classList.replace('bg-red-200', 'bg-white');
+            document.getElementById('icon-record').classList.remove('animate-pulse');
+            document.getElementById('text-record').innerText = 'Record WebM';
+            
+            const indicator = document.getElementById('recording-indicator');
+            indicator.classList.add('opacity-0');
+            document.getElementById('rec-time').innerText = '00:00';
+        }
+
+        // --- TOAST ALERTS ---
+        function showToast(message, type = 'info') {
+            const container = document.getElementById('toast-container');
+            const toast = document.createElement('div');
+            
+            const colors = {
+                success: 'bg-green-600',
+                error: 'bg-red-600',
+                info: 'bg-blue-600'
+            };
+
+            toast.className = `${colors[type]} text-white px-4 py-3 rounded-lg shadow-xl flex items-center gap-3 transform transition-all translate-y-8 opacity-0`;
+            
+            let icon = 'info';
+            if(type === 'success') icon = 'check-circle';
+            if(type === 'error') icon = 'alert-triangle';
+
+            toast.innerHTML = `<i data-lucide="${icon}" class="w-5 h-5"></i> <span class="text-sm font-medium">${message}</span>`;
+            
+            container.appendChild(toast);
+            lucide.createIcons();
+
+            requestAnimationFrame(() => {
+                toast.classList.remove('translate-y-8', 'opacity-0');
+            });
+
+            setTimeout(() => {
+                toast.classList.add('translate-y-8', 'opacity-0');
+                setTimeout(() => toast.remove(), 300);
+            }, 3000);
+        }
+    </script>
+</body>
+</html>

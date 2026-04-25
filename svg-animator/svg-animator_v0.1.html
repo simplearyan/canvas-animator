@@ -1,0 +1,862 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>SVG Motion Studio</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
+    <script src="https://unpkg.com/lucide@latest"></script>
+    <style>
+        body {
+            font-family: 'Inter', sans-serif;
+            background-color: #0f1115;
+            color: #e2e8f0;
+            overflow: hidden;
+        }
+        
+        /* Custom Scrollbar */
+        ::-webkit-scrollbar {
+            width: 8px;
+            height: 8px;
+        }
+        ::-webkit-scrollbar-track {
+            background: #1e293b;
+        }
+        ::-webkit-scrollbar-thumb {
+            background: #475569;
+            border-radius: 4px;
+        }
+        ::-webkit-scrollbar-thumb:hover {
+            background: #64748b;
+        }
+
+        .workspace-grid {
+            background-size: 20px 20px;
+            background-image: radial-gradient(circle, #334155 1px, transparent 1px);
+        }
+
+        .shape-handle {
+            cursor: pointer;
+            outline: 2px solid transparent;
+            transition: outline 0.2s;
+        }
+        
+        .shape-handle:hover {
+            outline: 2px dashed #3b82f6;
+        }
+        
+        .shape-selected {
+            outline: 2px solid #3b82f6 !important;
+        }
+
+        input[type="color"] {
+            -webkit-appearance: none;
+            border: none;
+            width: 32px;
+            height: 32px;
+            border-radius: 50%;
+            padding: 0;
+            overflow: hidden;
+            cursor: pointer;
+        }
+        input[type="color"]::-webkit-color-swatch-wrapper {
+            padding: 0;
+        }
+        input[type="color"]::-webkit-color-swatch {
+            border: none;
+            border-radius: 50%;
+        }
+    </style>
+</head>
+<body class="flex flex-col h-screen">
+
+    <!-- Top Navigation -->
+    <header class="h-16 border-b border-gray-800 bg-gray-950 flex items-center justify-between px-6 flex-shrink-0 z-20">
+        <div class="flex items-center gap-3">
+            <div class="w-8 h-8 rounded bg-blue-600 flex items-center justify-center">
+                <i data-lucide="aperture" class="w-5 h-5 text-white"></i>
+            </div>
+            <h1 class="font-bold text-lg tracking-tight">SVG Motion Studio</h1>
+        </div>
+
+        <div class="flex items-center gap-4">
+            <div class="flex items-center gap-2 border border-gray-700 rounded-md p-1 bg-gray-900">
+                <select id="fps-selector" class="bg-transparent text-sm text-gray-300 outline-none px-2 py-1 cursor-pointer">
+                    <option value="12">12 FPS</option>
+                    <option value="30" selected>30 FPS</option>
+                    <option value="60">60 FPS</option>
+                </select>
+            </div>
+            
+            <button onclick="takeSnapshot()" class="flex items-center gap-2 px-3 py-1.5 rounded bg-gray-800 hover:bg-gray-700 text-sm font-medium transition-colors">
+                <i data-lucide="camera" class="w-4 h-4"></i> Snapshot
+            </button>
+            
+            <div class="relative group">
+                <button class="flex items-center gap-2 px-4 py-1.5 rounded bg-blue-600 hover:bg-blue-500 text-white text-sm font-medium transition-colors">
+                    <i data-lucide="download" class="w-4 h-4"></i> Export Video
+                    <i data-lucide="chevron-down" class="w-4 h-4"></i>
+                </button>
+                <div class="absolute right-0 top-full mt-2 w-40 bg-gray-800 border border-gray-700 rounded-md shadow-xl opacity-0 invisible group-hover:opacity-100 group-hover:visible transition-all">
+                    <button onclick="startExport('webm')" class="w-full text-left px-4 py-2 hover:bg-gray-700 text-sm flex items-center gap-2">
+                        <i data-lucide="file-video" class="w-4 h-4"></i> WebM (Native)
+                    </button>
+                    <button onclick="startExport('mp4')" class="w-full text-left px-4 py-2 hover:bg-gray-700 text-sm flex items-center gap-2">
+                        <i data-lucide="monitor-play" class="w-4 h-4"></i> MP4
+                    </button>
+                </div>
+            </div>
+        </div>
+    </header>
+
+    <!-- Main Workspace -->
+    <div class="flex flex-1 overflow-hidden relative">
+        
+        <!-- Left Sidebar: Tools -->
+        <aside class="w-16 md:w-64 border-r border-gray-800 bg-gray-950 flex flex-col items-center md:items-start overflow-y-auto flex-shrink-0 z-10">
+            <div class="p-4 w-full border-b border-gray-800 hidden md:block">
+                <h2 class="text-xs font-semibold text-gray-500 uppercase tracking-wider">Elements</h2>
+            </div>
+            <div class="flex flex-col w-full p-2 gap-2">
+                <button onclick="addShape('rect')" class="flex items-center gap-3 p-3 rounded-lg hover:bg-gray-800 transition-colors w-full group">
+                    <div class="w-8 h-8 rounded bg-gray-800 group-hover:bg-gray-700 flex items-center justify-center flex-shrink-0">
+                        <i data-lucide="square" class="w-4 h-4 text-gray-400 group-hover:text-white"></i>
+                    </div>
+                    <span class="text-sm font-medium text-gray-400 group-hover:text-white hidden md:block">Rectangle</span>
+                </button>
+                <button onclick="addShape('circle')" class="flex items-center gap-3 p-3 rounded-lg hover:bg-gray-800 transition-colors w-full group">
+                    <div class="w-8 h-8 rounded bg-gray-800 group-hover:bg-gray-700 flex items-center justify-center flex-shrink-0">
+                        <i data-lucide="circle" class="w-4 h-4 text-gray-400 group-hover:text-white"></i>
+                    </div>
+                    <span class="text-sm font-medium text-gray-400 group-hover:text-white hidden md:block">Circle</span>
+                </button>
+                <button onclick="addShape('polygon')" class="flex items-center gap-3 p-3 rounded-lg hover:bg-gray-800 transition-colors w-full group">
+                    <div class="w-8 h-8 rounded bg-gray-800 group-hover:bg-gray-700 flex items-center justify-center flex-shrink-0">
+                        <i data-lucide="hexagon" class="w-4 h-4 text-gray-400 group-hover:text-white"></i>
+                    </div>
+                    <span class="text-sm font-medium text-gray-400 group-hover:text-white hidden md:block">Polygon</span>
+                </button>
+                <button onclick="addShape('custom')" class="flex items-center gap-3 p-3 rounded-lg hover:bg-gray-800 transition-colors w-full group">
+                    <div class="w-8 h-8 rounded bg-gray-800 group-hover:bg-gray-700 flex items-center justify-center flex-shrink-0">
+                        <i data-lucide="code" class="w-4 h-4 text-gray-400 group-hover:text-white"></i>
+                    </div>
+                    <span class="text-sm font-medium text-gray-400 group-hover:text-white hidden md:block">Custom SVG</span>
+                </button>
+            </div>
+            
+            <div class="mt-auto w-full p-4 border-t border-gray-800 hidden md:block">
+                <div class="bg-gray-900 rounded-lg p-4">
+                    <h3 class="text-sm font-medium mb-2">Instructions</h3>
+                    <p class="text-xs text-gray-400 leading-relaxed">
+                        1. Add elements from the menu.<br>
+                        2. Select an element on the canvas to edit properties.<br>
+                        3. Add animations and press Play.<br>
+                        4. Export as WebM/MP4.
+                    </p>
+                </div>
+            </div>
+        </aside>
+
+        <!-- Canvas Area -->
+        <main id="canvas-container" class="flex-1 bg-gray-900 workspace-grid flex items-center justify-center relative overflow-hidden">
+            <!-- Main SVG Element (Visible to user) -->
+            <svg id="stage-svg" width="800" height="600" class="bg-gray-950 shadow-2xl rounded-sm overflow-hidden" xmlns="http://www.w3.org/2000/svg">
+                <!-- Shapes will be injected here -->
+            </svg>
+
+            <!-- Hidden Canvas for Recording -->
+            <canvas id="record-canvas" width="800" height="600" class="hidden"></canvas>
+            
+            <!-- Recording Indicator -->
+            <div id="recording-indicator" class="absolute top-6 left-6 flex items-center gap-2 bg-red-500/10 border border-red-500/50 text-red-500 px-3 py-1.5 rounded-full shadow-lg opacity-0 transition-opacity duration-300">
+                <div class="w-2 h-2 rounded-full bg-red-500 animate-pulse"></div>
+                <span class="text-xs font-bold tracking-wide">REC <span id="rec-time">00:00</span></span>
+            </div>
+        </main>
+
+        <!-- Right Sidebar: Properties -->
+        <aside id="properties-panel" class="w-72 border-l border-gray-800 bg-gray-950 flex flex-col overflow-y-auto flex-shrink-0 transform transition-transform duration-300 translate-x-full md:translate-x-0 absolute md:relative right-0 h-full z-20">
+            <div class="p-4 border-b border-gray-800 flex justify-between items-center">
+                <h2 class="text-sm font-semibold uppercase tracking-wider">Properties</h2>
+                <button onclick="deselectShape()" class="md:hidden text-gray-400 hover:text-white">
+                    <i data-lucide="x" class="w-5 h-5"></i>
+                </button>
+            </div>
+            
+            <div id="no-selection" class="flex flex-col items-center justify-center h-48 text-gray-500 p-6 text-center">
+                <i data-lucide="mouse-pointer-click" class="w-8 h-8 mb-3 opacity-50"></i>
+                <p class="text-sm">Select an element on the canvas to edit its properties.</p>
+            </div>
+
+            <div id="has-selection" class="hidden flex flex-col w-full">
+                <!-- Appearance Group -->
+                <div class="p-5 border-b border-gray-800">
+                    <h3 class="text-xs font-semibold text-gray-500 mb-4 uppercase">Appearance</h3>
+                    
+                    <div class="flex items-center justify-between mb-4">
+                        <label class="text-sm text-gray-300">Fill Color</label>
+                        <div class="flex items-center gap-2">
+                            <input type="color" id="prop-fill" oninput="updateSelectedShape('fill', this.value)">
+                            <input type="text" id="prop-fill-hex" class="w-20 bg-gray-900 border border-gray-700 rounded px-2 py-1 text-xs text-center uppercase" onchange="updateSelectedShape('fill', this.value)">
+                        </div>
+                    </div>
+
+                    <div class="flex items-center justify-between mb-4">
+                        <label class="text-sm text-gray-300">Stroke Color</label>
+                        <div class="flex items-center gap-2">
+                            <input type="color" id="prop-stroke" oninput="updateSelectedShape('stroke', this.value)">
+                        </div>
+                    </div>
+
+                    <div class="space-y-2 mb-4">
+                        <div class="flex justify-between">
+                            <label class="text-sm text-gray-300">Stroke Width</label>
+                            <span id="stroke-width-val" class="text-xs text-gray-500">0px</span>
+                        </div>
+                        <input type="range" id="prop-stroke-width" min="0" max="20" value="0" class="w-full accent-blue-500" oninput="updateSelectedShape('strokeWidth', parseInt(this.value)); document.getElementById('stroke-width-val').innerText = this.value + 'px';">
+                    </div>
+                </div>
+
+                <!-- Transform Group -->
+                <div class="p-5 border-b border-gray-800">
+                    <h3 class="text-xs font-semibold text-gray-500 mb-4 uppercase">Transform</h3>
+                    
+                    <div class="grid grid-cols-2 gap-4 mb-4">
+                        <div>
+                            <label class="text-xs text-gray-400 block mb-1">X Position</label>
+                            <input type="number" id="prop-x" class="w-full bg-gray-900 border border-gray-700 rounded px-2 py-1.5 text-sm" oninput="updateSelectedShape('x', parseInt(this.value))">
+                        </div>
+                        <div>
+                            <label class="text-xs text-gray-400 block mb-1">Y Position</label>
+                            <input type="number" id="prop-y" class="w-full bg-gray-900 border border-gray-700 rounded px-2 py-1.5 text-sm" oninput="updateSelectedShape('y', parseInt(this.value))">
+                        </div>
+                    </div>
+                    
+                    <div class="space-y-2">
+                        <div class="flex justify-between">
+                            <label class="text-sm text-gray-300">Scale</label>
+                            <span id="scale-val" class="text-xs text-gray-500">1.0</span>
+                        </div>
+                        <input type="range" id="prop-scale" min="0.1" max="3" step="0.1" value="1" class="w-full accent-blue-500" oninput="updateSelectedShape('scale', parseFloat(this.value)); document.getElementById('scale-val').innerText = this.value;">
+                    </div>
+                </div>
+
+                <!-- Animation Group -->
+                <div class="p-5 border-b border-gray-800">
+                    <h3 class="text-xs font-semibold text-gray-500 mb-4 uppercase">Animation</h3>
+                    
+                    <div class="mb-4">
+                        <label class="text-sm text-gray-300 block mb-2">Type</label>
+                        <select id="prop-animation" class="w-full bg-gray-900 border border-gray-700 rounded px-3 py-2 text-sm text-gray-200 outline-none" onchange="updateSelectedShape('animation', this.value)">
+                            <option value="none">None</option>
+                            <option value="rotate">Rotate</option>
+                            <option value="pulse">Pulse</option>
+                            <option value="bounce">Bounce</option>
+                            <option value="orbit">Orbit</option>
+                            <option value="swing">Swing</option>
+                        </select>
+                    </div>
+
+                    <div class="space-y-2 mb-4">
+                        <div class="flex justify-between">
+                            <label class="text-sm text-gray-300">Speed</label>
+                            <span id="speed-val" class="text-xs text-gray-500">1x</span>
+                        </div>
+                        <input type="range" id="prop-speed" min="0.1" max="5" step="0.1" value="1" class="w-full accent-blue-500" oninput="updateSelectedShape('animSpeed', parseFloat(this.value)); document.getElementById('speed-val').innerText = this.value + 'x';">
+                    </div>
+                </div>
+
+                <!-- Custom SVG Input (Only visible if type is custom) -->
+                <div id="custom-svg-panel" class="p-5 border-b border-gray-800 hidden">
+                    <h3 class="text-xs font-semibold text-gray-500 mb-4 uppercase">Custom SVG Code</h3>
+                    <textarea id="prop-custom-svg" class="w-full bg-gray-900 border border-gray-700 rounded px-3 py-2 text-xs text-gray-300 h-32 font-mono outline-none" placeholder="<path d='...' />" onchange="updateSelectedShape('customSvg', this.value)"></textarea>
+                </div>
+                
+                <div class="p-5">
+                    <button onclick="deleteSelectedShape()" class="w-full flex items-center justify-center gap-2 px-4 py-2 rounded bg-red-900/30 hover:bg-red-900/50 text-red-500 text-sm font-medium transition-colors border border-red-900/50">
+                        <i data-lucide="trash-2" class="w-4 h-4"></i> Delete Element
+                    </button>
+                </div>
+            </div>
+        </aside>
+    </div>
+
+    <!-- Bottom Timeline / Playback Controls -->
+    <footer class="h-16 border-t border-gray-800 bg-gray-950 flex items-center justify-center px-6 flex-shrink-0 z-20 relative">
+        <div class="flex items-center gap-6">
+            <button onclick="togglePlay()" id="btn-play" class="w-10 h-10 rounded-full bg-blue-600 hover:bg-blue-500 flex items-center justify-center text-white transition-transform hover:scale-105 shadow-lg shadow-blue-900/20">
+                <i data-lucide="play" class="w-5 h-5 ml-1" id="icon-play"></i>
+            </button>
+            <button onclick="resetTimeline()" class="text-gray-400 hover:text-white transition-colors p-2" title="Reset Timeline">
+                <i data-lucide="rotate-ccw" class="w-5 h-5"></i>
+            </button>
+            <div class="h-8 w-px bg-gray-800 mx-2"></div>
+            <button onclick="toggleRecording()" id="btn-record" class="flex items-center gap-2 px-4 py-2 rounded-full bg-gray-800 hover:bg-gray-700 text-gray-300 font-medium transition-colors border border-gray-700">
+                <div class="w-3 h-3 rounded-full bg-red-500" id="icon-record"></div>
+                <span id="text-record">Record</span>
+            </button>
+        </div>
+    </footer>
+
+    <!-- Custom Modal / Toast Container -->
+    <div id="toast-container" class="fixed bottom-20 right-6 z-50 flex flex-col gap-2"></div>
+
+    <script>
+        // Initialize Lucide icons
+        lucide.createIcons();
+
+        // --- STATE MANAGEMENT ---
+        const state = {
+            shapes: [],
+            selectedId: null,
+            isPlaying: false,
+            isRecording: false,
+            time: 0,
+            lastFrameTime: performance.now(),
+            animationReqId: null,
+            recordingData: [],
+            mediaRecorder: null,
+            recStartTime: 0,
+            recIntervalId: null,
+            colors: ['#3b82f6', '#ef4444', '#10b981', '#f59e0b', '#8b5cf6', '#ec4899']
+        };
+
+        const stageSvg = document.getElementById('stage-svg');
+        const recordCanvas = document.getElementById('record-canvas');
+        const recordCtx = recordCanvas.getContext('2d');
+
+        // --- CORE FUNCTIONS ---
+
+        function generateId() {
+            return 'shape-' + Math.random().toString(36).substr(2, 9);
+        }
+
+        function getRandomColor() {
+            return state.colors[Math.floor(Math.random() * state.colors.length)];
+        }
+
+        function addShape(type) {
+            const id = generateId();
+            const color = getRandomColor();
+            
+            const newShape = {
+                id,
+                type,
+                x: 400, // Center of 800x600
+                y: 300,
+                w: 100,
+                h: 100,
+                fill: color,
+                stroke: '#ffffff',
+                strokeWidth: 0,
+                scale: 1,
+                animation: 'none',
+                animSpeed: 1,
+                customSvg: type === 'custom' ? '<path d="M50 0 L100 100 L0 100 Z" fill="currentColor"/>' : ''
+            };
+
+            state.shapes.push(newShape);
+            renderShapes();
+            selectShape(id);
+            
+            if(!state.isPlaying) {
+                state.isPlaying = true;
+                updatePlayIcon();
+                startAnimationLoop();
+            }
+        }
+
+        function renderShapes() {
+            // Keep definitions if any, but clear shapes
+            stageSvg.innerHTML = '';
+            
+            // Defs for filters
+            const defs = document.createElementNS("http://www.w3.org/2000/svg", "defs");
+            defs.innerHTML = `
+                <filter id="shadow" x="-20%" y="-20%" width="140%" height="140%">
+                    <feDropShadow dx="0" dy="4" stdDeviation="6" flood-opacity="0.3"/>
+                </filter>
+            `;
+            stageSvg.appendChild(defs);
+
+            state.shapes.forEach(shape => {
+                // Wrapper Group (Handles fixed positioning and selection)
+                const gOuter = document.createElementNS("http://www.w3.org/2000/svg", "g");
+                gOuter.setAttribute('id', `outer-${shape.id}`);
+                gOuter.setAttribute('transform', `translate(${shape.x}, ${shape.y})`);
+                gOuter.setAttribute('class', `shape-handle ${state.selectedId === shape.id ? 'shape-selected' : ''}`);
+                gOuter.style.transformOrigin = `${shape.x}px ${shape.y}px`; // For CSS outlines
+                
+                // Click handler for selection
+                gOuter.addEventListener('mousedown', (e) => {
+                    e.stopPropagation();
+                    selectShape(shape.id);
+                });
+
+                // Inner Group (Handles animations like rotate, scale)
+                const gInner = document.createElementNS("http://www.w3.org/2000/svg", "g");
+                gInner.setAttribute('id', `inner-${shape.id}`);
+                
+                // Creating the actual shape element
+                let el;
+                if (shape.type === 'rect') {
+                    el = document.createElementNS("http://www.w3.org/2000/svg", "rect");
+                    el.setAttribute('x', -shape.w/2);
+                    el.setAttribute('y', -shape.h/2);
+                    el.setAttribute('width', shape.w);
+                    el.setAttribute('height', shape.h);
+                    el.setAttribute('rx', 12);
+                } else if (shape.type === 'circle') {
+                    el = document.createElementNS("http://www.w3.org/2000/svg", "circle");
+                    el.setAttribute('cx', 0);
+                    el.setAttribute('cy', 0);
+                    el.setAttribute('r', shape.w/2);
+                } else if (shape.type === 'polygon') {
+                    el = document.createElementNS("http://www.w3.org/2000/svg", "polygon");
+                    // Simple hexagon
+                    const r = shape.w/2;
+                    let points = [];
+                    for(let i=0; i<6; i++) {
+                        const angle = (i * 60) * Math.PI / 180;
+                        points.push(`${r * Math.cos(angle)},${r * Math.sin(angle)}`);
+                    }
+                    el.setAttribute('points', points.join(' '));
+                } else if (shape.type === 'custom') {
+                    // For custom, we wrap it in an SVG tag so coordinates behave predictably
+                    el = document.createElementNS("http://www.w3.org/2000/svg", "g");
+                    el.setAttribute('transform', `translate(${-shape.w/2}, ${-shape.h/2})`);
+                    el.innerHTML = shape.customSvg;
+                }
+
+                // Apply styles to the element (or its children for custom)
+                if(shape.type !== 'custom') {
+                    el.setAttribute('fill', shape.fill);
+                    if(shape.strokeWidth > 0) {
+                        el.setAttribute('stroke', shape.stroke);
+                        el.setAttribute('stroke-width', shape.strokeWidth);
+                    }
+                } else {
+                    el.style.color = shape.fill; // Helps with currentColor in custom SVGs
+                    el.setAttribute('fill', shape.fill);
+                }
+
+                // Initial static scale application
+                gInner.setAttribute('transform', `scale(${shape.scale})`);
+
+                gInner.appendChild(el);
+                gOuter.appendChild(gInner);
+                stageSvg.appendChild(gOuter);
+            });
+        }
+
+        // Clicking on empty canvas deselects
+        stageSvg.addEventListener('mousedown', () => {
+            deselectShape();
+        });
+
+        function selectShape(id) {
+            state.selectedId = id;
+            
+            // Show right panel on mobile
+            document.getElementById('properties-panel').classList.remove('translate-x-full');
+            
+            // Re-render to update highlights
+            renderShapes();
+            
+            // Update Properties Panel UI
+            document.getElementById('no-selection').classList.add('hidden');
+            document.getElementById('has-selection').classList.remove('hidden');
+
+            const shape = state.shapes.find(s => s.id === id);
+            if(shape) {
+                document.getElementById('prop-fill').value = shape.fill;
+                document.getElementById('prop-fill-hex').value = shape.fill;
+                document.getElementById('prop-stroke').value = shape.stroke;
+                document.getElementById('prop-stroke-width').value = shape.strokeWidth;
+                document.getElementById('stroke-width-val').innerText = shape.strokeWidth + 'px';
+                
+                document.getElementById('prop-x').value = shape.x;
+                document.getElementById('prop-y').value = shape.y;
+                document.getElementById('prop-scale').value = shape.scale;
+                document.getElementById('scale-val').innerText = shape.scale;
+                
+                document.getElementById('prop-animation').value = shape.animation;
+                document.getElementById('prop-speed').value = shape.animSpeed;
+                document.getElementById('speed-val').innerText = shape.animSpeed + 'x';
+
+                if(shape.type === 'custom') {
+                    document.getElementById('custom-svg-panel').classList.remove('hidden');
+                    document.getElementById('prop-custom-svg').value = shape.customSvg;
+                } else {
+                    document.getElementById('custom-svg-panel').classList.add('hidden');
+                }
+            }
+        }
+
+        function deselectShape() {
+            state.selectedId = null;
+            document.getElementById('properties-panel').classList.add('translate-x-full');
+            document.getElementById('no-selection').classList.remove('hidden');
+            document.getElementById('has-selection').classList.add('hidden');
+            renderShapes();
+        }
+
+        function updateSelectedShape(property, value) {
+            if(!state.selectedId) return;
+            const shape = state.shapes.find(s => s.id === state.selectedId);
+            if(shape) {
+                shape[property] = value;
+                
+                // Sync specific UI elements
+                if(property === 'fill') document.getElementById('prop-fill-hex').value = value;
+                
+                // If it's a structural change, full render. Otherwise, fast apply.
+                if (['x', 'y', 'scale'].includes(property)) {
+                    // Update DOM directly for smoother scrubbing
+                    const gOuter = document.getElementById(`outer-${shape.id}`);
+                    if(gOuter) {
+                         if(property === 'x' || property === 'y') {
+                             gOuter.setAttribute('transform', `translate(${shape.x}, ${shape.y})`);
+                         }
+                    }
+                    if(property === 'scale') {
+                         // Apply scale without destroying animation state
+                         updateAnimations(performance.now());
+                    }
+                } else {
+                    renderShapes();
+                }
+            }
+        }
+
+        function deleteSelectedShape() {
+            if(!state.selectedId) return;
+            state.shapes = state.shapes.filter(s => s.id !== state.selectedId);
+            deselectShape();
+            showToast('Element deleted', 'success');
+        }
+
+        // --- ANIMATION ENGINE ---
+
+        function togglePlay() {
+            state.isPlaying = !state.isPlaying;
+            updatePlayIcon();
+            
+            if (state.isPlaying) {
+                state.lastFrameTime = performance.now();
+                startAnimationLoop();
+            } else {
+                cancelAnimationFrame(state.animationReqId);
+            }
+        }
+
+        function updatePlayIcon() {
+            const btn = document.getElementById('btn-play');
+            const icon = document.getElementById('icon-play');
+            if (state.isPlaying) {
+                btn.innerHTML = `<i data-lucide="pause" class="w-5 h-5"></i>`;
+            } else {
+                btn.innerHTML = `<i data-lucide="play" class="w-5 h-5 ml-1"></i>`;
+            }
+            lucide.createIcons();
+        }
+
+        function resetTimeline() {
+            state.time = 0;
+            updateAnimations(performance.now(), true);
+            showToast('Timeline reset');
+        }
+
+        function startAnimationLoop() {
+            const loop = (timestamp) => {
+                if (!state.isPlaying) return;
+                
+                const delta = (timestamp - state.lastFrameTime) / 1000; // seconds
+                state.lastFrameTime = timestamp;
+                state.time += delta;
+
+                updateAnimations(timestamp);
+
+                if (state.isRecording) {
+                    syncSvgToCanvas();
+                }
+
+                state.animationReqId = requestAnimationFrame(loop);
+            };
+            state.animationReqId = requestAnimationFrame(loop);
+        }
+
+        function updateAnimations(timestamp, forceReset = false) {
+            state.shapes.forEach(shape => {
+                const gInner = document.getElementById(`inner-${shape.id}`);
+                if (!gInner) return;
+
+                let transformStr = `scale(${shape.scale}) `;
+
+                if (shape.animation !== 'none' || forceReset) {
+                    const t = state.time * shape.animSpeed;
+                    
+                    switch (shape.animation) {
+                        case 'rotate':
+                            transformStr += `rotate(${ (t * 90) % 360 }) `;
+                            break;
+                        case 'pulse':
+                            const s = 1 + Math.sin(t * 5) * 0.2;
+                            transformStr = `scale(${shape.scale * s}) `;
+                            break;
+                        case 'bounce':
+                            const yOff = Math.abs(Math.sin(t * 4)) * -50;
+                            transformStr += `translate(0, ${yOff}) `;
+                            break;
+                        case 'orbit':
+                            const r = 50;
+                            const ox = Math.cos(t * 3) * r;
+                            const oy = Math.sin(t * 3) * r;
+                            transformStr += `translate(${ox}, ${oy}) rotate(${ (t * 180) % 360 })`;
+                            break;
+                        case 'swing':
+                            const angle = Math.sin(t * 3) * 30;
+                            // Transform origin top center for swing is harder with standard center offset, so we do it via matrix or offset
+                            transformStr += `translate(0, ${-shape.h/2}) rotate(${angle}) translate(0, ${shape.h/2}) `;
+                            break;
+                    }
+                }
+                
+                gInner.setAttribute('transform', transformStr);
+            });
+        }
+
+        // --- EXPORT & RECORDING ---
+
+        function syncSvgToCanvas() {
+            // This is the core trick: serialize SVG to image and draw on canvas
+            const xml = new XMLSerializer().serializeToString(stageSvg);
+            
+            // To ensure styling works, add standard namespace and fix issues
+            const svgData = `<svg xmlns="http://www.w3.org/2000/svg" width="${recordCanvas.width}" height="${recordCanvas.height}">
+                <rect width="100%" height="100%" fill="#0f1115"/>
+                ${stageSvg.innerHTML}
+            </svg>`;
+
+            const blob = new Blob([svgData], {type: "image/svg+xml;charset=utf-8"});
+            const url = URL.createObjectURL(blob);
+            
+            const img = new Image();
+            img.onload = () => {
+                recordCtx.drawImage(img, 0, 0);
+                URL.revokeObjectURL(url);
+            };
+            img.src = url;
+        }
+
+        function takeSnapshot() {
+            syncSvgToCanvas();
+            // Small delay to allow the async image load to finish drawing
+            setTimeout(() => {
+                const dataURL = recordCanvas.toDataURL('image/png');
+                const link = document.createElement('a');
+                link.download = `svg-snapshot-${Date.now()}.png`;
+                link.href = dataURL;
+                link.click();
+                
+                // Visual feedback
+                const flash = document.createElement('div');
+                flash.className = 'absolute inset-0 bg-white z-50 pointer-events-none transition-opacity duration-500 opacity-50';
+                document.getElementById('canvas-container').appendChild(flash);
+                setTimeout(() => flash.style.opacity = '0', 50);
+                setTimeout(() => flash.remove(), 550);
+                
+                showToast('Snapshot saved', 'success');
+            }, 100);
+        }
+
+        function startExport(format) {
+            if (format === 'mp4') {
+                showModal('Exporting as WebM', 'Native MP4 encoding requires a heavy external WebAssembly module which is not bundled in this lightweight app. Your video will be exported as a high-quality WebM file, which is natively supported by modern browsers and video editors.', () => {
+                    startRecordingSession('webm');
+                });
+            } else {
+                startRecordingSession('webm');
+            }
+        }
+
+        function toggleRecording() {
+            if (state.isRecording) {
+                stopRecordingSession();
+            } else {
+                startRecordingSession('webm');
+            }
+        }
+
+        function startRecordingSession(format) {
+            if (state.shapes.length === 0) {
+                showToast('Add some elements first!', 'error');
+                return;
+            }
+
+            const fps = parseInt(document.getElementById('fps-selector').value) || 30;
+            
+            try {
+                // Prepare Canvas
+                syncSvgToCanvas();
+                const stream = recordCanvas.captureStream(fps);
+                
+                state.recordingData = [];
+                state.mediaRecorder = new MediaRecorder(stream, {
+                    mimeType: 'video/webm; codecs=vp9'
+                });
+
+                state.mediaRecorder.ondataavailable = (e) => {
+                    if (e.data.size > 0) {
+                        state.recordingData.push(e.data);
+                    }
+                };
+
+                state.mediaRecorder.onstop = () => {
+                    const blob = new Blob(state.recordingData, { type: 'video/webm' });
+                    const url = URL.createObjectURL(blob);
+                    const link = document.createElement('a');
+                    link.href = url;
+                    link.download = `animation-${fps}fps-${Date.now()}.webm`;
+                    link.click();
+                    URL.revokeObjectURL(url);
+                    showToast('Video saved successfully!', 'success');
+                };
+
+                state.mediaRecorder.start();
+                state.isRecording = true;
+                
+                // Force play if paused
+                if (!state.isPlaying) {
+                    togglePlay();
+                }
+
+                // UI Updates
+                const btn = document.getElementById('btn-record');
+                btn.classList.add('bg-red-900/30', 'text-red-500', 'border-red-500/50');
+                btn.classList.remove('bg-gray-800', 'text-gray-300', 'border-gray-700');
+                document.getElementById('text-record').innerText = 'Stop Rec';
+                document.getElementById('icon-record').classList.add('animate-pulse');
+                
+                const indicator = document.getElementById('recording-indicator');
+                indicator.classList.remove('opacity-0');
+                
+                state.recStartTime = Date.now();
+                state.recIntervalId = setInterval(() => {
+                    const elapsed = Math.floor((Date.now() - state.recStartTime) / 1000);
+                    const mins = String(Math.floor(elapsed / 60)).padStart(2, '0');
+                    const secs = String(elapsed % 60).padStart(2, '0');
+                    document.getElementById('rec-time').innerText = `${mins}:${secs}`;
+                }, 1000);
+
+                showToast(`Recording started at ${fps} FPS`);
+
+            } catch (err) {
+                console.error(err);
+                showToast('Error starting recording', 'error');
+            }
+        }
+
+        function stopRecordingSession() {
+            if (!state.isRecording || !state.mediaRecorder) return;
+            
+            state.mediaRecorder.stop();
+            state.isRecording = false;
+            
+            clearInterval(state.recIntervalId);
+            
+            // UI Updates
+            const btn = document.getElementById('btn-record');
+            btn.classList.remove('bg-red-900/30', 'text-red-500', 'border-red-500/50');
+            btn.classList.add('bg-gray-800', 'text-gray-300', 'border-gray-700');
+            document.getElementById('text-record').innerText = 'Record';
+            document.getElementById('icon-record').classList.remove('animate-pulse');
+            
+            const indicator = document.getElementById('recording-indicator');
+            indicator.classList.add('opacity-0');
+            document.getElementById('rec-time').innerText = '00:00';
+        }
+
+        // --- UTILS & UI FEEDBACK ---
+
+        function showToast(message, type = 'info') {
+            const container = document.getElementById('toast-container');
+            const toast = document.createElement('div');
+            
+            const colors = {
+                success: 'bg-green-600',
+                error: 'bg-red-600',
+                info: 'bg-blue-600'
+            };
+
+            toast.className = `${colors[type]} text-white px-4 py-2 rounded-lg shadow-lg flex items-center gap-2 transform transition-all translate-y-4 opacity-0`;
+            
+            let icon = 'info';
+            if(type === 'success') icon = 'check-circle';
+            if(type === 'error') icon = 'alert-triangle';
+
+            toast.innerHTML = `<i data-lucide="${icon}" class="w-4 h-4"></i> <span class="text-sm font-medium">${message}</span>`;
+            
+            container.appendChild(toast);
+            lucide.createIcons();
+
+            // Animate in
+            setTimeout(() => {
+                toast.classList.remove('translate-y-4', 'opacity-0');
+            }, 10);
+
+            // Animate out
+            setTimeout(() => {
+                toast.classList.add('translate-y-4', 'opacity-0');
+                setTimeout(() => toast.remove(), 300);
+            }, 3000);
+        }
+
+        function showModal(title, text, onConfirm) {
+            const overlay = document.createElement('div');
+            overlay.className = 'fixed inset-0 bg-black/80 backdrop-blur-sm z-50 flex items-center justify-center p-4 transition-opacity';
+            
+            const modal = document.createElement('div');
+            modal.className = 'bg-gray-900 border border-gray-800 rounded-xl max-w-md w-full p-6 shadow-2xl transform transition-transform scale-95';
+            
+            modal.innerHTML = `
+                <div class="flex items-center gap-3 mb-4 text-blue-400">
+                    <i data-lucide="info" class="w-6 h-6"></i>
+                    <h2 class="text-lg font-bold text-white">${title}</h2>
+                </div>
+                <p class="text-sm text-gray-400 leading-relaxed mb-6">${text}</p>
+                <div class="flex justify-end gap-3">
+                    <button class="px-4 py-2 rounded bg-gray-800 hover:bg-gray-700 text-sm font-medium transition-colors" id="modal-cancel">Cancel</button>
+                    <button class="px-4 py-2 rounded bg-blue-600 hover:bg-blue-500 text-white text-sm font-medium transition-colors" id="modal-confirm">Continue</button>
+                </div>
+            `;
+            
+            overlay.appendChild(modal);
+            document.body.appendChild(overlay);
+            lucide.createIcons();
+
+            // Animate in
+            requestAnimationFrame(() => {
+                modal.classList.remove('scale-95');
+                modal.classList.add('scale-100');
+            });
+
+            const close = () => {
+                overlay.style.opacity = '0';
+                setTimeout(() => overlay.remove(), 200);
+            };
+
+            document.getElementById('modal-cancel').onclick = close;
+            document.getElementById('modal-confirm').onclick = () => {
+                close();
+                if(onConfirm) onConfirm();
+            };
+        }
+
+        // Initialize empty state
+        renderShapes();
+
+    </script>
+</body>
+</html>
