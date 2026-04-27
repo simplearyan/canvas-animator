@@ -1,0 +1,1026 @@
+<!DOCTYPE html>
+<html lang="en" class="dark">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+    <title>Social Animator Pro 2.0</title>
+    
+    <!-- Tailwind CSS -->
+    <script src="https://cdn.tailwindcss.com"></script>
+    <script>
+        tailwind.config = {
+            darkMode: 'class',
+            theme: { extend: { fontFamily: { sans: ['Inter', 'sans-serif'] } } }
+        }
+    </script>
+    
+    <!-- Google Fonts -->
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
+    
+    <!-- Lucide Icons -->
+    <script src="https://unpkg.com/lucide@latest"></script>
+    
+    <!-- html2canvas for DOM to Canvas rendering -->
+    <script src="https://html2canvas.hertzen.com/dist/html2canvas.min.js"></script>
+
+    <style>
+        :root { color-scheme: dark; }
+        
+        body {
+            font-family: 'Inter', sans-serif;
+            background-color: #09090b; 
+            color: #ececf1;
+            overflow: hidden;
+            touch-action: none;
+            -webkit-font-smoothing: antialiased;
+        }
+
+        ::-webkit-scrollbar { width: 6px; height: 6px; }
+        ::-webkit-scrollbar-track { background: transparent; }
+        ::-webkit-scrollbar-thumb { background: rgba(255, 255, 255, 0.1); border-radius: 10px; }
+        ::-webkit-scrollbar-thumb:hover { background: rgba(255, 255, 255, 0.2); }
+
+        .pattern-grid {
+            background-size: 24px 24px;
+            background-image: radial-gradient(circle, rgba(255,255,255,0.05) 1px, transparent 1px);
+        }
+
+        .segmented-btn { transition: all 0.2s cubic-bezier(0.4, 0, 0.2, 1); }
+        .segmented-btn.active {
+            background: rgba(255, 255, 255, 0.1);
+            color: white;
+            box-shadow: 0 1px 3px rgba(0,0,0,0.2), inset 0 1px 0 rgba(255,255,255,0.1);
+        }
+        
+        .segmented-btn-card { transition: all 0.2s cubic-bezier(0.4, 0, 0.2, 1); }
+        .segmented-btn-card.active {
+            background: rgba(255, 255, 255, 0.1);
+            color: white;
+            border-color: rgba(255, 255, 255, 0.2);
+        }
+
+        input[type="range"] {
+            -webkit-appearance: none;
+            height: 4px;
+            background: rgba(255, 255, 255, 0.1);
+            border-radius: 2px;
+            outline: none;
+        }
+        input[type="range"]::-webkit-slider-thumb {
+            -webkit-appearance: none;
+            width: 16px;
+            height: 16px;
+            border-radius: 50%;
+            background: #fff;
+            box-shadow: 0 2px 6px rgba(0,0,0,0.4);
+            cursor: pointer;
+            transition: transform 0.1s;
+        }
+
+        input[type="color"] {
+            -webkit-appearance: none;
+            border: none;
+            width: 28px;
+            height: 28px;
+            border-radius: 50%;
+            padding: 0;
+            cursor: pointer;
+            background: transparent;
+        }
+        input[type="color"]::-webkit-color-swatch-wrapper { padding: 0; }
+        input[type="color"]::-webkit-color-swatch { border: none; border-radius: 50%; box-shadow: inset 0 0 0 1px rgba(255,255,255,0.1); }
+
+        #scale-wrapper {
+            position: absolute;
+            inset: 0;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            overflow: hidden;
+            padding: 16px; /* Reduced padding to make preview larger */
+        }
+
+        #preview-canvas, #main-canvas {
+            border-radius: 0;
+            box-shadow: 0 25px 50px -12px rgba(0,0,0,0.5);
+            transform-origin: center center;
+            will-change: transform;
+            transition: width 0.3s ease, height 0.3s ease;
+            max-width: 100%;
+            max-height: 100%;
+            object-fit: contain;
+        }
+
+        .gradient-btn { transition: transform 0.1s; }
+        .gradient-btn:hover { transform: scale(1.05); }
+
+        /* Social Card Render Zone (Hidden from View) */
+        #render-zone {
+            position: absolute;
+            top: -9999px;
+            left: -9999px;
+            pointer-events: none;
+        }
+        
+        .social-card {
+            box-sizing: border-box;
+            box-shadow: 0 20px 40px rgba(0,0,0,0.4);
+            /* Standard authentic system font stack for social networks */
+            font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif; 
+        }
+    </style>
+</head>
+<body class="flex flex-col h-screen text-sm bg-zinc-950 text-zinc-100">
+
+    <!-- Header -->
+    <header class="w-full h-16 bg-zinc-900/90 backdrop-blur-2xl border-b border-white/5 flex items-center justify-between px-4 sm:px-6 z-40 flex-shrink-0">
+        
+        <!-- Logo -->
+        <div class="flex items-center gap-3">
+            <div class="w-8 h-8 rounded-lg bg-gradient-to-br from-indigo-500 to-purple-600 flex items-center justify-center shadow-inner shadow-white/20">
+                <i data-lucide="share-2" class="w-4 h-4 text-white"></i>
+            </div>
+            <h1 class="font-semibold tracking-tight whitespace-nowrap hidden sm:block">Social <span class="text-zinc-500 font-normal">Animator Pro 2.0</span></h1>
+        </div>
+
+        <!-- Controls -->
+        <div class="flex items-center justify-end gap-3">
+            <div class="hidden md:flex p-1 bg-black/40 rounded-xl ring-1 ring-white/5 shrink-0">
+                <button class="segmented-btn active px-3 py-1.5 rounded-lg text-zinc-400 flex items-center gap-2" data-vp="square" onclick="setViewport('square')" title="Instagram/Square">
+                    <i data-lucide="square" class="w-3.5 h-3.5"></i> <span class="hidden lg:inline text-xs font-medium">1:1</span>
+                </button>
+                <button class="segmented-btn px-3 py-1.5 rounded-lg text-zinc-400 flex items-center gap-2" data-vp="vertical" onclick="setViewport('vertical')" title="Reels/TikTok">
+                    <i data-lucide="smartphone" class="w-3.5 h-3.5"></i> <span class="hidden lg:inline text-xs font-medium">9:16</span>
+                </button>
+                <button class="segmented-btn px-3 py-1.5 rounded-lg text-zinc-400 flex items-center gap-2" data-vp="landscape" onclick="setViewport('landscape')" title="YouTube/Desktop">
+                    <i data-lucide="monitor" class="w-3.5 h-3.5"></i> <span class="hidden lg:inline text-xs font-medium">16:9</span>
+                </button>
+            </div>
+
+            <div class="w-px h-5 bg-white/10 mx-1 hidden sm:block"></div>
+
+            <button onclick="togglePlayback()" id="btn-play" class="flex items-center gap-2 px-4 py-2 bg-zinc-800 hover:bg-zinc-700 text-white rounded-xl font-medium transition-colors border border-zinc-700 text-xs sm:text-sm">
+                <i data-lucide="play" class="w-4 h-4" id="icon-play"></i>
+                <span id="text-play">Preview</span>
+            </button>
+            
+            <button onclick="exportVideo()" id="btn-export" class="flex items-center gap-2 px-4 py-2 bg-indigo-600 hover:bg-indigo-500 text-white font-medium transition-all shadow-lg shadow-indigo-500/20 rounded-xl text-xs sm:text-sm ring-1 ring-inset ring-white/20">
+                <i data-lucide="video" class="w-4 h-4" id="icon-export"></i>
+                <span class="hidden sm:inline" id="text-export">Export WebM</span>
+            </button>
+        </div>
+    </header>
+
+    <!-- Main Layout -->
+    <div class="flex flex-1 relative overflow-hidden flex-col md:flex-row">
+        
+        <!-- Left Sidebar: Content -->
+        <aside class="w-full md:w-80 flex-shrink-0 bg-zinc-900/50 backdrop-blur-3xl border-r border-white/5 z-30 h-[40vh] md:h-full flex flex-col shadow-2xl md:shadow-none order-2 md:order-1">
+            
+            <div class="flex p-2 border-b border-white/5 bg-zinc-950/50 gap-1">
+                <button class="segmented-btn active flex-1 py-2 rounded-lg text-xs font-medium text-zinc-400 flex justify-center items-center gap-1.5 bg-black/20 ring-1 ring-white/5" data-plat="twitter" onclick="setPlatform('twitter')">
+                    <i data-lucide="twitter" class="w-3.5 h-3.5"></i> Twitter
+                </button>
+                <button class="segmented-btn flex-1 py-2 rounded-lg text-xs font-medium text-zinc-400 flex justify-center items-center gap-1.5 bg-black/20 ring-1 ring-white/5" data-plat="instagram" onclick="setPlatform('instagram')">
+                    <i data-lucide="instagram" class="w-3.5 h-3.5"></i> Insta
+                </button>
+                <button class="segmented-btn flex-1 py-2 rounded-lg text-xs font-medium text-zinc-400 flex justify-center items-center gap-1.5 bg-black/20 ring-1 ring-white/5" data-plat="youtube" onclick="setPlatform('youtube')">
+                    <i data-lucide="youtube" class="w-3.5 h-3.5"></i> YouTube
+                </button>
+            </div>
+
+            <!-- Card Theme Toggle -->
+            <div class="flex p-2 border-b border-white/5 bg-zinc-900/50 gap-2">
+                <button class="segmented-btn-card active flex-1 py-1.5 rounded-lg text-xs font-medium text-zinc-400 flex justify-center items-center gap-1.5 border border-white/20" data-card-theme="dark" onclick="setCardTheme('dark')">
+                    <i data-lucide="moon" class="w-3 h-3"></i> Dark Card
+                </button>
+                <button class="segmented-btn-card flex-1 py-1.5 rounded-lg text-xs font-medium text-zinc-400 flex justify-center items-center gap-1.5 border border-transparent" data-card-theme="light" onclick="setCardTheme('light')">
+                    <i data-lucide="sun" class="w-3 h-3"></i> Light Card
+                </button>
+            </div>
+
+            <div class="flex-1 overflow-y-auto p-5 space-y-5">
+                
+                <!-- Content Editor -->
+                <div class="space-y-4">
+                    <div class="flex gap-4">
+                        <div class="w-12 h-12 rounded-full bg-zinc-800 border border-white/10 overflow-hidden shrink-0 relative group cursor-pointer" onclick="document.getElementById('avatar-upload').click()">
+                            <img id="ui-avatar" src="" class="w-full h-full object-cover">
+                            <div class="absolute inset-0 bg-black/50 flex items-center justify-center opacity-0 group-hover:opacity-100 transition-opacity">
+                                <i data-lucide="upload" class="w-4 h-4 text-white"></i>
+                            </div>
+                            <input type="file" id="avatar-upload" accept="image/*" class="hidden" onchange="handleAvatarUpload(event)">
+                        </div>
+                        <div class="flex-1 space-y-2">
+                            <input type="text" id="inp-name" class="w-full bg-black/40 border border-white/10 rounded-lg px-3 py-1.5 text-sm text-white focus:ring-1 focus:ring-indigo-500 outline-none" oninput="updateState('name', this.value)">
+                            <input type="text" id="inp-handle" class="w-full bg-black/40 border border-white/10 rounded-lg px-3 py-1.5 text-xs text-zinc-400 focus:ring-1 focus:ring-indigo-500 outline-none" oninput="updateState('handle', this.value)">
+                        </div>
+                    </div>
+
+                    <div>
+                        <label class="text-[10px] font-bold text-zinc-500 uppercase tracking-widest block mb-1.5">Post Content</label>
+                        <textarea id="inp-text" rows="4" class="w-full bg-black/40 border border-white/10 rounded-xl px-3 py-2 text-sm text-white focus:ring-1 focus:ring-indigo-500 outline-none resize-none leading-relaxed" oninput="updateState('text', this.value)"></textarea>
+                    </div>
+
+                    <div class="grid grid-cols-3 gap-2">
+                        <div>
+                            <label class="text-[10px] font-bold text-zinc-500 uppercase tracking-widest block mb-1">Stats 1</label>
+                            <input type="text" id="inp-stat1" class="w-full bg-black/40 border border-white/10 rounded-lg px-2 py-1.5 text-xs text-center text-zinc-300 outline-none" oninput="updateState('stat1', this.value)">
+                        </div>
+                        <div>
+                            <label class="text-[10px] font-bold text-zinc-500 uppercase tracking-widest block mb-1">Stats 2</label>
+                            <input type="text" id="inp-stat2" class="w-full bg-black/40 border border-white/10 rounded-lg px-2 py-1.5 text-xs text-center text-zinc-300 outline-none" oninput="updateState('stat2', this.value)">
+                        </div>
+                        <div id="stat3-container">
+                            <label class="text-[10px] font-bold text-zinc-500 uppercase tracking-widest block mb-1">Stats 3</label>
+                            <input type="text" id="inp-stat3" class="w-full bg-black/40 border border-white/10 rounded-lg px-2 py-1.5 text-xs text-center text-zinc-300 outline-none" oninput="updateState('stat3', this.value)">
+                        </div>
+                    </div>
+                </div>
+
+            </div>
+        </aside>
+
+        <!-- Right Sidebar: Animation & Appearance -->
+        <aside class="w-full md:w-80 flex-shrink-0 bg-zinc-900/50 backdrop-blur-3xl border-l border-white/5 z-30 h-[40vh] md:h-full flex flex-col shadow-2xl md:shadow-none order-3 md:order-3">
+            <div class="p-4 border-b border-white/5 flex items-center gap-2">
+                <i data-lucide="sparkles" class="w-4 h-4 text-zinc-400"></i>
+                <h2 class="text-xs font-bold text-zinc-300 uppercase tracking-wider">Animation & Style</h2>
+            </div>
+            
+            <div class="flex-1 overflow-y-auto p-5 space-y-6">
+                
+                <!-- Text Animation Engine -->
+                <div class="bg-indigo-500/10 rounded-2xl p-4 ring-1 ring-indigo-500/20">
+                    <label class="text-[11px] font-bold text-indigo-400 uppercase tracking-widest block mb-3 flex items-center gap-1.5">
+                        <i data-lucide="type" class="w-3 h-3"></i> Text Reveal Animation
+                    </label>
+                    <select id="text-anim-select" class="w-full bg-black/40 border border-indigo-500/30 rounded-lg px-3 py-2 text-xs text-white outline-none focus:ring-1 focus:ring-indigo-500 appearance-none" onchange="state.textAnim = this.value; if(!state.isPlaying) triggerPreview();">
+                        <option value="typewriter">Typewriter Effect</option>
+                        <option value="line">Line-by-Line Pop</option>
+                        <option value="none">No Text Animation</option>
+                    </select>
+                </div>
+
+                <!-- Entrance Animation Engine -->
+                <div>
+                    <label class="text-[11px] font-bold text-zinc-500 uppercase tracking-widest block mb-3">Entrance Animation</label>
+                    <div class="grid grid-cols-2 gap-2">
+                        <button class="segmented-btn active py-2 rounded-lg text-xs font-medium text-zinc-400 bg-black/20 ring-1 ring-white/5 flex justify-center items-center gap-2" data-anim="pop" onclick="setAnimation('pop')">
+                            <i data-lucide="zoom-in" class="w-3.5 h-3.5"></i> Spring Pop
+                        </button>
+                        <button class="segmented-btn py-2 rounded-lg text-xs font-medium text-zinc-400 bg-black/20 ring-1 ring-white/5 flex justify-center items-center gap-2" data-anim="flip" onclick="setAnimation('flip')">
+                            <i data-lucide="rotate-3d" class="w-3.5 h-3.5"></i> 3D Flip
+                        </button>
+                        <button class="segmented-btn py-2 rounded-lg text-xs font-medium text-zinc-400 bg-black/20 ring-1 ring-white/5 flex justify-center items-center gap-2" data-anim="slide" onclick="setAnimation('slide')">
+                            <i data-lucide="arrow-up" class="w-3.5 h-3.5"></i> Slide Up
+                        </button>
+                        <button class="segmented-btn py-2 rounded-lg text-xs font-medium text-zinc-400 bg-black/20 ring-1 ring-white/5 flex justify-center items-center gap-2" data-anim="static" onclick="setAnimation('static')">
+                            <i data-lucide="square" class="w-3.5 h-3.5"></i> Static
+                        </button>
+                    </div>
+                </div>
+
+                <div class="flex items-center justify-between pt-2 border-t border-white/5">
+                    <span class="text-xs font-medium text-zinc-300">Continuous Float Effect</span>
+                    <label class="relative inline-flex items-center cursor-pointer">
+                        <input type="checkbox" class="sr-only peer" checked onchange="state.enableFloat = this.checked">
+                        <div class="w-9 h-5 bg-zinc-700 peer-focus:outline-none rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border-zinc-300 after:border after:rounded-full after:h-4 after:w-4 after:transition-all peer-checked:bg-indigo-500"></div>
+                    </label>
+                </div>
+
+                <!-- Background -->
+                <div class="bg-white/5 rounded-2xl p-4 ring-1 ring-white/5 space-y-3">
+                    <div class="flex items-center justify-between">
+                        <label class="text-[11px] font-bold text-zinc-500 uppercase tracking-widest block">Video Background</label>
+                        <label class="flex items-center gap-1.5 cursor-pointer text-[10px] text-zinc-400 hover:text-white transition-colors" title="Export transparent">
+                            <input type="checkbox" id="bg-transparent-toggle" class="accent-indigo-500 w-3 h-3" onchange="state.bgTransparent = this.checked;"> Transparent
+                        </label>
+                    </div>
+                    <div class="grid grid-cols-5 gap-2">
+                        <button class="gradient-btn w-full aspect-square rounded-lg shadow-sm border border-white/10" style="background: linear-gradient(135deg, #a855f7, #ec4899);" onclick="setBgGradient('#a855f7', '#ec4899')"></button>
+                        <button class="gradient-btn w-full aspect-square rounded-lg shadow-sm border border-white/10" style="background: linear-gradient(135deg, #3b82f6, #2dd4bf);" onclick="setBgGradient('#3b82f6', '#2dd4bf')"></button>
+                        <button class="gradient-btn w-full aspect-square rounded-lg shadow-sm border border-white/10" style="background: linear-gradient(135deg, #f59e0b, #ef4444);" onclick="setBgGradient('#f59e0b', '#ef4444')"></button>
+                        
+                        <button class="gradient-btn w-full aspect-square rounded-lg shadow-sm border border-white/10" style="background: #18181b;" onclick="setBgSolid('#18181b')"></button>
+                        <div class="relative w-full aspect-square rounded-lg shadow-sm border border-white/10 bg-[url('data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAAAoAAAAKCAYAAACNMs+9AAAAAXNSR0IArs4c6QAAACVJREFUKFNjZCASMDKgAnv37v3/n0QciwZkR+BThM8wUshwQxgAYeAU/6+E4wYAAAAASUVORK5CYII=')] overflow-hidden cursor-pointer">
+                            <input type="color" class="absolute -top-2 -left-2 w-20 h-20 opacity-0 cursor-pointer" onchange="setBgSolid(this.value)" oninput="setBgSolid(this.value)">
+                            <div class="absolute inset-0 flex items-center justify-center pointer-events-none text-[10px] font-bold text-white drop-shadow-md">
+                                <i data-lucide="palette" class="w-4 h-4"></i>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+
+                <div>
+                    <label class="text-[11px] font-bold text-zinc-500 uppercase tracking-widest block mb-2">Card Scale</label>
+                    <input type="range" min="0.5" max="2" step="0.1" value="1" class="w-full accent-indigo-500" oninput="state.cardScale = parseFloat(this.value); if(!state.isPlaying) drawFrame(1);">
+                </div>
+
+            </div>
+        </aside>
+
+        <!-- Canvas Area -->
+        <main class="flex-1 relative bg-zinc-950 pattern-grid overflow-hidden order-1 md:order-2 flex items-center justify-center">
+            <div id="scale-wrapper">
+                <canvas id="main-canvas" width="1080" height="1080"></canvas>
+            </div>
+            
+            <div id="status-indicator" class="absolute top-6 left-6 flex items-center gap-2 bg-indigo-500/10 border border-indigo-500/50 text-indigo-400 px-4 py-2 rounded-full shadow-lg opacity-0 transition-opacity duration-300 pointer-events-none backdrop-blur-sm z-50">
+                <div class="w-2 h-2 rounded-full bg-indigo-400 animate-pulse" id="status-dot"></div>
+                <span class="text-xs font-bold tracking-wide uppercase" id="status-text">Playing</span>
+            </div>
+        </main>
+    </div>
+
+    <!-- Hidden Render Zone for HTML2Canvas -->
+    <div id="render-zone"></div>
+
+    <!-- Export Loading Overlay -->
+    <div id="export-loader" class="fixed inset-0 z-50 bg-black/80 hidden flex flex-col items-center justify-center transition-opacity opacity-0 backdrop-blur-sm">
+        <div class="w-12 h-12 border-4 border-white/10 border-t-indigo-500 rounded-full animate-spin mb-4"></div>
+        <h2 class="text-xl font-bold text-white mb-2">Rendering WebM Video</h2>
+        <p class="text-sm text-zinc-400 font-mono font-medium" id="rec-time">Processing 0%</p>
+    </div>
+
+    <!-- Toasts -->
+    <div id="toast-container" class="fixed top-20 right-6 z-[60] flex flex-col gap-2 pointer-events-none"></div>
+
+    <script>
+        lucide.createIcons();
+
+        // --- Application State ---
+        const state = {
+            platform: 'twitter', 
+            cardTheme: 'dark', 
+            
+            name: 'Elon Musk 🚀',
+            handle: '@elonmusk',
+            text: 'Just bought another social media platform. What should I name it? 🤔',
+            stat1: '12K',
+            stat2: '45K',
+            stat3: '1.2M',
+            avatarData: '', 
+            
+            animType: 'pop', 
+            textAnim: 'typewriter', 
+            enableFloat: true,
+            cardScale: 1.0,
+            
+            viewport: 'square', 
+            
+            bgTransparent: false,
+            bgType: 'gradient',
+            bgColor: '#18181b',
+            gradStart: '#a855f7',
+            gradEnd: '#ec4899',
+            
+            // Engine Data
+            cardImage: null, 
+            textMetrics: null, // Bounds of the text element for animation mask
+            isPlaying: false,
+            isExporting: false,
+            animProgress: 0, 
+            renderReqId: null,
+            
+            mediaRecorder: null,
+            recordedChunks: []
+        };
+
+        const canvas = document.getElementById('main-canvas');
+        const ctx = canvas.getContext('2d', { alpha: true });
+
+        // --- Exact SVG Recreations ---
+        const icons = {
+            twVerified: `<svg viewBox="0 0 24 24" style="width: 100%; height: 100%;"><g><path d="M22.5 12.5c0-1.58-.875-2.95-2.148-3.6.154-.435.238-.905.238-1.4 0-2.21-1.71-3.998-3.918-3.998-.47 0-.92.084-1.336.25C14.818 2.415 13.51 1.5 12 1.5s-2.816.917-3.337 2.25c-.416-.165-.866-.25-1.336-.25-2.21 0-3.918 1.79-3.918 4 0 .495.084.965.238 1.4-1.273.65-2.148 2.02-2.148 3.6 0 1.46.74 2.746 1.835 3.45-.046.223-.073.455-.073.69 0 2.21 1.71 4 3.918 4 .47 0 .92-.086 1.336-.25C9.184 21.585 10.49 22.5 12 22.5s2.816-.915 3.336-2.25c.416.164.866.25 1.336.25 2.21 0 3.918-1.79 3.918-4 0-.235-.027-.467-.073-.69 1.095-.705 1.835-1.99 1.835-3.45z" fill="#1d9bf0"></path><path d="M15.34 9.17l-4.594 4.88-2.086-2.23-1.414 1.32 3.5 3.74 6.006-6.39z" fill="#fff"></path></g></svg>`,
+            twReply: `<svg viewBox="0 0 24 24" style="width: 18.75px; height: 18.75px; fill: currentColor;"><g><path d="M1.751 10c0-4.42 3.584-8 8.005-8h4.366c4.49 0 8.129 3.64 8.129 8.13 0 2.96-1.607 5.68-4.196 7.11l-8.054 4.46v-3.69h-.067c-4.49.1-8.183-3.51-8.183-8.01zm8.005-6c-3.317 0-6.005 2.69-6.005 6 0 3.37 2.77 6.08 6.138 6.01l.351-.01h1.761v2.3l5.087-2.81c1.951-1.08 3.163-3.13 3.163-5.36 0-3.39-2.744-6.13-6.129-6.13H9.756z"></path></g></svg>`,
+            twRepost: `<svg viewBox="0 0 24 24" style="width: 18.75px; height: 18.75px; fill: currentColor;"><g><path d="M4.5 3.88l4.432 4.14-1.364 1.46L5.5 7.55V16c0 1.1.896 2 2 2H13v2H7.5c-2.209 0-4-1.79-4-4V7.55L1.432 9.48.068 8.02 4.5 3.88zM16.5 6H11V4h5.5c2.209 0 4 1.79 4 4v8.45l2.068-1.93 1.364 1.46-4.432 4.14-4.432-4.14 1.364-1.46 2.068 1.93V8c0-1.1-.896-2-2-2z"></path></g></svg>`,
+            twLike: `<svg viewBox="0 0 24 24" style="width: 18.75px; height: 18.75px; fill: currentColor;"><g><path d="M16.697 5.5c-1.222-.06-2.679.51-3.89 2.16l-.805 1.09-.806-1.09C9.984 6.01 8.526 5.44 7.304 5.5c-1.243.07-2.349.78-2.91 1.91-.552 1.12-.633 2.78.479 4.82 1.074 1.97 3.257 4.27 7.129 6.61 3.87-2.34 6.052-4.64 7.126-6.61 1.111-2.04 1.03-3.7.477-4.82-.561-1.13-1.666-1.84-2.908-1.91zm4.187 7.69c-1.351 2.48-4.001 5.12-8.379 7.67l-.503.3-.504-.3c-4.379-2.55-7.029-5.19-8.382-7.67-1.36-2.5-1.41-4.86-.514-6.67.887-1.79 2.647-2.91 4.601-3.01 1.651-.09 3.368.56 4.798 2.01 1.429-1.45 3.146-2.1 4.796-2.01 1.954.1 3.714 1.22 4.601 3.01.896 1.81.846 4.17-.514 6.67z"></path></g></svg>`,
+            twView: `<svg viewBox="0 0 24 24" style="width: 18.75px; height: 18.75px; fill: currentColor;"><g><path d="M8.75 21V3h2v18h-2zM18 21V8.5h2V21h-2zM4 21l.004-10h2L6 21H4zm9.248 0v-7h2v7h-2z"></path></g></svg>`,
+            twShare: `<svg viewBox="0 0 24 24" style="width: 18.75px; height: 18.75px; fill: currentColor;"><g><path d="M12 2.59l5.7 5.7-1.41 1.42L13 6.41V16h-2V6.41l-3.3 3.3-1.41-1.42L12 2.59zM21 15l-.02 3.51c0 1.38-1.12 2.49-2.5 2.49H5.5C4.11 21 3 19.88 3 18.5V15h2v3.5c0 .28.22.5.5.5h12.98c.28 0 .5-.22.5-.5L19 15h2z"></path></g></svg>`,
+            twBookmark: `<svg viewBox="0 0 24 24" style="width: 18.75px; height: 18.75px; fill: currentColor;"><g><path d="M4 4.5C4 3.12 5.119 2 6.5 2h11C18.881 2 20 3.12 20 4.5v18.44l-8-5.71-8 5.71V4.5zM6.5 4c-.276 0-.5.22-.5.5v14.56l6-4.29 6 4.29V4.5c0-.28-.224-.5-.5-.5h-11z"></path></g></svg>`,
+            twDots: `<svg viewBox="0 0 24 24" style="width: 18.75px; height: 18.75px; fill: currentColor;"><g><path d="M3 12c0-1.1.9-2 2-2s2 .9 2 2-.9 2-2 2-2-.9-2-2zm9 2c1.1 0 2-.9 2-2s-.9-2-2-2-2 .9-2 2 .9 2 2 2zm7 0c1.1 0 2-.9 2-2s-.9-2-2-2-2 .9-2 2 .9 2 2 2z"></path></g></svg>`,
+            
+            inHeart: `<svg viewBox="0 0 24 24" style="width: 24px; height: 24px; fill: transparent; stroke: currentColor; stroke-width: 2; stroke-linejoin: round;"><path d="M16.792 3.904A4.989 4.989 0 0 1 21.5 9.122c0 3.072-2.652 4.959-5.197 7.222-2.512 2.243-3.865 3.469-4.303 3.752-.477-.309-2.143-1.823-4.303-3.752C5.141 14.072 2.5 12.167 2.5 9.122a4.989 4.989 0 0 1 4.708-5.218 4.21 4.21 0 0 1 3.675 1.941c.84 1.175.98 1.763 1.12 1.763s.278-.588 1.11-1.766a4.17 4.17 0 0 1 3.679-1.938m0-2a6.04 6.04 0 0 0-4.797 2.127 6.052 6.052 0 0 0-4.787-2.127A6.985 6.985 0 0 0 .5 9.122c0 3.61 2.55 5.827 5.015 7.97.283.246.569.494.853.747l1.027.918a44.998 44.998 0 0 0 3.518 3.018 2 2 0 0 0 2.174 0 45.263 45.263 0 0 0 3.626-3.115l.922-.824c.293-.26.59-.519.885-.774 2.334-2.025 4.98-4.32 4.98-7.94a6.985 6.985 0 0 0-6.708-7.218Z"></path></svg>`,
+            inComment: `<svg viewBox="0 0 24 24" style="width: 24px; height: 24px; fill: transparent; stroke: currentColor; stroke-width: 2; stroke-linejoin: round;"><path d="M20.656 17.008a9.993 9.993 0 1 0-3.59 3.615L22 22Z"></path></svg>`,
+            inShare: `<svg viewBox="0 0 24 24" style="width: 24px; height: 24px; fill: transparent; stroke: currentColor; stroke-width: 2; stroke-linejoin: round;"><line x1="22" x2="9.218" y1="3" y2="10.083"></line><polygon points="11.698 20.334 22 3.001 2 3.001 9.218 10.084 11.698 20.334"></polygon></svg>`,
+            inSave: `<svg viewBox="0 0 24 24" style="width: 24px; height: 24px; fill: transparent; stroke: currentColor; stroke-width: 2; stroke-linecap: round; stroke-linejoin: round;"><polygon points="20 21 12 13.44 4 21 4 3 20 3 20 21"></polygon></svg>`,
+            inDots: `<svg viewBox="0 0 24 24" style="width: 24px; height: 24px; fill: currentColor;"><circle cx="12" cy="12" r="1.5"></circle><circle cx="6" cy="12" r="1.5"></circle><circle cx="18" cy="12" r="1.5"></circle></svg>`,
+
+            ytLike: `<svg viewBox="0 0 24 24" style="width: 16px; height: 16px; fill: currentColor;"><path d="M18.77,11h-4.23l1.52-4.94C16.38,5.03,15.54,4,14.38,4c-0.58,0-1.14,0.24-1.52,0.65L7,11H3v10h4h1h9.43 c1.06,0,1.98-0.67,2.19-1.61l1.34-6C21.23,12.15,20.18,11,18.77,11z M7,20H4v-8h3V20z M19.98,13.17l-1.34,6 C18.54,19.65,18.03,20,17.43,20H8v-8.61l5.6-6.06C13.84,5.09,14.11,5,14.38,5c0.26,0,0.5,0.11,0.63,0.3 c0.07,0.1,0.15,0.26,0.09,0.47l-1.52,4.94L13.18,12h1.35h4.23c0.41,0,0.8,0.17,1.03,0.46C19.92,12.61,20.05,12.86,19.98,13.17z"></path></svg>`,
+            ytDislike: `<svg viewBox="0 0 24 24" style="width: 16px; height: 16px; fill: currentColor;"><path d="M17,4h-1H6.57C5.5,4,4.59,4.67,4.38,5.61l-1.34,6C2.77,12.85,3.82,14,5.23,14h4.23l-1.52,4.94C7.62,19.97,8.46,21,9.62,21 c0.58,0,1.14-0.24,1.52-0.65L17,14h4V4H17z M10.4,19.67C10.21,19.88,9.92,20,9.62,20c-0.26,0-0.5-0.11-0.63-0.3 c-0.07-0.1-0.15-0.26-0.09-0.47l1.52-4.94l0.4-1.29H9.46H5.23c-0.41,0-0.8-0.17-1.03-0.46c-0.12-0.15-0.25-0.4-0.18-0.72l1.34-6 C5.46,5.35,5.97,5,6.57,5H16v8.61L10.4,19.67z M20,13h-3V5h3V13z"></path></svg>`
+        };
+
+        // --- Core UI & Logic ---
+        function updateLayoutScale() {
+            const wrapper = document.getElementById('scale-wrapper');
+            const padding = 16; // Reduced padding to make the preview much larger
+            const availW = wrapper.clientWidth - padding;
+            const availH = wrapper.clientHeight - padding;
+
+            let logicalW = 1080, logicalH = 1080;
+            if (state.viewport === 'vertical') { logicalW = 1080; logicalH = 1920; }
+            else if (state.viewport === 'landscape') { logicalW = 1920; logicalH = 1080; }
+
+            canvas.width = logicalW;
+            canvas.height = logicalH;
+
+            // Notice we do NOT cap the scale at 1.0 anymore, so the preview can expand nicely
+            const scale = Math.min(availW / logicalW, availH / logicalH);
+            canvas.style.transform = `scale(${scale})`;
+            
+            if (!state.isPlaying) drawFrame(1); 
+        }
+
+        window.addEventListener('resize', updateLayoutScale);
+
+        function setViewport(vp) {
+            state.viewport = vp;
+            document.querySelectorAll('[data-vp]').forEach(btn => {
+                btn.classList.remove('active', 'bg-white/10', 'text-white');
+                if(btn.dataset.vp === vp) btn.classList.add('active', 'bg-white/10', 'text-white');
+            });
+            updateLayoutScale();
+        }
+
+        function setPlatform(plat) {
+            state.platform = plat;
+            document.querySelectorAll('[data-plat]').forEach(btn => {
+                btn.classList.remove('active', 'bg-white/10', 'text-white');
+                if(btn.dataset.plat === plat) btn.classList.add('active', 'bg-white/10', 'text-white');
+            });
+
+            const s3Container = document.getElementById('stat3-container');
+            const hndl = document.getElementById('inp-handle');
+            if (plat === 'twitter') {
+                state.name = 'Elon Musk 🚀'; state.handle = '@elonmusk';
+                state.text = 'Just bought another social media platform. What should I name it? 🤔';
+                state.stat1 = '12K'; state.stat2 = '45K'; state.stat3 = '1.2M';
+                s3Container.style.display = 'block'; hndl.style.display = 'block';
+                hndl.placeholder = "@handle";
+            } else if (plat === 'instagram') {
+                state.name = 'nature.geography'; state.handle = 'Swiss Alps';
+                state.text = 'Breathtaking view from the top of the world! 🏔️✨ #nature #travel';
+                state.stat1 = '890K'; state.stat2 = '4.2K'; state.stat3 = '890K';
+                s3Container.style.display = 'none'; hndl.style.display = 'block';
+                hndl.placeholder = "Location (Optional)";
+            } else if (plat === 'youtube') {
+                state.name = 'MrBeast'; state.handle = '2 hours ago';
+                state.text = 'First 10,000 people to like this comment get a free car! 🚗💨';
+                state.stat1 = '3.4M'; state.stat2 = ''; state.stat3 = '';
+                s3Container.style.display = 'none'; hndl.style.display = 'block';
+                hndl.placeholder = "Time (e.g., 2 hours ago)";
+            }
+
+            document.getElementById('inp-name').value = state.name;
+            document.getElementById('inp-handle').value = state.handle;
+            document.getElementById('inp-text').value = state.text;
+            document.getElementById('inp-stat1').value = state.stat1;
+            document.getElementById('inp-stat2').value = state.stat2;
+            document.getElementById('inp-stat3').value = state.stat3;
+
+            generateAvatar(state.name);
+        }
+
+        function setCardTheme(theme) {
+            state.cardTheme = theme;
+            document.querySelectorAll('[data-card-theme]').forEach(btn => {
+                btn.classList.remove('active', 'border-white/20');
+                btn.classList.add('border-transparent');
+                if(btn.dataset.cardTheme === theme) {
+                    btn.classList.add('active', 'border-white/20');
+                    btn.classList.remove('border-transparent');
+                }
+            });
+            debouncedRenderCard();
+        }
+
+        function setAnimation(anim) {
+            state.animType = anim;
+            document.querySelectorAll('[data-anim]').forEach(btn => {
+                btn.classList.remove('active', 'bg-white/10', 'text-white');
+                if(btn.dataset.anim === anim) btn.classList.add('active', 'bg-white/10', 'text-white');
+            });
+            if (!state.isPlaying) triggerPreview();
+        }
+
+        function setBgGradient(s, e) {
+            state.bgType = 'gradient'; state.gradStart = s; state.gradEnd = e; state.bgTransparent = false;
+            document.getElementById('bg-transparent-toggle').checked = false;
+            if (!state.isPlaying) drawFrame(1);
+        }
+
+        function setBgSolid(c) {
+            state.bgType = 'solid'; state.bgColor = c; state.bgTransparent = false;
+            document.getElementById('bg-transparent-toggle').checked = false;
+            if (!state.isPlaying) drawFrame(1);
+        }
+
+        function updateState(key, val) {
+            state[key] = val;
+            debouncedRenderCard();
+        }
+
+        function showToast(message, type = 'info') {
+            const container = document.getElementById('toast-container');
+            const toast = document.createElement('div');
+            toast.className = `bg-zinc-800/95 backdrop-blur-md text-white px-4 py-3 rounded-xl shadow-2xl ring-1 ring-white/10 flex items-center gap-3 transform transition-all -translate-y-4 opacity-0 z-50`;
+            let icon = type === 'success' ? 'check-circle' : (type === 'error' ? 'alert-triangle' : 'info');
+            let color = type === 'success' ? 'text-green-400' : (type === 'error' ? 'text-rose-400' : 'text-indigo-400');
+            toast.innerHTML = `<i data-lucide="${icon}" class="w-4 h-4 ${color}"></i> <span class="text-sm font-medium">${message}</span>`;
+            container.appendChild(toast); lucide.createIcons();
+            requestAnimationFrame(() => toast.classList.remove('-translate-y-4', 'opacity-0'));
+            setTimeout(() => { toast.classList.add('-translate-y-4', 'opacity-0'); setTimeout(() => toast.remove(), 300); }, 3000);
+        }
+
+        // --- Avatar Handling (CORS Safe) ---
+        function generateAvatar(nameStr) {
+            const char = nameStr.trim() ? nameStr.trim().charAt(0).toUpperCase() : 'U';
+            const c = document.createElement('canvas');
+            c.width = 128; c.height = 128;
+            const cx = c.getContext('2d');
+            
+            const hue = (char.charCodeAt(0) * 17) % 360;
+            const grad = cx.createLinearGradient(0,0,128,128);
+            grad.addColorStop(0, `hsl(${hue}, 80%, 60%)`);
+            grad.addColorStop(1, `hsl(${(hue + 40)%360}, 80%, 40%)`);
+            
+            cx.fillStyle = grad;
+            cx.fillRect(0,0,128,128);
+            
+            cx.fillStyle = 'white';
+            cx.font = 'bold 64px Inter, sans-serif';
+            cx.textAlign = 'center';
+            cx.textBaseline = 'middle';
+            cx.fillText(char, 64, 64 + 4);
+            
+            state.avatarData = c.toDataURL();
+            document.getElementById('ui-avatar').src = state.avatarData;
+            debouncedRenderCard();
+        }
+
+        function handleAvatarUpload(e) {
+            const file = e.target.files[0];
+            if (!file) return;
+            const reader = new FileReader();
+            reader.onload = (event) => {
+                state.avatarData = event.target.result;
+                document.getElementById('ui-avatar').src = state.avatarData;
+                debouncedRenderCard();
+            };
+            reader.readAsDataURL(file);
+        }
+
+        // --- HTML to Canvas Engine ---
+        function buildTweetHTML() {
+            const isDark = state.cardTheme === 'dark';
+            const bg = isDark ? '#000000' : '#ffffff';
+            const text = isDark ? '#e7e9ea' : '#0f1419';
+            const textSec = isDark ? '#71767b' : '#536471';
+            const border = isDark ? '#2f3336' : '#eff3f4';
+
+            return `
+            <div class="social-card" style="background: ${bg}; color: ${text}; width: 600px; padding: 16px; border: 1px solid ${border}; border-radius: 16px; font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Helvetica, Arial, sans-serif;">
+                <div style="display: flex; align-items: center; justify-content: space-between; margin-bottom: 12px;">
+                    <div style="display: flex; align-items: center;">
+                        <img src="${state.avatarData}" style="width: 40px; height: 40px; border-radius: 50%; margin-right: 12px; object-fit: cover;" />
+                        <div>
+                            <div style="display: flex; align-items: center; gap: 4px;">
+                                <span style="font-weight: 700; font-size: 15px;">${state.name}</span>
+                                <div style="width: 18.75px; height: 18.75px; color:#1d9bf0;">${icons.twVerified}</div>
+                            </div>
+                            <div style="color: ${textSec}; font-size: 15px; margin-top: -2px;">${state.handle}</div>
+                        </div>
+                    </div>
+                    <div style="color: ${textSec};">${icons.twDots}</div>
+                </div>
+                
+                <div class="post-text-content" style="font-size: 15px; line-height: 20px; white-space: pre-wrap; margin-bottom: 12px; word-wrap: break-word;">${state.text}</div>
+                
+                <div style="color: ${textSec}; font-size: 15px; margin-bottom: 16px;">10:42 AM · Apr 26, 2026</div>
+                
+                <div style="border-top: 1px solid ${border}; padding-top: 12px; display: flex; justify-content: space-between; color: ${textSec}; font-size: 13px;">
+                    <div style="display: flex; gap: 8px; align-items: center;">${icons.twReply} <span>${state.stat1}</span></div>
+                    <div style="display: flex; gap: 8px; align-items: center;">${icons.twRepost} <span>${state.stat2}</span></div>
+                    <div style="display: flex; gap: 8px; align-items: center;">${icons.twLike} <span>${state.stat3}</span></div>
+                    <div style="display: flex; gap: 8px; align-items: center;">${icons.twView} <span>2.5M</span></div>
+                    <div style="display: flex; gap: 16px;">${icons.twBookmark}${icons.twShare}</div>
+                </div>
+            </div>`;
+        }
+
+        function buildInstaHTML() {
+            const isDark = state.cardTheme === 'dark';
+            const bg = isDark ? '#000000' : '#ffffff';
+            const text = isDark ? '#f5f5f5' : '#000000';
+            const textSec = isDark ? '#a8a8a8' : '#737373';
+            const border = isDark ? '#262626' : '#dbdbdb';
+
+            return `
+            <div class="social-card" style="background: ${bg}; color: ${text}; width: 470px; border: 1px solid ${border}; border-radius: 8px; font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Helvetica, Arial, sans-serif; padding-bottom: 16px;">
+                <div style="display: flex; align-items: center; padding: 14px 16px; border-bottom: 1px solid ${border}; margin-bottom: 12px;">
+                    <div style="padding: 2px; background: linear-gradient(45deg, #f09433 0%, #e6683c 25%, #dc2743 50%, #cc2366 75%, #bc1888 100%); border-radius: 50%; margin-right: 12px;">
+                        <img src="${state.avatarData}" style="width: 32px; height: 32px; border-radius: 50%; border: 2px solid ${bg}; object-fit: cover; display: block;" />
+                    </div>
+                    <div style="flex: 1;">
+                        <div style="font-weight: 600; font-size: 14px; display: flex; align-items: center; gap: 4px;">
+                            ${state.name} 
+                            <div style="width: 12px; height: 12px; color: #0095f6;">${icons.twVerified}</div>
+                        </div>
+                        ${state.handle ? `<div style="font-size: 12px; color: ${textSec}; font-weight: 400;">${state.handle}</div>` : ''}
+                    </div>
+                    <div style="color: ${text};">${icons.inDots}</div>
+                </div>
+                
+                <div style="padding: 0 16px;">
+                    <div style="display: flex; justify-content: space-between; margin-bottom: 12px; color: ${text};">
+                        <div style="display: flex; gap: 16px;">
+                            ${icons.inHeart}
+                            ${icons.inComment}
+                            ${icons.inShare}
+                        </div>
+                        ${icons.inSave}
+                    </div>
+                    
+                    <div style="font-weight: 600; font-size: 14px; margin-bottom: 8px;">${state.stat3 || '890K'} likes</div>
+                    
+                    <div style="font-size: 14px; line-height: 18px; margin-bottom: 6px;">
+                        <span style="font-weight: 600; margin-right: 4px;">${state.name}</span>
+                        <span class="post-text-content" style="white-space: pre-wrap; word-wrap: break-word;">${state.text}</span>
+                    </div>
+                    
+                    <div style="color: ${textSec}; font-size: 14px;">View all ${state.stat1 || '4.2K'} comments</div>
+                </div>
+            </div>`;
+        }
+
+        function buildYouTubeHTML() {
+            const isDark = state.cardTheme === 'dark';
+            const bg = isDark ? '#0f0f0f' : '#ffffff';
+            const text = isDark ? '#f1f1f1' : '#0f0f0f';
+            const textSec = isDark ? '#aaaaaa' : '#606060';
+
+            return `
+            <div class="social-card" style="background: ${bg}; color: ${text}; width: 700px; padding: 24px; border: 1px solid #272727; border-radius: 12px; font-family: Roboto, Arial, sans-serif;">
+                <div style="display: flex; align-items: flex-start;">
+                    <img src="${state.avatarData}" style="width: 48px; height: 48px; border-radius: 50%; margin-right: 16px; object-fit: cover; flex-shrink: 0;" />
+                    <div style="flex: 1;">
+                        <div style="display: flex; align-items: center; gap: 8px; margin-bottom: 6px;">
+                            <span style="font-weight: 600; font-size: 15px; color: ${text};">@${state.name.replace(/\s+/g, '')}</span>
+                            <span style="color: ${textSec}; font-size: 13px;">${state.handle}</span>
+                        </div>
+                        <div class="post-text-content" style="font-size: 16px; line-height: 1.5; margin-bottom: 12px; white-space: pre-wrap; color: ${text};">${state.text}</div>
+                        <div style="display: flex; items-center; gap: 16px; color: ${textSec}; font-size: 13px;">
+                            <div style="display: flex; align-items: center; gap: 6px;">
+                                <div style="width: 18px; height: 18px;">${icons.ytLike}</div>
+                                <span>${state.stat1}</span>
+                            </div>
+                            <div style="display: flex; align-items: center; gap: 6px;">
+                                <div style="width: 18px; height: 18px; margin-top:2px;">${icons.ytDislike}</div>
+                            </div>
+                            <span style="font-weight: 600; color: ${text}; margin-left: 8px;">Reply</span>
+                        </div>
+                    </div>
+                </div>
+            </div>`;
+        }
+
+        let renderTimeout;
+        function debouncedRenderCard() {
+            clearTimeout(renderTimeout);
+            renderTimeout = setTimeout(() => {
+                const zone = document.getElementById('render-zone');
+                if (state.platform === 'twitter') zone.innerHTML = buildTweetHTML();
+                else if (state.platform === 'instagram') zone.innerHTML = buildInstaHTML();
+                else if (state.platform === 'youtube') zone.innerHTML = buildYouTubeHTML();
+
+                const cardEl = zone.firstElementChild;
+                const textEl = cardEl.querySelector('.post-text-content');
+                
+                html2canvas(cardEl, { 
+                    backgroundColor: null, 
+                    scale: 2, 
+                    logging: false 
+                }).then(c => {
+                    state.cardImage = c;
+                    
+                    // Capture precise bounding box for text animation masking
+                    if (textEl) {
+                        const rect = textEl.getBoundingClientRect();
+                        const cardRect = cardEl.getBoundingClientRect();
+                        const compStyle = window.getComputedStyle(textEl);
+                        
+                        state.textMetrics = {
+                            x: (rect.left - cardRect.left) * 2,
+                            y: (rect.top - cardRect.top) * 2,
+                            w: rect.width * 2,
+                            h: rect.height * 2,
+                            lh: parseFloat(compStyle.lineHeight) * 2
+                        };
+                    } else {
+                        state.textMetrics = null;
+                    }
+                    
+                    if(!state.isPlaying) drawFrame(1);
+                });
+            }, 300);
+        }
+
+        // --- Math & Animation Engine ---
+        function springEase(t) {
+            if (t <= 0) return 0;
+            if (t >= 1) return 1;
+            return 1 - Math.cos(t * Math.PI * 3.5) * Math.exp(-t * 6);
+        }
+
+        function easeOutCubic(t) {
+            return 1 - Math.pow(1 - t, 3);
+        }
+        
+        function getCardBgColor() {
+            const isDark = state.cardTheme === 'dark';
+            if (state.platform === 'youtube') return isDark ? '#0f0f0f' : '#ffffff';
+            return isDark ? '#000000' : '#ffffff';
+        }
+
+        function drawFrame(progress) {
+            const w = canvas.width;
+            const h = canvas.height;
+
+            ctx.clearRect(0, 0, w, h);
+
+            // Background
+            if (!state.bgTransparent) {
+                if (state.bgType === 'solid') {
+                    ctx.fillStyle = state.bgColor;
+                    ctx.fillRect(0, 0, w, h);
+                } else {
+                    const grad = ctx.createLinearGradient(0, 0, w, h);
+                    grad.addColorStop(0, state.gradStart);
+                    grad.addColorStop(1, state.gradEnd);
+                    ctx.fillStyle = grad;
+                    ctx.fillRect(0, 0, w, h);
+                }
+            }
+
+            if (!state.cardImage) return;
+
+            ctx.save();
+            ctx.translate(w / 2, h / 2);
+
+            let scale = state.cardScale;
+            let alpha = 1;
+            let ty = 0;
+
+            // Entrance Animation (0s -> 0.8s)
+            const entryDur = 0.8; 
+            if (progress < entryDur) {
+                let p = progress / entryDur;
+                if (state.animType === 'pop') {
+                    scale *= springEase(p);
+                    alpha = Math.min(1, p * 3);
+                } 
+                else if (state.animType === 'slide') {
+                    let ease = easeOutCubic(p);
+                    ty = 150 * (1 - ease);
+                    alpha = ease;
+                }
+                else if (state.animType === 'flip') {
+                    let ease = easeOutCubic(p);
+                    let flipScale = Math.sin(ease * Math.PI / 2);
+                    ctx.scale(flipScale, 1);
+                    alpha = ease;
+                }
+            }
+
+            // Continuous Float
+            if (state.enableFloat && state.animProgress > 0) {
+                ty += Math.sin(state.animProgress * Math.PI * 2 / 4) * 15;
+            }
+
+            ctx.globalAlpha = Math.max(0, Math.min(1, alpha));
+            ctx.translate(0, ty);
+            ctx.scale(scale, scale);
+
+            const cw = state.cardImage.width / 2; 
+            const ch = state.cardImage.height / 2;
+            
+            // Draw Full Card
+            ctx.drawImage(state.cardImage, -cw / 2, -ch / 2, cw, ch);
+
+            // --- Text Animation Masking ---
+            if (state.textAnim !== 'none' && state.textMetrics) {
+                const m = state.textMetrics;
+                const cardX = -cw / 2;
+                const cardY = -ch / 2;
+
+                const tx = cardX + m.x;
+                const ty = cardY + m.y;
+                const tw = m.w;
+                const th = m.h;
+                const lh = m.lh;
+
+                let textP = 0;
+                if (progress > entryDur) {
+                    textP = (progress - entryDur) / 2.0; 
+                }
+                textP = Math.max(0, Math.min(1, textP));
+
+                if (textP < 1) {
+                    ctx.fillStyle = getCardBgColor();
+                    let numLines = Math.max(1, Math.round(th / lh));
+                    let exactLine = textP * numLines;
+                    let currentLine = Math.floor(exactLine);
+                    let lineProgress = exactLine - currentLine;
+
+                    if (currentLine < numLines) {
+                        let coverX = tx;
+                        if (state.textAnim === 'typewriter') {
+                            coverX = tx + (lineProgress * tw);
+                        } else if (state.textAnim === 'line') {
+                            coverX = tx; 
+                        }
+                        
+                        ctx.fillRect(coverX - 2, ty + currentLine * lh - 2, tw - (coverX - tx) + 4, lh + 4);
+                    }
+
+                    for (let i = currentLine + 1; i < numLines; i++) {
+                        ctx.fillRect(tx - 2, ty + i * lh - 2, tw + 4, lh + 4);
+                    }
+                }
+            }
+
+            ctx.restore();
+        }
+
+        // --- Playback & Export ---
+        const DURATION = 5; 
+
+        function setPlayUI(playing) {
+            const btnPlay = document.getElementById('btn-play');
+            const iconPlay = document.getElementById('icon-play');
+            const textPlay = document.getElementById('text-play');
+            const ind = document.getElementById('status-indicator');
+            const statusText = document.getElementById('status-text');
+
+            if (playing) {
+                ind.classList.remove('opacity-0');
+                if (state.isExporting) {
+                    btnPlay.disabled = true;
+                    ind.classList.replace('bg-indigo-500/10', 'bg-red-500/10');
+                    ind.classList.replace('border-indigo-500/50', 'border-red-500/50');
+                    ind.classList.replace('text-indigo-400', 'text-red-500');
+                    document.getElementById('status-dot').classList.replace('bg-indigo-400', 'bg-red-500');
+                    statusText.innerText = 'Rendering Video...';
+                } else {
+                    btnPlay.classList.add('bg-red-500/20', 'text-red-400', 'border-red-500/50');
+                    btnPlay.classList.remove('bg-zinc-800', 'text-white', 'border-zinc-700');
+                    iconPlay.setAttribute('data-lucide', 'square');
+                    textPlay.innerText = 'Stop';
+                    
+                    ind.classList.replace('bg-red-500/10', 'bg-indigo-500/10');
+                    ind.classList.replace('border-red-500/50', 'border-indigo-500/50');
+                    ind.classList.replace('text-red-500', 'text-indigo-400');
+                    document.getElementById('status-dot').classList.replace('bg-red-500', 'bg-indigo-400');
+                    statusText.innerText = 'Playing Preview';
+                }
+            } else {
+                btnPlay.disabled = false;
+                btnPlay.classList.remove('bg-red-500/20', 'text-red-400', 'border-red-500/50');
+                btnPlay.classList.add('bg-zinc-800', 'text-white', 'border-zinc-700');
+                iconPlay.setAttribute('data-lucide', 'play');
+                textPlay.innerText = 'Preview';
+                ind.classList.add('opacity-0');
+            }
+            lucide.createIcons();
+        }
+
+        function triggerPreview() {
+            state.isPlaying = true;
+            state.isExporting = false;
+            setPlayUI(true);
+            
+            let startTime = performance.now();
+            
+            function loop(now) {
+                if (!state.isPlaying) return;
+                
+                let elapsed = (now - startTime) / 1000;
+                state.animProgress = elapsed;
+                
+                drawFrame(elapsed);
+
+                if (elapsed >= DURATION) {
+                    stopPlayback();
+                    return;
+                }
+                state.renderReqId = requestAnimationFrame(loop);
+            }
+            state.renderReqId = requestAnimationFrame(loop);
+        }
+
+        function togglePlayback() {
+            if (state.isPlaying) stopPlayback();
+            else triggerPreview();
+        }
+
+        function stopPlayback() {
+            state.isPlaying = false;
+            cancelAnimationFrame(state.renderReqId);
+            setPlayUI(false);
+            state.animProgress = DURATION; 
+            drawFrame(DURATION);
+        }
+
+        function toggleLoader(show) {
+            const l = document.getElementById('export-loader');
+            if(show) {
+                l.classList.remove('hidden');
+                requestAnimationFrame(() => l.classList.remove('opacity-0'));
+            } else {
+                l.classList.add('opacity-0');
+                setTimeout(() => l.classList.add('hidden'), 300);
+            }
+        }
+
+        function exportVideo() {
+            if (state.isPlaying || state.isExporting) return;
+            if (!state.cardImage) return showToast('Waiting for card to render...', 'info');
+
+            try {
+                updateLayoutScale(); 
+                
+                const stream = canvas.captureStream(60); 
+                state.recordedChunks = [];
+                
+                state.mediaRecorder = new MediaRecorder(stream, { 
+                    mimeType: 'video/webm; codecs=vp9',
+                    videoBitsPerSecond: 15000000 
+                });
+                
+                state.mediaRecorder.ondataavailable = (e) => {
+                    if (e.data.size > 0) state.recordedChunks.push(e.data);
+                };
+
+                state.mediaRecorder.onstop = () => {
+                    const blob = new Blob(state.recordedChunks, { type: 'video/webm' });
+                    const url = URL.createObjectURL(blob);
+                    const link = document.createElement('a');
+                    link.href = url;
+                    
+                    const bgStatus = state.bgTransparent ? 'transparent' : 'solid';
+                    link.download = `social-anim-${state.platform}-${bgStatus}-${Date.now()}.webm`;
+                    
+                    link.click();
+                    URL.revokeObjectURL(url);
+                    showToast('Video exported successfully!', 'success');
+                    
+                    toggleLoader(false);
+                    stopPlayback();
+                };
+
+                state.mediaRecorder.start();
+                
+                state.isPlaying = true;
+                state.isExporting = true;
+                setPlayUI(true);
+                toggleLoader(true);
+
+                let startTime = performance.now();
+                
+                function recLoop(now) {
+                    let elapsed = (now - startTime) / 1000;
+                    state.animProgress = elapsed;
+                    
+                    drawFrame(elapsed);
+
+                    let pct = Math.min(100, Math.round((elapsed / DURATION) * 100));
+                    document.getElementById('rec-time').innerText = `Processing ${pct}%`;
+
+                    if (elapsed >= DURATION) {
+                        document.getElementById('rec-time').innerText = `Finalizing file...`;
+                        setTimeout(() => {
+                            if(state.mediaRecorder.state !== 'inactive') state.mediaRecorder.stop();
+                        }, 200);
+                        return;
+                    }
+                    if (state.isExporting) requestAnimationFrame(recLoop);
+                }
+                
+                requestAnimationFrame(recLoop);
+
+            } catch (err) {
+                console.error(err);
+                showToast('Export failed. Browser might not support WebM recording.', 'error');
+                stopPlayback();
+                toggleLoader(false);
+            }
+        }
+
+        // --- Init ---
+        setPlatform('twitter');
+        updateLayoutScale();
+
+    </script>
+</body>
+</html>

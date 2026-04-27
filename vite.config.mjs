@@ -27,7 +27,8 @@ export default defineConfig({
     outDir: 'dist',
     emptyOutDir: true,
     rollupOptions: {
-      input
+      input,
+      external: ['three', /^three\//]
     }
   },
   server: {
