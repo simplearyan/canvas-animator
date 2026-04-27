@@ -1,0 +1,659 @@
+<!DOCTYPE html>
+<html lang="en" class="dark">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+    <title>Emoji Motion Studio</title>
+    <!-- Tailwind CSS -->
+    <script src="https://cdn.tailwindcss.com"></script>
+    <script>
+        tailwind.config = {
+            darkMode: 'class',
+            theme: {
+                extend: {
+                    fontFamily: { sans: ['Inter', 'sans-serif'] }
+                }
+            }
+        }
+    </script>
+    <!-- Google Fonts -->
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
+    <!-- Lucide Icons -->
+    <script src="https://unpkg.com/lucide@latest"></script>
+    <style>
+        :root { color-scheme: light dark; }
+        
+        body {
+            overflow: hidden;
+            touch-action: none;
+            -webkit-font-smoothing: antialiased;
+            transition: background-color 0.3s, color 0.3s;
+        }
+
+        /* Scrollbars */
+        ::-webkit-scrollbar { width: 6px; height: 6px; }
+        ::-webkit-scrollbar-track { background: transparent; }
+        ::-webkit-scrollbar-thumb { background: rgba(150, 150, 150, 0.3); border-radius: 10px; }
+        ::-webkit-scrollbar-thumb:hover { background: rgba(150, 150, 150, 0.5); }
+
+        /* Transparent Grid Pattern */
+        .pattern-grid {
+            background-size: 20px 20px;
+            background-image: 
+                linear-gradient(45deg, rgba(150,150,150,0.1) 25%, transparent 25%, transparent 75%, rgba(150,150,150,0.1) 75%, rgba(150,150,150,0.1)), 
+                linear-gradient(45deg, rgba(150,150,150,0.1) 25%, transparent 25%, transparent 75%, rgba(150,150,150,0.1) 75%, rgba(150,150,150,0.1));
+            background-position: 0 0, 10px 10px;
+        }
+
+        /* Sliders */
+        input[type="range"] {
+            -webkit-appearance: none;
+            height: 4px;
+            background: rgba(150, 150, 150, 0.2);
+            border-radius: 2px;
+            outline: none;
+        }
+        input[type="range"]::-webkit-slider-thumb {
+            -webkit-appearance: none;
+            width: 16px;
+            height: 16px;
+            border-radius: 50%;
+            background: #fff;
+            box-shadow: 0 2px 6px rgba(0,0,0,0.4);
+            cursor: pointer;
+            transition: transform 0.1s;
+        }
+        
+        html.dark input[type="range"]::-webkit-slider-thumb { background: #fff; }
+        html:not(.dark) input[type="range"]::-webkit-slider-thumb { background: #3b82f6; }
+
+        /* Segmented Buttons */
+        .segmented-btn { transition: all 0.2s cubic-bezier(0.4, 0, 0.2, 1); }
+        .dark .segmented-btn.active {
+            background: rgba(255, 255, 255, 0.1);
+            color: white;
+            box-shadow: 0 1px 3px rgba(0,0,0,0.2), inset 0 1px 0 rgba(255,255,255,0.1);
+        }
+        html:not(.dark) .segmented-btn.active {
+            background: white;
+            color: #1e293b;
+            box-shadow: 0 1px 3px rgba(0,0,0,0.1);
+        }
+
+        /* Colors */
+        input[type="color"] {
+            -webkit-appearance: none;
+            border: none;
+            width: 28px;
+            height: 28px;
+            border-radius: 50%;
+            padding: 0;
+            cursor: pointer;
+            background: transparent;
+        }
+        input[type="color"]::-webkit-color-swatch-wrapper { padding: 0; }
+        input[type="color"]::-webkit-color-swatch { border: none; border-radius: 50%; box-shadow: inset 0 0 0 1px rgba(150,150,150,0.2); }
+
+        #scale-wrapper {
+            position: absolute;
+            inset: 0;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            overflow: hidden;
+            padding: 20px;
+        }
+
+        #preview-canvas {
+            border-radius: 16px;
+            box-shadow: 0 25px 50px -12px rgba(0,0,0,0.25), 0 0 0 1px rgba(150,150,150,0.1);
+            transform-origin: center center;
+            will-change: transform;
+        }
+    </style>
+</head>
+<body class="flex flex-col h-screen text-sm bg-zinc-50 dark:bg-zinc-950 text-zinc-900 dark:text-zinc-100">
+
+    <!-- Header -->
+    <header class="w-full h-16 bg-white/80 dark:bg-zinc-900/90 backdrop-blur-2xl border-b border-zinc-200 dark:border-white/5 flex items-center justify-between px-4 sm:px-6 z-40 flex-shrink-0 transition-colors">
+        
+        <!-- Logo -->
+        <div class="flex items-center gap-3">
+            <div class="w-8 h-8 rounded-lg bg-gradient-to-br from-yellow-400 to-amber-600 flex items-center justify-center shadow-inner shadow-white/20">
+                <i data-lucide="smile" class="w-5 h-5 text-white"></i>
+            </div>
+            <h1 class="font-semibold tracking-tight whitespace-nowrap">Emoji <span class="text-zinc-500 dark:text-zinc-400 font-normal">Motion</span></h1>
+        </div>
+
+        <!-- Center Toggles -->
+        <div class="hidden sm:flex items-center justify-center">
+            <div class="flex p-1 bg-zinc-100 dark:bg-black/40 rounded-xl ring-1 ring-zinc-200 dark:ring-white/5 transition-colors">
+                <button class="segmented-btn active px-4 py-1.5 rounded-lg text-zinc-500 dark:text-zinc-400 flex items-center gap-2 text-xs font-medium" data-theme="dark" onclick="toggleTheme('dark')">
+                    <i data-lucide="moon" class="w-3.5 h-3.5"></i> Dark
+                </button>
+                <button class="segmented-btn px-4 py-1.5 rounded-lg text-zinc-500 dark:text-zinc-400 flex items-center gap-2 text-xs font-medium" data-theme="light" onclick="toggleTheme('light')">
+                    <i data-lucide="sun" class="w-3.5 h-3.5"></i> Light
+                </button>
+            </div>
+        </div>
+
+        <!-- Export & Play -->
+        <div class="flex items-center justify-end gap-3">
+            <button onclick="toggleSimulation()" id="btn-play" class="w-9 h-9 rounded-full bg-zinc-200 dark:bg-zinc-800 hover:bg-zinc-300 dark:hover:bg-zinc-700 flex items-center justify-center transition-colors">
+                <i data-lucide="pause" class="w-4 h-4" id="icon-play"></i>
+            </button>
+            
+            <button onclick="exportVideo()" id="btn-export" class="flex items-center gap-2 px-4 py-2 bg-amber-500 hover:bg-amber-600 text-white font-medium transition-all shadow-lg shadow-amber-500/20 rounded-xl text-xs sm:text-sm">
+                <i data-lucide="video" class="w-4 h-4" id="icon-export"></i>
+                <span class="hidden sm:inline" id="text-export">Export WebM</span>
+            </button>
+        </div>
+    </header>
+
+    <!-- Main Layout -->
+    <div class="flex flex-1 relative overflow-hidden flex-col md:flex-row">
+        
+        <!-- Sidebar Controls -->
+        <aside class="w-full md:w-80 flex-shrink-0 bg-white/50 dark:bg-zinc-900/50 backdrop-blur-3xl border-r border-zinc-200 dark:border-white/5 z-30 h-[45vh] md:h-full flex flex-col shadow-[0_-10px_40px_rgba(0,0,0,0.1)] dark:shadow-[0_-10px_40px_rgba(0,0,0,0.5)] md:shadow-none transition-colors">
+            
+            <div class="flex-1 overflow-y-auto p-5 space-y-6">
+                
+                <!-- Emoji Input -->
+                <div class="space-y-3">
+                    <label class="text-[11px] font-bold text-zinc-500 dark:text-zinc-400 uppercase tracking-widest block">The Emojis</label>
+                    <div class="flex items-center bg-zinc-100 dark:bg-black/40 border border-zinc-200 dark:border-white/10 rounded-xl px-3 py-2 focus-within:ring-1 focus-within:ring-amber-500 transition-colors">
+                        <input type="text" id="emoji-input" value="😂🔥💯🚀💀" class="w-full bg-transparent text-lg text-zinc-800 dark:text-zinc-200 outline-none text-center" oninput="updateEmojiList(this.value)">
+                    </div>
+                    <p class="text-[10px] text-zinc-500 text-center">Type multiple emojis to randomize spawns.</p>
+                </div>
+
+                <!-- Simulation Mode -->
+                <div>
+                    <label class="text-[11px] font-bold text-zinc-500 dark:text-zinc-400 uppercase tracking-widest block mb-3">Simulation Mode</label>
+                    <div class="grid grid-cols-2 gap-2">
+                        <button class="segmented-btn active py-2 rounded-lg text-xs font-medium text-zinc-500 dark:text-zinc-400 bg-zinc-100 dark:bg-black/20 ring-1 ring-zinc-200 dark:ring-white/5 flex justify-center items-center gap-2" data-sim="fountain" onclick="setSimulation('fountain')">
+                            <i data-lucide="arrow-up" class="w-3.5 h-3.5"></i> Fountain
+                        </button>
+                        <button class="segmented-btn py-2 rounded-lg text-xs font-medium text-zinc-500 dark:text-zinc-400 bg-zinc-100 dark:bg-black/20 ring-1 ring-zinc-200 dark:ring-white/5 flex justify-center items-center gap-2" data-sim="rain" onclick="setSimulation('rain')">
+                            <i data-lucide="cloud-rain" class="w-3.5 h-3.5"></i> Rain
+                        </button>
+                        <button class="segmented-btn py-2 rounded-lg text-xs font-medium text-zinc-500 dark:text-zinc-400 bg-zinc-100 dark:bg-black/20 ring-1 ring-zinc-200 dark:ring-white/5 flex justify-center items-center gap-2" data-sim="explosion" onclick="setSimulation('explosion')">
+                            <i data-lucide="bomb" class="w-3.5 h-3.5"></i> Explosion
+                        </button>
+                        <button class="segmented-btn py-2 rounded-lg text-xs font-medium text-zinc-500 dark:text-zinc-400 bg-zinc-100 dark:bg-black/20 ring-1 ring-zinc-200 dark:ring-white/5 flex justify-center items-center gap-2" data-sim="float" onclick="setSimulation('float')">
+                            <i data-lucide="wind" class="w-3.5 h-3.5"></i> Zero-G
+                        </button>
+                    </div>
+                </div>
+
+                <!-- Physics Settings -->
+                <div class="space-y-4 pt-2 border-t border-zinc-200 dark:border-zinc-800">
+                    <label class="text-[11px] font-bold text-zinc-500 dark:text-zinc-400 uppercase tracking-widest block">Physics Engine</label>
+                    
+                    <div>
+                        <div class="flex justify-between items-center mb-1.5"><span class="text-[10px] text-zinc-500">Gravity</span></div>
+                        <input type="range" min="0" max="2" step="0.1" value="0.5" class="w-full accent-amber-500" oninput="state.gravity = parseFloat(this.value);">
+                    </div>
+                    <div>
+                        <div class="flex justify-between items-center mb-1.5"><span class="text-[10px] text-zinc-500">Bounciness</span></div>
+                        <input type="range" min="0.1" max="1" step="0.1" value="0.7" class="w-full accent-amber-500" oninput="state.restitution = parseFloat(this.value);">
+                    </div>
+                    <div>
+                        <div class="flex justify-between items-center mb-1.5"><span class="text-[10px] text-zinc-500">Emoji Size</span></div>
+                        <input type="range" min="20" max="150" value="64" class="w-full accent-amber-500" oninput="state.emojiSize = parseInt(this.value);">
+                    </div>
+                </div>
+
+                <!-- Actions -->
+                <div class="space-y-2 pt-2 border-t border-zinc-200 dark:border-zinc-800">
+                    <div class="flex items-center justify-between mb-2">
+                        <span class="text-xs font-medium text-zinc-700 dark:text-zinc-300">Continuous Spawning</span>
+                        <label class="relative inline-flex items-center cursor-pointer">
+                            <input type="checkbox" class="sr-only peer" checked onchange="state.autoSpawn = this.checked">
+                            <div class="w-9 h-5 bg-zinc-300 dark:bg-zinc-700 peer-focus:outline-none rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border-zinc-300 after:border after:rounded-full after:h-4 after:w-4 after:transition-all peer-checked:bg-amber-500 border-zinc-300 dark:border-zinc-600"></div>
+                        </label>
+                    </div>
+                    <button onclick="spawnBurst()" class="w-full py-2.5 bg-zinc-200 dark:bg-zinc-800 hover:bg-zinc-300 dark:hover:bg-zinc-700 text-zinc-800 dark:text-white rounded-xl text-xs font-bold transition-colors">
+                        Spawn Burst
+                    </button>
+                    <button onclick="clearEmojis()" class="w-full py-2.5 bg-red-500/10 hover:bg-red-500/20 text-red-600 dark:text-red-400 rounded-xl text-xs font-bold transition-colors">
+                        Clear Canvas
+                    </button>
+                </div>
+
+                <!-- Background -->
+                <div class="pt-2 border-t border-zinc-200 dark:border-zinc-800">
+                    <div class="flex items-center justify-between mb-3">
+                        <label class="text-[11px] font-bold text-zinc-500 dark:text-zinc-400 uppercase tracking-widest block">Background</label>
+                        <label class="flex items-center gap-1.5 cursor-pointer text-[10px] text-zinc-500 hover:text-zinc-900 dark:hover:text-white transition-colors" title="Export transparent">
+                            <input type="checkbox" id="bg-transparent-toggle" class="accent-amber-500 w-3 h-3" onchange="state.bgTransparent = this.checked; updateCanvasStyle();"> Transparent
+                        </label>
+                    </div>
+                    <div class="flex items-center gap-3">
+                        <input type="color" value="#18181b" id="bg-color-picker" onchange="setBgColor(this.value)" oninput="setBgColor(this.value)">
+                        <span class="text-xs font-mono text-zinc-500" id="bg-color-hex">#18181b</span>
+                    </div>
+                </div>
+
+            </div>
+        </aside>
+
+        <!-- Canvas Area -->
+        <main class="flex-1 relative bg-zinc-100 dark:bg-zinc-950 pattern-grid overflow-hidden transition-colors">
+            <div id="scale-wrapper">
+                <!-- 1080x1080 Square Canvas - Perfect for Social Media -->
+                <canvas id="preview-canvas" width="1080" height="1080"></canvas>
+            </div>
+        </main>
+    </div>
+
+    <!-- Export Loading Overlay -->
+    <div id="export-loader" class="fixed inset-0 z-50 bg-white/80 dark:bg-black/80 hidden flex flex-col items-center justify-center transition-opacity opacity-0 backdrop-blur-sm">
+        <div class="w-12 h-12 border-4 border-zinc-200 dark:border-white/10 border-t-amber-500 rounded-full animate-spin mb-4"></div>
+        <h2 class="text-xl font-bold text-zinc-900 dark:text-white mb-2">Recording WebM Video</h2>
+        <p class="text-sm text-zinc-600 dark:text-zinc-400" id="rec-time">00:00</p>
+    </div>
+
+    <!-- Toasts -->
+    <div id="toast-container" class="fixed top-20 right-6 z-[60] flex flex-col gap-2 pointer-events-none"></div>
+
+    <script>
+        lucide.createIcons();
+
+        // --- State ---
+        const state = {
+            emojis: ['😂', '🔥', '💯', '🚀', '💀'],
+            particles: [],
+            
+            // Engine
+            simMode: 'fountain', // 'fountain', 'rain', 'explosion', 'float'
+            gravity: 0.5,
+            restitution: 0.7, // Bounciness
+            friction: 0.99,
+            emojiSize: 64,
+            autoSpawn: true,
+            spawnRate: 3, // frames per spawn
+            frameCount: 0,
+            
+            // App State
+            isSimulating: true,
+            isExporting: false,
+            bgTransparent: false,
+            bgColor: '#18181b', // Default dark bg
+            
+            // Recording
+            mediaRecorder: null,
+            recordedChunks: [],
+            recStartTime: 0,
+            recInterval: null
+        };
+
+        const canvas = document.getElementById('preview-canvas');
+        const ctx = canvas.getContext('2d', { alpha: true });
+
+        // --- Theme Management ---
+        function toggleTheme(theme) {
+            const html = document.documentElement;
+            if (theme === 'dark') {
+                html.classList.add('dark');
+                if(state.bgColor === '#ffffff' || state.bgColor === '#f4f4f5') {
+                    setBgColor('#18181b'); // Auto switch canvas bg to dark
+                    document.getElementById('bg-color-picker').value = '#18181b';
+                }
+            } else {
+                html.classList.remove('dark');
+                if(state.bgColor === '#18181b' || state.bgColor === '#09090b') {
+                    setBgColor('#f4f4f5'); // Auto switch canvas bg to light
+                    document.getElementById('bg-color-picker').value = '#f4f4f5';
+                }
+            }
+            
+            document.querySelectorAll('[data-theme]').forEach(btn => {
+                btn.classList.remove('active');
+                if(btn.dataset.theme === theme) btn.classList.add('active');
+            });
+        }
+
+        // --- UI Updaters ---
+        function updateLayoutScale() {
+            const wrapper = document.getElementById('scale-wrapper');
+            const preview = document.getElementById('preview-canvas');
+            
+            const padding = 40; 
+            const availW = wrapper.clientWidth - padding;
+            const availH = wrapper.clientHeight - padding;
+
+            const logicalW = 1080;
+            const logicalH = 1080;
+
+            const scale = Math.min(availW / logicalW, availH / logicalH, 1.0);
+            preview.style.transform = `scale(${scale})`;
+        }
+        window.addEventListener('resize', updateLayoutScale);
+        updateLayoutScale();
+
+        function setSimulation(mode) {
+            state.simMode = mode;
+            document.querySelectorAll('[data-sim]').forEach(btn => {
+                btn.classList.remove('active');
+                if(btn.dataset.sim === mode) btn.classList.add('active');
+            });
+            // Adjust gravity default based on mode
+            if (mode === 'float') document.querySelector('input[oninput*="gravity"]').value = 0;
+            else document.querySelector('input[oninput*="gravity"]').value = 0.5;
+            state.gravity = parseFloat(document.querySelector('input[oninput*="gravity"]').value);
+        }
+
+        function updateEmojiList(val) {
+            // Convert string to array of emojis (handles surrogate pairs)
+            const arr = [...new Intl.Segmenter().segment(val)].map(x => x.segment);
+            state.emojis = arr.length > 0 ? arr : ['🙂'];
+        }
+
+        function setBgColor(hex) {
+            state.bgColor = hex;
+            document.getElementById('bg-color-hex').innerText = hex;
+            state.bgTransparent = false;
+            document.getElementById('bg-transparent-toggle').checked = false;
+            updateCanvasStyle();
+        }
+
+        function updateCanvasStyle() {
+            if (state.bgTransparent) {
+                canvas.style.backgroundColor = 'transparent';
+                canvas.classList.add('pattern-grid');
+            } else {
+                canvas.style.backgroundColor = state.bgColor;
+                canvas.classList.remove('pattern-grid');
+            }
+        }
+        updateCanvasStyle();
+
+        function showToast(message, type = 'info') {
+            const container = document.getElementById('toast-container');
+            const toast = document.createElement('div');
+            
+            toast.className = `bg-zinc-800/95 dark:bg-white/95 backdrop-blur-md text-white dark:text-zinc-900 px-4 py-3 rounded-xl shadow-2xl flex items-center gap-3 transform transition-all -translate-y-4 opacity-0 z-50`;
+            let icon = type === 'success' ? 'check-circle' : (type === 'error' ? 'alert-triangle' : 'info');
+            let color = type === 'success' ? 'text-emerald-500' : (type === 'error' ? 'text-red-500' : 'text-amber-500');
+            toast.innerHTML = `<i data-lucide="${icon}" class="w-4 h-4 ${color}"></i> <span class="text-sm font-medium">${message}</span>`;
+            
+            container.appendChild(toast); lucide.createIcons();
+            requestAnimationFrame(() => toast.classList.remove('-translate-y-4', 'opacity-0'));
+            setTimeout(() => { toast.classList.add('-translate-y-4', 'opacity-0'); setTimeout(() => toast.remove(), 300); }, 3000);
+        }
+
+        // --- Physics Engine ---
+        class Particle {
+            constructor(x, y, vx, vy) {
+                this.x = x;
+                this.y = y;
+                this.vx = vx;
+                this.vy = vy;
+                this.size = state.emojiSize * (0.5 + Math.random() * 0.5); // Randomize size slightly
+                this.char = state.emojis[Math.floor(Math.random() * state.emojis.length)];
+                this.rotation = Math.random() * Math.PI * 2;
+                this.vRot = (Math.random() - 0.5) * 0.2;
+                this.id = Math.random();
+            }
+
+            update() {
+                // Apply Gravity
+                if (state.simMode !== 'float') {
+                    this.vy += state.gravity;
+                }
+
+                // Apply Friction
+                this.vx *= state.friction;
+                this.vy *= state.friction;
+
+                // Move
+                this.x += this.vx;
+                this.y += this.vy;
+                this.rotation += this.vRot;
+
+                // Floor Collision
+                if (this.y + this.size/2 > canvas.height) {
+                    this.y = canvas.height - this.size/2;
+                    this.vy = -this.vy * state.restitution;
+                    this.vx *= 0.8; // Floor friction
+                    this.vRot *= 0.8;
+                }
+                
+                // Wall Collisions
+                if (this.x - this.size/2 < 0) {
+                    this.x = this.size/2;
+                    this.vx = -this.vx * state.restitution;
+                } else if (this.x + this.size/2 > canvas.width) {
+                    this.x = canvas.width - this.size/2;
+                    this.vx = -this.vx * state.restitution;
+                }
+
+                // Ceiling Collision (Optional, keep for closed box feel)
+                if (state.simMode === 'float' && this.y - this.size/2 < 0) {
+                    this.y = this.size/2;
+                    this.vy = -this.vy * state.restitution;
+                }
+            }
+
+            draw(ctx) {
+                ctx.save();
+                ctx.translate(this.x, this.y);
+                ctx.rotate(this.rotation);
+                ctx.font = `${this.size}px Arial`; // Arial handles emojis consistently
+                ctx.textAlign = 'center';
+                ctx.textBaseline = 'middle';
+                // Subtle shadow for depth
+                ctx.shadowColor = 'rgba(0,0,0,0.3)';
+                ctx.shadowBlur = 10;
+                ctx.shadowOffsetY = 5;
+                ctx.fillText(this.char, 0, 0);
+                ctx.restore();
+            }
+        }
+
+        function spawnParticle() {
+            let x, y, vx, vy;
+            
+            switch(state.simMode) {
+                case 'fountain':
+                    x = canvas.width / 2 + (Math.random() - 0.5) * 50;
+                    y = canvas.height - 100;
+                    vx = (Math.random() - 0.5) * 15;
+                    vy = -15 - Math.random() * 25;
+                    break;
+                case 'rain':
+                    x = Math.random() * canvas.width;
+                    y = -100;
+                    vx = (Math.random() - 0.5) * 2;
+                    vy = Math.random() * 5;
+                    break;
+                case 'explosion':
+                    x = canvas.width / 2;
+                    y = canvas.height / 2;
+                    const angle = Math.random() * Math.PI * 2;
+                    const speed = 10 + Math.random() * 20;
+                    vx = Math.cos(angle) * speed;
+                    vy = Math.sin(angle) * speed;
+                    break;
+                case 'float':
+                    x = canvas.width / 2;
+                    y = canvas.height / 2;
+                    vx = (Math.random() - 0.5) * 20;
+                    vy = (Math.random() - 0.5) * 20;
+                    break;
+            }
+
+            state.particles.push(new Particle(x, y, vx, vy));
+            
+            // Limit max particles to maintain performance
+            if (state.particles.length > 300) {
+                state.particles.shift(); // Remove oldest
+            }
+        }
+
+        function spawnBurst() {
+            const count = state.simMode === 'rain' ? 50 : 30;
+            for(let i=0; i<count; i++) spawnParticle();
+        }
+
+        function clearEmojis() {
+            state.particles = [];
+        }
+
+        function toggleSimulation() {
+            state.isSimulating = !state.isSimulating;
+            const icon = document.getElementById('icon-play');
+            if (state.isSimulating) {
+                icon.setAttribute('data-lucide', 'pause');
+                engineLoop();
+            } else {
+                icon.setAttribute('data-lucide', 'play');
+            }
+            lucide.createIcons();
+        }
+
+        function engineLoop() {
+            if (!state.isSimulating && !state.isExporting) return;
+            
+            state.frameCount++;
+
+            // Auto Spawn
+            if (state.autoSpawn && state.frameCount % state.spawnRate === 0) {
+                spawnParticle();
+            }
+
+            // Clear Canvas
+            ctx.clearRect(0, 0, canvas.width, canvas.height);
+            if (!state.bgTransparent) {
+                ctx.fillStyle = state.bgColor;
+                ctx.fillRect(0, 0, canvas.width, canvas.height);
+            }
+
+            // Update & Draw
+            state.particles.forEach(p => {
+                p.update();
+                p.draw(ctx);
+            });
+
+            requestAnimationFrame(engineLoop);
+        }
+
+        // --- Export Engine ---
+        function toggleLoader(show) {
+            const l = document.getElementById('export-loader');
+            if(show) {
+                l.classList.remove('hidden');
+                requestAnimationFrame(() => l.classList.remove('opacity-0'));
+            } else {
+                l.classList.add('opacity-0');
+                setTimeout(() => l.classList.add('hidden'), 300);
+            }
+        }
+
+        function setExportUI(exporting) {
+            const btn = document.getElementById('btn-export');
+            const icon = document.getElementById('icon-export');
+            const text = document.getElementById('text-export');
+            
+            if (exporting) {
+                btn.classList.replace('bg-amber-500', 'bg-red-500');
+                btn.classList.replace('hover:bg-amber-600', 'hover:bg-red-600');
+                btn.classList.replace('shadow-amber-500/20', 'shadow-red-500/20');
+                icon.setAttribute('data-lucide', 'square');
+                icon.classList.add('animate-pulse');
+                text.innerText = 'Stop Recording';
+            } else {
+                btn.classList.replace('bg-red-500', 'bg-amber-500');
+                btn.classList.replace('hover:bg-red-600', 'hover:bg-amber-600');
+                btn.classList.replace('shadow-red-500/20', 'shadow-amber-500/20');
+                icon.setAttribute('data-lucide', 'video');
+                icon.classList.remove('animate-pulse');
+                text.innerText = 'Export WebM';
+            }
+            lucide.createIcons();
+        }
+
+        function exportVideo() {
+            if (state.isExporting) {
+                stopExport();
+                return;
+            }
+
+            try {
+                // 60FPS Capture
+                const stream = canvas.captureStream(60); 
+                state.recordedChunks = [];
+                
+                state.mediaRecorder = new MediaRecorder(stream, { 
+                    mimeType: 'video/webm; codecs=vp9',
+                    videoBitsPerSecond: 15000000 // High bitrate
+                });
+                
+                state.mediaRecorder.ondataavailable = (e) => {
+                    if (e.data.size > 0) state.recordedChunks.push(e.data);
+                };
+
+                state.mediaRecorder.onstop = () => {
+                    const blob = new Blob(state.recordedChunks, { type: 'video/webm' });
+                    const url = URL.createObjectURL(blob);
+                    const link = document.createElement('a');
+                    link.href = url;
+                    
+                    const bgStatus = state.bgTransparent ? 'transparent' : 'solid';
+                    link.download = `emoji-motion-${bgStatus}-${Date.now()}.webm`;
+                    
+                    link.click();
+                    URL.revokeObjectURL(url);
+                    showToast('Video exported successfully!', 'success');
+                };
+
+                state.mediaRecorder.start();
+                state.isExporting = true;
+                setExportUI(true);
+                toggleLoader(true);
+
+                // Timer UI
+                state.recStartTime = Date.now();
+                state.recInterval = setInterval(() => {
+                    const elapsed = Math.floor((Date.now() - state.recStartTime) / 1000);
+                    const mins = String(Math.floor(elapsed / 60)).padStart(2, '0');
+                    const secs = String(elapsed % 60).padStart(2, '0');
+                    document.getElementById('rec-time').innerText = `${mins}:${secs}`;
+                }, 1000);
+
+                // Make sure simulation is running
+                if (!state.isSimulating) {
+                    state.isSimulating = true;
+                    engineLoop();
+                }
+
+            } catch (err) {
+                console.error(err);
+                showToast('Export failed. Browser may not support WebM recording.', 'error');
+                stopExport();
+            }
+        }
+
+        function stopExport() {
+            if (!state.isExporting || !state.mediaRecorder) return;
+            
+            clearInterval(state.recInterval);
+            document.getElementById('rec-time').innerText = 'Finalizing...';
+            
+            setTimeout(() => {
+                state.mediaRecorder.stop();
+                state.isExporting = false;
+                setExportUI(false);
+                toggleLoader(false);
+                document.getElementById('rec-time').innerText = '00:00';
+            }, 500);
+        }
+
+        // Start initial simulation
+        spawnBurst();
+        engineLoop();
+
+    </script>
+</body>
+</html>

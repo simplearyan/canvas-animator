@@ -1,0 +1,817 @@
+<!DOCTYPE html>
+<html lang="en" class="dark">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+    <title>MotionDraw V4.1 - Pro Editor</title>
+    <!-- Tailwind CSS -->
+    <script src="https://cdn.tailwindcss.com"></script>
+    <!-- Lucide Icons -->
+    <script src="https://unpkg.com/lucide@latest"></script>
+    <!-- Rough.js for hand-drawn vectors -->
+    <script src="https://unpkg.com/roughjs@4.6.6/bundled/rough.js"></script>
+    <!-- Fonts -->
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=JetBrains+Mono:wght@400;600&display=swap" rel="stylesheet">
+    <style>
+        :root {
+            --bg-monterey: radial-gradient(circle at 15% 50%, rgba(30, 40, 60, 0.95), transparent 50%),
+                           radial-gradient(circle at 85% 30%, rgba(20, 50, 80, 0.95), transparent 50%),
+                           radial-gradient(circle at 50% 80%, rgba(60, 30, 60, 0.95), transparent 50%),
+                           #0f1115;
+            --accent: #6366f1;
+        }
+
+        body {
+            font-family: 'Inter', sans-serif;
+            background: var(--bg-monterey); background-size: cover; background-attachment: fixed;
+            color: #e5e5e5; overflow: hidden; margin: 0;
+            height: 100vh; height: 100dvh; display: flex; flex-direction: column;
+            user-select: none; 
+        }
+
+        /* Glass Panels */
+        .glass-panel {
+            background: rgba(18, 18, 22, 0.75);
+            backdrop-filter: blur(30px); -webkit-backdrop-filter: blur(30px);
+            border: 1px solid rgba(255, 255, 255, 0.08);
+            box-shadow: 0 30px 60px -15px rgba(0, 0, 0, 0.7);
+        }
+        .glass-header {
+            background: rgba(20, 20, 25, 0.85); backdrop-filter: blur(20px);
+            border-bottom: 1px solid rgba(255, 255, 255, 0.06);
+        }
+
+        /* Scrollbar */
+        ::-webkit-scrollbar { width: 5px; height: 5px; }
+        ::-webkit-scrollbar-track { background: rgba(0,0,0,0.1); border-radius: 10px; }
+        ::-webkit-scrollbar-thumb { background: rgba(255, 255, 255, 0.15); border-radius: 10px; }
+        ::-webkit-scrollbar-thumb:hover { background: rgba(255, 255, 255, 0.3); }
+
+        /* Custom Inputs */
+        input[type="number"], select {
+            background: rgba(0, 0, 0, 0.4); border: 1px solid rgba(255, 255, 255, 0.1);
+            color: white; border-radius: 6px; padding: 6px 8px; font-size: 0.8rem; outline: none; transition: all 0.2s;
+        }
+        input[type="number"]:focus, select:focus { border-color: var(--accent); background: rgba(0, 0, 0, 0.6); }
+        input[type="checkbox"] { accent-color: var(--accent); width: 16px; height: 16px; cursor: pointer; }
+
+        /* Precision Sliders */
+        .slider-group { background: rgba(0,0,0,0.25); border: 1px solid rgba(255,255,255,0.05); padding: 8px 12px; border-radius: 8px; margin-bottom: 8px; }
+        input[type="range"] { -webkit-appearance: none; width: 100%; background: transparent; padding: 8px 0; margin-top: 2px; }
+        input[type="range"]::-webkit-slider-thumb {
+            -webkit-appearance: none; height: 16px; width: 16px; border-radius: 50%;
+            background: #fff; cursor: pointer; margin-top: -6px; border: 2px solid var(--accent);
+            box-shadow: 0 2px 5px rgba(0,0,0,0.5); transition: transform 0.1s;
+        }
+        input[type="range"]::-webkit-slider-thumb:hover { transform: scale(1.1); }
+        input[type="range"]::-webkit-slider-runnable-track { width: 100%; height: 4px; cursor: pointer; background: rgba(255, 255, 255, 0.15); border-radius: 2px; }
+        input[type="range"]:focus::-webkit-slider-runnable-track { background: rgba(255, 255, 255, 0.3); }
+
+        /* Canvas Wrapper */
+        #canvas-container {
+            position: relative; display: flex; align-items: center; justify-content: center;
+            background: rgba(0, 0, 0, 0.3);
+            background-image: radial-gradient(rgba(255,255,255,0.08) 1px, transparent 1px); background-size: 30px 30px;
+        }
+        canvas {
+            background: #0d0d12; box-shadow: 0 25px 60px rgba(0,0,0,0.9);
+            border: 1px solid rgba(255, 255, 255, 0.1); max-width: 100%; max-height: 100%; object-fit: contain; cursor: crosshair; touch-action: none;
+        }
+
+        .anim-pulse { animation: pulse 1.5s infinite; }
+        @keyframes pulse { 0% { opacity: 1; } 50% { opacity: 0.4; } 100% { opacity: 1; } }
+
+        .seg-btn { color: #9ca3af; transition: all 0.2s; }
+        .seg-btn.active { background: var(--accent); color: white; border-radius: 8px; box-shadow: 0 2px 6px rgba(0,0,0,0.3); }
+        
+        .scrollable-panel { overflow-y: auto; -webkit-overflow-scrolling: touch; }
+        .prop-hidden { display: none !important; }
+        .prop-card { border-bottom: 1px solid rgba(255, 255, 255, 0.05); padding-bottom: 16px; margin-bottom: 16px; }
+        .prop-title { font-size: 10px; font-weight: 700; color: #818cf8; text-transform: uppercase; letter-spacing: 0.05em; margin-bottom: 12px; display: flex; align-items: center; }
+    </style>
+</head>
+<body class="text-sm">
+
+    <!-- Header -->
+    <header class="h-14 glass-header flex items-center px-4 md:px-6 justify-between z-30 flex-shrink-0">
+        <div class="flex items-center space-x-4">
+            <div class="hidden sm:flex space-x-2 mr-2">
+                <div class="w-3 h-3 rounded-full bg-red-500 shadow-sm"></div>
+                <div class="w-3 h-3 rounded-full bg-yellow-500 shadow-sm"></div>
+                <div class="w-3 h-3 rounded-full bg-green-500 shadow-sm"></div>
+            </div>
+            <div class="font-bold tracking-wide flex items-center space-x-2">
+                <div class="bg-gradient-to-br from-indigo-500 to-purple-600 p-1.5 rounded-lg shadow-inner"><i data-lucide="pen-tool" class="w-4 h-4 text-white"></i></div>
+                <span class="text-base text-white">MotionDraw <span class="text-[10px] text-indigo-300 font-bold ml-1 border border-indigo-500/30 bg-indigo-500/20 px-1.5 py-0.5 rounded">V4.1</span></span>
+            </div>
+        </div>
+        <button onclick="openExportModal()" class="bg-indigo-600 hover:bg-indigo-500 text-white px-4 py-2 rounded-lg flex items-center space-x-2 transition shadow-[0_0_15px_rgba(79,70,229,0.4)] font-medium">
+            <i data-lucide="download" class="w-4 h-4"></i><span class="hidden sm:inline">Export</span>
+        </button>
+    </header>
+
+    <!-- Main Workspace -->
+    <div class="flex flex-col md:flex-row flex-1 overflow-hidden relative min-h-0">
+        
+        <!-- Center Canvas -->
+        <main id="canvas-container" class="w-full flex-shrink-0 md:flex-1 h-[32vh] min-h-[220px] md:h-auto border-b border-white/10 md:border-none z-10 p-2 md:p-8">
+            <canvas id="preview-canvas" width="1280" height="720" class="w-full h-full rounded-xl shadow-[0_0_50px_rgba(0,0,0,0.8)]"></canvas>
+            <div id="recording-indicator" class="hidden absolute top-6 right-6 bg-red-500 text-white text-xs px-3 py-1.5 rounded-full font-bold items-center space-x-2 anim-pulse shadow-lg z-20">
+                <div class="w-2 h-2 bg-white rounded-full"></div><span>RENDERING</span>
+            </div>
+        </main>
+
+        <!-- Mobile Segmented Tabs -->
+        <div class="md:hidden flex p-2 bg-[#121215] border-b border-white/5 flex-shrink-0 z-20 shadow-md">
+            <div class="flex w-full bg-black/40 p-1 rounded-xl border border-white/5">
+                <button onclick="switchTab('add')" id="btn-tab-add" class="seg-btn active flex-1 py-2 text-xs font-semibold flex justify-center items-center"><i data-lucide="shapes" class="w-4 h-4 mr-1.5"></i> Draw</button>
+                <button onclick="switchTab('layers')" id="btn-tab-layers" class="seg-btn flex-1 py-2 text-xs font-semibold flex justify-center items-center"><i data-lucide="layers" class="w-4 h-4 mr-1.5"></i> Layers</button>
+                <button onclick="switchTab('edit')" id="btn-tab-edit" class="seg-btn flex-1 py-2 text-xs font-semibold flex justify-center items-center"><i data-lucide="sliders" class="w-4 h-4 mr-1.5"></i> Edit</button>
+            </div>
+        </div>
+
+        <!-- Left Sidebar (Tools & Layers) -->
+        <aside id="panel-left" class="w-full md:w-[280px] glass-panel md:border-r border-white/5 flex-col flex-shrink-0 md:flex-shrink-0 z-0 hidden md:flex flex-1 md:flex-none relative overflow-hidden min-h-0">
+            <div id="mobile-view-add" class="flex-col flex-1 flex scrollable-panel pb-28 md:pb-6">
+                <div class="p-5 border-b border-white/5">
+                    <div class="text-[10px] font-bold text-neutral-400 uppercase tracking-widest mb-3 flex items-center"><i data-lucide="pen" class="w-3.5 h-3.5 mr-1.5"></i> Add Shapes</div>
+                    <div class="grid grid-cols-2 gap-3">
+                        <button onclick="addShape('rect')" class="flex flex-col items-center justify-center p-4 rounded-xl bg-black/30 hover:bg-white/10 border border-white/5 transition text-xs font-medium text-neutral-300"><i data-lucide="square" class="w-6 h-6 mb-2 text-blue-400"></i> Rectangle</button>
+                        <button onclick="addShape('circle')" class="flex flex-col items-center justify-center p-4 rounded-xl bg-black/30 hover:bg-white/10 border border-white/5 transition text-xs font-medium text-neutral-300"><i data-lucide="circle" class="w-6 h-6 mb-2 text-rose-400"></i> Circle</button>
+                        <button onclick="addShape('arrow')" class="flex flex-col items-center justify-center p-4 rounded-xl bg-black/30 hover:bg-white/10 border border-white/5 transition text-xs font-medium text-neutral-300"><i data-lucide="arrow-right" class="w-6 h-6 mb-2 text-emerald-400"></i> Line Arrow</button>
+                        <button onclick="addShape('arc')" class="flex flex-col items-center justify-center p-4 rounded-xl bg-black/30 hover:bg-white/10 border border-white/5 transition text-xs font-medium text-neutral-300"><i data-lucide="corner-up-right" class="w-6 h-6 mb-2 text-amber-400"></i> Arc Arrow</button>
+                    </div>
+                </div>
+                <div class="p-5">
+                    <div class="text-[10px] font-bold text-neutral-400 uppercase tracking-widest mb-3 flex items-center"><i data-lucide="palette" class="w-3.5 h-3.5 mr-1.5"></i> Global Setting</div>
+                    <div class="flex items-center justify-between bg-black/30 p-3 rounded-xl border border-white/5">
+                        <span class="text-xs text-neutral-300">Canvas Color</span>
+                        <input type="color" id="bg-color" value="#0d0d12" class="w-8 h-8 p-0 border border-white/20 rounded cursor-pointer bg-transparent">
+                    </div>
+                </div>
+            </div>
+
+            <div id="mobile-view-layers" class="hidden md:flex flex-col flex-1 scrollable-panel border-t border-white/5 pb-28 md:pb-6">
+                <div class="p-4 pb-2 text-[10px] font-bold text-neutral-400 uppercase tracking-widest sticky top-0 bg-[#141419]/90 backdrop-blur z-10 border-b border-white/5">Timeline Layers</div>
+                <div id="layer-list" class="flex-1 px-3 py-3 space-y-2"></div>
+            </div>
+        </aside>
+
+        <!-- Right Sidebar (Properties) -->
+        <aside id="panel-right" class="w-full md:w-[340px] glass-panel md:border-l border-white/5 flex-col flex-shrink-0 md:flex-shrink-0 z-0 hidden md:flex flex-1 md:flex-none relative shadow-[-10px_0_20px_rgba(0,0,0,0.3)] overflow-hidden min-h-0">
+            <div class="p-4 border-b border-white/5 flex justify-between items-center bg-black/40 sticky top-0 z-20 backdrop-blur shadow-sm">
+                <span class="text-[10px] font-bold text-neutral-300 uppercase tracking-widest flex items-center"><i data-lucide="sliders-horizontal" class="w-3.5 h-3.5 mr-1.5"></i> Editor</span>
+                <span id="prop-id" class="text-[9px] font-mono text-indigo-400 bg-indigo-400/10 px-1.5 py-0.5 rounded border border-indigo-500/20"></span>
+            </div>
+            
+            <div id="no-selection" class="flex-1 flex flex-col items-center justify-center text-center p-8">
+                <div class="w-14 h-14 rounded-full bg-white/5 flex items-center justify-center mb-4 shadow-inner"><i data-lucide="mouse-pointer-click" class="w-6 h-6 text-neutral-500"></i></div>
+                <div class="text-sm font-semibold text-white mb-1">Select a Shape</div>
+                <div class="text-xs text-neutral-500">Tap a vector shape on the canvas to configure sliders.</div>
+            </div>
+
+            <div id="prop-editor" class="hidden flex-1 scrollable-panel pb-28 md:pb-6">
+                <div class="p-4">
+                    
+                    <!-- Transform -->
+                    <div class="prop-card">
+                        <div class="prop-title text-amber-400"><i data-lucide="move" class="w-3.5 h-3.5 mr-1.5"></i> Transform</div>
+                        
+                        <div class="slider-group">
+                            <div class="flex justify-between items-center"><label class="text-[10px] text-neutral-400">Position X</label><span id="val-x" class="text-[10px] font-mono bg-black/40 px-1 rounded">0</span></div>
+                            <input type="range" id="prop-x" min="-200" max="1480">
+                        </div>
+                        <div class="slider-group">
+                            <div class="flex justify-between items-center"><label class="text-[10px] text-neutral-400">Position Y</label><span id="val-y" class="text-[10px] font-mono bg-black/40 px-1 rounded">0</span></div>
+                            <input type="range" id="prop-y" min="-200" max="920">
+                        </div>
+                        <div class="slider-group">
+                            <div class="flex justify-between items-center"><label class="text-[10px] text-neutral-400">Rotation</label><span id="val-rot" class="text-[10px] font-mono bg-black/40 px-1 rounded">0°</span></div>
+                            <input type="range" id="prop-rot" min="-180" max="180">
+                        </div>
+                        <div class="slider-group">
+                            <div class="flex justify-between items-center"><label class="text-[10px] text-neutral-400">Global Scale</label><span id="val-scl" class="text-[10px] font-mono bg-black/40 px-1 rounded">1.0x</span></div>
+                            <input type="range" id="prop-scl" min="0.1" max="5.0" step="0.1">
+                        </div>
+                    </div>
+
+                    <!-- Geometry -->
+                    <div class="prop-card">
+                        <div class="prop-title"><i data-lucide="ruler" class="w-3.5 h-3.5 mr-1.5"></i> Geometry</div>
+                        
+                        <div id="grp-w" class="slider-group">
+                            <div class="flex justify-between items-center"><label class="text-[10px] text-neutral-400">Width</label><span id="val-w" class="text-[10px] font-mono bg-black/40 px-1 rounded">0</span></div>
+                            <input type="range" id="prop-w" min="10" max="1000">
+                        </div>
+                        <div id="grp-h" class="slider-group">
+                            <div class="flex justify-between items-center"><label id="lbl-h" class="text-[10px] text-neutral-400">Height / Curvature</label><span id="val-h" class="text-[10px] font-mono bg-black/40 px-1 rounded">0</span></div>
+                            <input type="range" id="prop-h" min="-500" max="500">
+                        </div>
+                        <div id="grp-rad" class="slider-group">
+                            <div class="flex justify-between items-center"><label class="text-[10px] text-neutral-400">Radius</label><span id="val-rad" class="text-[10px] font-mono bg-black/40 px-1 rounded">0</span></div>
+                            <input type="range" id="prop-rad" min="10" max="500">
+                        </div>
+                        <div id="grp-len" class="slider-group">
+                            <div class="flex justify-between items-center"><label class="text-[10px] text-neutral-400">Line Length</label><span id="val-len" class="text-[10px] font-mono bg-black/40 px-1 rounded">0</span></div>
+                            <input type="range" id="prop-len" min="10" max="1000">
+                        </div>
+                        <div id="grp-arr" class="slider-group">
+                            <div class="flex justify-between items-center"><label class="text-[10px] text-neutral-400">Arrow Head Size</label><span id="val-arr" class="text-[10px] font-mono bg-black/40 px-1 rounded">0</span></div>
+                            <input type="range" id="prop-arr" min="5" max="100">
+                        </div>
+                    </div>
+
+                    <!-- Style & Roughness -->
+                    <div class="prop-card">
+                        <div class="prop-title text-rose-400"><i data-lucide="brush" class="w-3.5 h-3.5 mr-1.5"></i> Styling</div>
+                        
+                        <div class="flex items-center gap-3 mb-3">
+                            <div class="flex-1 slider-group !mb-0">
+                                <div class="flex justify-between items-center"><label class="text-[10px] text-neutral-400">Thickness</label><span id="val-str" class="text-[10px] font-mono bg-black/40 px-1 rounded">0</span></div>
+                                <input type="range" id="prop-str" min="1" max="40">
+                            </div>
+                            <div class="w-12 flex flex-col items-center bg-black/25 border border-white/5 rounded-lg p-1.5">
+                                <label class="text-[9px] text-neutral-500 mb-1">Color</label>
+                                <input type="color" id="prop-col" class="w-6 h-6 p-0 border border-white/20 rounded cursor-pointer bg-transparent">
+                            </div>
+                        </div>
+
+                        <div class="bg-black/20 p-3 rounded-xl border border-white/5 space-y-3">
+                            <label class="flex items-center space-x-2 cursor-pointer w-full">
+                                <input type="checkbox" id="prop-rough">
+                                <span class="text-xs font-semibold text-white">Enable Hand-drawn (Rough.js)</span>
+                            </label>
+                            
+                            <div id="grp-rough-opts" class="space-y-3 pt-2 border-t border-white/5">
+                                <div class="slider-group !mb-0 !bg-transparent !p-0 !border-none">
+                                    <div class="flex justify-between items-center"><label class="text-[10px] text-neutral-400">Roughness</label><span id="val-rough" class="text-[10px] font-mono bg-black/40 px-1 rounded">1.0</span></div>
+                                    <input type="range" id="prop-rough-val" min="0" max="5" step="0.5">
+                                </div>
+                                <div class="flex items-center gap-2">
+                                    <div class="flex-1 space-y-1"><label class="text-[9px] text-neutral-500">Static Seed</label><input type="number" id="prop-seed" class="w-full text-center font-mono py-1"></div>
+                                    <button onclick="randomizeSeed()" class="bg-white/10 hover:bg-white/20 p-1.5 mt-4 rounded border border-white/10 transition" title="Randomize"><i data-lucide="dices" class="w-4 h-4"></i></button>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+
+                    <!-- Animation Timing -->
+                    <div class="prop-card !mb-0 !border-b-0">
+                        <div class="prop-title text-emerald-400"><i data-lucide="timer" class="w-3.5 h-3.5 mr-1.5"></i> Motion Timeline</div>
+
+                        <div class="slider-group">
+                            <div class="flex justify-between items-center"><label class="text-[10px] text-neutral-400">Appear At (sec)</label><span id="val-ts" class="text-[10px] font-mono text-emerald-300 bg-black/40 px-1 rounded">0.0s</span></div>
+                            <input type="range" id="prop-ts" min="0" max="30" step="0.1">
+                        </div>
+                        <div class="slider-group">
+                            <div class="flex justify-between items-center"><label class="text-[10px] text-neutral-400">Disappear At (sec)</label><span id="val-te" class="text-[10px] font-mono text-rose-300 bg-black/40 px-1 rounded">0.0s</span></div>
+                            <input type="range" id="prop-te" min="0" max="30" step="0.1">
+                        </div>
+                        <div class="slider-group">
+                            <div class="flex justify-between items-center"><label class="text-[10px] text-neutral-400">Draw Duration (sec)</label><span id="val-dur" class="text-[10px] font-mono text-indigo-300 bg-black/40 px-1 rounded">0.0s</span></div>
+                            <input type="range" id="prop-dur" min="0" max="10" step="0.1">
+                        </div>
+                        
+                        <div class="mt-3">
+                            <label class="text-[10px] text-neutral-400 mb-1 block">Easing Style</label>
+                            <select id="prop-ease" class="w-full text-xs font-medium">
+                                <option value="linear">Linear (Constant)</option>
+                                <option value="easeOutQuart">Ease Out (Slow at end)</option>
+                                <option value="easeInOutCubic">Ease In Out (Smooth)</option>
+                                <option value="easeOutBounce">Bounce Out</option>
+                            </select>
+                        </div>
+                    </div>
+                    
+                    <!-- Action -->
+                    <div class="pt-4 pb-2">
+                        <button onclick="deleteSelected()" class="w-full py-3 bg-red-500/10 hover:bg-red-500/20 text-red-400 border border-red-500/20 rounded-xl text-xs font-semibold transition flex justify-center items-center shadow-sm"><i data-lucide="trash-2" class="w-4 h-4 mr-2"></i> Delete Shape</button>
+                    </div>
+                </div>
+            </div>
+        </aside>
+    </div>
+
+    <!-- Timeline / Playback Bar -->
+    <div class="h-[76px] glass-panel border-t border-white/5 flex items-center px-4 md:px-6 space-x-3 md:space-x-6 z-40 relative flex-shrink-0 w-full shadow-[0_-10px_30px_rgba(0,0,0,0.4)]">
+        <div class="flex items-center space-x-1 md:space-x-2 bg-black/40 p-1.5 rounded-xl border border-white/5 flex-shrink-0">
+            <button id="btn-play" class="w-10 h-10 rounded-lg bg-indigo-600 text-white flex items-center justify-center hover:bg-indigo-500 transition shadow-lg"><i data-lucide="play" class="w-5 h-5 ml-0.5" id="icon-play"></i></button>
+            <button id="btn-stop" class="w-10 h-10 rounded-lg text-neutral-400 flex items-center justify-center hover:bg-white/10 hover:text-white transition"><i data-lucide="square" class="w-4 h-4"></i></button>
+        </div>
+        <div class="text-xl md:text-2xl font-mono tracking-wider font-bold text-white w-20 md:w-24 text-center flex-shrink-0" id="time-display">00.00</div>
+        <div class="flex-1 relative flex items-center px-2 min-w-0">
+            <input type="range" id="timeline" min="0" max="10" step="0.01" value="0" class="w-full relative z-10 h-2.5 bg-black/60 rounded-full outline-none border border-white/10">
+        </div>
+        <div class="flex items-center space-x-2 flex-shrink-0 bg-black/40 p-2 md:p-2.5 rounded-xl border border-white/5">
+            <i data-lucide="clock" class="w-4 h-4 text-neutral-500 hidden sm:block"></i>
+            <input type="number" id="setting-duration" value="10" min="1" max="60" class="w-12 text-center text-sm font-mono font-bold text-white bg-transparent border-0 p-0 focus:ring-0">
+            <span class="text-[10px] text-neutral-500 hidden md:inline uppercase font-bold pr-1">sec</span>
+        </div>
+    </div>
+
+    <!-- Export Modal -->
+    <div id="export-modal" class="fixed inset-0 z-50 hidden flex items-center justify-center p-4">
+        <div id="modal-overlay" class="absolute inset-0 bg-black/80 backdrop-blur-sm transition-opacity" onclick="closeExportModal()"></div>
+        <div class="bg-[#18181c] border border-white/10 rounded-2xl shadow-2xl w-full max-w-md relative z-10 overflow-hidden flex flex-col">
+            <div class="p-5 border-b border-white/5 flex justify-between items-center bg-white/5">
+                <h2 class="text-lg font-bold text-white flex items-center"><i data-lucide="video" class="w-5 h-5 mr-2 text-indigo-400"></i> Render Engine</h2>
+                <button onclick="closeExportModal()" class="text-neutral-400 hover:text-white transition p-1 hover:bg-white/10 rounded"><i data-lucide="x" class="w-5 h-5"></i></button>
+            </div>
+            <div class="p-6 space-y-5">
+                <div>
+                    <label class="block text-[10px] font-bold text-neutral-400 uppercase tracking-widest mb-2">Resolution</label>
+                    <div class="grid grid-cols-2 gap-2">
+                        <label class="cursor-pointer"><input type="radio" name="res" value="720" class="peer hidden" checked><div class="p-2.5 bg-black/20 border border-white/10 rounded-lg text-center peer-checked:bg-indigo-600/20 peer-checked:border-indigo-500 transition"><div class="font-bold text-white text-sm">HD 720p</div></div></label>
+                        <label class="cursor-pointer"><input type="radio" name="res" value="1080" class="peer hidden"><div class="p-2.5 bg-black/20 border border-white/10 rounded-lg text-center peer-checked:bg-indigo-600/20 peer-checked:border-indigo-500 transition"><div class="font-bold text-white text-sm">FHD 1080p</div></div></label>
+                        <label class="cursor-pointer"><input type="radio" name="res" value="1440" class="peer hidden"><div class="p-2.5 bg-black/20 border border-white/10 rounded-lg text-center peer-checked:bg-indigo-600/20 peer-checked:border-indigo-500 transition"><div class="font-bold text-white text-sm">2K 1440p</div></div></label>
+                        <label class="cursor-pointer"><input type="radio" name="res" value="2160" class="peer hidden"><div class="p-2.5 bg-black/20 border border-white/10 rounded-lg text-center peer-checked:bg-indigo-600/20 peer-checked:border-indigo-500 transition"><div class="font-bold text-white text-sm">4K 2160p</div></div></label>
+                    </div>
+                </div>
+                <div>
+                    <label class="block text-[10px] font-bold text-neutral-400 uppercase tracking-widest mb-2">Format</label>
+                    <div class="grid grid-cols-2 gap-2">
+                        <label class="cursor-pointer"><input type="radio" name="fmt" value="webm" class="peer hidden" checked><div class="p-2.5 bg-black/20 border border-white/10 rounded-lg text-center peer-checked:bg-purple-600/20 peer-checked:border-purple-500 transition"><div class="font-bold text-white text-sm">.WebM</div></div></label>
+                        <label class="cursor-pointer"><input type="radio" name="fmt" value="mp4" class="peer hidden"><div class="p-2.5 bg-black/20 border border-white/10 rounded-lg text-center peer-checked:bg-purple-600/20 peer-checked:border-purple-500 transition"><div class="font-bold text-white text-sm">.MP4</div></div></label>
+                    </div>
+                </div>
+            </div>
+            <div class="p-5 border-t border-white/5 bg-black/20">
+                <button onclick="startRender()" class="w-full py-3.5 bg-indigo-600 hover:bg-indigo-500 text-white rounded-xl font-bold text-sm transition shadow-[0_4px_15px_rgba(79,70,229,0.4)] flex justify-center items-center"><i data-lucide="video" class="w-5 h-5 mr-2"></i> Start Render</button>
+            </div>
+        </div>
+    </div>
+
+    <!-- Hidden Canvases -->
+    <canvas id="export-canvas" class="hidden"></canvas>
+    <canvas id="mask-canvas" class="hidden"></canvas>
+
+    <script>
+        lucide.createIcons();
+
+        // --- Core State ---
+        const state = {
+            objects: [], selectedId: null, isPlaying: false,
+            currentTime: 0, duration: 10, isRecording: false, bgColor: '#0d0d12'
+        };
+
+        const LOGICAL_W = 1280, LOGICAL_H = 720;
+        let isDragging = false, dragOffX = 0, dragOffY = 0;
+
+        // --- DOM Elements ---
+        const previewCanvas = document.getElementById('preview-canvas'); const previewCtx = previewCanvas.getContext('2d');
+        const exportCanvas = document.getElementById('export-canvas'); const exportCtx = exportCanvas.getContext('2d', { willReadFrequently: true });
+        const maskCanvas = document.getElementById('mask-canvas'); const maskCtx = maskCanvas.getContext('2d', { willReadFrequently: true });
+        maskCanvas.width = LOGICAL_W; maskCanvas.height = LOGICAL_H;
+        
+        const timeDisplay = document.getElementById('time-display'), timeline = document.getElementById('timeline');
+        const layerList = document.getElementById('layer-list'), bgColorInput = document.getElementById('bg-color');
+        
+        // V4 Property Binder Definitions
+        const sliders = {
+            x: { id: 'prop-x', valId: 'val-x', key: 'x', isFloat: false },
+            y: { id: 'prop-y', valId: 'val-y', key: 'y', isFloat: false },
+            rot: { id: 'prop-rot', valId: 'val-rot', key: 'rotate', isFloat: false, suffix: '°' },
+            scl: { id: 'prop-scl', valId: 'val-scl', key: 'scale', isFloat: true, suffix: 'x' },
+            w: { id: 'prop-w', valId: 'val-w', key: 'width', isFloat: false, group: 'grp-w' },
+            h: { id: 'prop-h', valId: 'val-h', key: 'height', isFloat: false, group: 'grp-h' },
+            rad: { id: 'prop-rad', valId: 'val-rad', key: 'radius', isFloat: false, group: 'grp-rad' },
+            len: { id: 'prop-len', valId: 'val-len', key: 'length', isFloat: false, group: 'grp-len' },
+            arr: { id: 'prop-arr', valId: 'val-arr', key: 'arrowSize', isFloat: false, group: 'grp-arr' },
+            str: { id: 'prop-str', valId: 'val-str', key: 'strokeWidth', isFloat: false, suffix: 'px' },
+            rough: { id: 'prop-rough-val', valId: 'val-rough', key: 'roughness', isFloat: true },
+            ts: { id: 'prop-ts', valId: 'val-ts', key: 'timeStart', isFloat: true, suffix: 's' },
+            te: { id: 'prop-te', valId: 'val-te', key: 'timeEnd', isFloat: true, suffix: 's' },
+            dur: { id: 'prop-dur', valId: 'val-dur', key: 'animDuration', isFloat: true, suffix: 's' }
+        };
+
+        const propEl = {
+            noSel: document.getElementById('no-selection'), ed: document.getElementById('prop-editor'), id: document.getElementById('prop-id'),
+            col: document.getElementById('prop-col'), isRough: document.getElementById('prop-rough'), 
+            roughOpts: document.getElementById('grp-rough-opts'), seed: document.getElementById('prop-seed'), ease: document.getElementById('prop-ease'),
+            lblH: document.getElementById('lbl-h')
+        };
+
+        // --- Mobile Tabs ---
+        function switchTab(tab) {
+            ['add', 'layers', 'edit'].forEach(t => document.getElementById(`btn-tab-${t}`)?.classList.toggle('active', t === tab));
+            if (window.innerWidth < 768) {
+                const pL = document.getElementById('panel-left'), pR = document.getElementById('panel-right');
+                const vA = document.getElementById('mobile-view-add'), vL = document.getElementById('mobile-view-layers');
+                pL.classList.remove('hidden'); pR.classList.remove('hidden');
+                if (tab === 'add') { pL.classList.add('flex'); pR.classList.add('hidden'); pR.classList.remove('flex'); vA.classList.remove('hidden'); vA.classList.add('flex'); vL.classList.add('hidden'); vL.classList.remove('flex'); } 
+                else if (tab === 'layers') { pL.classList.add('flex'); pR.classList.add('hidden'); pR.classList.remove('flex'); vA.classList.add('hidden'); vA.classList.remove('flex'); vL.classList.remove('hidden'); vL.classList.add('flex'); } 
+                else { pL.classList.add('hidden'); pL.classList.remove('flex'); pR.classList.add('flex'); }
+            } else { document.getElementById('panel-left').classList.add('md:flex'); document.getElementById('panel-right').classList.add('md:flex'); }
+        }
+        window.addEventListener('resize', () => { if (window.innerWidth >= 768) switchTab('add'); });
+
+        // --- Math & Vectors ---
+        const genId = () => Math.random().toString(36).substr(2, 9);
+        const randSeed = () => Math.floor(Math.random() * 1000000);
+        const easings = {
+            linear: t => t, easeOutQuart: t => 1 - Math.pow(1 - t, 4),
+            easeInOutCubic: t => t < 0.5 ? 4 * t * t * t : 1 - Math.pow(-2 * t + 2, 3) / 2,
+            easeOutBounce: x => { const n1 = 7.5625, d1 = 2.75; if (x < 1/d1) return n1*x*x; else if (x < 2/d1) return n1*(x-=1.5/d1)*x + 0.75; else if (x < 2.5/d1) return n1*(x-=2.25/d1)*x + 0.9375; else return n1*(x-=2.625/d1)*x + 0.984375; }
+        };
+
+        function getBezierPoints(p0, p1, p2, steps = 40) {
+            let pts = [];
+            for(let i=0; i<=steps; i++) {
+                let t = i/steps;
+                pts.push([ (1-t)*(1-t)*p0.x + 2*(1-t)*t*p1.x + t*t*p2.x, (1-t)*(1-t)*p0.y + 2*(1-t)*t*p1.y + t*t*p2.y ]);
+            }
+            return pts;
+        }
+
+        // --- Object Management ---
+        const defaultColors = ['#60a5fa', '#f43f5e', '#10b981', '#f59e0b', '#c084fc', '#e879f9'];
+        function getRanCol() { return defaultColors[Math.floor(Math.random() * defaultColors.length)]; }
+
+        function createBaseObj(type) {
+            return {
+                id: `${type}_${genId()}`, type: type, x: LOGICAL_W/2, y: LOGICAL_H/2, rotate: 0, scale: 1.0,
+                color: getRanCol(), strokeWidth: 8, timeStart: state.currentTime, timeEnd: state.duration, 
+                animDuration: 2.0, easing: 'easeInOutCubic', isRough: true, roughness: 1.5, seed: randSeed(), arrowSize: 30
+            };
+        }
+
+        function addShape(type) {
+            let obj = createBaseObj(type);
+            if (type === 'rect') { obj.width = 300; obj.height = 200; }
+            else if (type === 'circle') { obj.radius = 120; }
+            else if (type === 'arrow') { obj.length = 300; }
+            else if (type === 'arc') { obj.width = 300; obj.height = -150; } 
+            state.objects.push(obj); selectObject(obj.id); requestRender();
+        }
+
+        function deleteSelected() {
+            if (!state.selectedId) return;
+            state.objects = state.objects.filter(o => o.id !== state.selectedId);
+            selectObject(null); requestRender();
+        }
+        function randomizeSeed() {
+            const obj = state.objects.find(o => o.id === state.selectedId);
+            if(obj) { obj.seed = randSeed(); propEl.seed.value = obj.seed; requestRender(); }
+        }
+
+        // --- UI Binding Engine ---
+        function updateLayerList() {
+            layerList.innerHTML = '';
+            [...state.objects].reverse().forEach(obj => {
+                const d = document.createElement('div'); const sel = obj.id === state.selectedId;
+                d.className = `flex items-center p-3 rounded-xl cursor-pointer text-sm mb-1.5 transition border ${sel ? 'bg-indigo-600/20 border-indigo-500/50 shadow-inner' : 'bg-black/30 hover:bg-white/10 border-white/5'}`;
+                let name = obj.type === 'circle' ? 'Circle' : obj.type === 'arrow' ? 'Arrow Line' : obj.type === 'arc' ? 'Arc Arrow' : 'Rectangle';
+                d.innerHTML = `
+                    <div class="w-3.5 h-3.5 rounded-full mr-3 border-2 border-white/20 shadow-sm" style="background:${obj.color}"></div>
+                    <span class="flex-1 font-medium ${sel ? 'text-white' : 'text-neutral-300'}">${name}</span>
+                    ${obj.isRough ? '<i data-lucide="brush" class="w-3.5 h-3.5 text-neutral-500 mr-2"></i>' : ''}
+                    <span class="text-[10px] text-neutral-400 font-mono bg-black/40 px-1.5 py-0.5 rounded">${obj.timeStart.toFixed(1)}s</span>
+                `;
+                d.onclick = () => { selectObject(obj.id); requestRender(); };
+                layerList.appendChild(d);
+            });
+            lucide.createIcons();
+        }
+
+        function bindSlider(cfg) {
+            const el = document.getElementById(cfg.id);
+            const valEl = document.getElementById(cfg.valId);
+            el.addEventListener('input', e => {
+                const obj = state.objects.find(o => o.id === state.selectedId);
+                if (!obj) return;
+                let val = cfg.isFloat ? parseFloat(e.target.value) : parseInt(e.target.value, 10);
+                if (cfg.key === 'timeStart' && val >= obj.timeEnd) val = obj.timeEnd - 0.1;
+                if (cfg.key === 'timeEnd' && val <= obj.timeStart) val = obj.timeStart + 0.1;
+                obj[cfg.key] = val;
+                
+                if (valEl) valEl.innerText = (cfg.isFloat ? val.toFixed(1) : val) + (cfg.suffix || '');
+                if (['timeStart', 'timeEnd'].includes(cfg.key)) updateLayerList();
+                requestRender();
+            });
+        }
+        Object.values(sliders).forEach(cfg => bindSlider(cfg));
+
+        propEl.col.addEventListener('input', e => { const obj = state.objects.find(o => o.id === state.selectedId); if(obj) { obj.color = e.target.value; updateLayerList(); requestRender(); }});
+        propEl.isRough.addEventListener('change', e => { const obj = state.objects.find(o => o.id === state.selectedId); if(obj) { obj.isRough = e.target.checked; propEl.roughOpts.style.display = obj.isRough ? 'block' : 'none'; updateLayerList(); requestRender(); }});
+        propEl.ease.addEventListener('change', e => { const obj = state.objects.find(o => o.id === state.selectedId); if(obj) { obj.easing = e.target.value; requestRender(); }});
+        propEl.seed.addEventListener('input', e => { const obj = state.objects.find(o => o.id === state.selectedId); if(obj) { obj.seed = parseInt(e.target.value); requestRender(); }});
+        bgColorInput.addEventListener('input', e => { state.bgColor = e.target.value; requestRender(); });
+
+        function updatePropertiesPanel() {
+            const obj = state.objects.find(o => o.id === state.selectedId);
+            if (!obj) { propEl.noSel.classList.remove('hidden'); propEl.ed.classList.add('hidden'); return; }
+            propEl.noSel.classList.add('hidden'); propEl.ed.classList.remove('hidden'); propEl.id.innerText = obj.id;
+            
+            document.getElementById(sliders.w.group).classList.toggle('prop-hidden', !['rect', 'arc'].includes(obj.type));
+            document.getElementById(sliders.h.group).classList.toggle('prop-hidden', !['rect', 'arc'].includes(obj.type));
+            document.getElementById(sliders.rad.group).classList.toggle('prop-hidden', obj.type !== 'circle');
+            document.getElementById(sliders.len.group).classList.toggle('prop-hidden', !['arrow'].includes(obj.type));
+            document.getElementById(sliders.arr.group).classList.toggle('prop-hidden', !['arrow', 'arc'].includes(obj.type));
+            propEl.lblH.innerText = obj.type === 'arc' ? 'Curvature (px)' : 'Height (px)';
+
+            Object.values(sliders).forEach(cfg => {
+                const el = document.getElementById(cfg.id);
+                const valEl = document.getElementById(cfg.valId);
+                const val = obj[cfg.key];
+                if (val !== undefined) {
+                    el.value = val;
+                    if (valEl) valEl.innerText = (cfg.isFloat ? val.toFixed(1) : val) + (cfg.suffix || '');
+                }
+            });
+
+            propEl.col.value = obj.color;
+            propEl.isRough.checked = obj.isRough; propEl.roughOpts.style.display = obj.isRough ? 'block' : 'none';
+            propEl.seed.value = obj.seed; propEl.ease.value = obj.easing;
+        }
+
+        function selectObject(id) {
+            state.selectedId = id;
+            if (window.innerWidth < 768 && id) switchTab('edit');
+            updateLayerList(); updatePropertiesPanel();
+        }
+
+        // --- Interaction ---
+        function getLogicalPos(evt) {
+            const rect = previewCanvas.getBoundingClientRect();
+            let cX = evt.clientX, cY = evt.clientY;
+            if(evt.touches?.length) { cX = evt.touches[0].clientX; cY = evt.touches[0].clientY; }
+            return { x: (cX - rect.left) * (LOGICAL_W/rect.width), y: (cY - rect.top) * (LOGICAL_H/rect.height) };
+        }
+
+        function hitTest(obj, px, py) {
+            let w = 0, h = 0;
+            if (obj.type === 'rect') { w = obj.width; h = obj.height; }
+            else if (obj.type === 'circle') { w = obj.radius*2; h = obj.radius*2; }
+            else if (obj.type === 'arrow') { w = obj.length; h = 50; } 
+            else if (obj.type === 'arc') { w = obj.width; h = Math.abs(obj.height) + 50; }
+            const pad = 40 + obj.strokeWidth * obj.scale + (obj.isRough? obj.roughness*5 : 0);
+            return (px >= obj.x-w/2-pad && px <= obj.x+w/2+pad && py >= obj.y-h/2-pad && py <= obj.y+h/2+pad);
+        }
+
+        function handlePDown(e) {
+            const pos = getLogicalPos(e);
+            for (let i = state.objects.length - 1; i >= 0; i--) {
+                const obj = state.objects[i];
+                if (state.currentTime < obj.timeStart || state.currentTime > obj.timeEnd) continue;
+                if (hitTest(obj, pos.x, pos.y)) {
+                    selectObject(obj.id); isDragging = true; dragOffX = pos.x - obj.x; dragOffY = pos.y - obj.y;
+                    requestRender(); return; 
+                }
+            }
+            selectObject(null); requestRender();
+        }
+
+        function updateObjPos(e) {
+            if (!isDragging || !state.selectedId) return;
+            const obj = state.objects.find(o => o.id === state.selectedId);
+            if (obj) { 
+                const pos = getLogicalPos(e); obj.x = pos.x - dragOffX; obj.y = pos.y - dragOffY; 
+                document.getElementById(sliders.x.id).value = Math.round(obj.x); document.getElementById(sliders.x.valId).innerText = Math.round(obj.x);
+                document.getElementById(sliders.y.id).value = Math.round(obj.y); document.getElementById(sliders.y.valId).innerText = Math.round(obj.y);
+                requestRender(); 
+            }
+        }
+
+        previewCanvas.addEventListener('mousedown', handlePDown);
+        previewCanvas.addEventListener('mousemove', updateObjPos);
+        window.addEventListener('mouseup', () => isDragging = false);
+        previewCanvas.addEventListener('touchstart', e => { e.preventDefault(); handlePDown(e); }, {passive: false});
+        previewCanvas.addEventListener('touchmove', e => { e.preventDefault(); updateObjPos(e); }, {passive: false});
+        window.addEventListener('touchend', () => isDragging = false);
+
+        // --- Render Engine ---
+        function drawArrowHead(ctx, x, y, angle, size) {
+            ctx.save(); ctx.translate(x, y); ctx.rotate(angle);
+            ctx.moveTo(0,0); ctx.lineTo(-size, size*0.6); ctx.moveTo(0,0); ctx.lineTo(-size, -size*0.6);
+            ctx.restore();
+        }
+
+        function drawRoughArrowHead(rc, x, y, angle, size, opts) {
+            const p1x = x - size * Math.cos(angle - 0.5), p1y = y - size * Math.sin(angle - 0.5);
+            const p2x = x - size * Math.cos(angle + 0.5), p2y = y - size * Math.sin(angle + 0.5);
+            rc.line(p1x, p1y, x, y, opts); rc.line(p2x, p2y, x, y, opts);
+        }
+
+        function drawFullShape(ctx, obj, isRough, rc) {
+            const opts = { roughness: obj.roughness, stroke: obj.color, strokeWidth: obj.strokeWidth, seed: obj.seed };
+            ctx.beginPath();
+            
+            if (obj.type === 'rect') {
+                if (isRough) rc.rectangle(-obj.width/2, -obj.height/2, obj.width, obj.height, opts);
+                else ctx.rect(-obj.width/2, -obj.height/2, obj.width, obj.height);
+            } else if (obj.type === 'circle') {
+                if (isRough) rc.circle(0, 0, obj.radius*2, opts);
+                else ctx.arc(0, 0, obj.radius, 0, Math.PI*2);
+            } else if (obj.type === 'arrow') {
+                if (isRough) {
+                    rc.line(-obj.length/2, 0, obj.length/2, 0, opts);
+                    drawRoughArrowHead(rc, obj.length/2, 0, 0, obj.arrowSize, opts);
+                } else {
+                    ctx.moveTo(-obj.length/2, 0); ctx.lineTo(obj.length/2, 0);
+                    drawArrowHead(ctx, obj.length/2, 0, 0, obj.arrowSize);
+                }
+            } else if (obj.type === 'arc') {
+                const p0 = {x: -obj.width/2, y: 0}, p1 = {x: 0, y: -obj.height}, p2 = {x: obj.width/2, y: 0};
+                const pts = getBezierPoints(p0, p1, p2, 40);
+                
+                if (isRough) {
+                    rc.linearPath(pts, opts);
+                    const last = pts[pts.length-1], prev = pts[pts.length-2];
+                    const angle = Math.atan2(last[1]-prev[1], last[0]-prev[0]);
+                    drawRoughArrowHead(rc, p2.x, p2.y, angle, obj.arrowSize, opts);
+                } else {
+                    ctx.moveTo(pts[0][0], pts[0][1]);
+                    for(let i=1; i<pts.length; i++) ctx.lineTo(pts[i][0], pts[i][1]);
+                    const last = pts[pts.length-1], prev = pts[pts.length-2];
+                    const angle = Math.atan2(last[1]-prev[1], last[0]-prev[0]);
+                    drawArrowHead(ctx, p2.x, p2.y, angle, obj.arrowSize);
+                }
+            }
+            if (!isRough) {
+                ctx.strokeStyle = obj.color; ctx.lineWidth = obj.strokeWidth;
+                ctx.lineCap = 'round'; ctx.lineJoin = 'round'; ctx.stroke();
+            }
+        }
+
+        function drawProgressiveMask(ctx, obj, prog) {
+            ctx.beginPath();
+            if (obj.type === 'rect') {
+                const w = obj.width, h = obj.height, dl = (2*w + 2*h) * prog;
+                ctx.moveTo(-w/2, -h/2);
+                if (dl > 0) ctx.lineTo(Math.min(-w/2 + dl, w/2), -h/2);
+                if (dl > w) ctx.lineTo(w/2, Math.min(-h/2 + (dl - w), h/2));
+                if (dl > w+h) ctx.lineTo(Math.max(w/2 - (dl - w - h), -w/2), h/2);
+                if (dl > 2*w+h) ctx.lineTo(-w/2, Math.max(h/2 - (dl - 2*w - h), -h/2));
+            } else if (obj.type === 'circle') {
+                ctx.arc(0, 0, obj.radius, -Math.PI/2, -Math.PI/2 + 2*Math.PI*prog);
+            } else if (obj.type === 'arrow') {
+                ctx.moveTo(-obj.length/2, 0); ctx.lineTo(-obj.length/2 + obj.length * prog, 0);
+                if (prog > 0.95) drawArrowHead(ctx, obj.length/2, 0, 0, obj.arrowSize);
+            } else if (obj.type === 'arc') {
+                const p0 = {x: -obj.width/2, y: 0}, p1 = {x: 0, y: -obj.height}, p2 = {x: obj.width/2, y: 0};
+                const pts = getBezierPoints(p0, p1, p2, 40);
+                const limit = Math.max(1, Math.floor(pts.length * prog));
+                
+                ctx.moveTo(pts[0][0], pts[0][1]);
+                for(let i=1; i<limit; i++) ctx.lineTo(pts[i][0], pts[i][1]);
+                
+                if (prog > 0.95) {
+                    const last = pts[pts.length-1], prev = pts[pts.length-2];
+                    const angle = Math.atan2(last[1]-prev[1], last[0]-prev[0]);
+                    drawArrowHead(ctx, p2.x, p2.y, angle, obj.arrowSize);
+                }
+            }
+            ctx.strokeStyle = 'white'; 
+            ctx.lineCap = 'round'; ctx.lineJoin = 'round';
+            ctx.lineWidth = obj.strokeWidth + (obj.isRough ? obj.roughness * 12 + 15 : 10);
+            ctx.stroke();
+        }
+
+        function renderScene(ctx, targetW, targetH, isPreview = true) {
+            if (maskCanvas.width !== targetW || maskCanvas.height !== targetH) {
+                maskCanvas.width = targetW; maskCanvas.height = targetH;
+            }
+            
+            ctx.clearRect(0, 0, targetW, targetH);
+            ctx.save(); ctx.scale(targetW / LOGICAL_W, targetH / LOGICAL_H);
+            ctx.fillStyle = state.bgColor; ctx.fillRect(0, 0, LOGICAL_W, LOGICAL_H);
+
+            const time = state.currentTime;
+
+            state.objects.forEach(obj => {
+                if (time < obj.timeStart || time > obj.timeEnd) return;
+
+                let prog = 1;
+                if (obj.animDuration > 0 && time < obj.timeStart + obj.animDuration) {
+                    const rawProg = (time - obj.timeStart) / obj.animDuration;
+                    const easeFunc = easings[obj.easing] || easings.linear;
+                    prog = Math.max(0, Math.min(1, easeFunc(rawProg)));
+                }
+
+                maskCtx.clearRect(0, 0, targetW, targetH);
+                maskCtx.save();
+                maskCtx.scale(targetW / LOGICAL_W, targetH / LOGICAL_H);
+                maskCtx.translate(obj.x, obj.y); 
+                maskCtx.rotate(obj.rotate * Math.PI/180);
+                maskCtx.scale(obj.scale, obj.scale); 
+                
+                maskCtx.globalCompositeOperation = 'source-over';
+                const rc = rough.canvas(maskCanvas);
+                drawFullShape(maskCtx, obj, obj.isRough, rc);
+
+                if (prog < 1) {
+                    maskCtx.globalCompositeOperation = 'destination-in';
+                    drawProgressiveMask(maskCtx, obj, prog);
+                }
+                maskCtx.restore();
+
+                ctx.save(); ctx.resetTransform();
+                ctx.drawImage(maskCanvas, 0, 0);
+                ctx.restore();
+
+                if (isPreview && obj.id === state.selectedId && !state.isPlaying && !state.isRecording) {
+                    ctx.save(); ctx.translate(obj.x, obj.y); ctx.rotate(obj.rotate * Math.PI/180); ctx.scale(obj.scale, obj.scale);
+                    ctx.strokeStyle = '#6366f1'; ctx.lineWidth = 2; ctx.setLineDash([6, 6]);
+                    
+                    let bw=0, bh=0;
+                    if (obj.type === 'rect') { bw = obj.width + obj.strokeWidth + 20; bh = obj.height + obj.strokeWidth + 20; }
+                    else if (obj.type === 'circle') { bw = obj.radius*2 + obj.strokeWidth + 20; bh = bw; }
+                    else if (obj.type === 'arrow') { bw = obj.length + obj.arrowSize + 20; bh = obj.arrowSize*2 + 40; }
+                    else if (obj.type === 'arc') { bw = obj.width + obj.arrowSize + 40; bh = Math.abs(obj.height) + obj.arrowSize + 60; }
+                    
+                    ctx.strokeRect(-bw/2, -bh/2, bw, bh); 
+                    ctx.fillStyle = '#6366f1'; ctx.beginPath(); ctx.arc(0,0, 5/obj.scale, 0, Math.PI*2); ctx.fill();
+                    ctx.restore();
+                }
+            });
+            ctx.restore();
+        }
+
+        let renderReq = false;
+        function requestRender() {
+            if(!renderReq && !state.isPlaying && !state.isRecording) {
+                renderReq = true; requestAnimationFrame(() => { renderScene(previewCtx, previewCanvas.width, previewCanvas.height, true); renderReq = false; });
+            }
+        }
+
+        // --- Playback ---
+        let lastTime = 0;
+        function loop(ts) {
+            if (!lastTime) lastTime = ts; const d = (ts - lastTime) / 1000; lastTime = ts;
+
+            if (state.isPlaying || state.isRecording) {
+                state.currentTime += d;
+                if (state.currentTime > state.duration) {
+                    if (state.isRecording) stopExport(); else state.currentTime = 0;
+                }
+                timeline.value = state.currentTime; timeDisplay.innerText = state.currentTime.toFixed(2).padStart(5, '0');
+                renderScene(previewCtx, previewCanvas.width, previewCanvas.height, false);
+                if (state.isRecording) renderScene(exportCtx, exportCanvas.width, exportCanvas.height, false);
+            }
+            requestAnimationFrame(loop);
+        }
+
+        document.getElementById('btn-play').onclick = () => {
+            if(state.isRecording) return; state.isPlaying = !state.isPlaying;
+            document.getElementById('icon-play').setAttribute('data-lucide', state.isPlaying ? 'pause' : 'play');
+            if (state.isPlaying && state.currentTime >= state.duration) state.currentTime = 0;
+            if (state.isPlaying) { lastTime = performance.now(); selectObject(null); }
+            lucide.createIcons(); requestRender();
+        };
+
+        document.getElementById('btn-stop').onclick = () => {
+            if(state.isRecording) return; state.isPlaying = false; state.currentTime = 0;
+            document.getElementById('icon-play').setAttribute('data-lucide', 'play'); lucide.createIcons(); 
+            timeline.value = 0; timeDisplay.innerText = "00.00"; requestRender();
+        };
+
+        timeline.oninput = e => { if(state.isRecording) return; state.currentTime = parseFloat(e.target.value); timeDisplay.innerText = state.currentTime.toFixed(2).padStart(5, '0'); requestRender(); };
+        document.getElementById('setting-duration').onchange = e => { state.duration = parseFloat(e.target.value); timeline.max = state.duration; };
+
+        // --- Export ---
+        const exModal = document.getElementById('export-modal'); let mr, rChunks = [];
+        function openExportModal() { exModal.classList.remove('hidden'); }
+        function closeExportModal() { exModal.classList.add('hidden'); }
+
+        function startRender() {
+            if (state.objects.length === 0) return alert("Add shapes to render.");
+            closeExportModal();
+            const h = parseInt(document.querySelector('input[name="res"]:checked').value, 10);
+            const w = Math.round((h / 9) * 16); const fmt = document.querySelector('input[name="fmt"]:checked').value;
+            
+            exportCanvas.width = w; exportCanvas.height = h;
+            state.isRecording = true; state.currentTime = 0; state.isPlaying = false;
+            selectObject(null); document.getElementById('recording-indicator').classList.remove('hidden');
+            
+            const stream = exportCanvas.captureStream(60); rChunks = [];
+            let mime = 'video/webm; codecs=vp9';
+            if (fmt === 'mp4') {
+                if (MediaRecorder.isTypeSupported('video/mp4')) mime = 'video/mp4';
+                else if (MediaRecorder.isTypeSupported('video/mp4; codecs="avc1.424028, mp4a.40.2"')) mime = 'video/mp4; codecs="avc1.424028, mp4a.40.2"';
+            }
+            try { mr = new MediaRecorder(stream, { mimeType: mime, videoBitsPerSecond: 10000000 }); } catch (e) { mr = new MediaRecorder(stream); } 
+            mr.ondataavailable = e => { if (e.data.size > 0) rChunks.push(e.data); };
+            mr.onstop = () => {
+                const ext = mr.mimeType.includes('mp4') ? 'mp4' : 'webm';
+                const url = URL.createObjectURL(new Blob(rChunks, { type: mr.mimeType }));
+                const a = document.createElement('a'); a.href = url; a.download = `MotionDrawV4_${h}p.${ext}`;
+                document.body.appendChild(a); a.click(); setTimeout(() => { document.body.removeChild(a); URL.revokeObjectURL(url); }, 100);
+            };
+            mr.start(); lastTime = performance.now();
+        }
+        function stopExport() { state.isRecording = false; document.getElementById('recording-indicator').classList.add('hidden'); if (mr && mr.state !== 'inactive') mr.stop(); }
+
+        // --- Init ---
+        timeline.max = state.duration;
+        if(window.innerWidth < 768) switchTab('add');
+        
+        setTimeout(() => {
+            const a = createBaseObj('arrow'); a.length = 350; a.arrowSize = 35; a.color = '#3b82f6'; a.y = LOGICAL_H/2 - 80; a.timeStart = 0; a.roughness = 2; a.strokeWidth = 6; a.easing = 'easeOutQuart';
+            const arc = createBaseObj('arc'); arc.width = 400; arc.height = -180; arc.arrowSize = 30; arc.color = '#f43f5e'; arc.y = LOGICAL_H/2 + 100; arc.timeStart = 1.0; arc.roughness = 1.5; arc.easing = 'easeInOutCubic'; arc.strokeWidth = 6;
+            state.objects.push(a, arc); updateLayerList(); requestRender();
+        }, 150);
+
+        requestAnimationFrame(loop);
+    </script>
+</body>
+</html>

@@ -1,0 +1,842 @@
+<!DOCTYPE html>
+<html lang="en" class="dark">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+    <title>MotionCount V2 - Pro Counter</title>
+    <!-- Tailwind CSS -->
+    <script src="https://cdn.tailwindcss.com"></script>
+    <!-- Lucide Icons -->
+    <script src="https://unpkg.com/lucide@latest"></script>
+    <!-- Fonts -->
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&family=JetBrains+Mono:wght@400;700;800&family=Space+Grotesk:wght@600;700&family=Oswald:wght@700&display=swap" rel="stylesheet">
+    <style>
+        :root {
+            --bg-monterey: radial-gradient(circle at 15% 50%, rgba(20, 40, 50, 0.95), transparent 50%),
+                           radial-gradient(circle at 85% 30%, rgba(50, 20, 60, 0.95), transparent 50%),
+                           radial-gradient(circle at 50% 80%, rgba(30, 60, 40, 0.95), transparent 50%),
+                           #0b0c10;
+            --accent: #8b5cf6; /* Violet 500 */
+        }
+
+        body {
+            font-family: 'Inter', sans-serif;
+            background: var(--bg-monterey); background-size: cover; background-attachment: fixed;
+            color: #e5e5e5; overflow: hidden; margin: 0;
+            height: 100vh; height: 100dvh; display: flex; flex-direction: column;
+            user-select: none;
+        }
+
+        /* Glass Panels */
+        .glass-panel {
+            background: rgba(15, 15, 20, 0.75);
+            backdrop-filter: blur(30px); -webkit-backdrop-filter: blur(30px);
+            border: 1px solid rgba(255, 255, 255, 0.08);
+            box-shadow: 0 30px 60px -15px rgba(0, 0, 0, 0.8);
+        }
+        .glass-header {
+            background: rgba(18, 18, 24, 0.85); backdrop-filter: blur(20px);
+            border-bottom: 1px solid rgba(255, 255, 255, 0.06);
+        }
+
+        ::-webkit-scrollbar { width: 5px; height: 5px; }
+        ::-webkit-scrollbar-track { background: rgba(0,0,0,0.1); border-radius: 10px; }
+        ::-webkit-scrollbar-thumb { background: rgba(255, 255, 255, 0.15); border-radius: 10px; }
+        ::-webkit-scrollbar-thumb:hover { background: rgba(255, 255, 255, 0.3); }
+
+        /* Custom Inputs */
+        input[type="text"], input[type="number"], select, textarea {
+            background: rgba(0, 0, 0, 0.4); border: 1px solid rgba(255, 255, 255, 0.1);
+            color: white; border-radius: 6px; padding: 6px 8px; font-size: 0.8rem; outline: none; transition: all 0.2s;
+            width: 100%; font-family: inherit;
+        }
+        input[type="text"]:focus, input[type="number"]:focus, select:focus, textarea:focus { 
+            border-color: var(--accent); background: rgba(0, 0, 0, 0.6); 
+        }
+        input[type="checkbox"] { accent-color: var(--accent); width: 16px; height: 16px; cursor: pointer; }
+
+        /* Precision Sliders */
+        .slider-group { background: rgba(0,0,0,0.25); border: 1px solid rgba(255,255,255,0.05); padding: 8px 12px; border-radius: 8px; margin-bottom: 8px; }
+        input[type="range"] { -webkit-appearance: none; width: 100%; background: transparent; padding: 8px 0; margin-top: 2px; }
+        input[type="range"]::-webkit-slider-thumb {
+            -webkit-appearance: none; height: 16px; width: 16px; border-radius: 50%;
+            background: #fff; cursor: pointer; margin-top: -6px; border: 2px solid var(--accent);
+            box-shadow: 0 2px 5px rgba(0,0,0,0.5); transition: transform 0.1s;
+        }
+        input[type="range"]::-webkit-slider-thumb:hover { transform: scale(1.1); }
+        input[type="range"]::-webkit-slider-runnable-track { width: 100%; height: 4px; cursor: pointer; background: rgba(255, 255, 255, 0.15); border-radius: 2px; }
+        input[type="range"]:focus::-webkit-slider-runnable-track { background: rgba(255, 255, 255, 0.3); }
+
+        /* Canvas */
+        #canvas-container {
+            position: relative; display: flex; align-items: center; justify-content: center;
+            background: rgba(0, 0, 0, 0.3);
+            background-image: radial-gradient(rgba(255,255,255,0.08) 1px, transparent 1px); background-size: 30px 30px;
+        }
+        canvas {
+            background: #09090b; box-shadow: 0 25px 60px rgba(0,0,0,0.9);
+            border: 1px solid rgba(255, 255, 255, 0.1); max-width: 100%; max-height: 100%; object-fit: contain; cursor: crosshair; touch-action: none;
+        }
+
+        .anim-pulse { animation: pulse 1.5s infinite; }
+        @keyframes pulse { 0% { opacity: 1; } 50% { opacity: 0.4; } 100% { opacity: 1; } }
+
+        .seg-btn { color: #9ca3af; transition: all 0.2s; }
+        .seg-btn.active { background: var(--accent); color: white; border-radius: 8px; box-shadow: 0 2px 6px rgba(0,0,0,0.3); }
+        
+        .scrollable-panel { overflow-y: auto; -webkit-overflow-scrolling: touch; }
+        .prop-hidden { display: none !important; }
+        .prop-card { border-bottom: 1px solid rgba(255, 255, 255, 0.05); padding-bottom: 16px; margin-bottom: 16px; }
+        .prop-title { font-size: 10px; font-weight: 700; color: #a78bfa; text-transform: uppercase; letter-spacing: 0.05em; margin-bottom: 12px; display: flex; align-items: center; }
+    </style>
+</head>
+<body class="text-sm">
+
+    <!-- Header -->
+    <header class="h-14 glass-header flex items-center px-4 md:px-6 justify-between z-30 flex-shrink-0">
+        <div class="flex items-center space-x-4">
+            <div class="hidden sm:flex space-x-2 mr-2">
+                <div class="w-3 h-3 rounded-full bg-red-500 shadow-sm"></div>
+                <div class="w-3 h-3 rounded-full bg-yellow-500 shadow-sm"></div>
+                <div class="w-3 h-3 rounded-full bg-green-500 shadow-sm"></div>
+            </div>
+            <div class="font-bold tracking-wide flex items-center space-x-2">
+                <div class="bg-gradient-to-br from-violet-500 to-fuchsia-600 p-1.5 rounded-lg shadow-inner"><i data-lucide="clock-3" class="w-4 h-4 text-white"></i></div>
+                <span class="text-base text-white">MotionCount <span class="text-[10px] text-violet-300 font-bold ml-1 border border-violet-500/30 bg-violet-500/20 px-1.5 py-0.5 rounded">V2</span></span>
+            </div>
+        </div>
+        <button onclick="openExportModal()" class="bg-violet-600 hover:bg-violet-500 text-white px-4 py-2 rounded-lg flex items-center space-x-2 transition shadow-[0_0_15px_rgba(139,92,246,0.4)] font-medium">
+            <i data-lucide="download" class="w-4 h-4"></i><span class="hidden sm:inline">Export</span>
+        </button>
+    </header>
+
+    <!-- Main Workspace -->
+    <div class="flex flex-col md:flex-row flex-1 overflow-hidden relative min-h-0">
+        
+        <main id="canvas-container" class="w-full flex-shrink-0 md:flex-1 h-[32vh] min-h-[220px] md:h-auto border-b border-white/10 md:border-none z-10 p-2 md:p-8">
+            <canvas id="preview-canvas" width="1280" height="720" class="w-full h-full rounded-xl shadow-[0_0_50px_rgba(0,0,0,0.8)]"></canvas>
+            <div id="recording-indicator" class="hidden absolute top-6 right-6 bg-red-500 text-white text-xs px-3 py-1.5 rounded-full font-bold items-center space-x-2 anim-pulse shadow-lg z-20">
+                <div class="w-2 h-2 bg-white rounded-full"></div><span>RENDERING</span>
+            </div>
+        </main>
+
+        <div class="md:hidden flex p-2 bg-[#121215] border-b border-white/5 flex-shrink-0 z-20 shadow-md">
+            <div class="flex w-full bg-black/40 p-1 rounded-xl border border-white/5">
+                <button onclick="switchTab('add')" id="btn-tab-add" class="seg-btn active flex-1 py-2 text-xs font-semibold flex justify-center items-center"><i data-lucide="plus-circle" class="w-4 h-4 mr-1.5"></i> Add</button>
+                <button onclick="switchTab('layers')" id="btn-tab-layers" class="seg-btn flex-1 py-2 text-xs font-semibold flex justify-center items-center"><i data-lucide="layers" class="w-4 h-4 mr-1.5"></i> Layers</button>
+                <button onclick="switchTab('edit')" id="btn-tab-edit" class="seg-btn flex-1 py-2 text-xs font-semibold flex justify-center items-center"><i data-lucide="sliders" class="w-4 h-4 mr-1.5"></i> Edit</button>
+            </div>
+        </div>
+
+        <!-- Left Sidebar (Tools & Layers) -->
+        <aside id="panel-left" class="w-full md:w-[280px] glass-panel md:border-r border-white/5 flex-col flex-shrink-0 md:flex-shrink-0 z-0 hidden md:flex flex-1 md:flex-none relative overflow-hidden min-h-0">
+            <div id="mobile-view-add" class="flex-col flex-1 flex scrollable-panel pb-28 md:pb-6">
+                <div class="p-5 border-b border-white/5">
+                    <div class="text-[10px] font-bold text-neutral-400 uppercase tracking-widest mb-3 flex items-center"><i data-lucide="plus-square" class="w-3.5 h-3.5 mr-1.5"></i> Generators</div>
+                    <div class="grid grid-cols-2 gap-3">
+                        <button onclick="addCounter('numeric')" class="flex flex-col items-center justify-center p-3 rounded-xl bg-black/30 hover:bg-white/10 border border-white/5 transition text-xs font-medium text-neutral-300"><i data-lucide="binary" class="w-6 h-6 mb-2 text-blue-400"></i> Basic / Year</button>
+                        <button onclick="addCounter('flipclock')" class="flex flex-col items-center justify-center p-3 rounded-xl bg-black/30 hover:bg-white/10 border border-white/5 transition text-xs font-medium text-neutral-300 relative overflow-hidden group">
+                            <div class="absolute inset-0 bg-amber-500/10 opacity-0 group-hover:opacity-100 transition"></div>
+                            <i data-lucide="monitor" class="w-6 h-6 mb-2 text-amber-400 relative z-10"></i> <span class="relative z-10 text-center">Pro Flip Clock</span>
+                        </button>
+                        <button onclick="addCounter('time')" class="flex flex-col items-center justify-center p-3 rounded-xl bg-black/30 hover:bg-white/10 border border-white/5 transition text-xs font-medium text-neutral-300"><i data-lucide="timer" class="w-6 h-6 mb-2 text-rose-400"></i> Stopwatch</button>
+                        <button onclick="addCounter('words')" class="flex flex-col items-center justify-center p-3 rounded-xl bg-black/30 hover:bg-white/10 border border-white/5 transition text-xs font-medium text-neutral-300"><i data-lucide="case-upper" class="w-6 h-6 mb-2 text-emerald-400"></i> Word Cycler</button>
+                        <button onclick="addStaticText()" class="flex flex-col items-center justify-center p-3 rounded-xl bg-black/30 hover:bg-white/10 border border-white/5 transition text-xs font-medium text-neutral-300 col-span-2"><i data-lucide="type" class="w-5 h-5 mb-1 text-slate-400"></i> Static Text Element</button>
+                    </div>
+                </div>
+                <div class="p-5">
+                    <div class="text-[10px] font-bold text-neutral-400 uppercase tracking-widest mb-3 flex items-center"><i data-lucide="palette" class="w-3.5 h-3.5 mr-1.5"></i> Global Setting</div>
+                    <div class="flex items-center justify-between bg-black/30 p-3 rounded-xl border border-white/5">
+                        <span class="text-xs text-neutral-300">Canvas Background</span>
+                        <input type="color" id="bg-color" value="#09090b" class="w-8 h-8 p-0 border border-white/20 rounded cursor-pointer bg-transparent">
+                    </div>
+                </div>
+            </div>
+
+            <div id="mobile-view-layers" class="hidden md:flex flex-col flex-1 scrollable-panel border-t border-white/5 pb-28 md:pb-6">
+                <div class="p-4 pb-2 text-[10px] font-bold text-neutral-400 uppercase tracking-widest sticky top-0 bg-[#0f0f14]/90 backdrop-blur z-10 border-b border-white/5">Timeline Layers</div>
+                <div id="layer-list" class="flex-1 px-3 py-3 space-y-2"></div>
+            </div>
+        </aside>
+
+        <!-- Right Sidebar (Properties) -->
+        <aside id="panel-right" class="w-full md:w-[340px] glass-panel md:border-l border-white/5 flex-col flex-shrink-0 md:flex-shrink-0 z-0 hidden md:flex flex-1 md:flex-none relative shadow-[-10px_0_20px_rgba(0,0,0,0.3)] overflow-hidden min-h-0">
+            <div class="p-4 border-b border-white/5 flex justify-between items-center bg-black/40 sticky top-0 z-20 backdrop-blur shadow-sm">
+                <span class="text-[10px] font-bold text-neutral-300 uppercase tracking-widest flex items-center"><i data-lucide="sliders-horizontal" class="w-3.5 h-3.5 mr-1.5"></i> Settings</span>
+                <span id="prop-id" class="text-[9px] font-mono text-violet-400 bg-violet-400/10 px-1.5 py-0.5 rounded border border-violet-500/20"></span>
+            </div>
+            
+            <div id="no-selection" class="flex-1 flex flex-col items-center justify-center text-center p-8">
+                <div class="w-14 h-14 rounded-full bg-white/5 flex items-center justify-center mb-4 shadow-inner"><i data-lucide="mouse-pointer-click" class="w-6 h-6 text-neutral-500"></i></div>
+                <div class="text-sm font-semibold text-white mb-1">Select an Element</div>
+                <div class="text-xs text-neutral-500">Tap an object on the canvas to configure its logic.</div>
+            </div>
+
+            <!-- Properties Editor -->
+            <div id="prop-editor" class="hidden flex-1 scrollable-panel pb-28 md:pb-6">
+                <div class="p-4">
+                    
+                    <!-- Content & Logic Card -->
+                    <div class="prop-card">
+                        <div class="prop-title text-blue-400"><i data-lucide="cpu" class="w-3.5 h-3.5 mr-1.5"></i> Counter Logic</div>
+                        
+                        <!-- Type: Numeric / Flipclock -->
+                        <div id="grp-numeric" class="space-y-3 prop-hidden">
+                            <div class="flex items-end gap-2">
+                                <div class="flex-1 space-y-1"><label class="text-[10px] text-neutral-400">Start Value</label><input type="number" id="num-start" step="any"></div>
+                                <button onclick="swapValues()" class="bg-white/10 hover:bg-white/20 p-2 rounded-lg border border-white/5 transition mb-0.5" title="Reverse Direction"><i data-lucide="arrow-right-left" class="w-4 h-4 text-neutral-300"></i></button>
+                                <div class="flex-1 space-y-1"><label class="text-[10px] text-neutral-400">End Value</label><input type="number" id="num-end" step="any"></div>
+                            </div>
+                            <div class="grid grid-cols-3 gap-2">
+                                <div><label class="text-[10px] text-neutral-400">Prefix</label><input type="text" id="num-pref" placeholder="$"></div>
+                                <div><label class="text-[10px] text-neutral-400">Suffix</label><input type="text" id="num-suff" placeholder="%"></div>
+                                <div><label class="text-[10px] text-neutral-400">Decimals</label><input type="number" id="num-dec" min="0" max="5"></div>
+                            </div>
+                            <div class="pt-2 flex items-center justify-between border-t border-white/5">
+                                <span class="text-xs font-medium text-neutral-300">Format with Commas</span>
+                                <label class="relative inline-flex items-center cursor-pointer">
+                                    <input type="checkbox" id="num-commas" class="sr-only peer">
+                                    <div class="w-9 h-5 bg-black/50 peer-focus:outline-none rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border-gray-300 after:border after:rounded-full after:h-4 after:w-4 after:transition-all peer-checked:bg-violet-500"></div>
+                                </label>
+                            </div>
+                            <p class="text-[9px] text-neutral-500 italic mt-1 leading-tight">Turn off commas for standard Year counting (e.g., 2026).</p>
+                        </div>
+
+                        <!-- Type: Time -->
+                        <div id="grp-time" class="space-y-3 prop-hidden">
+                            <div>
+                                <label class="text-[10px] text-neutral-400">Format</label>
+                                <select id="time-fmt">
+                                    <option value="MM:SS">MM:SS (05:30)</option>
+                                    <option value="HH:MM:SS">HH:MM:SS (01:05:30)</option>
+                                    <option value="SS.MS">SS.MS (12.45)</option>
+                                </select>
+                            </div>
+                            <div class="grid grid-cols-2 gap-2">
+                                <div><label class="text-[10px] text-neutral-400">Start (Secs)</label><input type="number" id="time-start" step="0.1"></div>
+                                <div><label class="text-[10px] text-neutral-400">End (Secs)</label><input type="number" id="time-end" step="0.1"></div>
+                            </div>
+                        </div>
+
+                        <!-- Type: Words -->
+                        <div id="grp-words" class="space-y-3 prop-hidden">
+                            <div><label class="text-[10px] text-neutral-400">Final Target Word</label><input type="text" id="word-final"></div>
+                            <div>
+                                <label class="text-[10px] text-neutral-400">Cycle Words (Comma Separated)</label>
+                                <textarea id="word-list" rows="2" class="text-xs"></textarea>
+                            </div>
+                        </div>
+
+                        <!-- Type: Static -->
+                        <div id="grp-static" class="space-y-3 prop-hidden">
+                            <div><label class="text-[10px] text-neutral-400">Text Content</label><textarea id="static-text" rows="2"></textarea></div>
+                        </div>
+                    </div>
+
+                    <!-- Typography -->
+                    <div class="prop-card">
+                        <div class="prop-title text-rose-400"><i data-lucide="type" class="w-3.5 h-3.5 mr-1.5"></i> Typography</div>
+                        <div class="flex gap-2 mb-3">
+                            <div class="flex-1">
+                                <label class="text-[10px] text-neutral-400">Font Family</label>
+                                <select id="prop-font">
+                                    <option value="Inter">Inter (Sans)</option>
+                                    <option value="JetBrains Mono">JetBrains (Mono)</option>
+                                    <option value="Space Grotesk">Space Grotesk (Modern)</option>
+                                    <option value="Oswald">Oswald (Tall)</option>
+                                    <option value="Impact, sans-serif">Impact (Heavy)</option>
+                                </select>
+                            </div>
+                            <div class="w-12 flex flex-col items-center bg-black/25 border border-white/5 rounded-lg p-1.5">
+                                <label class="text-[9px] text-neutral-500 mb-1">Color</label>
+                                <input type="color" id="prop-col" class="w-6 h-6 p-0 border border-white/20 rounded cursor-pointer bg-transparent">
+                            </div>
+                        </div>
+                        <div class="slider-group !mb-0">
+                            <div class="flex justify-between items-center"><label class="text-[10px] text-neutral-400">Base Font Size</label><span id="val-fs" class="text-[10px] font-mono bg-black/40 px-1 rounded">0px</span></div>
+                            <input type="range" id="prop-fs" min="20" max="400">
+                        </div>
+                    </div>
+
+                    <!-- Transform -->
+                    <div class="prop-card">
+                        <div class="prop-title text-amber-400"><i data-lucide="move" class="w-3.5 h-3.5 mr-1.5"></i> Transform</div>
+                        <div class="slider-group">
+                            <div class="flex justify-between items-center"><label class="text-[10px] text-neutral-400">Position X</label><span id="val-x" class="text-[10px] font-mono bg-black/40 px-1 rounded">0</span></div>
+                            <input type="range" id="prop-x" min="-200" max="1480">
+                        </div>
+                        <div class="slider-group">
+                            <div class="flex justify-between items-center"><label class="text-[10px] text-neutral-400">Position Y</label><span id="val-y" class="text-[10px] font-mono bg-black/40 px-1 rounded">0</span></div>
+                            <input type="range" id="prop-y" min="-200" max="920">
+                        </div>
+                        <div class="slider-group">
+                            <div class="flex justify-between items-center"><label class="text-[10px] text-neutral-400">Global Scale</label><span id="val-scl" class="text-[10px] font-mono bg-black/40 px-1 rounded">1.0x</span></div>
+                            <input type="range" id="prop-scl" min="0.1" max="5.0" step="0.1">
+                        </div>
+                    </div>
+
+                    <!-- Animation Timing -->
+                    <div class="prop-card !mb-0 !border-b-0">
+                        <div class="prop-title text-emerald-400"><i data-lucide="timer" class="w-3.5 h-3.5 mr-1.5"></i> Timeline & Motion</div>
+
+                        <div class="grid grid-cols-2 gap-2 mb-3">
+                            <div class="space-y-1">
+                                <label class="text-[10px] text-neutral-400 flex items-center"><i data-lucide="eye" class="w-3 h-3 mr-1"></i> Appears (s)</label>
+                                <input type="number" id="prop-time-start" step="0.1" min="0" class="w-full text-center font-mono font-bold text-white bg-black/40">
+                            </div>
+                            <div class="space-y-1">
+                                <label class="text-[10px] text-neutral-400 flex items-center"><i data-lucide="eye-off" class="w-3 h-3 mr-1"></i> Disappears</label>
+                                <input type="number" id="prop-time-end" step="0.1" min="0.1" class="w-full text-center font-mono font-bold text-white bg-black/40">
+                            </div>
+                        </div>
+
+                        <div class="bg-black/20 p-3 rounded-xl border border-white/5 mb-3">
+                            <div class="flex items-center justify-between">
+                                <label class="text-[10px] text-neutral-300">Counting Duration</label>
+                                <div class="flex items-center space-x-1">
+                                    <input type="number" id="prop-anim-duration" step="0.1" min="0" class="w-14 text-center font-mono text-sm font-semibold text-emerald-400 bg-black/50 p-1 rounded">
+                                    <span class="text-[10px] text-neutral-500">sec</span>
+                                </div>
+                            </div>
+                        </div>
+                        
+                        <div class="space-y-3 pt-3 border-t border-white/5">
+                            <div>
+                                <label class="text-[10px] text-neutral-400 mb-1 block">Active Motion (During Count)</label>
+                                <select id="prop-active-anim" class="w-full text-xs font-medium">
+                                    <option value="none">None (Static Count)</option>
+                                    <option value="pulse">Pulse (Heartbeat)</option>
+                                    <option value="shake">Shake (Glitchy)</option>
+                                    <option value="float">Float (Smooth Y-Axis)</option>
+                                </select>
+                            </div>
+                            <div>
+                                <label class="text-[10px] text-neutral-400 mb-1 block">Value Easing</label>
+                                <select id="prop-ease" class="w-full text-xs font-medium">
+                                    <option value="easeOutQuart">Ease Out (Slows down at end)</option>
+                                    <option value="linear">Linear (Constant Speed)</option>
+                                    <option value="easeInOutCubic">Ease In Out (Smooth accel/decel)</option>
+                                </select>
+                            </div>
+                        </div>
+                    </div>
+                    
+                    <!-- Action -->
+                    <div class="pt-4 pb-2">
+                        <button onclick="deleteSelected()" class="w-full py-3 bg-red-500/10 hover:bg-red-500/20 text-red-400 border border-red-500/20 rounded-xl text-xs font-semibold transition flex justify-center items-center shadow-sm"><i data-lucide="trash-2" class="w-4 h-4 mr-2"></i> Delete Element</button>
+                    </div>
+                </div>
+            </div>
+        </aside>
+    </div>
+
+    <!-- Timeline / Playback Bar -->
+    <div class="h-[76px] glass-panel border-t border-white/5 flex items-center px-4 md:px-6 space-x-3 md:space-x-6 z-40 relative flex-shrink-0 w-full shadow-[0_-10px_30px_rgba(0,0,0,0.4)]">
+        <div class="flex items-center space-x-1 md:space-x-2 bg-black/40 p-1.5 rounded-xl border border-white/5 flex-shrink-0">
+            <button id="btn-play" class="w-10 h-10 rounded-lg bg-violet-600 text-white flex items-center justify-center hover:bg-violet-500 transition shadow-lg"><i data-lucide="play" class="w-5 h-5 ml-0.5" id="icon-play"></i></button>
+            <button id="btn-stop" class="w-10 h-10 rounded-lg text-neutral-400 flex items-center justify-center hover:bg-white/10 hover:text-white transition"><i data-lucide="square" class="w-4 h-4"></i></button>
+        </div>
+        <div class="text-xl md:text-2xl font-mono tracking-wider font-bold text-white w-20 md:w-24 text-center flex-shrink-0" id="time-display">00.00</div>
+        <div class="flex-1 relative flex items-center px-2 min-w-0">
+            <input type="range" id="timeline" min="0" max="10" step="0.01" value="0" class="w-full relative z-10 h-2.5 bg-black/60 rounded-full outline-none border border-white/10">
+        </div>
+        <div class="flex items-center space-x-2 flex-shrink-0 bg-black/40 p-2 md:p-2.5 rounded-xl border border-white/5">
+            <i data-lucide="clock" class="w-4 h-4 text-neutral-500 hidden sm:block"></i>
+            <input type="number" id="setting-duration" value="10" min="1" max="60" class="w-12 text-center text-sm font-mono font-bold text-white bg-transparent border-0 p-0 focus:ring-0">
+            <span class="text-[10px] text-neutral-500 hidden md:inline uppercase font-bold pr-1">sec</span>
+        </div>
+    </div>
+
+    <!-- Export Modal -->
+    <div id="export-modal" class="fixed inset-0 z-50 hidden flex items-center justify-center p-4">
+        <div id="modal-overlay" class="absolute inset-0 bg-black/80 backdrop-blur-sm transition-opacity" onclick="closeExportModal()"></div>
+        <div class="bg-[#15151a] border border-white/10 rounded-2xl shadow-2xl w-full max-w-md relative z-10 overflow-hidden flex flex-col">
+            <div class="p-5 border-b border-white/5 flex justify-between items-center bg-white/5">
+                <h2 class="text-lg font-bold text-white flex items-center"><i data-lucide="video" class="w-5 h-5 mr-2 text-violet-400"></i> Render Engine</h2>
+                <button onclick="closeExportModal()" class="text-neutral-400 hover:text-white transition p-1 hover:bg-white/10 rounded"><i data-lucide="x" class="w-5 h-5"></i></button>
+            </div>
+            <div class="p-6 space-y-5">
+                <div>
+                    <label class="block text-[10px] font-bold text-neutral-400 uppercase tracking-widest mb-2">Resolution</label>
+                    <div class="grid grid-cols-2 gap-2">
+                        <label class="cursor-pointer"><input type="radio" name="res" value="720" class="peer hidden" checked><div class="p-2.5 bg-black/20 border border-white/10 rounded-lg text-center peer-checked:bg-violet-600/20 peer-checked:border-violet-500 transition"><div class="font-bold text-white text-sm">HD 720p</div></div></label>
+                        <label class="cursor-pointer"><input type="radio" name="res" value="1080" class="peer hidden"><div class="p-2.5 bg-black/20 border border-white/10 rounded-lg text-center peer-checked:bg-violet-600/20 peer-checked:border-violet-500 transition"><div class="font-bold text-white text-sm">FHD 1080p</div></div></label>
+                        <label class="cursor-pointer"><input type="radio" name="res" value="1440" class="peer hidden"><div class="p-2.5 bg-black/20 border border-white/10 rounded-lg text-center peer-checked:bg-violet-600/20 peer-checked:border-violet-500 transition"><div class="font-bold text-white text-sm">2K 1440p</div></div></label>
+                        <label class="cursor-pointer"><input type="radio" name="res" value="2160" class="peer hidden"><div class="p-2.5 bg-black/20 border border-white/10 rounded-lg text-center peer-checked:bg-violet-600/20 peer-checked:border-violet-500 transition"><div class="font-bold text-white text-sm">4K 2160p</div></div></label>
+                    </div>
+                </div>
+                <div>
+                    <label class="block text-[10px] font-bold text-neutral-400 uppercase tracking-widest mb-2">Format</label>
+                    <div class="grid grid-cols-2 gap-2">
+                        <label class="cursor-pointer"><input type="radio" name="fmt" value="webm" class="peer hidden" checked><div class="p-2.5 bg-black/20 border border-white/10 rounded-lg text-center peer-checked:bg-blue-500/20 peer-checked:border-blue-500 transition"><div class="font-bold text-white text-sm">.WebM</div></div></label>
+                        <label class="cursor-pointer"><input type="radio" name="fmt" value="mp4" class="peer hidden"><div class="p-2.5 bg-black/20 border border-white/10 rounded-lg text-center peer-checked:bg-blue-500/20 peer-checked:border-blue-500 transition"><div class="font-bold text-white text-sm">.MP4</div></div></label>
+                    </div>
+                </div>
+            </div>
+            <div class="p-5 border-t border-white/5 bg-black/20">
+                <button onclick="startRender()" class="w-full py-3.5 bg-violet-600 hover:bg-violet-500 text-white rounded-xl font-bold text-sm transition shadow-[0_4px_15px_rgba(139,92,246,0.4)] flex justify-center items-center"><i data-lucide="video" class="w-5 h-5 mr-2"></i> Start Render</button>
+            </div>
+        </div>
+    </div>
+
+    <!-- Hidden Canvas -->
+    <canvas id="export-canvas" class="hidden"></canvas>
+
+    <script>
+        lucide.createIcons();
+
+        // --- State Management ---
+        const state = {
+            objects: [], selectedId: null, isPlaying: false,
+            currentTime: 0, duration: 10, isRecording: false, bgColor: '#09090b'
+        };
+
+        const LOGICAL_W = 1280, LOGICAL_H = 720;
+        let isDragging = false, dragOffX = 0, dragOffY = 0;
+
+        // --- DOM Elements ---
+        const previewCanvas = document.getElementById('preview-canvas'); const previewCtx = previewCanvas.getContext('2d');
+        const exportCanvas = document.getElementById('export-canvas'); const exportCtx = exportCanvas.getContext('2d', { willReadFrequently: true });
+        
+        const timeDisplay = document.getElementById('time-display'), timeline = document.getElementById('timeline');
+        const layerList = document.getElementById('layer-list'), bgColorInput = document.getElementById('bg-color');
+        
+        const sliders = {
+            x: { id: 'prop-x', valId: 'val-x', key: 'x', isFloat: false },
+            y: { id: 'prop-y', valId: 'val-y', key: 'y', isFloat: false },
+            scl: { id: 'prop-scl', valId: 'val-scl', key: 'scale', isFloat: true, suffix: 'x' },
+            fs: { id: 'prop-fs', valId: 'val-fs', key: 'fontSize', isFloat: false, suffix: 'px' }
+        };
+
+        const propEl = {
+            noSel: document.getElementById('no-selection'), ed: document.getElementById('prop-editor'), id: document.getElementById('prop-id'),
+            col: document.getElementById('prop-col'), font: document.getElementById('prop-font'), ease: document.getElementById('prop-ease'), actAnim: document.getElementById('prop-active-anim'),
+            timeS: document.getElementById('prop-time-start'), timeE: document.getElementById('prop-time-end'), animD: document.getElementById('prop-anim-duration'),
+            gNum: document.getElementById('grp-numeric'), gTime: document.getElementById('grp-time'), gWord: document.getElementById('grp-words'), gStat: document.getElementById('grp-static'),
+            nStart: document.getElementById('num-start'), nEnd: document.getElementById('num-end'), nPref: document.getElementById('num-pref'), nSuff: document.getElementById('num-suff'), nDec: document.getElementById('num-dec'), nCommas: document.getElementById('num-commas'),
+            tFmt: document.getElementById('time-fmt'), tStart: document.getElementById('time-start'), tEnd: document.getElementById('time-end'),
+            wFinal: document.getElementById('word-final'), wList: document.getElementById('word-list'),
+            sText: document.getElementById('static-text')
+        };
+
+        // --- Mobile Tabs ---
+        function switchTab(tab) {
+            ['add', 'layers', 'edit'].forEach(t => document.getElementById(`btn-tab-${t}`)?.classList.toggle('active', t === tab));
+            if (window.innerWidth < 768) {
+                const pL = document.getElementById('panel-left'), pR = document.getElementById('panel-right');
+                const vA = document.getElementById('mobile-view-add'), vL = document.getElementById('mobile-view-layers');
+                pL.classList.remove('hidden'); pR.classList.remove('hidden');
+                if (tab === 'add') { pL.classList.add('flex'); pR.classList.add('hidden'); pR.classList.remove('flex'); vA.classList.remove('hidden'); vA.classList.add('flex'); vL.classList.add('hidden'); vL.classList.remove('flex'); } 
+                else if (tab === 'layers') { pL.classList.add('flex'); pR.classList.add('hidden'); pR.classList.remove('flex'); vA.classList.add('hidden'); vA.classList.remove('flex'); vL.classList.remove('hidden'); vL.classList.add('flex'); } 
+                else { pL.classList.add('hidden'); pL.classList.remove('flex'); pR.classList.add('flex'); }
+            } else { document.getElementById('panel-left').classList.add('md:flex'); document.getElementById('panel-right').classList.add('md:flex'); }
+        }
+        window.addEventListener('resize', () => { if (window.innerWidth >= 768) switchTab('add'); });
+
+        // --- Math & Easings ---
+        const genId = () => Math.random().toString(36).substr(2, 9);
+        const easings = {
+            linear: t => t, easeOutQuart: t => 1 - Math.pow(1 - t, 4),
+            easeInOutCubic: t => t < 0.5 ? 4 * t * t * t : 1 - Math.pow(-2 * t + 2, 3) / 2
+        };
+
+        // --- Object Factory ---
+        function createBaseObj(type) {
+            return {
+                id: `${type}_${genId()}`, type: type, x: LOGICAL_W/2, y: LOGICAL_H/2, rotate: 0, scale: 1.0,
+                color: '#ffffff', fontSize: 150, fontFamily: 'Space Grotesk',
+                timeStart: state.currentTime, timeEnd: state.duration, animDuration: 3.0, easing: 'easeOutQuart',
+                activeAnim: 'none' // pulse, shake, float
+            };
+        }
+
+        function addCounter(type) {
+            let obj = createBaseObj(type);
+            if (type === 'numeric' || type === 'flipclock') {
+                obj.startVal = 0; obj.endVal = 2026; obj.prefix = ''; obj.suffix = ''; obj.decimals = 0; obj.useCommas = false;
+                if(type === 'flipclock') { obj.fontFamily = 'Oswald'; obj.fontSize = 180; obj.color = '#f8fafc'; }
+            } else if (type === 'time') {
+                obj.timeFmt = 'MM:SS'; obj.startSecs = 0; obj.endSecs = 60; obj.fontFamily = 'JetBrains Mono';
+            } else if (type === 'words') {
+                obj.finalWord = 'PROFESSIONAL'; obj.wordList = 'FAST,DYNAMIC,CLEAN,SMOOTH,CREATIVE';
+            }
+            state.objects.push(obj); selectObject(obj.id); requestRender();
+        }
+
+        function addStaticText() {
+            let obj = createBaseObj('static'); obj.staticText = 'New Text'; obj.animDuration = 0; obj.fontSize = 120;
+            state.objects.push(obj); selectObject(obj.id); requestRender();
+        }
+
+        function deleteSelected() {
+            if (!state.selectedId) return;
+            state.objects = state.objects.filter(o => o.id !== state.selectedId);
+            selectObject(null); requestRender();
+        }
+
+        function swapValues() {
+            const obj = state.objects.find(o => o.id === state.selectedId);
+            if(obj && (obj.type === 'numeric' || obj.type === 'flipclock')) {
+                const temp = obj.startVal; obj.startVal = obj.endVal; obj.endVal = temp;
+                updatePropertiesPanel(); requestRender();
+            }
+        }
+
+        // --- UI Binding ---
+        function updateLayerList() {
+            layerList.innerHTML = '';
+            [...state.objects].reverse().forEach(obj => {
+                const d = document.createElement('div'); const sel = obj.id === state.selectedId;
+                d.className = `flex items-center p-3 rounded-xl cursor-pointer text-sm mb-1.5 transition border ${sel ? 'bg-violet-600/20 border-violet-500/50 shadow-inner' : 'bg-black/30 hover:bg-white/10 border-white/5'}`;
+                
+                let icon = 'type', name = 'Text';
+                if (obj.type === 'numeric') { icon = 'binary'; name = 'Numeric Counter'; }
+                if (obj.type === 'flipclock') { icon = 'monitor'; name = 'Flip Clock Pro'; }
+                if (obj.type === 'time') { icon = 'timer'; name = 'Stopwatch'; }
+                if (obj.type === 'words') { icon = 'case-upper'; name = 'Word Cycler'; }
+                
+                d.innerHTML = `
+                    <i data-lucide="${icon}" class="w-4 h-4 mr-3 ${sel ? 'text-violet-400' : 'text-neutral-400'}"></i>
+                    <span class="flex-1 font-medium ${sel ? 'text-white' : 'text-neutral-300'}">${name}</span>
+                    <span class="text-[10px] text-neutral-400 font-mono bg-black/40 px-1.5 py-0.5 rounded">${obj.timeStart.toFixed(1)}s</span>
+                `;
+                d.onclick = () => { selectObject(obj.id); requestRender(); };
+                layerList.appendChild(d);
+            });
+            lucide.createIcons();
+        }
+
+        function bindSlider(cfg) {
+            const el = document.getElementById(cfg.id);
+            const valEl = document.getElementById(cfg.valId);
+            el.addEventListener('input', e => {
+                const obj = state.objects.find(o => o.id === state.selectedId);
+                if (!obj) return;
+                let val = cfg.isFloat ? parseFloat(e.target.value) : parseInt(e.target.value, 10);
+                obj[cfg.key] = val;
+                if (valEl) valEl.innerText = (cfg.isFloat ? val.toFixed(1) : val) + (cfg.suffix || '');
+                requestRender();
+            });
+        }
+        Object.values(sliders).forEach(cfg => bindSlider(cfg));
+
+        // Bind regular inputs
+        const bindInp = (el, key, isNum=false, isCheck=false) => {
+            el.addEventListener('input', e => {
+                const obj = state.objects.find(o => o.id === state.selectedId); if(!obj) return;
+                let val = isCheck ? e.target.checked : (isNum ? parseFloat(e.target.value) || 0 : e.target.value);
+                if(key === 'timeStart' && val >= obj.timeEnd) val = obj.timeEnd - 0.1;
+                if(key === 'timeEnd' && val <= obj.timeStart) val = obj.timeStart + 0.1;
+                obj[key] = val;
+                if(['timeStart','timeEnd'].includes(key)) updateLayerList();
+                requestRender();
+            });
+        };
+        
+        bindInp(propEl.col, 'color'); bindInp(propEl.font, 'fontFamily'); bindInp(propEl.ease, 'easing'); bindInp(propEl.actAnim, 'activeAnim');
+        bindInp(propEl.timeS, 'timeStart', true); bindInp(propEl.timeE, 'timeEnd', true); bindInp(propEl.animD, 'animDuration', true);
+        
+        bindInp(propEl.nStart, 'startVal', true); bindInp(propEl.nEnd, 'endVal', true); bindInp(propEl.nPref, 'prefix'); bindInp(propEl.nSuff, 'suffix'); bindInp(propEl.nDec, 'decimals', true); bindInp(propEl.nCommas, 'useCommas', false, true);
+        bindInp(propEl.tFmt, 'timeFmt'); bindInp(propEl.tStart, 'startSecs', true); bindInp(propEl.tEnd, 'endSecs', true);
+        bindInp(propEl.wFinal, 'finalWord'); bindInp(propEl.wList, 'wordList');
+        bindInp(propEl.sText, 'staticText');
+
+        bgColorInput.addEventListener('input', e => { state.bgColor = e.target.value; requestRender(); });
+
+        function updatePropertiesPanel() {
+            const obj = state.objects.find(o => o.id === state.selectedId);
+            if (!obj) { propEl.noSel.classList.remove('hidden'); propEl.ed.classList.add('hidden'); return; }
+            propEl.noSel.classList.add('hidden'); propEl.ed.classList.remove('hidden'); propEl.id.innerText = obj.id;
+            
+            // Toggles Groups
+            propEl.gNum.classList.toggle('prop-hidden', obj.type !== 'numeric' && obj.type !== 'flipclock');
+            propEl.gTime.classList.toggle('prop-hidden', obj.type !== 'time');
+            propEl.gWord.classList.toggle('prop-hidden', obj.type !== 'words');
+            propEl.gStat.classList.toggle('prop-hidden', obj.type !== 'static');
+
+            Object.values(sliders).forEach(cfg => {
+                const val = obj[cfg.key];
+                if (val !== undefined) {
+                    document.getElementById(cfg.id).value = val;
+                    if(document.getElementById(cfg.valId)) document.getElementById(cfg.valId).innerText = (cfg.isFloat ? val.toFixed(1) : val) + (cfg.suffix || '');
+                }
+            });
+
+            propEl.col.value = obj.color; propEl.font.value = obj.fontFamily; propEl.ease.value = obj.easing; propEl.actAnim.value = obj.activeAnim || 'none';
+            propEl.timeS.value = obj.timeStart; propEl.timeE.value = obj.timeEnd; propEl.animD.value = obj.animDuration;
+            
+            if(obj.type === 'numeric' || obj.type === 'flipclock'){ propEl.nStart.value = obj.startVal; propEl.nEnd.value = obj.endVal; propEl.nPref.value = obj.prefix; propEl.nSuff.value = obj.suffix; propEl.nDec.value = obj.decimals; propEl.nCommas.checked = obj.useCommas; }
+            if(obj.type === 'time'){ propEl.tFmt.value = obj.timeFmt; propEl.tStart.value = obj.startSecs; propEl.tEnd.value = obj.endSecs; }
+            if(obj.type === 'words'){ propEl.wFinal.value = obj.finalWord; propEl.wList.value = obj.wordList; }
+            if(obj.type === 'static'){ propEl.sText.value = obj.staticText; }
+        }
+
+        function selectObject(id) {
+            state.selectedId = id;
+            if (window.innerWidth < 768 && id) switchTab('edit');
+            updateLayerList(); updatePropertiesPanel();
+        }
+
+        // --- Interaction ---
+        function getLogicalPos(evt) {
+            const rect = previewCanvas.getBoundingClientRect();
+            let cX = evt.clientX, cY = evt.clientY;
+            if(evt.touches?.length) { cX = evt.touches[0].clientX; cY = evt.touches[0].clientY; }
+            return { x: (cX - rect.left) * (LOGICAL_W/rect.width), y: (cY - rect.top) * (LOGICAL_H/rect.height) };
+        }
+
+        function handlePDown(e) {
+            const pos = getLogicalPos(e);
+            for (let i = state.objects.length - 1; i >= 0; i--) {
+                const obj = state.objects[i];
+                if (state.currentTime < obj.timeStart || state.currentTime > obj.timeEnd) continue;
+                
+                previewCtx.save(); previewCtx.font = `bold ${obj.fontSize}px "${obj.fontFamily}"`;
+                const w = previewCtx.measureText("00000000").width * obj.scale; // wide bounding box approx
+                const h = obj.fontSize * obj.scale; previewCtx.restore();
+                
+                const pad = 40;
+                if (pos.x >= obj.x-w/2-pad && pos.x <= obj.x+w/2+pad && pos.y >= obj.y-h/2-pad && pos.y <= obj.y+h/2+pad) {
+                    selectObject(obj.id); isDragging = true; dragOffX = pos.x - obj.x; dragOffY = pos.y - obj.y;
+                    requestRender(); return; 
+                }
+            }
+            selectObject(null); requestRender();
+        }
+
+        function updateObjPos(e) {
+            if (!isDragging || !state.selectedId) return;
+            const obj = state.objects.find(o => o.id === state.selectedId);
+            if (obj) { 
+                const pos = getLogicalPos(e); obj.x = pos.x - dragOffX; obj.y = pos.y - dragOffY; 
+                document.getElementById(sliders.x.id).value = Math.round(obj.x); document.getElementById(sliders.x.valId).innerText = Math.round(obj.x);
+                document.getElementById(sliders.y.id).value = Math.round(obj.y); document.getElementById(sliders.y.valId).innerText = Math.round(obj.y);
+                requestRender(); 
+            }
+        }
+
+        previewCanvas.addEventListener('mousedown', handlePDown);
+        previewCanvas.addEventListener('mousemove', updateObjPos);
+        window.addEventListener('mouseup', () => isDragging = false);
+        previewCanvas.addEventListener('touchstart', e => { e.preventDefault(); handlePDown(e); }, {passive: false});
+        previewCanvas.addEventListener('touchmove', e => { e.preventDefault(); updateObjPos(e); }, {passive: false});
+        window.addEventListener('touchend', () => isDragging = false);
+
+        // --- Render Engine & Text Formatters ---
+        function formatTime(secs, format) {
+            let s = Math.abs(secs);
+            let hh = Math.floor(s / 3600), mm = Math.floor((s % 3600) / 60), ss = Math.floor(s % 60), ms = Math.floor((s % 1) * 100);
+            const pad = num => num.toString().padStart(2, '0');
+            if (format === 'HH:MM:SS') return `${pad(hh)}:${pad(mm)}:${pad(ss)}`;
+            if (format === 'SS.MS') return `${pad(ss)}.${pad(ms)}`;
+            return `${pad(mm)}:${pad(ss)}`; 
+        }
+
+        function getDisplayText(obj, prog) {
+            if (obj.type === 'static') return obj.staticText || '';
+            
+            if (obj.type === 'numeric' || obj.type === 'flipclock') {
+                const val = obj.startVal + (obj.endVal - obj.startVal) * prog;
+                let str = val.toFixed(obj.decimals || 0);
+                if(obj.useCommas) {
+                    const parts = str.split(".");
+                    parts[0] = parseInt(parts[0], 10).toLocaleString('en-US');
+                    str = parts.join(".");
+                }
+                return `${obj.prefix || ''}${str}${obj.suffix || ''}`;
+            }
+            
+            if (obj.type === 'time') {
+                const val = obj.startSecs + (obj.endSecs - obj.startSecs) * prog;
+                return formatTime(val, obj.timeFmt);
+            }
+            
+            if (obj.type === 'words') {
+                if (prog >= 1) return obj.finalWord;
+                const arr = (obj.wordList || '').split(',').map(w => w.trim()).filter(w => w);
+                if (arr.length === 0) return obj.finalWord;
+                const idx = Math.floor(state.currentTime * 15) % arr.length;
+                return arr[idx];
+            }
+            return '';
+        }
+
+        function renderScene(ctx, targetW, targetH, isPreview = true) {
+            ctx.clearRect(0, 0, targetW, targetH);
+            ctx.save(); ctx.scale(targetW / LOGICAL_W, targetH / LOGICAL_H);
+            ctx.fillStyle = state.bgColor; ctx.fillRect(0, 0, LOGICAL_W, LOGICAL_H);
+
+            const time = state.currentTime;
+
+            state.objects.forEach(obj => {
+                if (time < obj.timeStart || time > obj.timeEnd) return;
+
+                let prog = 1, isCounting = false;
+                if (obj.animDuration > 0 && time < obj.timeStart + obj.animDuration) {
+                    const rawProg = (time - obj.timeStart) / obj.animDuration;
+                    const easeFunc = easings[obj.easing] || easings.linear;
+                    prog = Math.max(0, Math.min(1, easeFunc(rawProg)));
+                    isCounting = true;
+                }
+
+                const text = getDisplayText(obj, prog);
+
+                ctx.save();
+                let dx = obj.x, dy = obj.y, dScale = obj.scale;
+                
+                // Active Motion modifiers (only applied while isCounting)
+                if (isCounting && obj.activeAnim) {
+                    if (obj.activeAnim === 'pulse') {
+                        dScale *= 1 + 0.05 * Math.sin(time * 20);
+                    } else if (obj.activeAnim === 'shake') {
+                        dx += (Math.random() - 0.5) * 8;
+                        dy += (Math.random() - 0.5) * 8;
+                    } else if (obj.activeAnim === 'float') {
+                        dy += Math.sin(time * 5) * 12;
+                    }
+                }
+
+                ctx.translate(dx, dy); 
+                ctx.scale(dScale, dScale); 
+                
+                ctx.font = `bold ${obj.fontSize}px "${obj.fontFamily}"`;
+                ctx.textAlign = 'center'; ctx.textBaseline = 'middle';
+                const tw = ctx.measureText(text).width;
+                const th = obj.fontSize;
+                
+                // Custom Rendering for Pro Flip Clock
+                if (obj.type === 'flipclock') {
+                    const padX = 40, padY = 30;
+                    ctx.save();
+                    // Background Rounded Rect
+                    ctx.fillStyle = '#18181b'; // Zinc 900
+                    ctx.beginPath(); ctx.roundRect(-tw/2 - padX, -th/2 - padY, tw + padX*2, th + padY*2, 16); ctx.fill();
+                    
+                    // Inner Shadow / Border
+                    ctx.lineWidth = 4; ctx.strokeStyle = 'rgba(255,255,255,0.05)'; ctx.stroke();
+                    
+                    // Draw Text
+                    ctx.fillStyle = obj.color; ctx.fillText(text, 0, 0);
+                    
+                    // Center Split Line (gives flip clock aesthetic)
+                    ctx.fillStyle = 'rgba(0,0,0,0.6)';
+                    ctx.fillRect(-tw/2 - padX, -3, tw + padX*2, 6);
+                    
+                    // Gradient Overlay for realism (top dark, bottom light)
+                    const grad = ctx.createLinearGradient(0, -th/2 - padY, 0, th/2 + padY);
+                    grad.addColorStop(0, 'rgba(0,0,0,0.4)');
+                    grad.addColorStop(0.48, 'rgba(0,0,0,0.0)');
+                    grad.addColorStop(0.52, 'rgba(255,255,255,0.05)');
+                    grad.addColorStop(1, 'rgba(0,0,0,0.2)');
+                    ctx.fillStyle = grad;
+                    ctx.beginPath(); ctx.roundRect(-tw/2 - padX, -th/2 - padY, tw + padX*2, th + padY*2, 16); ctx.fill();
+                    
+                    ctx.restore();
+                } else {
+                    // Standard Text
+                    ctx.fillStyle = obj.color;
+                    ctx.fillText(text, 0, 0);
+                }
+                
+                // Editor Guides
+                if (isPreview && obj.id === state.selectedId && !state.isPlaying && !state.isRecording) {
+                    const padX = obj.type === 'flipclock' ? 40 : 20;
+                    const padY = obj.type === 'flipclock' ? 30 : 10;
+                    ctx.strokeStyle = '#8b5cf6'; ctx.lineWidth = 3; ctx.setLineDash([8, 8]);
+                    ctx.strokeRect(-tw/2 - padX, -th/2 - padY, tw + padX*2, th + padY*2); 
+                    ctx.fillStyle = '#8b5cf6'; ctx.beginPath(); ctx.arc(0,0, 5/dScale, 0, Math.PI*2); ctx.fill();
+                }
+                ctx.restore();
+            });
+            ctx.restore();
+        }
+
+        let renderReq = false;
+        function requestRender() {
+            if(!renderReq && !state.isPlaying && !state.isRecording) {
+                renderReq = true; requestAnimationFrame(() => { renderScene(previewCtx, previewCanvas.width, previewCanvas.height, true); renderReq = false; });
+            }
+        }
+
+        // --- Playback ---
+        let lastTime = 0;
+        function loop(ts) {
+            if (!lastTime) lastTime = ts; const d = (ts - lastTime) / 1000; lastTime = ts;
+
+            if (state.isPlaying || state.isRecording) {
+                state.currentTime += d;
+                if (state.currentTime > state.duration) {
+                    if (state.isRecording) stopExport(); else state.currentTime = 0;
+                }
+                timeline.value = state.currentTime; timeDisplay.innerText = state.currentTime.toFixed(2).padStart(5, '0');
+                renderScene(previewCtx, previewCanvas.width, previewCanvas.height, false);
+                if (state.isRecording) renderScene(exportCtx, exportCanvas.width, exportCanvas.height, false);
+            }
+            requestAnimationFrame(loop);
+        }
+
+        document.getElementById('btn-play').onclick = () => {
+            if(state.isRecording) return; state.isPlaying = !state.isPlaying;
+            document.getElementById('icon-play').setAttribute('data-lucide', state.isPlaying ? 'pause' : 'play');
+            if (state.isPlaying && state.currentTime >= state.duration) state.currentTime = 0;
+            if (state.isPlaying) { lastTime = performance.now(); selectObject(null); }
+            lucide.createIcons(); requestRender();
+        };
+
+        document.getElementById('btn-stop').onclick = () => {
+            if(state.isRecording) return; state.isPlaying = false; state.currentTime = 0;
+            document.getElementById('icon-play').setAttribute('data-lucide', 'play'); lucide.createIcons(); 
+            timeline.value = 0; timeDisplay.innerText = "00.00"; requestRender();
+        };
+
+        timeline.oninput = e => { if(state.isRecording) return; state.currentTime = parseFloat(e.target.value); timeDisplay.innerText = state.currentTime.toFixed(2).padStart(5, '0'); requestRender(); };
+        document.getElementById('setting-duration').onchange = e => { state.duration = parseFloat(e.target.value); timeline.max = state.duration; };
+
+        // --- Export ---
+        const exModal = document.getElementById('export-modal'); let mr, rChunks = [];
+        function openExportModal() { exModal.classList.remove('hidden'); }
+        function closeExportModal() { exModal.classList.add('hidden'); }
+
+        function startRender() {
+            if (state.objects.length === 0) return alert("Add counters to render.");
+            closeExportModal();
+            const h = parseInt(document.querySelector('input[name="res"]:checked').value, 10);
+            const w = Math.round((h / 9) * 16); const fmt = document.querySelector('input[name="fmt"]:checked').value;
+            
+            exportCanvas.width = w; exportCanvas.height = h;
+            state.isRecording = true; state.currentTime = 0; state.isPlaying = false;
+            selectObject(null); document.getElementById('recording-indicator').classList.remove('hidden');
+            
+            const stream = exportCanvas.captureStream(60); rChunks = [];
+            let mime = 'video/webm; codecs=vp9';
+            if (fmt === 'mp4') {
+                if (MediaRecorder.isTypeSupported('video/mp4')) mime = 'video/mp4';
+                else if (MediaRecorder.isTypeSupported('video/mp4; codecs="avc1.424028, mp4a.40.2"')) mime = 'video/mp4; codecs="avc1.424028, mp4a.40.2"';
+            }
+            try { mr = new MediaRecorder(stream, { mimeType: mime, videoBitsPerSecond: 10000000 }); } catch (e) { mr = new MediaRecorder(stream); } 
+            mr.ondataavailable = e => { if (e.data.size > 0) rChunks.push(e.data); };
+            mr.onstop = () => {
+                const ext = mr.mimeType.includes('mp4') ? 'mp4' : 'webm';
+                const url = URL.createObjectURL(new Blob(rChunks, { type: mr.mimeType }));
+                const a = document.createElement('a'); a.href = url; a.download = `MotionCount_${h}p.${ext}`;
+                document.body.appendChild(a); a.click(); setTimeout(() => { document.body.removeChild(a); URL.revokeObjectURL(url); }, 100);
+            };
+            mr.start(); lastTime = performance.now();
+        }
+        function stopExport() { state.isRecording = false; document.getElementById('recording-indicator').classList.add('hidden'); if (mr && mr.state !== 'inactive') mr.stop(); }
+
+        // --- Init ---
+        timeline.max = state.duration;
+        if(window.innerWidth < 768) switchTab('add');
+        
+        // Demo setup
+        setTimeout(() => {
+            const f = createBaseObj('flipclock'); f.startVal = 1990; f.endVal = 2026; f.y = LOGICAL_H/2 - 80; f.fontSize = 200; f.fontFamily = 'Oswald'; f.timeStart = 0.5; f.animDuration = 3; f.useCommas = false; f.activeAnim = 'float';
+            const w = createBaseObj('words'); w.finalWord = 'SUBSCRIBERS'; w.wordList = 'FOLLOWERS,USERS,FANS,COMMUNITY,PEOPLE,VIEWS'; w.y = LOGICAL_H/2 + 120; w.fontSize = 80; w.color = '#c4b5fd'; w.timeStart = 0; w.animDuration = 3.5; w.fontFamily = 'JetBrains Mono'; w.activeAnim = 'pulse';
+            state.objects.push(f, w); updateLayerList(); requestRender();
+        }, 150);
+
+        requestAnimationFrame(loop);
+    </script>
+</body>
+</html>
