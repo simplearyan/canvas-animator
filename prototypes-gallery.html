@@ -1,0 +1,2663 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Prototypes Gallery // Animator Studio</title>
+    
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
+    
+    <style>
+        :root {
+            /* Light Mode (macOS Light) */
+            --bg-body: #f5f5f7;
+            --bg-sidebar: rgba(235, 235, 240, 0.7);
+            --bg-content: #ffffff;
+            --bg-card: #ffffff;
+            --text-main: #1d1d1f;
+            --text-muted: #86868b;
+            --text-sidebar: #424245;
+            --border-color: rgba(0, 0, 0, 0.1);
+            --accent-blue: #0071e3;
+            --shadow-card: 0 4px 12px rgba(0,0,0,0.05), 0 1px 2px rgba(0,0,0,0.02);
+            --shadow-card-hover: 0 12px 24px rgba(0,0,0,0.08), 0 4px 8px rgba(0,0,0,0.04);
+            --search-bg: rgba(0,0,0,0.05);
+            --active-bg: rgba(0,0,0,0.06);
+            --blur: blur(25px);
+        }
+
+        [data-theme="dark"] {
+            /* Dark Mode (macOS Dark) */
+            --bg-body: #000000;
+            --bg-sidebar: rgba(30, 30, 30, 0.6);
+            --bg-content: #1e1e1e;
+            --bg-card: #2c2c2e;
+            --text-main: #f5f5f7;
+            --text-muted: #a1a1a6;
+            --text-sidebar: #e5e5ea;
+            --border-color: rgba(255, 255, 255, 0.1);
+            --accent-blue: #0a84ff;
+            --shadow-card: 0 4px 12px rgba(0,0,0,0.3);
+            --shadow-card-hover: 0 12px 24px rgba(0,0,0,0.5);
+            --search-bg: rgba(255,255,255,0.1);
+            --active-bg: rgba(255,255,255,0.1);
+        }
+
+        * {
+            box-sizing: border-box;
+            margin: 0;
+            padding: 0;
+        }
+
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, "Inter", "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
+            background-color: var(--bg-body);
+            color: var(--text-main);
+            height: 100vh;
+            overflow: hidden;
+            display: flex;
+            transition: background-color 0.3s ease, color 0.3s ease;
+        }
+
+        /* macOS Window Frame */
+        .app-window {
+            display: flex;
+            flex: 1;
+            margin: 20px;
+            border-radius: 12px;
+            overflow: hidden;
+            border: 1px solid var(--border-color);
+            box-shadow: 0 20px 40px rgba(0,0,0,0.2);
+            background-color: var(--bg-content);
+            transition: all 0.3s ease;
+        }
+
+        /* Sidebar */
+        .sidebar {
+            width: 260px;
+            background: var(--bg-sidebar);
+            backdrop-filter: var(--blur);
+            -webkit-backdrop-filter: var(--blur);
+            border-right: 1px solid var(--border-color);
+            display: flex;
+            flex-direction: column;
+            flex-shrink: 0;
+            z-index: 10;
+        }
+
+        .window-controls {
+            padding: 16px;
+            display: flex;
+            gap: 8px;
+        }
+
+        .traffic-light {
+            width: 12px;
+            height: 12px;
+            border-radius: 50%;
+        }
+        .traffic-light.close { background: #ff5f56; border: 1px solid #e0443e; }
+        .traffic-light.minimize { background: #ffbd2e; border: 1px solid #dea123; }
+        .traffic-light.maximize { background: #27c93f; border: 1px solid #1aab29; }
+
+        .sidebar-title {
+            padding: 0 16px 8px;
+            font-size: 11px;
+            font-weight: 600;
+            color: var(--text-muted);
+            text-transform: uppercase;
+            letter-spacing: 0.5px;
+            margin-top: 10px;
+        }
+
+        .nav-list {
+            list-style: none;
+            overflow-y: auto;
+            flex: 1;
+            padding: 0 10px 16px;
+        }
+
+        .nav-item {
+            padding: 6px 10px;
+            margin-bottom: 2px;
+            border-radius: 6px;
+            cursor: pointer;
+            font-size: 13px;
+            color: var(--text-sidebar);
+            display: flex;
+            align-items: center;
+            gap: 8px;
+            transition: background 0.1s ease;
+        }
+
+        .nav-item:hover {
+            background: var(--active-bg);
+        }
+
+        .nav-item.active {
+            background: var(--accent-blue);
+            color: #fff;
+            font-weight: 500;
+        }
+        
+        .nav-item.active .folder-icon {
+            filter: brightness(2) saturate(0);
+        }
+
+        .folder-icon {
+            font-size: 16px;
+        }
+
+        /* Main Content */
+        .main-content {
+            flex: 1;
+            display: flex;
+            flex-direction: column;
+            background: var(--bg-content);
+            position: relative;
+        }
+
+        /* Top Bar */
+        .topbar {
+            height: 52px;
+            border-bottom: 1px solid var(--border-color);
+            display: flex;
+            align-items: center;
+            padding: 0 20px;
+            justify-content: space-between;
+            background: rgba(var(--bg-content), 0.8);
+            backdrop-filter: var(--blur);
+            -webkit-backdrop-filter: var(--blur);
+            z-index: 5;
+        }
+
+        .search-container {
+            display: flex;
+            align-items: center;
+            background: var(--search-bg);
+            border-radius: 6px;
+            padding: 4px 10px;
+            width: 240px;
+            border: 1px solid transparent;
+            transition: border 0.2s ease, background 0.2s ease;
+        }
+        
+        .search-container:focus-within {
+            border: 1px solid var(--accent-blue);
+            background: var(--bg-card);
+        }
+
+        .search-icon {
+            font-size: 12px;
+            color: var(--text-muted);
+            margin-right: 6px;
+        }
+
+        .search-input {
+            border: none;
+            background: transparent;
+            outline: none;
+            color: var(--text-main);
+            font-size: 13px;
+            width: 100%;
+            font-family: inherit;
+        }
+        
+        .search-input::placeholder {
+            color: var(--text-muted);
+        }
+
+        .theme-toggle {
+            background: transparent;
+            border: none;
+            color: var(--text-main);
+            cursor: pointer;
+            font-size: 18px;
+            padding: 4px;
+            border-radius: 50%;
+            transition: background 0.2s ease;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+        }
+        
+        .theme-toggle:hover {
+            background: var(--active-bg);
+        }
+
+        /* Gallery Grid */
+        .gallery-scroll {
+            flex: 1;
+            overflow-y: auto;
+            padding: 24px;
+        }
+
+        .gallery-header {
+            margin-bottom: 24px;
+        }
+
+        .gallery-title {
+            font-size: 24px;
+            font-weight: 600;
+            margin-bottom: 4px;
+        }
+
+        .gallery-count {
+            font-size: 13px;
+            color: var(--text-muted);
+        }
+
+        .grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fill, minmax(240px, 1fr));
+            gap: 20px;
+        }
+
+        .card {
+            background: var(--bg-card);
+            border: 1px solid var(--border-color);
+            border-radius: 10px;
+            overflow: hidden;
+            text-decoration: none;
+            color: inherit;
+            display: flex;
+            flex-direction: column;
+            transition: transform 0.2s cubic-bezier(0.2, 0.8, 0.2, 1), box-shadow 0.2s cubic-bezier(0.2, 0.8, 0.2, 1);
+            box-shadow: var(--shadow-card);
+            cursor: pointer;
+        }
+
+        .card:hover {
+            transform: translateY(-4px);
+            box-shadow: var(--shadow-card-hover);
+        }
+
+        .card-thumb {
+            aspect-ratio: 16/10;
+            background: var(--search-bg);
+            border-bottom: 1px solid var(--border-color);
+            position: relative;
+            overflow: hidden;
+        }
+
+        .card-thumb img {
+            width: 100%;
+            height: 100%;
+            object-fit: cover;
+            transition: transform 0.4s ease;
+        }
+        
+        .card:hover .card-thumb img {
+            transform: scale(1.05);
+        }
+
+        .card-thumb-placeholder {
+            height: 100%;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-size: 32px;
+            opacity: 0.2;
+        }
+
+        .card-body {
+            padding: 12px 14px;
+        }
+
+        .card-name {
+            font-size: 13px;
+            font-weight: 500;
+            margin-bottom: 4px;
+            white-space: nowrap;
+            overflow: hidden;
+            text-overflow: ellipsis;
+        }
+
+        .card-path {
+            font-size: 11px;
+            color: var(--text-muted);
+            white-space: nowrap;
+            overflow: hidden;
+            text-overflow: ellipsis;
+            display: block;
+        }
+        
+        .empty-state {
+            display: none;
+            flex-direction: column;
+            align-items: center;
+            justify-content: center;
+            padding: 60px 20px;
+            color: var(--text-muted);
+            text-align: center;
+        }
+        
+        .empty-icon {
+            font-size: 48px;
+            margin-bottom: 16px;
+            opacity: 0.5;
+        }
+        
+        .empty-title {
+            font-size: 16px;
+            font-weight: 500;
+            margin-bottom: 8px;
+            color: var(--text-main);
+        }
+
+        /* Responsive */
+        @media (max-width: 768px) {
+            .app-window { margin: 0; border-radius: 0; border: none; }
+            .sidebar { width: 220px; }
+            .grid { grid-template-columns: repeat(auto-fill, minmax(160px, 1fr)); }
+        }
+        
+        @media (max-width: 600px) {
+            .sidebar { display: none; } /* Could add a hamburger menu, but keeping it simple */
+            .grid { grid-template-columns: repeat(auto-fill, minmax(140px, 1fr)); gap: 12px;}
+            .card-body { padding: 10px; }
+        }
+    </style>
+</head>
+<body>
+    <div class="app-window">
+        <!-- Sidebar -->
+        <aside class="sidebar">
+            <div class="window-controls">
+                <div class="traffic-light close"></div>
+                <div class="traffic-light minimize"></div>
+                <div class="traffic-light maximize"></div>
+            </div>
+            
+            <div class="sidebar-title">Locations</div>
+            <ul class="nav-list" id="category-list">
+                <li class="nav-item active" data-category="all">
+                    <span class="folder-icon">🌟</span> All Prototypes
+                </li>
+                
+                <li class="nav-item" data-category="annotation-studio-pro" style="padding-left: 10px">
+                    <span class="folder-icon">📁</span> Annotation Studio Pro
+                </li>
+                <li class="nav-item" data-category="borads" style="padding-left: 10px">
+                    <span class="folder-icon">📁</span> Borads
+                </li>
+                <li class="nav-item" data-category="borads-paper-canvas" style="padding-left: 20px">
+                    <span class="folder-icon">📁</span> Paper Canvas
+                </li>
+                <li class="nav-item" data-category="borads-rough-borard-canvas" style="padding-left: 20px">
+                    <span class="folder-icon">📁</span> Rough Borard Canvas
+                </li>
+                <li class="nav-item" data-category="borads-sphere-canvas" style="padding-left: 20px">
+                    <span class="folder-icon">📁</span> Sphere Canvas
+                </li>
+                <li class="nav-item" data-category="design-demos" style="padding-left: 10px">
+                    <span class="folder-icon">📁</span> Design Demos
+                </li>
+                <li class="nav-item" data-category="dist" style="padding-left: 10px">
+                    <span class="folder-icon">📁</span> Dist
+                </li>
+                <li class="nav-item" data-category="dist-borads" style="padding-left: 20px">
+                    <span class="folder-icon">📁</span> Borads
+                </li>
+                <li class="nav-item" data-category="dist-borads-paper-canvas" style="padding-left: 30px">
+                    <span class="folder-icon">📁</span> Paper Canvas
+                </li>
+                <li class="nav-item" data-category="dist-borads-rough-borard-canvas" style="padding-left: 30px">
+                    <span class="folder-icon">📁</span> Rough Borard Canvas
+                </li>
+                <li class="nav-item" data-category="dist-borads-sphere-canvas" style="padding-left: 30px">
+                    <span class="folder-icon">📁</span> Sphere Canvas
+                </li>
+                <li class="nav-item" data-category="dist-design-demos" style="padding-left: 20px">
+                    <span class="folder-icon">📁</span> Design Demos
+                </li>
+                <li class="nav-item" data-category="dist-emoji-motion-studio" style="padding-left: 20px">
+                    <span class="folder-icon">📁</span> Emoji Motion Studio
+                </li>
+                <li class="nav-item" data-category="dist-macify-web-studio" style="padding-left: 20px">
+                    <span class="folder-icon">📁</span> Macify Web Studio
+                </li>
+                <li class="nav-item" data-category="dist-macify-studio" style="padding-left: 20px">
+                    <span class="folder-icon">📁</span> Macify Studio
+                </li>
+                <li class="nav-item" data-category="dist-motioncount-v2" style="padding-left: 20px">
+                    <span class="folder-icon">📁</span> MotionCount V2
+                </li>
+                <li class="nav-item" data-category="dist-paper-animator" style="padding-left: 20px">
+                    <span class="folder-icon">📁</span> Paper Animator
+                </li>
+                <li class="nav-item" data-category="dist-social-animator-pro" style="padding-left: 20px">
+                    <span class="folder-icon">📁</span> Social Animator Pro
+                </li>
+                <li class="nav-item" data-category="dist-svg-animator" style="padding-left: 20px">
+                    <span class="folder-icon">📁</span> Svg Animator
+                </li>
+                <li class="nav-item" data-category="dist-waveform-studio-pro" style="padding-left: 20px">
+                    <span class="folder-icon">📁</span> Waveform Studio Pro
+                </li>
+                <li class="nav-item" data-category="emoji-motion-studio" style="padding-left: 10px">
+                    <span class="folder-icon">📁</span> Emoji Motion Studio
+                </li>
+                <li class="nav-item" data-category="inkflow-studio-pro" style="padding-left: 10px">
+                    <span class="folder-icon">📁</span> InkFlow Studio Pro
+                </li>
+                <li class="nav-item" data-category="macify-web-studio" style="padding-left: 10px">
+                    <span class="folder-icon">📁</span> Macify Web Studio
+                </li>
+                <li class="nav-item" data-category="macify-studio" style="padding-left: 10px">
+                    <span class="folder-icon">📁</span> Macify Studio
+                </li>
+                <li class="nav-item" data-category="motioncount-v2" style="padding-left: 10px">
+                    <span class="folder-icon">📁</span> MotionCount V2
+                </li>
+                <li class="nav-item" data-category="paint-studio-pro" style="padding-left: 10px">
+                    <span class="folder-icon">📁</span> Paint Studio Pro
+                </li>
+                <li class="nav-item" data-category="paper-animator" style="padding-left: 10px">
+                    <span class="folder-icon">📁</span> Paper Animator
+                </li>
+                <li class="nav-item" data-category="social-animator-pro" style="padding-left: 10px">
+                    <span class="folder-icon">📁</span> Social Animator Pro
+                </li>
+                <li class="nav-item" data-category="sumi-e-studio-pro" style="padding-left: 10px">
+                    <span class="folder-icon">📁</span> Sumi E Studio Pro
+                </li>
+                <li class="nav-item" data-category="svg-animator" style="padding-left: 10px">
+                    <span class="folder-icon">📁</span> Svg Animator
+                </li>
+                <li class="nav-item" data-category="title-animator-pro" style="padding-left: 10px">
+                    <span class="folder-icon">📁</span> Title Animator Pro
+                </li>
+                <li class="nav-item" data-category="waveform-studio-pro" style="padding-left: 10px">
+                    <span class="folder-icon">📁</span> Waveform Studio Pro
+                </li>
+            </ul>
+        </aside>
+
+        <!-- Main Content -->
+        <main class="main-content">
+            <!-- Top Bar -->
+            <header class="topbar">
+                <div class="search-container">
+                    <span class="search-icon">🔍</span>
+                    <input type="text" class="search-input" id="search" placeholder="Search prototypes..." autocomplete="off">
+                </div>
+                
+                <button class="theme-toggle" id="theme-btn" title="Toggle Theme">
+                    <span id="theme-icon">🌓</span>
+                </button>
+            </header>
+
+            <!-- Gallery -->
+            <div class="gallery-scroll">
+                <div class="gallery-header">
+                    <h1 class="gallery-title" id="current-category-title">All Prototypes</h1>
+                    <div class="gallery-count" id="item-count">206 items</div>
+                </div>
+                
+                <div class="grid" id="gallery-grid">
+                    
+                    <a href="Annotation Studio Pro/v0.1.html" class="card" target="_blank" data-name="v0 1" data-path="annotation studio pro/v0.1.html" data-category="annotation-studio-pro">
+                        <div class="card-thumb">
+                            <div class="card-thumb-placeholder">🎨</div>
+                        </div>
+                        <div class="card-body">
+                            <div class="card-name">V0 1</div>
+                            <span class="card-path">Annotation Studio Pro/v0.1.html</span>
+                        </div>
+                    </a>
+                    
+                    <a href="Annotation Studio Pro/v0.2.html" class="card" target="_blank" data-name="v0 2" data-path="annotation studio pro/v0.2.html" data-category="annotation-studio-pro">
+                        <div class="card-thumb">
+                            <div class="card-thumb-placeholder">🎨</div>
+                        </div>
+                        <div class="card-body">
+                            <div class="card-name">V0 2</div>
+                            <span class="card-path">Annotation Studio Pro/v0.2.html</span>
+                        </div>
+                    </a>
+                    
+                    <a href="Annotation Studio Pro/v0.3-select-edit.html" class="card" target="_blank" data-name="v0 3 select edit" data-path="annotation studio pro/v0.3-select-edit.html" data-category="annotation-studio-pro">
+                        <div class="card-thumb">
+                            <div class="card-thumb-placeholder">🎨</div>
+                        </div>
+                        <div class="card-body">
+                            <div class="card-name">V0 3 Select Edit</div>
+                            <span class="card-path">Annotation Studio Pro/v0.3-select-edit.html</span>
+                        </div>
+                    </a>
+                    
+                    <a href="Annotation Studio Pro/v0.4-image-import.html" class="card" target="_blank" data-name="v0 4 image import" data-path="annotation studio pro/v0.4-image-import.html" data-category="annotation-studio-pro">
+                        <div class="card-thumb">
+                            <div class="card-thumb-placeholder">🎨</div>
+                        </div>
+                        <div class="card-body">
+                            <div class="card-name">V0 4 Image Import</div>
+                            <span class="card-path">Annotation Studio Pro/v0.4-image-import.html</span>
+                        </div>
+                    </a>
+                    
+                    <a href="Annotation Studio Pro/v0.5-poperties-drop-shadow.html" class="card" target="_blank" data-name="v0 5 poperties drop shadow" data-path="annotation studio pro/v0.5-poperties-drop-shadow.html" data-category="annotation-studio-pro">
+                        <div class="card-thumb">
+                            <div class="card-thumb-placeholder">🎨</div>
+                        </div>
+                        <div class="card-body">
+                            <div class="card-name">V0 5 Poperties Drop Shadow</div>
+                            <span class="card-path">Annotation Studio Pro/v0.5-poperties-drop-shadow.html</span>
+                        </div>
+                    </a>
+                    
+                    <a href="Annotation Studio Pro/v0.6-ellipse-draw-direction-border-radius.html" class="card" target="_blank" data-name="v0 6 ellipse draw direction border radius" data-path="annotation studio pro/v0.6-ellipse-draw-direction-border-radius.html" data-category="annotation-studio-pro">
+                        <div class="card-thumb">
+                            <div class="card-thumb-placeholder">🎨</div>
+                        </div>
+                        <div class="card-body">
+                            <div class="card-name">V0 6 Ellipse Draw Direction Border Radius</div>
+                            <span class="card-path">Annotation Studio Pro/v0.6-ellipse-draw-direction-border-radius.html</span>
+                        </div>
+                    </a>
+                    
+                    <a href="Annotation Studio Pro/v0.7-rough-js.html" class="card" target="_blank" data-name="v0 7 rough js" data-path="annotation studio pro/v0.7-rough-js.html" data-category="annotation-studio-pro">
+                        <div class="card-thumb">
+                            <div class="card-thumb-placeholder">🎨</div>
+                        </div>
+                        <div class="card-body">
+                            <div class="card-name">V0 7 Rough Js</div>
+                            <span class="card-path">Annotation Studio Pro/v0.7-rough-js.html</span>
+                        </div>
+                    </a>
+                    
+                    <a href="Annotation Studio Pro/v0.8-rough-js-hide-fill.html" class="card" target="_blank" data-name="v0 8 rough js hide fill" data-path="annotation studio pro/v0.8-rough-js-hide-fill.html" data-category="annotation-studio-pro">
+                        <div class="card-thumb">
+                            <div class="card-thumb-placeholder">🎨</div>
+                        </div>
+                        <div class="card-body">
+                            <div class="card-name">V0 8 Rough Js Hide Fill</div>
+                            <span class="card-path">Annotation Studio Pro/v0.8-rough-js-hide-fill.html</span>
+                        </div>
+                    </a>
+                    
+                    <a href="Borads/Paper_Canvas/v_0.1.0.html" class="card" target="_blank" data-name="v 0 1 0" data-path="borads/paper_canvas/v_0.1.0.html" data-category="borads-paper-canvas">
+                        <div class="card-thumb">
+                            <img src="./screenshots/Borads/Paper_Canvas/v_0.1.0.png" alt="V 0 1 0" loading="lazy">
+                        </div>
+                        <div class="card-body">
+                            <div class="card-name">V 0 1 0</div>
+                            <span class="card-path">Borads/Paper_Canvas/v_0.1.0.html</span>
+                        </div>
+                    </a>
+                    
+                    <a href="Borads/Paper_Canvas/v_0.1.1.html" class="card" target="_blank" data-name="v 0 1 1" data-path="borads/paper_canvas/v_0.1.1.html" data-category="borads-paper-canvas">
+                        <div class="card-thumb">
+                            <img src="./screenshots/Borads/Paper_Canvas/v_0.1.1.png" alt="V 0 1 1" loading="lazy">
+                        </div>
+                        <div class="card-body">
+                            <div class="card-name">V 0 1 1</div>
+                            <span class="card-path">Borads/Paper_Canvas/v_0.1.1.html</span>
+                        </div>
+                    </a>
+                    
+                    <a href="Borads/Rough-Borard_Canvas/v_0.1.0.html" class="card" target="_blank" data-name="v 0 1 0" data-path="borads/rough-borard_canvas/v_0.1.0.html" data-category="borads-rough-borard-canvas">
+                        <div class="card-thumb">
+                            <img src="./screenshots/Borads/Rough-Borard_Canvas/v_0.1.0.png" alt="V 0 1 0" loading="lazy">
+                        </div>
+                        <div class="card-body">
+                            <div class="card-name">V 0 1 0</div>
+                            <span class="card-path">Borads/Rough-Borard_Canvas/v_0.1.0.html</span>
+                        </div>
+                    </a>
+                    
+                    <a href="Borads/Rough-Borard_Canvas/v_0.1.1.html" class="card" target="_blank" data-name="v 0 1 1" data-path="borads/rough-borard_canvas/v_0.1.1.html" data-category="borads-rough-borard-canvas">
+                        <div class="card-thumb">
+                            <img src="./screenshots/Borads/Rough-Borard_Canvas/v_0.1.1.png" alt="V 0 1 1" loading="lazy">
+                        </div>
+                        <div class="card-body">
+                            <div class="card-name">V 0 1 1</div>
+                            <span class="card-path">Borads/Rough-Borard_Canvas/v_0.1.1.html</span>
+                        </div>
+                    </a>
+                    
+                    <a href="Borads/Rough-Borard_Canvas/v_0.1.2.html" class="card" target="_blank" data-name="v 0 1 2" data-path="borads/rough-borard_canvas/v_0.1.2.html" data-category="borads-rough-borard-canvas">
+                        <div class="card-thumb">
+                            <img src="./screenshots/Borads/Rough-Borard_Canvas/v_0.1.2.png" alt="V 0 1 2" loading="lazy">
+                        </div>
+                        <div class="card-body">
+                            <div class="card-name">V 0 1 2</div>
+                            <span class="card-path">Borads/Rough-Borard_Canvas/v_0.1.2.html</span>
+                        </div>
+                    </a>
+                    
+                    <a href="Borads/Rough-Borard_Canvas/v_0.1.3.html" class="card" target="_blank" data-name="v 0 1 3" data-path="borads/rough-borard_canvas/v_0.1.3.html" data-category="borads-rough-borard-canvas">
+                        <div class="card-thumb">
+                            <img src="./screenshots/Borads/Rough-Borard_Canvas/v_0.1.3.png" alt="V 0 1 3" loading="lazy">
+                        </div>
+                        <div class="card-body">
+                            <div class="card-name">V 0 1 3</div>
+                            <span class="card-path">Borads/Rough-Borard_Canvas/v_0.1.3.html</span>
+                        </div>
+                    </a>
+                    
+                    <a href="Borads/Rough-Borard_Canvas/v_0.2.0.html" class="card" target="_blank" data-name="v 0 2 0" data-path="borads/rough-borard_canvas/v_0.2.0.html" data-category="borads-rough-borard-canvas">
+                        <div class="card-thumb">
+                            <img src="./screenshots/Borads/Rough-Borard_Canvas/v_0.2.0.png" alt="V 0 2 0" loading="lazy">
+                        </div>
+                        <div class="card-body">
+                            <div class="card-name">V 0 2 0</div>
+                            <span class="card-path">Borads/Rough-Borard_Canvas/v_0.2.0.html</span>
+                        </div>
+                    </a>
+                    
+                    <a href="Borads/Rough-Borard_Canvas/v_0.2.1.html" class="card" target="_blank" data-name="v 0 2 1" data-path="borads/rough-borard_canvas/v_0.2.1.html" data-category="borads-rough-borard-canvas">
+                        <div class="card-thumb">
+                            <img src="./screenshots/Borads/Rough-Borard_Canvas/v_0.2.1.png" alt="V 0 2 1" loading="lazy">
+                        </div>
+                        <div class="card-body">
+                            <div class="card-name">V 0 2 1</div>
+                            <span class="card-path">Borads/Rough-Borard_Canvas/v_0.2.1.html</span>
+                        </div>
+                    </a>
+                    
+                    <a href="Borads/Rough-Borard_Canvas/v_0.2.2.html" class="card" target="_blank" data-name="v 0 2 2" data-path="borads/rough-borard_canvas/v_0.2.2.html" data-category="borads-rough-borard-canvas">
+                        <div class="card-thumb">
+                            <img src="./screenshots/Borads/Rough-Borard_Canvas/v_0.2.2.png" alt="V 0 2 2" loading="lazy">
+                        </div>
+                        <div class="card-body">
+                            <div class="card-name">V 0 2 2</div>
+                            <span class="card-path">Borads/Rough-Borard_Canvas/v_0.2.2.html</span>
+                        </div>
+                    </a>
+                    
+                    <a href="Borads/Sphere_canvas/v_0.1.0.html" class="card" target="_blank" data-name="v 0 1 0" data-path="borads/sphere_canvas/v_0.1.0.html" data-category="borads-sphere-canvas">
+                        <div class="card-thumb">
+                            <img src="./screenshots/Borads/Sphere_canvas/v_0.1.0.png" alt="V 0 1 0" loading="lazy">
+                        </div>
+                        <div class="card-body">
+                            <div class="card-name">V 0 1 0</div>
+                            <span class="card-path">Borads/Sphere_canvas/v_0.1.0.html</span>
+                        </div>
+                    </a>
+                    
+                    <a href="Borads/Sphere_canvas/v_0.1.1.html" class="card" target="_blank" data-name="v 0 1 1" data-path="borads/sphere_canvas/v_0.1.1.html" data-category="borads-sphere-canvas">
+                        <div class="card-thumb">
+                            <img src="./screenshots/Borads/Sphere_canvas/v_0.1.1.png" alt="V 0 1 1" loading="lazy">
+                        </div>
+                        <div class="card-body">
+                            <div class="card-name">V 0 1 1</div>
+                            <span class="card-path">Borads/Sphere_canvas/v_0.1.1.html</span>
+                        </div>
+                    </a>
+                    
+                    <a href="Borads/Sphere_canvas/v_0.1.2.html" class="card" target="_blank" data-name="v 0 1 2" data-path="borads/sphere_canvas/v_0.1.2.html" data-category="borads-sphere-canvas">
+                        <div class="card-thumb">
+                            <img src="./screenshots/Borads/Sphere_canvas/v_0.1.2.png" alt="V 0 1 2" loading="lazy">
+                        </div>
+                        <div class="card-body">
+                            <div class="card-name">V 0 1 2</div>
+                            <span class="card-path">Borads/Sphere_canvas/v_0.1.2.html</span>
+                        </div>
+                    </a>
+                    
+                    <a href="Borads/Sphere_canvas/v_0.1.3.html" class="card" target="_blank" data-name="v 0 1 3" data-path="borads/sphere_canvas/v_0.1.3.html" data-category="borads-sphere-canvas">
+                        <div class="card-thumb">
+                            <img src="./screenshots/Borads/Sphere_canvas/v_0.1.3.png" alt="V 0 1 3" loading="lazy">
+                        </div>
+                        <div class="card-body">
+                            <div class="card-name">V 0 1 3</div>
+                            <span class="card-path">Borads/Sphere_canvas/v_0.1.3.html</span>
+                        </div>
+                    </a>
+                    
+                    <a href="design-demos/broken-tooth-animator_v0.1.html" class="card" target="_blank" data-name="broken tooth animator v0 1" data-path="design-demos/broken-tooth-animator_v0.1.html" data-category="design-demos">
+                        <div class="card-thumb">
+                            <img src="./screenshots/design-demos/broken-tooth-animator_v0.1.png" alt="Broken Tooth Animator V0 1" loading="lazy">
+                        </div>
+                        <div class="card-body">
+                            <div class="card-name">Broken Tooth Animator V0 1</div>
+                            <span class="card-path">design-demos/broken-tooth-animator_v0.1.html</span>
+                        </div>
+                    </a>
+                    
+                    <a href="design-demos/broken-tooth-animator_v0.2.html" class="card" target="_blank" data-name="broken tooth animator v0 2" data-path="design-demos/broken-tooth-animator_v0.2.html" data-category="design-demos">
+                        <div class="card-thumb">
+                            <img src="./screenshots/design-demos/broken-tooth-animator_v0.2.png" alt="Broken Tooth Animator V0 2" loading="lazy">
+                        </div>
+                        <div class="card-body">
+                            <div class="card-name">Broken Tooth Animator V0 2</div>
+                            <span class="card-path">design-demos/broken-tooth-animator_v0.2.html</span>
+                        </div>
+                    </a>
+                    
+                    <a href="design-demos/chart-animator_v0.1.html" class="card" target="_blank" data-name="chart animator v0 1" data-path="design-demos/chart-animator_v0.1.html" data-category="design-demos">
+                        <div class="card-thumb">
+                            <img src="./screenshots/design-demos/chart-animator_v0.1.png" alt="Chart Animator V0 1" loading="lazy">
+                        </div>
+                        <div class="card-body">
+                            <div class="card-name">Chart Animator V0 1</div>
+                            <span class="card-path">design-demos/chart-animator_v0.1.html</span>
+                        </div>
+                    </a>
+                    
+                    <a href="design-demos/chart-animator_v0.2.html" class="card" target="_blank" data-name="chart animator v0 2" data-path="design-demos/chart-animator_v0.2.html" data-category="design-demos">
+                        <div class="card-thumb">
+                            <img src="./screenshots/design-demos/chart-animator_v0.2.png" alt="Chart Animator V0 2" loading="lazy">
+                        </div>
+                        <div class="card-body">
+                            <div class="card-name">Chart Animator V0 2</div>
+                            <span class="card-path">design-demos/chart-animator_v0.2.html</span>
+                        </div>
+                    </a>
+                    
+                    <a href="design-demos/cinematic-map-animator.html" class="card" target="_blank" data-name="cinematic map animator" data-path="design-demos/cinematic-map-animator.html" data-category="design-demos">
+                        <div class="card-thumb">
+                            <div class="card-thumb-placeholder">🎨</div>
+                        </div>
+                        <div class="card-body">
+                            <div class="card-name">Cinematic Map Animator</div>
+                            <span class="card-path">design-demos/cinematic-map-animator.html</span>
+                        </div>
+                    </a>
+                    
+                    <a href="design-demos/code-animator_v0.1.html" class="card" target="_blank" data-name="code animator v0 1" data-path="design-demos/code-animator_v0.1.html" data-category="design-demos">
+                        <div class="card-thumb">
+                            <img src="./screenshots/design-demos/code-animator_v0.1.png" alt="Code Animator V0 1" loading="lazy">
+                        </div>
+                        <div class="card-body">
+                            <div class="card-name">Code Animator V0 1</div>
+                            <span class="card-path">design-demos/code-animator_v0.1.html</span>
+                        </div>
+                    </a>
+                    
+                    <a href="design-demos/code-animator-quick-templates-animation-speed_v0.2.html" class="card" target="_blank" data-name="code animator quick templates animation speed v0 2" data-path="design-demos/code-animator-quick-templates-animation-speed_v0.2.html" data-category="design-demos">
+                        <div class="card-thumb">
+                            <img src="./screenshots/design-demos/code-animator-quick-templates-animation-speed_v0.2.png" alt="Code Animator Quick Templates Animation Speed V0 2" loading="lazy">
+                        </div>
+                        <div class="card-body">
+                            <div class="card-name">Code Animator Quick Templates Animation Speed V0 2</div>
+                            <span class="card-path">design-demos/code-animator-quick-templates-animation-speed_v0.2.html</span>
+                        </div>
+                    </a>
+                    
+                    <a href="design-demos/editorial-chart-animator_v0.1.html" class="card" target="_blank" data-name="editorial chart animator v0 1" data-path="design-demos/editorial-chart-animator_v0.1.html" data-category="design-demos">
+                        <div class="card-thumb">
+                            <img src="./screenshots/design-demos/editorial-chart-animator_v0.1.png" alt="Editorial Chart Animator V0 1" loading="lazy">
+                        </div>
+                        <div class="card-body">
+                            <div class="card-name">Editorial Chart Animator V0 1</div>
+                            <span class="card-path">design-demos/editorial-chart-animator_v0.1.html</span>
+                        </div>
+                    </a>
+                    
+                    <a href="design-demos/editorial-chart-animator_v0.2.html" class="card" target="_blank" data-name="editorial chart animator v0 2" data-path="design-demos/editorial-chart-animator_v0.2.html" data-category="design-demos">
+                        <div class="card-thumb">
+                            <img src="./screenshots/design-demos/editorial-chart-animator_v0.2.png" alt="Editorial Chart Animator V0 2" loading="lazy">
+                        </div>
+                        <div class="card-body">
+                            <div class="card-name">Editorial Chart Animator V0 2</div>
+                            <span class="card-path">design-demos/editorial-chart-animator_v0.2.html</span>
+                        </div>
+                    </a>
+                    
+                    <a href="design-demos/fox-lip-sync-animator_v0.1.html" class="card" target="_blank" data-name="fox lip sync animator v0 1" data-path="design-demos/fox-lip-sync-animator_v0.1.html" data-category="design-demos">
+                        <div class="card-thumb">
+                            <img src="./screenshots/design-demos/fox-lip-sync-animator_v0.1.png" alt="Fox Lip Sync Animator V0 1" loading="lazy">
+                        </div>
+                        <div class="card-body">
+                            <div class="card-name">Fox Lip Sync Animator V0 1</div>
+                            <span class="card-path">design-demos/fox-lip-sync-animator_v0.1.html</span>
+                        </div>
+                    </a>
+                    
+                    <a href="design-demos/fox-lip-sync-animator_v0.2.html" class="card" target="_blank" data-name="fox lip sync animator v0 2" data-path="design-demos/fox-lip-sync-animator_v0.2.html" data-category="design-demos">
+                        <div class="card-thumb">
+                            <img src="./screenshots/design-demos/fox-lip-sync-animator_v0.2.png" alt="Fox Lip Sync Animator V0 2" loading="lazy">
+                        </div>
+                        <div class="card-body">
+                            <div class="card-name">Fox Lip Sync Animator V0 2</div>
+                            <span class="card-path">design-demos/fox-lip-sync-animator_v0.2.html</span>
+                        </div>
+                    </a>
+                    
+                    <a href="design-demos/image-animator_v0.2.html" class="card" target="_blank" data-name="image animator v0 2" data-path="design-demos/image-animator_v0.2.html" data-category="design-demos">
+                        <div class="card-thumb">
+                            <div class="card-thumb-placeholder">🎨</div>
+                        </div>
+                        <div class="card-body">
+                            <div class="card-name">Image Animator V0 2</div>
+                            <span class="card-path">design-demos/image-animator_v0.2.html</span>
+                        </div>
+                    </a>
+                    
+                    <a href="design-demos/image-animtor_v0.1.html" class="card" target="_blank" data-name="image animtor v0 1" data-path="design-demos/image-animtor_v0.1.html" data-category="design-demos">
+                        <div class="card-thumb">
+                            <img src="./screenshots/design-demos/image-animtor_v0.1.png" alt="Image Animtor V0 1" loading="lazy">
+                        </div>
+                        <div class="card-body">
+                            <div class="card-name">Image Animtor V0 1</div>
+                            <span class="card-path">design-demos/image-animtor_v0.1.html</span>
+                        </div>
+                    </a>
+                    
+                    <a href="design-demos/linear-transformation-viz_0.1.html" class="card" target="_blank" data-name="linear transformation viz 0 1" data-path="design-demos/linear-transformation-viz_0.1.html" data-category="design-demos">
+                        <div class="card-thumb">
+                            <div class="card-thumb-placeholder">🎨</div>
+                        </div>
+                        <div class="card-body">
+                            <div class="card-name">Linear Transformation Viz 0 1</div>
+                            <span class="card-path">design-demos/linear-transformation-viz_0.1.html</span>
+                        </div>
+                    </a>
+                    
+                    <a href="design-demos/linear-transformation-viz_0.2.html" class="card" target="_blank" data-name="linear transformation viz 0 2" data-path="design-demos/linear-transformation-viz_0.2.html" data-category="design-demos">
+                        <div class="card-thumb">
+                            <div class="card-thumb-placeholder">🎨</div>
+                        </div>
+                        <div class="card-body">
+                            <div class="card-name">Linear Transformation Viz 0 2</div>
+                            <span class="card-path">design-demos/linear-transformation-viz_0.2.html</span>
+                        </div>
+                    </a>
+                    
+                    <a href="design-demos/linear-transformation-viz_0.3.html" class="card" target="_blank" data-name="linear transformation viz 0 3" data-path="design-demos/linear-transformation-viz_0.3.html" data-category="design-demos">
+                        <div class="card-thumb">
+                            <div class="card-thumb-placeholder">🎨</div>
+                        </div>
+                        <div class="card-body">
+                            <div class="card-name">Linear Transformation Viz 0 3</div>
+                            <span class="card-path">design-demos/linear-transformation-viz_0.3.html</span>
+                        </div>
+                    </a>
+                    
+                    <a href="design-demos/lip-sync-animator_v0.1.html" class="card" target="_blank" data-name="lip sync animator v0 1" data-path="design-demos/lip-sync-animator_v0.1.html" data-category="design-demos">
+                        <div class="card-thumb">
+                            <img src="./screenshots/design-demos/lip-sync-animator_v0.1.png" alt="Lip Sync Animator V0 1" loading="lazy">
+                        </div>
+                        <div class="card-body">
+                            <div class="card-name">Lip Sync Animator V0 1</div>
+                            <span class="card-path">design-demos/lip-sync-animator_v0.1.html</span>
+                        </div>
+                    </a>
+                    
+                    <a href="design-demos/lip-sync-animator_v0.2.html" class="card" target="_blank" data-name="lip sync animator v0 2" data-path="design-demos/lip-sync-animator_v0.2.html" data-category="design-demos">
+                        <div class="card-thumb">
+                            <img src="./screenshots/design-demos/lip-sync-animator_v0.2.png" alt="Lip Sync Animator V0 2" loading="lazy">
+                        </div>
+                        <div class="card-body">
+                            <div class="card-name">Lip Sync Animator V0 2</div>
+                            <span class="card-path">design-demos/lip-sync-animator_v0.2.html</span>
+                        </div>
+                    </a>
+                    
+                    <a href="design-demos/lip-sync-animator_v0.3.html" class="card" target="_blank" data-name="lip sync animator v0 3" data-path="design-demos/lip-sync-animator_v0.3.html" data-category="design-demos">
+                        <div class="card-thumb">
+                            <img src="./screenshots/design-demos/lip-sync-animator_v0.3.png" alt="Lip Sync Animator V0 3" loading="lazy">
+                        </div>
+                        <div class="card-body">
+                            <div class="card-name">Lip Sync Animator V0 3</div>
+                            <span class="card-path">design-demos/lip-sync-animator_v0.3.html</span>
+                        </div>
+                    </a>
+                    
+                    <a href="design-demos/lip-sync-animator_v0.4.html" class="card" target="_blank" data-name="lip sync animator v0 4" data-path="design-demos/lip-sync-animator_v0.4.html" data-category="design-demos">
+                        <div class="card-thumb">
+                            <img src="./screenshots/design-demos/lip-sync-animator_v0.4.png" alt="Lip Sync Animator V0 4" loading="lazy">
+                        </div>
+                        <div class="card-body">
+                            <div class="card-name">Lip Sync Animator V0 4</div>
+                            <span class="card-path">design-demos/lip-sync-animator_v0.4.html</span>
+                        </div>
+                    </a>
+                    
+                    <a href="design-demos/rough-animator_v1.0.html" class="card" target="_blank" data-name="rough animator v1 0" data-path="design-demos/rough-animator_v1.0.html" data-category="design-demos">
+                        <div class="card-thumb">
+                            <img src="./screenshots/design-demos/rough-animator_v1.0.png" alt="Rough Animator V1 0" loading="lazy">
+                        </div>
+                        <div class="card-body">
+                            <div class="card-name">Rough Animator V1 0</div>
+                            <span class="card-path">design-demos/rough-animator_v1.0.html</span>
+                        </div>
+                    </a>
+                    
+                    <a href="design-demos/rough-animator_v2.0.html" class="card" target="_blank" data-name="rough animator v2 0" data-path="design-demos/rough-animator_v2.0.html" data-category="design-demos">
+                        <div class="card-thumb">
+                            <img src="./screenshots/design-demos/rough-animator_v2.0.png" alt="Rough Animator V2 0" loading="lazy">
+                        </div>
+                        <div class="card-body">
+                            <div class="card-name">Rough Animator V2 0</div>
+                            <span class="card-path">design-demos/rough-animator_v2.0.html</span>
+                        </div>
+                    </a>
+                    
+                    <a href="design-demos/rough-lip-sync-animator.html" class="card" target="_blank" data-name="rough lip sync animator" data-path="design-demos/rough-lip-sync-animator.html" data-category="design-demos">
+                        <div class="card-thumb">
+                            <img src="./screenshots/design-demos/rough-lip-sync-animator.png" alt="Rough Lip Sync Animator" loading="lazy">
+                        </div>
+                        <div class="card-body">
+                            <div class="card-name">Rough Lip Sync Animator</div>
+                            <span class="card-path">design-demos/rough-lip-sync-animator.html</span>
+                        </div>
+                    </a>
+                    
+                    <a href="design-demos/rough-math_v0.1.html" class="card" target="_blank" data-name="rough math v0 1" data-path="design-demos/rough-math_v0.1.html" data-category="design-demos">
+                        <div class="card-thumb">
+                            <img src="./screenshots/design-demos/rough-math_v0.1.png" alt="Rough Math V0 1" loading="lazy">
+                        </div>
+                        <div class="card-body">
+                            <div class="card-name">Rough Math V0 1</div>
+                            <span class="card-path">design-demos/rough-math_v0.1.html</span>
+                        </div>
+                    </a>
+                    
+                    <a href="design-demos/rough-math_v0.2-export-fixed.html" class="card" target="_blank" data-name="rough math v0 2 export fixed" data-path="design-demos/rough-math_v0.2-export-fixed.html" data-category="design-demos">
+                        <div class="card-thumb">
+                            <img src="./screenshots/design-demos/rough-math_v0.2-export-fixed.png" alt="Rough Math V0 2 Export Fixed" loading="lazy">
+                        </div>
+                        <div class="card-body">
+                            <div class="card-name">Rough Math V0 2 Export Fixed</div>
+                            <span class="card-path">design-demos/rough-math_v0.2-export-fixed.html</span>
+                        </div>
+                    </a>
+                    
+                    <a href="design-demos/rough-math_v0.3-more-adnaved.html" class="card" target="_blank" data-name="rough math v0 3 more adnaved" data-path="design-demos/rough-math_v0.3-more-adnaved.html" data-category="design-demos">
+                        <div class="card-thumb">
+                            <img src="./screenshots/design-demos/rough-math_v0.3-more-adnaved.png" alt="Rough Math V0 3 More Adnaved" loading="lazy">
+                        </div>
+                        <div class="card-body">
+                            <div class="card-name">Rough Math V0 3 More Adnaved</div>
+                            <span class="card-path">design-demos/rough-math_v0.3-more-adnaved.html</span>
+                        </div>
+                    </a>
+                    
+                    <a href="design-demos/rough-math_v0.4-fix-fill-style.html" class="card" target="_blank" data-name="rough math v0 4 fix fill style" data-path="design-demos/rough-math_v0.4-fix-fill-style.html" data-category="design-demos">
+                        <div class="card-thumb">
+                            <img src="./screenshots/design-demos/rough-math_v0.4-fix-fill-style.png" alt="Rough Math V0 4 Fix Fill Style" loading="lazy">
+                        </div>
+                        <div class="card-body">
+                            <div class="card-name">Rough Math V0 4 Fix Fill Style</div>
+                            <span class="card-path">design-demos/rough-math_v0.4-fix-fill-style.html</span>
+                        </div>
+                    </a>
+                    
+                    <a href="design-demos/rough-math_v0.5-questions-templates.html" class="card" target="_blank" data-name="rough math v0 5 questions templates" data-path="design-demos/rough-math_v0.5-questions-templates.html" data-category="design-demos">
+                        <div class="card-thumb">
+                            <img src="./screenshots/design-demos/rough-math_v0.5-questions-templates.png" alt="Rough Math V0 5 Questions Templates" loading="lazy">
+                        </div>
+                        <div class="card-body">
+                            <div class="card-name">Rough Math V0 5 Questions Templates</div>
+                            <span class="card-path">design-demos/rough-math_v0.5-questions-templates.html</span>
+                        </div>
+                    </a>
+                    
+                    <a href="design-demos/stick-sync-animator.html" class="card" target="_blank" data-name="stick sync animator" data-path="design-demos/stick-sync-animator.html" data-category="design-demos">
+                        <div class="card-thumb">
+                            <img src="./screenshots/design-demos/stick-sync-animator.png" alt="Stick Sync Animator" loading="lazy">
+                        </div>
+                        <div class="card-body">
+                            <div class="card-name">Stick Sync Animator</div>
+                            <span class="card-path">design-demos/stick-sync-animator.html</span>
+                        </div>
+                    </a>
+                    
+                    <a href="dist/Borads/Paper_Canvas/v_0.1.0.html" class="card" target="_blank" data-name="v 0 1 0" data-path="dist/borads/paper_canvas/v_0.1.0.html" data-category="dist-borads-paper-canvas">
+                        <div class="card-thumb">
+                            <div class="card-thumb-placeholder">🎨</div>
+                        </div>
+                        <div class="card-body">
+                            <div class="card-name">V 0 1 0</div>
+                            <span class="card-path">dist/Borads/Paper_Canvas/v_0.1.0.html</span>
+                        </div>
+                    </a>
+                    
+                    <a href="dist/Borads/Paper_Canvas/v_0.1.1.html" class="card" target="_blank" data-name="v 0 1 1" data-path="dist/borads/paper_canvas/v_0.1.1.html" data-category="dist-borads-paper-canvas">
+                        <div class="card-thumb">
+                            <div class="card-thumb-placeholder">🎨</div>
+                        </div>
+                        <div class="card-body">
+                            <div class="card-name">V 0 1 1</div>
+                            <span class="card-path">dist/Borads/Paper_Canvas/v_0.1.1.html</span>
+                        </div>
+                    </a>
+                    
+                    <a href="dist/Borads/Rough-Borard_Canvas/v_0.1.0.html" class="card" target="_blank" data-name="v 0 1 0" data-path="dist/borads/rough-borard_canvas/v_0.1.0.html" data-category="dist-borads-rough-borard-canvas">
+                        <div class="card-thumb">
+                            <div class="card-thumb-placeholder">🎨</div>
+                        </div>
+                        <div class="card-body">
+                            <div class="card-name">V 0 1 0</div>
+                            <span class="card-path">dist/Borads/Rough-Borard_Canvas/v_0.1.0.html</span>
+                        </div>
+                    </a>
+                    
+                    <a href="dist/Borads/Rough-Borard_Canvas/v_0.1.1.html" class="card" target="_blank" data-name="v 0 1 1" data-path="dist/borads/rough-borard_canvas/v_0.1.1.html" data-category="dist-borads-rough-borard-canvas">
+                        <div class="card-thumb">
+                            <div class="card-thumb-placeholder">🎨</div>
+                        </div>
+                        <div class="card-body">
+                            <div class="card-name">V 0 1 1</div>
+                            <span class="card-path">dist/Borads/Rough-Borard_Canvas/v_0.1.1.html</span>
+                        </div>
+                    </a>
+                    
+                    <a href="dist/Borads/Rough-Borard_Canvas/v_0.1.2.html" class="card" target="_blank" data-name="v 0 1 2" data-path="dist/borads/rough-borard_canvas/v_0.1.2.html" data-category="dist-borads-rough-borard-canvas">
+                        <div class="card-thumb">
+                            <div class="card-thumb-placeholder">🎨</div>
+                        </div>
+                        <div class="card-body">
+                            <div class="card-name">V 0 1 2</div>
+                            <span class="card-path">dist/Borads/Rough-Borard_Canvas/v_0.1.2.html</span>
+                        </div>
+                    </a>
+                    
+                    <a href="dist/Borads/Rough-Borard_Canvas/v_0.1.3.html" class="card" target="_blank" data-name="v 0 1 3" data-path="dist/borads/rough-borard_canvas/v_0.1.3.html" data-category="dist-borads-rough-borard-canvas">
+                        <div class="card-thumb">
+                            <div class="card-thumb-placeholder">🎨</div>
+                        </div>
+                        <div class="card-body">
+                            <div class="card-name">V 0 1 3</div>
+                            <span class="card-path">dist/Borads/Rough-Borard_Canvas/v_0.1.3.html</span>
+                        </div>
+                    </a>
+                    
+                    <a href="dist/Borads/Rough-Borard_Canvas/v_0.2.0.html" class="card" target="_blank" data-name="v 0 2 0" data-path="dist/borads/rough-borard_canvas/v_0.2.0.html" data-category="dist-borads-rough-borard-canvas">
+                        <div class="card-thumb">
+                            <div class="card-thumb-placeholder">🎨</div>
+                        </div>
+                        <div class="card-body">
+                            <div class="card-name">V 0 2 0</div>
+                            <span class="card-path">dist/Borads/Rough-Borard_Canvas/v_0.2.0.html</span>
+                        </div>
+                    </a>
+                    
+                    <a href="dist/Borads/Rough-Borard_Canvas/v_0.2.1.html" class="card" target="_blank" data-name="v 0 2 1" data-path="dist/borads/rough-borard_canvas/v_0.2.1.html" data-category="dist-borads-rough-borard-canvas">
+                        <div class="card-thumb">
+                            <div class="card-thumb-placeholder">🎨</div>
+                        </div>
+                        <div class="card-body">
+                            <div class="card-name">V 0 2 1</div>
+                            <span class="card-path">dist/Borads/Rough-Borard_Canvas/v_0.2.1.html</span>
+                        </div>
+                    </a>
+                    
+                    <a href="dist/Borads/Rough-Borard_Canvas/v_0.2.2.html" class="card" target="_blank" data-name="v 0 2 2" data-path="dist/borads/rough-borard_canvas/v_0.2.2.html" data-category="dist-borads-rough-borard-canvas">
+                        <div class="card-thumb">
+                            <div class="card-thumb-placeholder">🎨</div>
+                        </div>
+                        <div class="card-body">
+                            <div class="card-name">V 0 2 2</div>
+                            <span class="card-path">dist/Borads/Rough-Borard_Canvas/v_0.2.2.html</span>
+                        </div>
+                    </a>
+                    
+                    <a href="dist/Borads/Sphere_canvas/v_0.1.0.html" class="card" target="_blank" data-name="v 0 1 0" data-path="dist/borads/sphere_canvas/v_0.1.0.html" data-category="dist-borads-sphere-canvas">
+                        <div class="card-thumb">
+                            <div class="card-thumb-placeholder">🎨</div>
+                        </div>
+                        <div class="card-body">
+                            <div class="card-name">V 0 1 0</div>
+                            <span class="card-path">dist/Borads/Sphere_canvas/v_0.1.0.html</span>
+                        </div>
+                    </a>
+                    
+                    <a href="dist/Borads/Sphere_canvas/v_0.1.1.html" class="card" target="_blank" data-name="v 0 1 1" data-path="dist/borads/sphere_canvas/v_0.1.1.html" data-category="dist-borads-sphere-canvas">
+                        <div class="card-thumb">
+                            <div class="card-thumb-placeholder">🎨</div>
+                        </div>
+                        <div class="card-body">
+                            <div class="card-name">V 0 1 1</div>
+                            <span class="card-path">dist/Borads/Sphere_canvas/v_0.1.1.html</span>
+                        </div>
+                    </a>
+                    
+                    <a href="dist/Borads/Sphere_canvas/v_0.1.2.html" class="card" target="_blank" data-name="v 0 1 2" data-path="dist/borads/sphere_canvas/v_0.1.2.html" data-category="dist-borads-sphere-canvas">
+                        <div class="card-thumb">
+                            <div class="card-thumb-placeholder">🎨</div>
+                        </div>
+                        <div class="card-body">
+                            <div class="card-name">V 0 1 2</div>
+                            <span class="card-path">dist/Borads/Sphere_canvas/v_0.1.2.html</span>
+                        </div>
+                    </a>
+                    
+                    <a href="dist/Borads/Sphere_canvas/v_0.1.3.html" class="card" target="_blank" data-name="v 0 1 3" data-path="dist/borads/sphere_canvas/v_0.1.3.html" data-category="dist-borads-sphere-canvas">
+                        <div class="card-thumb">
+                            <div class="card-thumb-placeholder">🎨</div>
+                        </div>
+                        <div class="card-body">
+                            <div class="card-name">V 0 1 3</div>
+                            <span class="card-path">dist/Borads/Sphere_canvas/v_0.1.3.html</span>
+                        </div>
+                    </a>
+                    
+                    <a href="dist/design-demos/broken-tooth-animator_v0.1.html" class="card" target="_blank" data-name="broken tooth animator v0 1" data-path="dist/design-demos/broken-tooth-animator_v0.1.html" data-category="dist-design-demos">
+                        <div class="card-thumb">
+                            <div class="card-thumb-placeholder">🎨</div>
+                        </div>
+                        <div class="card-body">
+                            <div class="card-name">Broken Tooth Animator V0 1</div>
+                            <span class="card-path">dist/design-demos/broken-tooth-animator_v0.1.html</span>
+                        </div>
+                    </a>
+                    
+                    <a href="dist/design-demos/broken-tooth-animator_v0.2.html" class="card" target="_blank" data-name="broken tooth animator v0 2" data-path="dist/design-demos/broken-tooth-animator_v0.2.html" data-category="dist-design-demos">
+                        <div class="card-thumb">
+                            <div class="card-thumb-placeholder">🎨</div>
+                        </div>
+                        <div class="card-body">
+                            <div class="card-name">Broken Tooth Animator V0 2</div>
+                            <span class="card-path">dist/design-demos/broken-tooth-animator_v0.2.html</span>
+                        </div>
+                    </a>
+                    
+                    <a href="dist/design-demos/chart-animator_v0.1.html" class="card" target="_blank" data-name="chart animator v0 1" data-path="dist/design-demos/chart-animator_v0.1.html" data-category="dist-design-demos">
+                        <div class="card-thumb">
+                            <div class="card-thumb-placeholder">🎨</div>
+                        </div>
+                        <div class="card-body">
+                            <div class="card-name">Chart Animator V0 1</div>
+                            <span class="card-path">dist/design-demos/chart-animator_v0.1.html</span>
+                        </div>
+                    </a>
+                    
+                    <a href="dist/design-demos/chart-animator_v0.2.html" class="card" target="_blank" data-name="chart animator v0 2" data-path="dist/design-demos/chart-animator_v0.2.html" data-category="dist-design-demos">
+                        <div class="card-thumb">
+                            <div class="card-thumb-placeholder">🎨</div>
+                        </div>
+                        <div class="card-body">
+                            <div class="card-name">Chart Animator V0 2</div>
+                            <span class="card-path">dist/design-demos/chart-animator_v0.2.html</span>
+                        </div>
+                    </a>
+                    
+                    <a href="dist/design-demos/cinematic-map-animator.html" class="card" target="_blank" data-name="cinematic map animator" data-path="dist/design-demos/cinematic-map-animator.html" data-category="dist-design-demos">
+                        <div class="card-thumb">
+                            <div class="card-thumb-placeholder">🎨</div>
+                        </div>
+                        <div class="card-body">
+                            <div class="card-name">Cinematic Map Animator</div>
+                            <span class="card-path">dist/design-demos/cinematic-map-animator.html</span>
+                        </div>
+                    </a>
+                    
+                    <a href="dist/design-demos/code-animator_v0.1.html" class="card" target="_blank" data-name="code animator v0 1" data-path="dist/design-demos/code-animator_v0.1.html" data-category="dist-design-demos">
+                        <div class="card-thumb">
+                            <div class="card-thumb-placeholder">🎨</div>
+                        </div>
+                        <div class="card-body">
+                            <div class="card-name">Code Animator V0 1</div>
+                            <span class="card-path">dist/design-demos/code-animator_v0.1.html</span>
+                        </div>
+                    </a>
+                    
+                    <a href="dist/design-demos/code-animator-quick-templates-animation-speed_v0.2.html" class="card" target="_blank" data-name="code animator quick templates animation speed v0 2" data-path="dist/design-demos/code-animator-quick-templates-animation-speed_v0.2.html" data-category="dist-design-demos">
+                        <div class="card-thumb">
+                            <div class="card-thumb-placeholder">🎨</div>
+                        </div>
+                        <div class="card-body">
+                            <div class="card-name">Code Animator Quick Templates Animation Speed V0 2</div>
+                            <span class="card-path">dist/design-demos/code-animator-quick-templates-animation-speed_v0.2.html</span>
+                        </div>
+                    </a>
+                    
+                    <a href="dist/design-demos/editorial-chart-animator_v0.1.html" class="card" target="_blank" data-name="editorial chart animator v0 1" data-path="dist/design-demos/editorial-chart-animator_v0.1.html" data-category="dist-design-demos">
+                        <div class="card-thumb">
+                            <div class="card-thumb-placeholder">🎨</div>
+                        </div>
+                        <div class="card-body">
+                            <div class="card-name">Editorial Chart Animator V0 1</div>
+                            <span class="card-path">dist/design-demos/editorial-chart-animator_v0.1.html</span>
+                        </div>
+                    </a>
+                    
+                    <a href="dist/design-demos/editorial-chart-animator_v0.2.html" class="card" target="_blank" data-name="editorial chart animator v0 2" data-path="dist/design-demos/editorial-chart-animator_v0.2.html" data-category="dist-design-demos">
+                        <div class="card-thumb">
+                            <div class="card-thumb-placeholder">🎨</div>
+                        </div>
+                        <div class="card-body">
+                            <div class="card-name">Editorial Chart Animator V0 2</div>
+                            <span class="card-path">dist/design-demos/editorial-chart-animator_v0.2.html</span>
+                        </div>
+                    </a>
+                    
+                    <a href="dist/design-demos/fox-lip-sync-animator_v0.1.html" class="card" target="_blank" data-name="fox lip sync animator v0 1" data-path="dist/design-demos/fox-lip-sync-animator_v0.1.html" data-category="dist-design-demos">
+                        <div class="card-thumb">
+                            <div class="card-thumb-placeholder">🎨</div>
+                        </div>
+                        <div class="card-body">
+                            <div class="card-name">Fox Lip Sync Animator V0 1</div>
+                            <span class="card-path">dist/design-demos/fox-lip-sync-animator_v0.1.html</span>
+                        </div>
+                    </a>
+                    
+                    <a href="dist/design-demos/fox-lip-sync-animator_v0.2.html" class="card" target="_blank" data-name="fox lip sync animator v0 2" data-path="dist/design-demos/fox-lip-sync-animator_v0.2.html" data-category="dist-design-demos">
+                        <div class="card-thumb">
+                            <div class="card-thumb-placeholder">🎨</div>
+                        </div>
+                        <div class="card-body">
+                            <div class="card-name">Fox Lip Sync Animator V0 2</div>
+                            <span class="card-path">dist/design-demos/fox-lip-sync-animator_v0.2.html</span>
+                        </div>
+                    </a>
+                    
+                    <a href="dist/design-demos/image-animator_v0.2.html" class="card" target="_blank" data-name="image animator v0 2" data-path="dist/design-demos/image-animator_v0.2.html" data-category="dist-design-demos">
+                        <div class="card-thumb">
+                            <div class="card-thumb-placeholder">🎨</div>
+                        </div>
+                        <div class="card-body">
+                            <div class="card-name">Image Animator V0 2</div>
+                            <span class="card-path">dist/design-demos/image-animator_v0.2.html</span>
+                        </div>
+                    </a>
+                    
+                    <a href="dist/design-demos/image-animtor_v0.1.html" class="card" target="_blank" data-name="image animtor v0 1" data-path="dist/design-demos/image-animtor_v0.1.html" data-category="dist-design-demos">
+                        <div class="card-thumb">
+                            <div class="card-thumb-placeholder">🎨</div>
+                        </div>
+                        <div class="card-body">
+                            <div class="card-name">Image Animtor V0 1</div>
+                            <span class="card-path">dist/design-demos/image-animtor_v0.1.html</span>
+                        </div>
+                    </a>
+                    
+                    <a href="dist/design-demos/linear-transformation-viz_0.1.html" class="card" target="_blank" data-name="linear transformation viz 0 1" data-path="dist/design-demos/linear-transformation-viz_0.1.html" data-category="dist-design-demos">
+                        <div class="card-thumb">
+                            <div class="card-thumb-placeholder">🎨</div>
+                        </div>
+                        <div class="card-body">
+                            <div class="card-name">Linear Transformation Viz 0 1</div>
+                            <span class="card-path">dist/design-demos/linear-transformation-viz_0.1.html</span>
+                        </div>
+                    </a>
+                    
+                    <a href="dist/design-demos/linear-transformation-viz_0.2.html" class="card" target="_blank" data-name="linear transformation viz 0 2" data-path="dist/design-demos/linear-transformation-viz_0.2.html" data-category="dist-design-demos">
+                        <div class="card-thumb">
+                            <div class="card-thumb-placeholder">🎨</div>
+                        </div>
+                        <div class="card-body">
+                            <div class="card-name">Linear Transformation Viz 0 2</div>
+                            <span class="card-path">dist/design-demos/linear-transformation-viz_0.2.html</span>
+                        </div>
+                    </a>
+                    
+                    <a href="dist/design-demos/linear-transformation-viz_0.3.html" class="card" target="_blank" data-name="linear transformation viz 0 3" data-path="dist/design-demos/linear-transformation-viz_0.3.html" data-category="dist-design-demos">
+                        <div class="card-thumb">
+                            <div class="card-thumb-placeholder">🎨</div>
+                        </div>
+                        <div class="card-body">
+                            <div class="card-name">Linear Transformation Viz 0 3</div>
+                            <span class="card-path">dist/design-demos/linear-transformation-viz_0.3.html</span>
+                        </div>
+                    </a>
+                    
+                    <a href="dist/design-demos/lip-sync-animator_v0.1.html" class="card" target="_blank" data-name="lip sync animator v0 1" data-path="dist/design-demos/lip-sync-animator_v0.1.html" data-category="dist-design-demos">
+                        <div class="card-thumb">
+                            <div class="card-thumb-placeholder">🎨</div>
+                        </div>
+                        <div class="card-body">
+                            <div class="card-name">Lip Sync Animator V0 1</div>
+                            <span class="card-path">dist/design-demos/lip-sync-animator_v0.1.html</span>
+                        </div>
+                    </a>
+                    
+                    <a href="dist/design-demos/lip-sync-animator_v0.2.html" class="card" target="_blank" data-name="lip sync animator v0 2" data-path="dist/design-demos/lip-sync-animator_v0.2.html" data-category="dist-design-demos">
+                        <div class="card-thumb">
+                            <div class="card-thumb-placeholder">🎨</div>
+                        </div>
+                        <div class="card-body">
+                            <div class="card-name">Lip Sync Animator V0 2</div>
+                            <span class="card-path">dist/design-demos/lip-sync-animator_v0.2.html</span>
+                        </div>
+                    </a>
+                    
+                    <a href="dist/design-demos/lip-sync-animator_v0.3.html" class="card" target="_blank" data-name="lip sync animator v0 3" data-path="dist/design-demos/lip-sync-animator_v0.3.html" data-category="dist-design-demos">
+                        <div class="card-thumb">
+                            <div class="card-thumb-placeholder">🎨</div>
+                        </div>
+                        <div class="card-body">
+                            <div class="card-name">Lip Sync Animator V0 3</div>
+                            <span class="card-path">dist/design-demos/lip-sync-animator_v0.3.html</span>
+                        </div>
+                    </a>
+                    
+                    <a href="dist/design-demos/lip-sync-animator_v0.4.html" class="card" target="_blank" data-name="lip sync animator v0 4" data-path="dist/design-demos/lip-sync-animator_v0.4.html" data-category="dist-design-demos">
+                        <div class="card-thumb">
+                            <div class="card-thumb-placeholder">🎨</div>
+                        </div>
+                        <div class="card-body">
+                            <div class="card-name">Lip Sync Animator V0 4</div>
+                            <span class="card-path">dist/design-demos/lip-sync-animator_v0.4.html</span>
+                        </div>
+                    </a>
+                    
+                    <a href="dist/design-demos/rough-animator_v1.0.html" class="card" target="_blank" data-name="rough animator v1 0" data-path="dist/design-demos/rough-animator_v1.0.html" data-category="dist-design-demos">
+                        <div class="card-thumb">
+                            <div class="card-thumb-placeholder">🎨</div>
+                        </div>
+                        <div class="card-body">
+                            <div class="card-name">Rough Animator V1 0</div>
+                            <span class="card-path">dist/design-demos/rough-animator_v1.0.html</span>
+                        </div>
+                    </a>
+                    
+                    <a href="dist/design-demos/rough-animator_v2.0.html" class="card" target="_blank" data-name="rough animator v2 0" data-path="dist/design-demos/rough-animator_v2.0.html" data-category="dist-design-demos">
+                        <div class="card-thumb">
+                            <div class="card-thumb-placeholder">🎨</div>
+                        </div>
+                        <div class="card-body">
+                            <div class="card-name">Rough Animator V2 0</div>
+                            <span class="card-path">dist/design-demos/rough-animator_v2.0.html</span>
+                        </div>
+                    </a>
+                    
+                    <a href="dist/design-demos/rough-lip-sync-animator.html" class="card" target="_blank" data-name="rough lip sync animator" data-path="dist/design-demos/rough-lip-sync-animator.html" data-category="dist-design-demos">
+                        <div class="card-thumb">
+                            <div class="card-thumb-placeholder">🎨</div>
+                        </div>
+                        <div class="card-body">
+                            <div class="card-name">Rough Lip Sync Animator</div>
+                            <span class="card-path">dist/design-demos/rough-lip-sync-animator.html</span>
+                        </div>
+                    </a>
+                    
+                    <a href="dist/design-demos/rough-math_v0.1.html" class="card" target="_blank" data-name="rough math v0 1" data-path="dist/design-demos/rough-math_v0.1.html" data-category="dist-design-demos">
+                        <div class="card-thumb">
+                            <div class="card-thumb-placeholder">🎨</div>
+                        </div>
+                        <div class="card-body">
+                            <div class="card-name">Rough Math V0 1</div>
+                            <span class="card-path">dist/design-demos/rough-math_v0.1.html</span>
+                        </div>
+                    </a>
+                    
+                    <a href="dist/design-demos/rough-math_v0.2-export-fixed.html" class="card" target="_blank" data-name="rough math v0 2 export fixed" data-path="dist/design-demos/rough-math_v0.2-export-fixed.html" data-category="dist-design-demos">
+                        <div class="card-thumb">
+                            <div class="card-thumb-placeholder">🎨</div>
+                        </div>
+                        <div class="card-body">
+                            <div class="card-name">Rough Math V0 2 Export Fixed</div>
+                            <span class="card-path">dist/design-demos/rough-math_v0.2-export-fixed.html</span>
+                        </div>
+                    </a>
+                    
+                    <a href="dist/design-demos/rough-math_v0.3-more-adnaved.html" class="card" target="_blank" data-name="rough math v0 3 more adnaved" data-path="dist/design-demos/rough-math_v0.3-more-adnaved.html" data-category="dist-design-demos">
+                        <div class="card-thumb">
+                            <div class="card-thumb-placeholder">🎨</div>
+                        </div>
+                        <div class="card-body">
+                            <div class="card-name">Rough Math V0 3 More Adnaved</div>
+                            <span class="card-path">dist/design-demos/rough-math_v0.3-more-adnaved.html</span>
+                        </div>
+                    </a>
+                    
+                    <a href="dist/design-demos/rough-math_v0.4-fix-fill-style.html" class="card" target="_blank" data-name="rough math v0 4 fix fill style" data-path="dist/design-demos/rough-math_v0.4-fix-fill-style.html" data-category="dist-design-demos">
+                        <div class="card-thumb">
+                            <div class="card-thumb-placeholder">🎨</div>
+                        </div>
+                        <div class="card-body">
+                            <div class="card-name">Rough Math V0 4 Fix Fill Style</div>
+                            <span class="card-path">dist/design-demos/rough-math_v0.4-fix-fill-style.html</span>
+                        </div>
+                    </a>
+                    
+                    <a href="dist/design-demos/rough-math_v0.5-questions-templates.html" class="card" target="_blank" data-name="rough math v0 5 questions templates" data-path="dist/design-demos/rough-math_v0.5-questions-templates.html" data-category="dist-design-demos">
+                        <div class="card-thumb">
+                            <div class="card-thumb-placeholder">🎨</div>
+                        </div>
+                        <div class="card-body">
+                            <div class="card-name">Rough Math V0 5 Questions Templates</div>
+                            <span class="card-path">dist/design-demos/rough-math_v0.5-questions-templates.html</span>
+                        </div>
+                    </a>
+                    
+                    <a href="dist/design-demos/stick-sync-animator.html" class="card" target="_blank" data-name="stick sync animator" data-path="dist/design-demos/stick-sync-animator.html" data-category="dist-design-demos">
+                        <div class="card-thumb">
+                            <div class="card-thumb-placeholder">🎨</div>
+                        </div>
+                        <div class="card-body">
+                            <div class="card-name">Stick Sync Animator</div>
+                            <span class="card-path">dist/design-demos/stick-sync-animator.html</span>
+                        </div>
+                    </a>
+                    
+                    <a href="dist/Emoji Motion Studio/v0.1.html" class="card" target="_blank" data-name="v0 1" data-path="dist/emoji motion studio/v0.1.html" data-category="dist-emoji-motion-studio">
+                        <div class="card-thumb">
+                            <div class="card-thumb-placeholder">🎨</div>
+                        </div>
+                        <div class="card-body">
+                            <div class="card-name">V0 1</div>
+                            <span class="card-path">dist/Emoji Motion Studio/v0.1.html</span>
+                        </div>
+                    </a>
+                    
+                    <a href="dist/Emoji Motion Studio/v0.2-collision.html" class="card" target="_blank" data-name="v0 2 collision" data-path="dist/emoji motion studio/v0.2-collision.html" data-category="dist-emoji-motion-studio">
+                        <div class="card-thumb">
+                            <div class="card-thumb-placeholder">🎨</div>
+                        </div>
+                        <div class="card-body">
+                            <div class="card-name">V0 2 Collision</div>
+                            <span class="card-path">dist/Emoji Motion Studio/v0.2-collision.html</span>
+                        </div>
+                    </a>
+                    
+                    <a href="dist/Emoji Motion Studio/v0.3-performance.html" class="card" target="_blank" data-name="v0 3 performance" data-path="dist/emoji motion studio/v0.3-performance.html" data-category="dist-emoji-motion-studio">
+                        <div class="card-thumb">
+                            <div class="card-thumb-placeholder">🎨</div>
+                        </div>
+                        <div class="card-body">
+                            <div class="card-name">V0 3 Performance</div>
+                            <span class="card-path">dist/Emoji Motion Studio/v0.3-performance.html</span>
+                        </div>
+                    </a>
+                    
+                    <a href="dist/Macify Web Studio/Macify Browser Studio.html" class="card" target="_blank" data-name="macify browser studio" data-path="dist/macify web studio/macify browser studio.html" data-category="dist-macify-web-studio">
+                        <div class="card-thumb">
+                            <div class="card-thumb-placeholder">🎨</div>
+                        </div>
+                        <div class="card-body">
+                            <div class="card-name">Macify Browser Studio</div>
+                            <span class="card-path">dist/Macify Web Studio/Macify Browser Studio.html</span>
+                        </div>
+                    </a>
+                    
+                    <a href="dist/Macify Web Studio/Macify Web Studio 1.5.html" class="card" target="_blank" data-name="macify web studio 1 5" data-path="dist/macify web studio/macify web studio 1.5.html" data-category="dist-macify-web-studio">
+                        <div class="card-thumb">
+                            <div class="card-thumb-placeholder">🎨</div>
+                        </div>
+                        <div class="card-body">
+                            <div class="card-name">Macify Web Studio 1 5</div>
+                            <span class="card-path">dist/Macify Web Studio/Macify Web Studio 1.5.html</span>
+                        </div>
+                    </a>
+                    
+                    <a href="dist/Macify Web Studio/Macify Web Studio 2.0.html" class="card" target="_blank" data-name="macify web studio 2 0" data-path="dist/macify web studio/macify web studio 2.0.html" data-category="dist-macify-web-studio">
+                        <div class="card-thumb">
+                            <div class="card-thumb-placeholder">🎨</div>
+                        </div>
+                        <div class="card-body">
+                            <div class="card-name">Macify Web Studio 2 0</div>
+                            <span class="card-path">dist/Macify Web Studio/Macify Web Studio 2.0.html</span>
+                        </div>
+                    </a>
+                    
+                    <a href="dist/Macify Web Studio/Macify Web Studio 3.5 (Chrome Edition).html" class="card" target="_blank" data-name="macify web studio 3 5 (chrome edition)" data-path="dist/macify web studio/macify web studio 3.5 (chrome edition).html" data-category="dist-macify-web-studio">
+                        <div class="card-thumb">
+                            <div class="card-thumb-placeholder">🎨</div>
+                        </div>
+                        <div class="card-body">
+                            <div class="card-name">Macify Web Studio 3 5 (Chrome Edition)</div>
+                            <span class="card-path">dist/Macify Web Studio/Macify Web Studio 3.5 (Chrome Edition).html</span>
+                        </div>
+                    </a>
+                    
+                    <a href="dist/Macify Web Studio/Macify Web Studio 5.2.html" class="card" target="_blank" data-name="macify web studio 5 2" data-path="dist/macify web studio/macify web studio 5.2.html" data-category="dist-macify-web-studio">
+                        <div class="card-thumb">
+                            <div class="card-thumb-placeholder">🎨</div>
+                        </div>
+                        <div class="card-body">
+                            <div class="card-name">Macify Web Studio 5 2</div>
+                            <span class="card-path">dist/Macify Web Studio/Macify Web Studio 5.2.html</span>
+                        </div>
+                    </a>
+                    
+                    <a href="dist/Macify Web Studio/Macify Web Studio 5.3.html" class="card" target="_blank" data-name="macify web studio 5 3" data-path="dist/macify web studio/macify web studio 5.3.html" data-category="dist-macify-web-studio">
+                        <div class="card-thumb">
+                            <div class="card-thumb-placeholder">🎨</div>
+                        </div>
+                        <div class="card-body">
+                            <div class="card-name">Macify Web Studio 5 3</div>
+                            <span class="card-path">dist/Macify Web Studio/Macify Web Studio 5.3.html</span>
+                        </div>
+                    </a>
+                    
+                    <a href="dist/Macify Web Studio/Macify Web Studio.html" class="card" target="_blank" data-name="macify web studio" data-path="dist/macify web studio/macify web studio.html" data-category="dist-macify-web-studio">
+                        <div class="card-thumb">
+                            <div class="card-thumb-placeholder">🎨</div>
+                        </div>
+                        <div class="card-body">
+                            <div class="card-name">Macify Web Studio</div>
+                            <span class="card-path">dist/Macify Web Studio/Macify Web Studio.html</span>
+                        </div>
+                    </a>
+                    
+                    <a href="dist/Macify Web Studio/v2.0.html" class="card" target="_blank" data-name="v2 0" data-path="dist/macify web studio/v2.0.html" data-category="dist-macify-web-studio">
+                        <div class="card-thumb">
+                            <div class="card-thumb-placeholder">🎨</div>
+                        </div>
+                        <div class="card-body">
+                            <div class="card-name">V2 0</div>
+                            <span class="card-path">dist/Macify Web Studio/v2.0.html</span>
+                        </div>
+                    </a>
+                    
+                    <a href="dist/Macify Web Studio/v2.5-Chrome-edition.html" class="card" target="_blank" data-name="v2 5 chrome edition" data-path="dist/macify web studio/v2.5-chrome-edition.html" data-category="dist-macify-web-studio">
+                        <div class="card-thumb">
+                            <div class="card-thumb-placeholder">🎨</div>
+                        </div>
+                        <div class="card-body">
+                            <div class="card-name">V2 5 Chrome Edition</div>
+                            <span class="card-path">dist/Macify Web Studio/v2.5-Chrome-edition.html</span>
+                        </div>
+                    </a>
+                    
+                    <a href="dist/Macify Web Studio/v3.5-fixed.html" class="card" target="_blank" data-name="v3 5 fixed" data-path="dist/macify web studio/v3.5-fixed.html" data-category="dist-macify-web-studio">
+                        <div class="card-thumb">
+                            <div class="card-thumb-placeholder">🎨</div>
+                        </div>
+                        <div class="card-body">
+                            <div class="card-name">V3 5 Fixed</div>
+                            <span class="card-path">dist/Macify Web Studio/v3.5-fixed.html</span>
+                        </div>
+                    </a>
+                    
+                    <a href="dist/Macify Web Studio/v3.5.1-broken.html" class="card" target="_blank" data-name="v3 5 1 broken" data-path="dist/macify web studio/v3.5.1-broken.html" data-category="dist-macify-web-studio">
+                        <div class="card-thumb">
+                            <div class="card-thumb-placeholder">🎨</div>
+                        </div>
+                        <div class="card-body">
+                            <div class="card-name">V3 5 1 Broken</div>
+                            <span class="card-path">dist/Macify Web Studio/v3.5.1-broken.html</span>
+                        </div>
+                    </a>
+                    
+                    <a href="dist/Macify Web Studio/v3.5.html" class="card" target="_blank" data-name="v3 5" data-path="dist/macify web studio/v3.5.html" data-category="dist-macify-web-studio">
+                        <div class="card-thumb">
+                            <div class="card-thumb-placeholder">🎨</div>
+                        </div>
+                        <div class="card-body">
+                            <div class="card-name">V3 5</div>
+                            <span class="card-path">dist/Macify Web Studio/v3.5.html</span>
+                        </div>
+                    </a>
+                    
+                    <a href="dist/Macify Web Studio/v4.0.html" class="card" target="_blank" data-name="v4 0" data-path="dist/macify web studio/v4.0.html" data-category="dist-macify-web-studio">
+                        <div class="card-thumb">
+                            <div class="card-thumb-placeholder">🎨</div>
+                        </div>
+                        <div class="card-body">
+                            <div class="card-name">V4 0</div>
+                            <span class="card-path">dist/Macify Web Studio/v4.0.html</span>
+                        </div>
+                    </a>
+                    
+                    <a href="dist/Macify Web Studio/v5.0.html" class="card" target="_blank" data-name="v5 0" data-path="dist/macify web studio/v5.0.html" data-category="dist-macify-web-studio">
+                        <div class="card-thumb">
+                            <div class="card-thumb-placeholder">🎨</div>
+                        </div>
+                        <div class="card-body">
+                            <div class="card-name">V5 0</div>
+                            <span class="card-path">dist/Macify Web Studio/v5.0.html</span>
+                        </div>
+                    </a>
+                    
+                    <a href="dist/Macify Web Studio/v5.2.html" class="card" target="_blank" data-name="v5 2" data-path="dist/macify web studio/v5.2.html" data-category="dist-macify-web-studio">
+                        <div class="card-thumb">
+                            <div class="card-thumb-placeholder">🎨</div>
+                        </div>
+                        <div class="card-body">
+                            <div class="card-name">V5 2</div>
+                            <span class="card-path">dist/Macify Web Studio/v5.2.html</span>
+                        </div>
+                    </a>
+                    
+                    <a href="dist/Macify Web Studio/v5.3.html" class="card" target="_blank" data-name="v5 3" data-path="dist/macify web studio/v5.3.html" data-category="dist-macify-web-studio">
+                        <div class="card-thumb">
+                            <div class="card-thumb-placeholder">🎨</div>
+                        </div>
+                        <div class="card-body">
+                            <div class="card-name">V5 3</div>
+                            <span class="card-path">dist/Macify Web Studio/v5.3.html</span>
+                        </div>
+                    </a>
+                    
+                    <a href="dist/Macify-Studio/Macify Studio Pro 2.0.html" class="card" target="_blank" data-name="macify studio pro 2 0" data-path="dist/macify-studio/macify studio pro 2.0.html" data-category="dist-macify-studio">
+                        <div class="card-thumb">
+                            <div class="card-thumb-placeholder">🎨</div>
+                        </div>
+                        <div class="card-body">
+                            <div class="card-name">Macify Studio Pro 2 0</div>
+                            <span class="card-path">dist/Macify-Studio/Macify Studio Pro 2.0.html</span>
+                        </div>
+                    </a>
+                    
+                    <a href="dist/Macify-Studio/Macify Studio Pro 2.5.html" class="card" target="_blank" data-name="macify studio pro 2 5" data-path="dist/macify-studio/macify studio pro 2.5.html" data-category="dist-macify-studio">
+                        <div class="card-thumb">
+                            <div class="card-thumb-placeholder">🎨</div>
+                        </div>
+                        <div class="card-body">
+                            <div class="card-name">Macify Studio Pro 2 5</div>
+                            <span class="card-path">dist/Macify-Studio/Macify Studio Pro 2.5.html</span>
+                        </div>
+                    </a>
+                    
+                    <a href="dist/Macify-Studio/Macify Studio Pro 3.0.html" class="card" target="_blank" data-name="macify studio pro 3 0" data-path="dist/macify-studio/macify studio pro 3.0.html" data-category="dist-macify-studio">
+                        <div class="card-thumb">
+                            <div class="card-thumb-placeholder">🎨</div>
+                        </div>
+                        <div class="card-body">
+                            <div class="card-name">Macify Studio Pro 3 0</div>
+                            <span class="card-path">dist/Macify-Studio/Macify Studio Pro 3.0.html</span>
+                        </div>
+                    </a>
+                    
+                    <a href="dist/Macify-Studio/Mixamo 3D Studio.html" class="card" target="_blank" data-name="mixamo 3d studio" data-path="dist/macify-studio/mixamo 3d studio.html" data-category="dist-macify-studio">
+                        <div class="card-thumb">
+                            <div class="card-thumb-placeholder">🎨</div>
+                        </div>
+                        <div class="card-body">
+                            <div class="card-name">Mixamo 3D Studio</div>
+                            <span class="card-path">dist/Macify-Studio/Mixamo 3D Studio.html</span>
+                        </div>
+                    </a>
+                    
+                    <a href="dist/Macify-Studio/Motion Math Studio.html" class="card" target="_blank" data-name="motion math studio" data-path="dist/macify-studio/motion math studio.html" data-category="dist-macify-studio">
+                        <div class="card-thumb">
+                            <div class="card-thumb-placeholder">🎨</div>
+                        </div>
+                        <div class="card-body">
+                            <div class="card-name">Motion Math Studio</div>
+                            <span class="card-path">dist/Macify-Studio/Motion Math Studio.html</span>
+                        </div>
+                    </a>
+                    
+                    <a href="dist/Macify-Studio/Rectangle Animation Studio.html" class="card" target="_blank" data-name="rectangle animation studio" data-path="dist/macify-studio/rectangle animation studio.html" data-category="dist-macify-studio">
+                        <div class="card-thumb">
+                            <div class="card-thumb-placeholder">🎨</div>
+                        </div>
+                        <div class="card-body">
+                            <div class="card-name">Rectangle Animation Studio</div>
+                            <span class="card-path">dist/Macify-Studio/Rectangle Animation Studio.html</span>
+                        </div>
+                    </a>
+                    
+                    <a href="dist/Macify-Studio/Rough Animation Studio.html" class="card" target="_blank" data-name="rough animation studio" data-path="dist/macify-studio/rough animation studio.html" data-category="dist-macify-studio">
+                        <div class="card-thumb">
+                            <div class="card-thumb-placeholder">🎨</div>
+                        </div>
+                        <div class="card-body">
+                            <div class="card-name">Rough Animation Studio</div>
+                            <span class="card-path">dist/Macify-Studio/Rough Animation Studio.html</span>
+                        </div>
+                    </a>
+                    
+                    <a href="dist/Macify-Studio/Rough Studio (macOS Premium Edition).html" class="card" target="_blank" data-name="rough studio (macos premium edition)" data-path="dist/macify-studio/rough studio (macos premium edition).html" data-category="dist-macify-studio">
+                        <div class="card-thumb">
+                            <div class="card-thumb-placeholder">🎨</div>
+                        </div>
+                        <div class="card-body">
+                            <div class="card-name">Rough Studio (MacOS Premium Edition)</div>
+                            <span class="card-path">dist/Macify-Studio/Rough Studio (macOS Premium Edition).html</span>
+                        </div>
+                    </a>
+                    
+                    <a href="dist/Macify-Studio/v0.1.html" class="card" target="_blank" data-name="v0 1" data-path="dist/macify-studio/v0.1.html" data-category="dist-macify-studio">
+                        <div class="card-thumb">
+                            <div class="card-thumb-placeholder">🎨</div>
+                        </div>
+                        <div class="card-body">
+                            <div class="card-name">V0 1</div>
+                            <span class="card-path">dist/Macify-Studio/v0.1.html</span>
+                        </div>
+                    </a>
+                    
+                    <a href="dist/MotionCount V2/MotionCanvas V3.1.html" class="card" target="_blank" data-name="motioncanvas v3 1" data-path="dist/motioncount v2/motioncanvas v3.1.html" data-category="dist-motioncount-v2">
+                        <div class="card-thumb">
+                            <div class="card-thumb-placeholder">🎨</div>
+                        </div>
+                        <div class="card-body">
+                            <div class="card-name">MotionCanvas V3 1</div>
+                            <span class="card-path">dist/MotionCount V2/MotionCanvas V3.1.html</span>
+                        </div>
+                    </a>
+                    
+                    <a href="dist/MotionCount V2/MotionDraw V4.1.html" class="card" target="_blank" data-name="motiondraw v4 1" data-path="dist/motioncount v2/motiondraw v4.1.html" data-category="dist-motioncount-v2">
+                        <div class="card-thumb">
+                            <div class="card-thumb-placeholder">🎨</div>
+                        </div>
+                        <div class="card-body">
+                            <div class="card-name">MotionDraw V4 1</div>
+                            <span class="card-path">dist/MotionCount V2/MotionDraw V4.1.html</span>
+                        </div>
+                    </a>
+                    
+                    <a href="dist/MotionCount V2/v2.html" class="card" target="_blank" data-name="v2" data-path="dist/motioncount v2/v2.html" data-category="dist-motioncount-v2">
+                        <div class="card-thumb">
+                            <div class="card-thumb-placeholder">🎨</div>
+                        </div>
+                        <div class="card-body">
+                            <div class="card-name">V2</div>
+                            <span class="card-path">dist/MotionCount V2/v2.html</span>
+                        </div>
+                    </a>
+                    
+                    <a href="dist/paper-animator/3d-globe-animator-2.html" class="card" target="_blank" data-name="3d globe animator 2" data-path="dist/paper-animator/3d-globe-animator-2.html" data-category="dist-paper-animator">
+                        <div class="card-thumb">
+                            <div class="card-thumb-placeholder">🎨</div>
+                        </div>
+                        <div class="card-body">
+                            <div class="card-name">3d Globe Animator 2</div>
+                            <span class="card-path">dist/paper-animator/3d-globe-animator-2.html</span>
+                        </div>
+                    </a>
+                    
+                    <a href="dist/paper-animator/3d-globe-animator-3.html" class="card" target="_blank" data-name="3d globe animator 3" data-path="dist/paper-animator/3d-globe-animator-3.html" data-category="dist-paper-animator">
+                        <div class="card-thumb">
+                            <div class="card-thumb-placeholder">🎨</div>
+                        </div>
+                        <div class="card-body">
+                            <div class="card-name">3d Globe Animator 3</div>
+                            <span class="card-path">dist/paper-animator/3d-globe-animator-3.html</span>
+                        </div>
+                    </a>
+                    
+                    <a href="dist/paper-animator/3d-globe-animator.html" class="card" target="_blank" data-name="3d globe animator" data-path="dist/paper-animator/3d-globe-animator.html" data-category="dist-paper-animator">
+                        <div class="card-thumb">
+                            <div class="card-thumb-placeholder">🎨</div>
+                        </div>
+                        <div class="card-body">
+                            <div class="card-name">3d Globe Animator</div>
+                            <span class="card-path">dist/paper-animator/3d-globe-animator.html</span>
+                        </div>
+                    </a>
+                    
+                    <a href="dist/paper-animator/geo-animator_v0.1.html" class="card" target="_blank" data-name="geo animator v0 1" data-path="dist/paper-animator/geo-animator_v0.1.html" data-category="dist-paper-animator">
+                        <div class="card-thumb">
+                            <div class="card-thumb-placeholder">🎨</div>
+                        </div>
+                        <div class="card-body">
+                            <div class="card-name">Geo Animator V0 1</div>
+                            <span class="card-path">dist/paper-animator/geo-animator_v0.1.html</span>
+                        </div>
+                    </a>
+                    
+                    <a href="dist/paper-animator/manim-studio_v0.1.html" class="card" target="_blank" data-name="manim studio v0 1" data-path="dist/paper-animator/manim-studio_v0.1.html" data-category="dist-paper-animator">
+                        <div class="card-thumb">
+                            <div class="card-thumb-placeholder">🎨</div>
+                        </div>
+                        <div class="card-body">
+                            <div class="card-name">Manim Studio V0 1</div>
+                            <span class="card-path">dist/paper-animator/manim-studio_v0.1.html</span>
+                        </div>
+                    </a>
+                    
+                    <a href="dist/paper-animator/manim-studio_v0.2.html" class="card" target="_blank" data-name="manim studio v0 2" data-path="dist/paper-animator/manim-studio_v0.2.html" data-category="dist-paper-animator">
+                        <div class="card-thumb">
+                            <div class="card-thumb-placeholder">🎨</div>
+                        </div>
+                        <div class="card-body">
+                            <div class="card-name">Manim Studio V0 2</div>
+                            <span class="card-path">dist/paper-animator/manim-studio_v0.2.html</span>
+                        </div>
+                    </a>
+                    
+                    <a href="dist/paper-animator/map-data-animator.html" class="card" target="_blank" data-name="map data animator" data-path="dist/paper-animator/map-data-animator.html" data-category="dist-paper-animator">
+                        <div class="card-thumb">
+                            <div class="card-thumb-placeholder">🎨</div>
+                        </div>
+                        <div class="card-body">
+                            <div class="card-name">Map Data Animator</div>
+                            <span class="card-path">dist/paper-animator/map-data-animator.html</span>
+                        </div>
+                    </a>
+                    
+                    <a href="dist/paper-animator/v0.1.html" class="card" target="_blank" data-name="v0 1" data-path="dist/paper-animator/v0.1.html" data-category="dist-paper-animator">
+                        <div class="card-thumb">
+                            <div class="card-thumb-placeholder">🎨</div>
+                        </div>
+                        <div class="card-body">
+                            <div class="card-name">V0 1</div>
+                            <span class="card-path">dist/paper-animator/v0.1.html</span>
+                        </div>
+                    </a>
+                    
+                    <a href="dist/Social Animator Pro/v0.1.html" class="card" target="_blank" data-name="v0 1" data-path="dist/social animator pro/v0.1.html" data-category="dist-social-animator-pro">
+                        <div class="card-thumb">
+                            <div class="card-thumb-placeholder">🎨</div>
+                        </div>
+                        <div class="card-body">
+                            <div class="card-name">V0 1</div>
+                            <span class="card-path">dist/Social Animator Pro/v0.1.html</span>
+                        </div>
+                    </a>
+                    
+                    <a href="dist/svg-animator/pain-studio-2.html" class="card" target="_blank" data-name="pain studio 2" data-path="dist/svg-animator/pain-studio-2.html" data-category="dist-svg-animator">
+                        <div class="card-thumb">
+                            <div class="card-thumb-placeholder">🎨</div>
+                        </div>
+                        <div class="card-body">
+                            <div class="card-name">Pain Studio 2</div>
+                            <span class="card-path">dist/svg-animator/pain-studio-2.html</span>
+                        </div>
+                    </a>
+                    
+                    <a href="dist/svg-animator/paint-studio-3.html" class="card" target="_blank" data-name="paint studio 3" data-path="dist/svg-animator/paint-studio-3.html" data-category="dist-svg-animator">
+                        <div class="card-thumb">
+                            <div class="card-thumb-placeholder">🎨</div>
+                        </div>
+                        <div class="card-body">
+                            <div class="card-name">Paint Studio 3</div>
+                            <span class="card-path">dist/svg-animator/paint-studio-3.html</span>
+                        </div>
+                    </a>
+                    
+                    <a href="dist/svg-animator/paint-studio-4.html" class="card" target="_blank" data-name="paint studio 4" data-path="dist/svg-animator/paint-studio-4.html" data-category="dist-svg-animator">
+                        <div class="card-thumb">
+                            <div class="card-thumb-placeholder">🎨</div>
+                        </div>
+                        <div class="card-body">
+                            <div class="card-name">Paint Studio 4</div>
+                            <span class="card-path">dist/svg-animator/paint-studio-4.html</span>
+                        </div>
+                    </a>
+                    
+                    <a href="dist/svg-animator/paint-studio-5.html" class="card" target="_blank" data-name="paint studio 5" data-path="dist/svg-animator/paint-studio-5.html" data-category="dist-svg-animator">
+                        <div class="card-thumb">
+                            <div class="card-thumb-placeholder">🎨</div>
+                        </div>
+                        <div class="card-body">
+                            <div class="card-name">Paint Studio 5</div>
+                            <span class="card-path">dist/svg-animator/paint-studio-5.html</span>
+                        </div>
+                    </a>
+                    
+                    <a href="dist/svg-animator/pint-studio.html" class="card" target="_blank" data-name="pint studio" data-path="dist/svg-animator/pint-studio.html" data-category="dist-svg-animator">
+                        <div class="card-thumb">
+                            <div class="card-thumb-placeholder">🎨</div>
+                        </div>
+                        <div class="card-body">
+                            <div class="card-name">Pint Studio</div>
+                            <span class="card-path">dist/svg-animator/pint-studio.html</span>
+                        </div>
+                    </a>
+                    
+                    <a href="dist/svg-animator/svg-animator_v0.1.html" class="card" target="_blank" data-name="svg animator v0 1" data-path="dist/svg-animator/svg-animator_v0.1.html" data-category="dist-svg-animator">
+                        <div class="card-thumb">
+                            <div class="card-thumb-placeholder">🎨</div>
+                        </div>
+                        <div class="card-body">
+                            <div class="card-name">Svg Animator V0 1</div>
+                            <span class="card-path">dist/svg-animator/svg-animator_v0.1.html</span>
+                        </div>
+                    </a>
+                    
+                    <a href="dist/Waveform Studio Pro/v0.1.html" class="card" target="_blank" data-name="v0 1" data-path="dist/waveform studio pro/v0.1.html" data-category="dist-waveform-studio-pro">
+                        <div class="card-thumb">
+                            <div class="card-thumb-placeholder">🎨</div>
+                        </div>
+                        <div class="card-body">
+                            <div class="card-name">V0 1</div>
+                            <span class="card-path">dist/Waveform Studio Pro/v0.1.html</span>
+                        </div>
+                    </a>
+                    
+                    <a href="dist/Waveform Studio Pro/v0.2.html" class="card" target="_blank" data-name="v0 2" data-path="dist/waveform studio pro/v0.2.html" data-category="dist-waveform-studio-pro">
+                        <div class="card-thumb">
+                            <div class="card-thumb-placeholder">🎨</div>
+                        </div>
+                        <div class="card-body">
+                            <div class="card-name">V0 2</div>
+                            <span class="card-path">dist/Waveform Studio Pro/v0.2.html</span>
+                        </div>
+                    </a>
+                    
+                    <a href="dist/Waveform Studio Pro/v0.3.html" class="card" target="_blank" data-name="v0 3" data-path="dist/waveform studio pro/v0.3.html" data-category="dist-waveform-studio-pro">
+                        <div class="card-thumb">
+                            <div class="card-thumb-placeholder">🎨</div>
+                        </div>
+                        <div class="card-body">
+                            <div class="card-name">V0 3</div>
+                            <span class="card-path">dist/Waveform Studio Pro/v0.3.html</span>
+                        </div>
+                    </a>
+                    
+                    <a href="dist/Waveform Studio Pro/v0.4-new.html" class="card" target="_blank" data-name="v0 4 new" data-path="dist/waveform studio pro/v0.4-new.html" data-category="dist-waveform-studio-pro">
+                        <div class="card-thumb">
+                            <div class="card-thumb-placeholder">🎨</div>
+                        </div>
+                        <div class="card-body">
+                            <div class="card-name">V0 4 New</div>
+                            <span class="card-path">dist/Waveform Studio Pro/v0.4-new.html</span>
+                        </div>
+                    </a>
+                    
+                    <a href="dist/Waveform Studio Pro/v0.4.1.html" class="card" target="_blank" data-name="v0 4 1" data-path="dist/waveform studio pro/v0.4.1.html" data-category="dist-waveform-studio-pro">
+                        <div class="card-thumb">
+                            <div class="card-thumb-placeholder">🎨</div>
+                        </div>
+                        <div class="card-body">
+                            <div class="card-name">V0 4 1</div>
+                            <span class="card-path">dist/Waveform Studio Pro/v0.4.1.html</span>
+                        </div>
+                    </a>
+                    
+                    <a href="Emoji Motion Studio/v0.1.html" class="card" target="_blank" data-name="v0 1" data-path="emoji motion studio/v0.1.html" data-category="emoji-motion-studio">
+                        <div class="card-thumb">
+                            <div class="card-thumb-placeholder">🎨</div>
+                        </div>
+                        <div class="card-body">
+                            <div class="card-name">V0 1</div>
+                            <span class="card-path">Emoji Motion Studio/v0.1.html</span>
+                        </div>
+                    </a>
+                    
+                    <a href="Emoji Motion Studio/v0.2-collision.html" class="card" target="_blank" data-name="v0 2 collision" data-path="emoji motion studio/v0.2-collision.html" data-category="emoji-motion-studio">
+                        <div class="card-thumb">
+                            <div class="card-thumb-placeholder">🎨</div>
+                        </div>
+                        <div class="card-body">
+                            <div class="card-name">V0 2 Collision</div>
+                            <span class="card-path">Emoji Motion Studio/v0.2-collision.html</span>
+                        </div>
+                    </a>
+                    
+                    <a href="Emoji Motion Studio/v0.3-performance.html" class="card" target="_blank" data-name="v0 3 performance" data-path="emoji motion studio/v0.3-performance.html" data-category="emoji-motion-studio">
+                        <div class="card-thumb">
+                            <div class="card-thumb-placeholder">🎨</div>
+                        </div>
+                        <div class="card-body">
+                            <div class="card-name">V0 3 Performance</div>
+                            <span class="card-path">Emoji Motion Studio/v0.3-performance.html</span>
+                        </div>
+                    </a>
+                    
+                    <a href="InkFlow Studio Pro/v0.1.html" class="card" target="_blank" data-name="v0 1" data-path="inkflow studio pro/v0.1.html" data-category="inkflow-studio-pro">
+                        <div class="card-thumb">
+                            <div class="card-thumb-placeholder">🎨</div>
+                        </div>
+                        <div class="card-body">
+                            <div class="card-name">V0 1</div>
+                            <span class="card-path">InkFlow Studio Pro/v0.1.html</span>
+                        </div>
+                    </a>
+                    
+                    <a href="Macify Web Studio/Macify Browser Studio.html" class="card" target="_blank" data-name="macify browser studio" data-path="macify web studio/macify browser studio.html" data-category="macify-web-studio">
+                        <div class="card-thumb">
+                            <div class="card-thumb-placeholder">🎨</div>
+                        </div>
+                        <div class="card-body">
+                            <div class="card-name">Macify Browser Studio</div>
+                            <span class="card-path">Macify Web Studio/Macify Browser Studio.html</span>
+                        </div>
+                    </a>
+                    
+                    <a href="Macify Web Studio/Macify Web Studio 1.5.html" class="card" target="_blank" data-name="macify web studio 1 5" data-path="macify web studio/macify web studio 1.5.html" data-category="macify-web-studio">
+                        <div class="card-thumb">
+                            <div class="card-thumb-placeholder">🎨</div>
+                        </div>
+                        <div class="card-body">
+                            <div class="card-name">Macify Web Studio 1 5</div>
+                            <span class="card-path">Macify Web Studio/Macify Web Studio 1.5.html</span>
+                        </div>
+                    </a>
+                    
+                    <a href="Macify Web Studio/Macify Web Studio 2.0.html" class="card" target="_blank" data-name="macify web studio 2 0" data-path="macify web studio/macify web studio 2.0.html" data-category="macify-web-studio">
+                        <div class="card-thumb">
+                            <div class="card-thumb-placeholder">🎨</div>
+                        </div>
+                        <div class="card-body">
+                            <div class="card-name">Macify Web Studio 2 0</div>
+                            <span class="card-path">Macify Web Studio/Macify Web Studio 2.0.html</span>
+                        </div>
+                    </a>
+                    
+                    <a href="Macify Web Studio/Macify Web Studio 3.5 (Chrome Edition).html" class="card" target="_blank" data-name="macify web studio 3 5 (chrome edition)" data-path="macify web studio/macify web studio 3.5 (chrome edition).html" data-category="macify-web-studio">
+                        <div class="card-thumb">
+                            <div class="card-thumb-placeholder">🎨</div>
+                        </div>
+                        <div class="card-body">
+                            <div class="card-name">Macify Web Studio 3 5 (Chrome Edition)</div>
+                            <span class="card-path">Macify Web Studio/Macify Web Studio 3.5 (Chrome Edition).html</span>
+                        </div>
+                    </a>
+                    
+                    <a href="Macify Web Studio/Macify Web Studio 5.2.html" class="card" target="_blank" data-name="macify web studio 5 2" data-path="macify web studio/macify web studio 5.2.html" data-category="macify-web-studio">
+                        <div class="card-thumb">
+                            <div class="card-thumb-placeholder">🎨</div>
+                        </div>
+                        <div class="card-body">
+                            <div class="card-name">Macify Web Studio 5 2</div>
+                            <span class="card-path">Macify Web Studio/Macify Web Studio 5.2.html</span>
+                        </div>
+                    </a>
+                    
+                    <a href="Macify Web Studio/Macify Web Studio 5.3.html" class="card" target="_blank" data-name="macify web studio 5 3" data-path="macify web studio/macify web studio 5.3.html" data-category="macify-web-studio">
+                        <div class="card-thumb">
+                            <div class="card-thumb-placeholder">🎨</div>
+                        </div>
+                        <div class="card-body">
+                            <div class="card-name">Macify Web Studio 5 3</div>
+                            <span class="card-path">Macify Web Studio/Macify Web Studio 5.3.html</span>
+                        </div>
+                    </a>
+                    
+                    <a href="Macify Web Studio/Macify Web Studio.html" class="card" target="_blank" data-name="macify web studio" data-path="macify web studio/macify web studio.html" data-category="macify-web-studio">
+                        <div class="card-thumb">
+                            <div class="card-thumb-placeholder">🎨</div>
+                        </div>
+                        <div class="card-body">
+                            <div class="card-name">Macify Web Studio</div>
+                            <span class="card-path">Macify Web Studio/Macify Web Studio.html</span>
+                        </div>
+                    </a>
+                    
+                    <a href="Macify Web Studio/v2.0.html" class="card" target="_blank" data-name="v2 0" data-path="macify web studio/v2.0.html" data-category="macify-web-studio">
+                        <div class="card-thumb">
+                            <div class="card-thumb-placeholder">🎨</div>
+                        </div>
+                        <div class="card-body">
+                            <div class="card-name">V2 0</div>
+                            <span class="card-path">Macify Web Studio/v2.0.html</span>
+                        </div>
+                    </a>
+                    
+                    <a href="Macify Web Studio/v2.5-Chrome-edition.html" class="card" target="_blank" data-name="v2 5 chrome edition" data-path="macify web studio/v2.5-chrome-edition.html" data-category="macify-web-studio">
+                        <div class="card-thumb">
+                            <div class="card-thumb-placeholder">🎨</div>
+                        </div>
+                        <div class="card-body">
+                            <div class="card-name">V2 5 Chrome Edition</div>
+                            <span class="card-path">Macify Web Studio/v2.5-Chrome-edition.html</span>
+                        </div>
+                    </a>
+                    
+                    <a href="Macify Web Studio/v3.5-fixed.html" class="card" target="_blank" data-name="v3 5 fixed" data-path="macify web studio/v3.5-fixed.html" data-category="macify-web-studio">
+                        <div class="card-thumb">
+                            <div class="card-thumb-placeholder">🎨</div>
+                        </div>
+                        <div class="card-body">
+                            <div class="card-name">V3 5 Fixed</div>
+                            <span class="card-path">Macify Web Studio/v3.5-fixed.html</span>
+                        </div>
+                    </a>
+                    
+                    <a href="Macify Web Studio/v3.5.1-broken.html" class="card" target="_blank" data-name="v3 5 1 broken" data-path="macify web studio/v3.5.1-broken.html" data-category="macify-web-studio">
+                        <div class="card-thumb">
+                            <div class="card-thumb-placeholder">🎨</div>
+                        </div>
+                        <div class="card-body">
+                            <div class="card-name">V3 5 1 Broken</div>
+                            <span class="card-path">Macify Web Studio/v3.5.1-broken.html</span>
+                        </div>
+                    </a>
+                    
+                    <a href="Macify Web Studio/v3.5.html" class="card" target="_blank" data-name="v3 5" data-path="macify web studio/v3.5.html" data-category="macify-web-studio">
+                        <div class="card-thumb">
+                            <div class="card-thumb-placeholder">🎨</div>
+                        </div>
+                        <div class="card-body">
+                            <div class="card-name">V3 5</div>
+                            <span class="card-path">Macify Web Studio/v3.5.html</span>
+                        </div>
+                    </a>
+                    
+                    <a href="Macify Web Studio/v4.0.html" class="card" target="_blank" data-name="v4 0" data-path="macify web studio/v4.0.html" data-category="macify-web-studio">
+                        <div class="card-thumb">
+                            <div class="card-thumb-placeholder">🎨</div>
+                        </div>
+                        <div class="card-body">
+                            <div class="card-name">V4 0</div>
+                            <span class="card-path">Macify Web Studio/v4.0.html</span>
+                        </div>
+                    </a>
+                    
+                    <a href="Macify Web Studio/v5.0.html" class="card" target="_blank" data-name="v5 0" data-path="macify web studio/v5.0.html" data-category="macify-web-studio">
+                        <div class="card-thumb">
+                            <div class="card-thumb-placeholder">🎨</div>
+                        </div>
+                        <div class="card-body">
+                            <div class="card-name">V5 0</div>
+                            <span class="card-path">Macify Web Studio/v5.0.html</span>
+                        </div>
+                    </a>
+                    
+                    <a href="Macify Web Studio/v5.2.html" class="card" target="_blank" data-name="v5 2" data-path="macify web studio/v5.2.html" data-category="macify-web-studio">
+                        <div class="card-thumb">
+                            <div class="card-thumb-placeholder">🎨</div>
+                        </div>
+                        <div class="card-body">
+                            <div class="card-name">V5 2</div>
+                            <span class="card-path">Macify Web Studio/v5.2.html</span>
+                        </div>
+                    </a>
+                    
+                    <a href="Macify Web Studio/v5.3.html" class="card" target="_blank" data-name="v5 3" data-path="macify web studio/v5.3.html" data-category="macify-web-studio">
+                        <div class="card-thumb">
+                            <div class="card-thumb-placeholder">🎨</div>
+                        </div>
+                        <div class="card-body">
+                            <div class="card-name">V5 3</div>
+                            <span class="card-path">Macify Web Studio/v5.3.html</span>
+                        </div>
+                    </a>
+                    
+                    <a href="Macify-Studio/Macify Studio Pro 2.0.html" class="card" target="_blank" data-name="macify studio pro 2 0" data-path="macify-studio/macify studio pro 2.0.html" data-category="macify-studio">
+                        <div class="card-thumb">
+                            <div class="card-thumb-placeholder">🎨</div>
+                        </div>
+                        <div class="card-body">
+                            <div class="card-name">Macify Studio Pro 2 0</div>
+                            <span class="card-path">Macify-Studio/Macify Studio Pro 2.0.html</span>
+                        </div>
+                    </a>
+                    
+                    <a href="Macify-Studio/Macify Studio Pro 2.5.html" class="card" target="_blank" data-name="macify studio pro 2 5" data-path="macify-studio/macify studio pro 2.5.html" data-category="macify-studio">
+                        <div class="card-thumb">
+                            <div class="card-thumb-placeholder">🎨</div>
+                        </div>
+                        <div class="card-body">
+                            <div class="card-name">Macify Studio Pro 2 5</div>
+                            <span class="card-path">Macify-Studio/Macify Studio Pro 2.5.html</span>
+                        </div>
+                    </a>
+                    
+                    <a href="Macify-Studio/Macify Studio Pro 3.0.html" class="card" target="_blank" data-name="macify studio pro 3 0" data-path="macify-studio/macify studio pro 3.0.html" data-category="macify-studio">
+                        <div class="card-thumb">
+                            <div class="card-thumb-placeholder">🎨</div>
+                        </div>
+                        <div class="card-body">
+                            <div class="card-name">Macify Studio Pro 3 0</div>
+                            <span class="card-path">Macify-Studio/Macify Studio Pro 3.0.html</span>
+                        </div>
+                    </a>
+                    
+                    <a href="Macify-Studio/Mixamo 3D Studio.html" class="card" target="_blank" data-name="mixamo 3d studio" data-path="macify-studio/mixamo 3d studio.html" data-category="macify-studio">
+                        <div class="card-thumb">
+                            <div class="card-thumb-placeholder">🎨</div>
+                        </div>
+                        <div class="card-body">
+                            <div class="card-name">Mixamo 3D Studio</div>
+                            <span class="card-path">Macify-Studio/Mixamo 3D Studio.html</span>
+                        </div>
+                    </a>
+                    
+                    <a href="Macify-Studio/Motion Math Studio.html" class="card" target="_blank" data-name="motion math studio" data-path="macify-studio/motion math studio.html" data-category="macify-studio">
+                        <div class="card-thumb">
+                            <div class="card-thumb-placeholder">🎨</div>
+                        </div>
+                        <div class="card-body">
+                            <div class="card-name">Motion Math Studio</div>
+                            <span class="card-path">Macify-Studio/Motion Math Studio.html</span>
+                        </div>
+                    </a>
+                    
+                    <a href="Macify-Studio/Rectangle Animation Studio.html" class="card" target="_blank" data-name="rectangle animation studio" data-path="macify-studio/rectangle animation studio.html" data-category="macify-studio">
+                        <div class="card-thumb">
+                            <div class="card-thumb-placeholder">🎨</div>
+                        </div>
+                        <div class="card-body">
+                            <div class="card-name">Rectangle Animation Studio</div>
+                            <span class="card-path">Macify-Studio/Rectangle Animation Studio.html</span>
+                        </div>
+                    </a>
+                    
+                    <a href="Macify-Studio/Rough Animation Studio.html" class="card" target="_blank" data-name="rough animation studio" data-path="macify-studio/rough animation studio.html" data-category="macify-studio">
+                        <div class="card-thumb">
+                            <div class="card-thumb-placeholder">🎨</div>
+                        </div>
+                        <div class="card-body">
+                            <div class="card-name">Rough Animation Studio</div>
+                            <span class="card-path">Macify-Studio/Rough Animation Studio.html</span>
+                        </div>
+                    </a>
+                    
+                    <a href="Macify-Studio/Rough Studio (macOS Premium Edition).html" class="card" target="_blank" data-name="rough studio (macos premium edition)" data-path="macify-studio/rough studio (macos premium edition).html" data-category="macify-studio">
+                        <div class="card-thumb">
+                            <div class="card-thumb-placeholder">🎨</div>
+                        </div>
+                        <div class="card-body">
+                            <div class="card-name">Rough Studio (MacOS Premium Edition)</div>
+                            <span class="card-path">Macify-Studio/Rough Studio (macOS Premium Edition).html</span>
+                        </div>
+                    </a>
+                    
+                    <a href="Macify-Studio/v0.1.html" class="card" target="_blank" data-name="v0 1" data-path="macify-studio/v0.1.html" data-category="macify-studio">
+                        <div class="card-thumb">
+                            <div class="card-thumb-placeholder">🎨</div>
+                        </div>
+                        <div class="card-body">
+                            <div class="card-name">V0 1</div>
+                            <span class="card-path">Macify-Studio/v0.1.html</span>
+                        </div>
+                    </a>
+                    
+                    <a href="MotionCount V2/MotionCanvas V3.1.html" class="card" target="_blank" data-name="motioncanvas v3 1" data-path="motioncount v2/motioncanvas v3.1.html" data-category="motioncount-v2">
+                        <div class="card-thumb">
+                            <div class="card-thumb-placeholder">🎨</div>
+                        </div>
+                        <div class="card-body">
+                            <div class="card-name">MotionCanvas V3 1</div>
+                            <span class="card-path">MotionCount V2/MotionCanvas V3.1.html</span>
+                        </div>
+                    </a>
+                    
+                    <a href="MotionCount V2/MotionDraw V4.1.html" class="card" target="_blank" data-name="motiondraw v4 1" data-path="motioncount v2/motiondraw v4.1.html" data-category="motioncount-v2">
+                        <div class="card-thumb">
+                            <div class="card-thumb-placeholder">🎨</div>
+                        </div>
+                        <div class="card-body">
+                            <div class="card-name">MotionDraw V4 1</div>
+                            <span class="card-path">MotionCount V2/MotionDraw V4.1.html</span>
+                        </div>
+                    </a>
+                    
+                    <a href="MotionCount V2/v2.html" class="card" target="_blank" data-name="v2" data-path="motioncount v2/v2.html" data-category="motioncount-v2">
+                        <div class="card-thumb">
+                            <div class="card-thumb-placeholder">🎨</div>
+                        </div>
+                        <div class="card-body">
+                            <div class="card-name">V2</div>
+                            <span class="card-path">MotionCount V2/v2.html</span>
+                        </div>
+                    </a>
+                    
+                    <a href="Paint Studio Pro/BrushForge Pro (p5.js).html" class="card" target="_blank" data-name="brushforge pro (p5 js)" data-path="paint studio pro/brushforge pro (p5.js).html" data-category="paint-studio-pro">
+                        <div class="card-thumb">
+                            <div class="card-thumb-placeholder">🎨</div>
+                        </div>
+                        <div class="card-body">
+                            <div class="card-name">BrushForge Pro (P5 Js)</div>
+                            <span class="card-path">Paint Studio Pro/BrushForge Pro (p5.js).html</span>
+                        </div>
+                    </a>
+                    
+                    <a href="Paint Studio Pro/v0.1.html" class="card" target="_blank" data-name="v0 1" data-path="paint studio pro/v0.1.html" data-category="paint-studio-pro">
+                        <div class="card-thumb">
+                            <div class="card-thumb-placeholder">🎨</div>
+                        </div>
+                        <div class="card-body">
+                            <div class="card-name">V0 1</div>
+                            <span class="card-path">Paint Studio Pro/v0.1.html</span>
+                        </div>
+                    </a>
+                    
+                    <a href="Paint Studio Pro/v0.2-japense-brush-p5-js-error.html" class="card" target="_blank" data-name="v0 2 japense brush p5 js error" data-path="paint studio pro/v0.2-japense-brush-p5-js-error.html" data-category="paint-studio-pro">
+                        <div class="card-thumb">
+                            <div class="card-thumb-placeholder">🎨</div>
+                        </div>
+                        <div class="card-body">
+                            <div class="card-name">V0 2 Japense Brush P5 Js Error</div>
+                            <span class="card-path">Paint Studio Pro/v0.2-japense-brush-p5-js-error.html</span>
+                        </div>
+                    </a>
+                    
+                    <a href="Paint Studio Pro/v0.3-japnese-brush.html" class="card" target="_blank" data-name="v0 3 japnese brush" data-path="paint studio pro/v0.3-japnese-brush.html" data-category="paint-studio-pro">
+                        <div class="card-thumb">
+                            <div class="card-thumb-placeholder">🎨</div>
+                        </div>
+                        <div class="card-body">
+                            <div class="card-name">V0 3 Japnese Brush</div>
+                            <span class="card-path">Paint Studio Pro/v0.3-japnese-brush.html</span>
+                        </div>
+                    </a>
+                    
+                    <a href="paper-animator/3d-globe-animator-2.html" class="card" target="_blank" data-name="3d globe animator 2" data-path="paper-animator/3d-globe-animator-2.html" data-category="paper-animator">
+                        <div class="card-thumb">
+                            <div class="card-thumb-placeholder">🎨</div>
+                        </div>
+                        <div class="card-body">
+                            <div class="card-name">3d Globe Animator 2</div>
+                            <span class="card-path">paper-animator/3d-globe-animator-2.html</span>
+                        </div>
+                    </a>
+                    
+                    <a href="paper-animator/3d-globe-animator-3.html" class="card" target="_blank" data-name="3d globe animator 3" data-path="paper-animator/3d-globe-animator-3.html" data-category="paper-animator">
+                        <div class="card-thumb">
+                            <div class="card-thumb-placeholder">🎨</div>
+                        </div>
+                        <div class="card-body">
+                            <div class="card-name">3d Globe Animator 3</div>
+                            <span class="card-path">paper-animator/3d-globe-animator-3.html</span>
+                        </div>
+                    </a>
+                    
+                    <a href="paper-animator/3d-globe-animator.html" class="card" target="_blank" data-name="3d globe animator" data-path="paper-animator/3d-globe-animator.html" data-category="paper-animator">
+                        <div class="card-thumb">
+                            <div class="card-thumb-placeholder">🎨</div>
+                        </div>
+                        <div class="card-body">
+                            <div class="card-name">3d Globe Animator</div>
+                            <span class="card-path">paper-animator/3d-globe-animator.html</span>
+                        </div>
+                    </a>
+                    
+                    <a href="paper-animator/geo-animator_v0.1.html" class="card" target="_blank" data-name="geo animator v0 1" data-path="paper-animator/geo-animator_v0.1.html" data-category="paper-animator">
+                        <div class="card-thumb">
+                            <div class="card-thumb-placeholder">🎨</div>
+                        </div>
+                        <div class="card-body">
+                            <div class="card-name">Geo Animator V0 1</div>
+                            <span class="card-path">paper-animator/geo-animator_v0.1.html</span>
+                        </div>
+                    </a>
+                    
+                    <a href="paper-animator/manim-studio_v0.1.html" class="card" target="_blank" data-name="manim studio v0 1" data-path="paper-animator/manim-studio_v0.1.html" data-category="paper-animator">
+                        <div class="card-thumb">
+                            <div class="card-thumb-placeholder">🎨</div>
+                        </div>
+                        <div class="card-body">
+                            <div class="card-name">Manim Studio V0 1</div>
+                            <span class="card-path">paper-animator/manim-studio_v0.1.html</span>
+                        </div>
+                    </a>
+                    
+                    <a href="paper-animator/manim-studio_v0.2.html" class="card" target="_blank" data-name="manim studio v0 2" data-path="paper-animator/manim-studio_v0.2.html" data-category="paper-animator">
+                        <div class="card-thumb">
+                            <div class="card-thumb-placeholder">🎨</div>
+                        </div>
+                        <div class="card-body">
+                            <div class="card-name">Manim Studio V0 2</div>
+                            <span class="card-path">paper-animator/manim-studio_v0.2.html</span>
+                        </div>
+                    </a>
+                    
+                    <a href="paper-animator/map-data-animator.html" class="card" target="_blank" data-name="map data animator" data-path="paper-animator/map-data-animator.html" data-category="paper-animator">
+                        <div class="card-thumb">
+                            <div class="card-thumb-placeholder">🎨</div>
+                        </div>
+                        <div class="card-body">
+                            <div class="card-name">Map Data Animator</div>
+                            <span class="card-path">paper-animator/map-data-animator.html</span>
+                        </div>
+                    </a>
+                    
+                    <a href="paper-animator/v0.1.html" class="card" target="_blank" data-name="v0 1" data-path="paper-animator/v0.1.html" data-category="paper-animator">
+                        <div class="card-thumb">
+                            <div class="card-thumb-placeholder">🎨</div>
+                        </div>
+                        <div class="card-body">
+                            <div class="card-name">V0 1</div>
+                            <span class="card-path">paper-animator/v0.1.html</span>
+                        </div>
+                    </a>
+                    
+                    <a href="Social Animator Pro/v0.1.html" class="card" target="_blank" data-name="v0 1" data-path="social animator pro/v0.1.html" data-category="social-animator-pro">
+                        <div class="card-thumb">
+                            <div class="card-thumb-placeholder">🎨</div>
+                        </div>
+                        <div class="card-body">
+                            <div class="card-name">V0 1</div>
+                            <span class="card-path">Social Animator Pro/v0.1.html</span>
+                        </div>
+                    </a>
+                    
+                    <a href="Social Animator Pro/v0.2-light-mode.html" class="card" target="_blank" data-name="v0 2 light mode" data-path="social animator pro/v0.2-light-mode.html" data-category="social-animator-pro">
+                        <div class="card-thumb">
+                            <div class="card-thumb-placeholder">🎨</div>
+                        </div>
+                        <div class="card-body">
+                            <div class="card-name">V0 2 Light Mode</div>
+                            <span class="card-path">Social Animator Pro/v0.2-light-mode.html</span>
+                        </div>
+                    </a>
+                    
+                    <a href="Sumi-e Studio Pro/v0.1.html" class="card" target="_blank" data-name="v0 1" data-path="sumi-e studio pro/v0.1.html" data-category="sumi-e-studio-pro">
+                        <div class="card-thumb">
+                            <div class="card-thumb-placeholder">🎨</div>
+                        </div>
+                        <div class="card-body">
+                            <div class="card-name">V0 1</div>
+                            <span class="card-path">Sumi-e Studio Pro/v0.1.html</span>
+                        </div>
+                    </a>
+                    
+                    <a href="Sumi-e Studio Pro/v0.2-more-brush.html" class="card" target="_blank" data-name="v0 2 more brush" data-path="sumi-e studio pro/v0.2-more-brush.html" data-category="sumi-e-studio-pro">
+                        <div class="card-thumb">
+                            <div class="card-thumb-placeholder">🎨</div>
+                        </div>
+                        <div class="card-body">
+                            <div class="card-name">V0 2 More Brush</div>
+                            <span class="card-path">Sumi-e Studio Pro/v0.2-more-brush.html</span>
+                        </div>
+                    </a>
+                    
+                    <a href="svg-animator/pain-studio-2.html" class="card" target="_blank" data-name="pain studio 2" data-path="svg-animator/pain-studio-2.html" data-category="svg-animator">
+                        <div class="card-thumb">
+                            <div class="card-thumb-placeholder">🎨</div>
+                        </div>
+                        <div class="card-body">
+                            <div class="card-name">Pain Studio 2</div>
+                            <span class="card-path">svg-animator/pain-studio-2.html</span>
+                        </div>
+                    </a>
+                    
+                    <a href="svg-animator/paint-studio-3.html" class="card" target="_blank" data-name="paint studio 3" data-path="svg-animator/paint-studio-3.html" data-category="svg-animator">
+                        <div class="card-thumb">
+                            <div class="card-thumb-placeholder">🎨</div>
+                        </div>
+                        <div class="card-body">
+                            <div class="card-name">Paint Studio 3</div>
+                            <span class="card-path">svg-animator/paint-studio-3.html</span>
+                        </div>
+                    </a>
+                    
+                    <a href="svg-animator/paint-studio-4.html" class="card" target="_blank" data-name="paint studio 4" data-path="svg-animator/paint-studio-4.html" data-category="svg-animator">
+                        <div class="card-thumb">
+                            <div class="card-thumb-placeholder">🎨</div>
+                        </div>
+                        <div class="card-body">
+                            <div class="card-name">Paint Studio 4</div>
+                            <span class="card-path">svg-animator/paint-studio-4.html</span>
+                        </div>
+                    </a>
+                    
+                    <a href="svg-animator/paint-studio-5.html" class="card" target="_blank" data-name="paint studio 5" data-path="svg-animator/paint-studio-5.html" data-category="svg-animator">
+                        <div class="card-thumb">
+                            <div class="card-thumb-placeholder">🎨</div>
+                        </div>
+                        <div class="card-body">
+                            <div class="card-name">Paint Studio 5</div>
+                            <span class="card-path">svg-animator/paint-studio-5.html</span>
+                        </div>
+                    </a>
+                    
+                    <a href="svg-animator/pint-studio.html" class="card" target="_blank" data-name="pint studio" data-path="svg-animator/pint-studio.html" data-category="svg-animator">
+                        <div class="card-thumb">
+                            <div class="card-thumb-placeholder">🎨</div>
+                        </div>
+                        <div class="card-body">
+                            <div class="card-name">Pint Studio</div>
+                            <span class="card-path">svg-animator/pint-studio.html</span>
+                        </div>
+                    </a>
+                    
+                    <a href="svg-animator/svg-animator_v0.1.html" class="card" target="_blank" data-name="svg animator v0 1" data-path="svg-animator/svg-animator_v0.1.html" data-category="svg-animator">
+                        <div class="card-thumb">
+                            <div class="card-thumb-placeholder">🎨</div>
+                        </div>
+                        <div class="card-body">
+                            <div class="card-name">Svg Animator V0 1</div>
+                            <span class="card-path">svg-animator/svg-animator_v0.1.html</span>
+                        </div>
+                    </a>
+                    
+                    <a href="Title Animator Pro/v0.1.html" class="card" target="_blank" data-name="v0 1" data-path="title animator pro/v0.1.html" data-category="title-animator-pro">
+                        <div class="card-thumb">
+                            <div class="card-thumb-placeholder">🎨</div>
+                        </div>
+                        <div class="card-body">
+                            <div class="card-name">V0 1</div>
+                            <span class="card-path">Title Animator Pro/v0.1.html</span>
+                        </div>
+                    </a>
+                    
+                    <a href="Title Animator Pro/v0.2-more-animations.html" class="card" target="_blank" data-name="v0 2 more animations" data-path="title animator pro/v0.2-more-animations.html" data-category="title-animator-pro">
+                        <div class="card-thumb">
+                            <div class="card-thumb-placeholder">🎨</div>
+                        </div>
+                        <div class="card-body">
+                            <div class="card-name">V0 2 More Animations</div>
+                            <span class="card-path">Title Animator Pro/v0.2-more-animations.html</span>
+                        </div>
+                    </a>
+                    
+                    <a href="Title Animator Pro/v0.3.html" class="card" target="_blank" data-name="v0 3" data-path="title animator pro/v0.3.html" data-category="title-animator-pro">
+                        <div class="card-thumb">
+                            <div class="card-thumb-placeholder">🎨</div>
+                        </div>
+                        <div class="card-body">
+                            <div class="card-name">V0 3</div>
+                            <span class="card-path">Title Animator Pro/v0.3.html</span>
+                        </div>
+                    </a>
+                    
+                    <a href="Title Animator Pro/v0.4-canvas-preview.html" class="card" target="_blank" data-name="v0 4 canvas preview" data-path="title animator pro/v0.4-canvas-preview.html" data-category="title-animator-pro">
+                        <div class="card-thumb">
+                            <div class="card-thumb-placeholder">🎨</div>
+                        </div>
+                        <div class="card-body">
+                            <div class="card-name">V0 4 Canvas Preview</div>
+                            <span class="card-path">Title Animator Pro/v0.4-canvas-preview.html</span>
+                        </div>
+                    </a>
+                    
+                    <a href="Waveform Studio Pro/v0.1.html" class="card" target="_blank" data-name="v0 1" data-path="waveform studio pro/v0.1.html" data-category="waveform-studio-pro">
+                        <div class="card-thumb">
+                            <div class="card-thumb-placeholder">🎨</div>
+                        </div>
+                        <div class="card-body">
+                            <div class="card-name">V0 1</div>
+                            <span class="card-path">Waveform Studio Pro/v0.1.html</span>
+                        </div>
+                    </a>
+                    
+                    <a href="Waveform Studio Pro/v0.2.html" class="card" target="_blank" data-name="v0 2" data-path="waveform studio pro/v0.2.html" data-category="waveform-studio-pro">
+                        <div class="card-thumb">
+                            <div class="card-thumb-placeholder">🎨</div>
+                        </div>
+                        <div class="card-body">
+                            <div class="card-name">V0 2</div>
+                            <span class="card-path">Waveform Studio Pro/v0.2.html</span>
+                        </div>
+                    </a>
+                    
+                    <a href="Waveform Studio Pro/v0.3.html" class="card" target="_blank" data-name="v0 3" data-path="waveform studio pro/v0.3.html" data-category="waveform-studio-pro">
+                        <div class="card-thumb">
+                            <div class="card-thumb-placeholder">🎨</div>
+                        </div>
+                        <div class="card-body">
+                            <div class="card-name">V0 3</div>
+                            <span class="card-path">Waveform Studio Pro/v0.3.html</span>
+                        </div>
+                    </a>
+                    
+                    <a href="Waveform Studio Pro/v0.4-new.html" class="card" target="_blank" data-name="v0 4 new" data-path="waveform studio pro/v0.4-new.html" data-category="waveform-studio-pro">
+                        <div class="card-thumb">
+                            <div class="card-thumb-placeholder">🎨</div>
+                        </div>
+                        <div class="card-body">
+                            <div class="card-name">V0 4 New</div>
+                            <span class="card-path">Waveform Studio Pro/v0.4-new.html</span>
+                        </div>
+                    </a>
+                    
+                    <a href="Waveform Studio Pro/v0.4.1.html" class="card" target="_blank" data-name="v0 4 1" data-path="waveform studio pro/v0.4.1.html" data-category="waveform-studio-pro">
+                        <div class="card-thumb">
+                            <div class="card-thumb-placeholder">🎨</div>
+                        </div>
+                        <div class="card-body">
+                            <div class="card-name">V0 4 1</div>
+                            <span class="card-path">Waveform Studio Pro/v0.4.1.html</span>
+                        </div>
+                    </a>
+                    
+                </div>
+                
+                <div class="empty-state" id="empty-state">
+                    <div class="empty-icon">📂</div>
+                    <div class="empty-title">No prototypes found</div>
+                    <div style="font-size: 13px">Try adjusting your search or category filter.</div>
+                </div>
+            </div>
+        </main>
+    </div>
+
+    <script>
+        // Theme Management
+        const themeBtn = document.getElementById('theme-btn');
+        const themeIcon = document.getElementById('theme-icon');
+        
+        // Check system preference
+        const prefersDark = window.matchMedia('(prefers-color-scheme: dark)');
+        
+        // Initial set based on localStorage or system preference
+        const savedTheme = localStorage.getItem('theme');
+        if (savedTheme) {
+            document.documentElement.setAttribute('data-theme', savedTheme);
+            themeIcon.textContent = savedTheme === 'dark' ? '☀️' : '🌙';
+        } else if (prefersDark.matches) {
+            document.documentElement.setAttribute('data-theme', 'dark');
+            themeIcon.textContent = '☀️';
+        }
+        
+        // Toggle theme
+        themeBtn.addEventListener('click', () => {
+            const isDark = document.documentElement.getAttribute('data-theme') === 'dark';
+            const newTheme = isDark ? 'light' : 'dark';
+            
+            document.documentElement.setAttribute('data-theme', newTheme);
+            localStorage.setItem('theme', newTheme);
+            themeIcon.textContent = newTheme === 'dark' ? '☀️' : '🌙';
+        });
+
+        // Filter and Search Logic
+        const searchInput = document.getElementById('search');
+        const categoryItems = document.querySelectorAll('.nav-item');
+        const cards = document.querySelectorAll('.card');
+        const currentCategoryTitle = document.getElementById('current-category-title');
+        const itemCount = document.getElementById('item-count');
+        const emptyState = document.getElementById('empty-state');
+        
+        let currentCategory = 'all';
+        let searchQuery = '';
+
+        function updateGallery() {
+            let visibleCount = 0;
+            
+            cards.forEach(card => {
+                const name = card.dataset.name || '';
+                const path = card.dataset.path || '';
+                const cat = card.dataset.category || '';
+                
+                const matchesSearch = name.includes(searchQuery) || path.includes(searchQuery);
+                const matchesCategory = currentCategory === 'all' || cat === currentCategory || cat.startsWith(currentCategory + '-');
+                
+                if (matchesSearch && matchesCategory) {
+                    card.style.display = 'flex';
+                    visibleCount++;
+                } else {
+                    card.style.display = 'none';
+                }
+            });
+            
+            itemCount.textContent = visibleCount + ' item' + (visibleCount !== 1 ? 's' : '');
+            
+            if (visibleCount === 0) {
+                emptyState.style.display = 'flex';
+            } else {
+                emptyState.style.display = 'none';
+            }
+        }
+
+        // Search listener
+        searchInput.addEventListener('input', (e) => {
+            searchQuery = e.target.value.toLowerCase().trim();
+            updateGallery();
+        });
+
+        // Category listener
+        categoryItems.forEach(item => {
+            item.addEventListener('click', () => {
+                // Update active state
+                categoryItems.forEach(i => i.classList.remove('active'));
+                item.classList.add('active');
+                
+                // Update variables
+                currentCategory = item.dataset.category;
+                currentCategoryTitle.textContent = item.textContent.trim().replace(/^[^a-zA-Z0-9]+/, '');
+                
+                // If it's a child category and we change category, we might want to clear search, but keeping it is fine too.
+                updateGallery();
+            });
+        });
+    </script>
+</body>
+</html>
