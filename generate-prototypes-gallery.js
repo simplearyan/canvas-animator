@@ -437,6 +437,31 @@ function generateHTML(hierarchy) {
             color: var(--text-main);
         }
 
+        .mobile-menu-btn {
+            display: none;
+            background: transparent;
+            border: none;
+            color: var(--text-main);
+            font-size: 20px;
+            cursor: pointer;
+            padding: 4px 8px;
+            margin-right: 8px;
+        }
+
+        .overlay {
+            display: none;
+            position: fixed;
+            top: 0; left: 0; right: 0; bottom: 0;
+            background: rgba(0,0,0,0.4);
+            z-index: 8;
+            opacity: 0;
+            transition: opacity 0.3s ease;
+        }
+        
+        .overlay.active {
+            opacity: 1;
+        }
+
         /* Responsive */
         @media (max-width: 768px) {
             .app-window { margin: 0; border-radius: 0; border: none; }
@@ -445,14 +470,28 @@ function generateHTML(hierarchy) {
         }
         
         @media (max-width: 600px) {
-            .sidebar { display: none; } /* Could add a hamburger menu, but keeping it simple */
+            .mobile-menu-btn { display: block; }
+            .sidebar {
+                position: fixed;
+                top: 0;
+                bottom: 0;
+                left: -260px;
+                width: 260px;
+                z-index: 10;
+                transition: transform 0.3s ease;
+            }
+            .sidebar.mobile-open {
+                transform: translateX(260px);
+            }
             .grid { grid-template-columns: repeat(auto-fill, minmax(140px, 1fr)); gap: 12px;}
             .card-body { padding: 10px; }
+            .search-container { width: auto; flex: 1; margin: 0 10px; }
         }
     </style>
 </head>
 <body>
     <div class="app-window">
+        <div class="overlay" id="sidebar-overlay"></div>
         <!-- Sidebar -->
         <aside class="sidebar">
             <div class="window-controls">
@@ -477,6 +516,7 @@ function generateHTML(hierarchy) {
         <main class="main-content">
             <!-- Top Bar -->
             <header class="topbar">
+                <button class="mobile-menu-btn" id="mobile-menu-btn">☰</button>
                 <div class="search-container">
                     <span class="search-icon">🔍</span>
                     <input type="text" class="search-input" id="search" placeholder="Search prototypes..." autocomplete="off">
@@ -606,8 +646,33 @@ function generateHTML(hierarchy) {
                 
                 // If it's a child category and we change category, we might want to clear search, but keeping it is fine too.
                 updateGallery();
+                
+                // Close menu on mobile
+                if (window.innerWidth <= 600 && sidebar.classList.contains('mobile-open')) {
+                    toggleMobileMenu();
+                }
             });
         });
+        
+        // Mobile Menu Logic
+        const mobileMenuBtn = document.getElementById('mobile-menu-btn');
+        const sidebar = document.querySelector('.sidebar');
+        const overlay = document.getElementById('sidebar-overlay');
+        
+        function toggleMobileMenu() {
+            sidebar.classList.toggle('mobile-open');
+            if (sidebar.classList.contains('mobile-open')) {
+                overlay.style.display = 'block';
+                // Trigger reflow for animation
+                setTimeout(() => overlay.classList.add('active'), 10);
+            } else {
+                overlay.classList.remove('active');
+                setTimeout(() => overlay.style.display = 'none', 300);
+            }
+        }
+        
+        mobileMenuBtn.addEventListener('click', toggleMobileMenu);
+        overlay.addEventListener('click', toggleMobileMenu);
     </script>
 </body>
 </html>`;
