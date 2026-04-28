@@ -1,0 +1,1254 @@
+<!DOCTYPE html>
+<html lang="en" class="dark">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+    <title>VoxAnimator Pro</title>
+    
+    <!-- Tailwind CSS -->
+    <script src="https://cdn.tailwindcss.com"></script>
+    <script>
+        tailwind.config = {
+            darkMode: 'class',
+            theme: { 
+                extend: { 
+                    fontFamily: { 
+                        sans: ['system-ui', '-apple-system', 'BlinkMacSystemFont', '"SF Pro Display"', '"Helvetica Neue"', 'sans-serif'] 
+                    },
+                    colors: {
+                        apple: {
+                            blue: '#007AFF',
+                            dark: '#000000',
+                            grayDark: '#1c1c1e',
+                            grayLight: '#f5f5f7',
+                            borderLight: 'rgba(0, 0, 0, 0.05)',
+                            borderDark: 'rgba(255, 255, 255, 0.1)'
+                        },
+                        vox: {
+                            yellow: '#fde047',
+                            pink: '#f472b6',
+                            blue: '#60a5fa',
+                            dark: '#1e293b'
+                        }
+                    }
+                } 
+            }
+        }
+    </script>
+    
+    <!-- Lucide Icons -->
+    <script src="https://unpkg.com/lucide@latest"></script>
+    <!-- Rough.js for Vox-style sketchy vectors -->
+    <script src="https://unpkg.com/roughjs@4.6.6/bundled/rough.js"></script>
+    <!-- GIF.js for GIF Export capabilities -->
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/gif.js/0.2.0/gif.js"></script>
+
+    <style>
+        :root { color-scheme: dark; }
+        
+        body {
+            background-color: #09090b; 
+            color: #ececf1;
+            overflow: hidden;
+            touch-action: none;
+            -webkit-font-smoothing: antialiased;
+        }
+
+        ::-webkit-scrollbar { width: 6px; height: 6px; }
+        ::-webkit-scrollbar-track { background: transparent; }
+        ::-webkit-scrollbar-thumb { background: rgba(255, 255, 255, 0.15); border-radius: 10px; }
+        ::-webkit-scrollbar-thumb:hover { background: rgba(255, 255, 255, 0.25); }
+
+        .checker-bg {
+            background-color: #0f172a;
+            background-image: 
+                linear-gradient(45deg, #1e293b 25%, transparent 25%), 
+                linear-gradient(-45deg, #1e293b 25%, transparent 25%), 
+                linear-gradient(45deg, transparent 75%, #1e293b 75%), 
+                linear-gradient(-45deg, transparent 75%, #1e293b 75%);
+            background-size: 24px 24px;
+            background-position: 0 0, 0 12px, 12px -12px, -12px 0px;
+        }
+
+        input[type="range"] {
+            -webkit-appearance: none;
+            height: 4px;
+            background: rgba(255, 255, 255, 0.1);
+            border-radius: 2px;
+            outline: none;
+        }
+        input[type="range"]::-webkit-slider-thumb {
+            -webkit-appearance: none;
+            width: 16px;
+            height: 16px;
+            border-radius: 50%;
+            background: #fff;
+            box-shadow: 0 2px 6px rgba(0,0,0,0.4);
+            cursor: pointer;
+            transition: transform 0.1s;
+        }
+
+        input[type="color"] {
+            -webkit-appearance: none;
+            border: none;
+            width: 28px;
+            height: 28px;
+            border-radius: 50%;
+            padding: 0;
+            cursor: pointer;
+            background: transparent;
+        }
+        input[type="color"]::-webkit-color-swatch-wrapper { padding: 0; }
+        input[type="color"]::-webkit-color-swatch { border: none; border-radius: 50%; box-shadow: inset 0 0 0 1px rgba(255,255,255,0.2); }
+
+        .tool-btn { transition: all 0.2s cubic-bezier(0.4, 0, 0.2, 1); }
+        .tool-btn.active {
+            background-color: rgba(253, 224, 71, 0.15); /* vox-yellow */
+            border-color: rgba(253, 224, 71, 0.5);
+            color: #fde047; 
+        }
+        .tool-btn:hover:not(.active) { background-color: rgba(255, 255, 255, 0.05); }
+
+        #scale-wrapper {
+            position: absolute;
+            inset: 0;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            overflow: hidden;
+            padding: 16px; 
+        }
+
+        #draw-canvas {
+            box-shadow: 0 0 0 1px rgba(255,255,255,0.05), 0 30px 60px -12px rgba(0,0,0,0.8);
+            transform-origin: center center;
+            will-change: transform;
+            border-radius: 4px;
+            background-color: #ffffff;
+        }
+
+        .cursor-draw { cursor: crosshair; }
+        .cursor-select { cursor: default; }
+    </style>
+</head>
+<body class="flex flex-col h-screen text-sm">
+
+    <!-- macOS Glass Header -->
+    <header class="absolute top-0 w-full h-14 bg-zinc-900/80 backdrop-blur-2xl border-b border-white/5 flex items-center justify-between px-4 sm:px-6 z-40">
+        
+        <div class="flex items-center gap-3">
+            <div class="w-7 h-7 rounded-lg bg-gradient-to-br from-yellow-400 to-amber-500 flex items-center justify-center shadow-inner shadow-white/20">
+                <i data-lucide="edit-3" class="w-4 h-4 text-zinc-900"></i>
+            </div>
+            <h1 class="font-semibold tracking-tight whitespace-nowrap hidden sm:block text-zinc-100">VoxAnimator <span class="text-zinc-500 font-normal">Pro</span></h1>
+        </div>
+
+        <div class="flex items-center gap-2 bg-black/40 p-1 rounded-xl ring-1 ring-white/10 shrink-0">
+            <button onclick="undoLast()" class="px-3 py-1.5 rounded-lg text-zinc-400 hover:text-white hover:bg-white/10 transition-colors flex items-center gap-2 text-xs font-medium" title="Undo Last Stroke">
+                <i data-lucide="undo" class="w-3.5 h-3.5"></i> <span class="hidden md:inline">Undo</span>
+            </button>
+            <div class="w-px h-4 bg-white/10"></div>
+            <button onclick="clearCanvas()" class="px-3 py-1.5 rounded-lg text-rose-400 hover:text-rose-300 hover:bg-rose-500/10 transition-colors flex items-center gap-2 text-xs font-medium" title="Clear All">
+                <i data-lucide="trash-2" class="w-3.5 h-3.5"></i> <span class="hidden md:inline">Clear</span>
+            </button>
+        </div>
+
+        <div class="flex items-center justify-end gap-3 shrink-0">
+            <button onclick="togglePreview()" id="btn-play" class="flex items-center gap-2 px-3 py-1.5 bg-white/5 hover:bg-white/10 text-white rounded-lg font-medium transition-colors ring-1 ring-white/5 text-xs sm:text-sm shadow-sm">
+                <i data-lucide="play" class="w-4 h-4" id="icon-play"></i>
+                <span id="text-play" class="hidden sm:inline">Preview</span>
+            </button>
+            
+            <div class="flex bg-yellow-500 rounded-lg shadow-lg shadow-yellow-500/20 ring-1 ring-inset ring-white/20 transition-all hover:bg-yellow-400">
+                <select id="export-res" class="bg-transparent text-zinc-900 font-bold pl-2 pr-1 py-1.5 outline-none cursor-pointer appearance-none text-xs border-r border-yellow-600/30 hidden sm:block">
+                    <option value="1920" class="bg-zinc-800 text-white" selected>HD 1080p</option>
+                    <option value="2560" class="bg-zinc-800 text-white">2K 1440p</option>
+                    <option value="3840" class="bg-zinc-800 text-white">4K 2160p</option>
+                </select>
+                <select id="export-fmt" class="bg-transparent text-zinc-900 font-bold pl-2 pr-1 py-1.5 outline-none cursor-pointer appearance-none text-xs border-r border-yellow-600/30" onchange="updateExportBtnText()">
+                    <option value="webm" class="bg-zinc-800 text-white" selected>WebM</option>
+                    <option value="gif" class="bg-zinc-800 text-white">GIF</option>
+                    <option value="png" class="bg-zinc-800 text-white">PNG Snap</option>
+                </select>
+                <button onclick="exportMedia()" id="btn-export" class="flex items-center gap-2 px-3 py-1.5 text-zinc-900 font-bold transition-all rounded-r-lg text-xs sm:text-sm">
+                    <i data-lucide="download" class="w-4 h-4"></i>
+                    <span class="hidden sm:inline" id="text-export">WebM</span>
+                </button>
+            </div>
+        </div>
+    </header>
+
+    <!-- Main Layout -->
+    <div class="flex flex-1 pt-14 relative overflow-hidden flex-col md:flex-row">
+        
+        <!-- Left Sidebar: Tools -->
+        <aside class="w-full md:w-80 flex-shrink-0 bg-zinc-900/60 backdrop-blur-3xl border-r border-white/5 z-30 h-[45%] md:h-full flex flex-col shadow-[0_-10px_40px_rgba(0,0,0,0.5)] md:shadow-none order-2 md:order-1">
+            
+            <div class="p-5 overflow-y-auto space-y-6">
+                
+                <!-- Vox Tools -->
+                <div>
+                    <label class="text-[11px] font-bold text-zinc-500 uppercase tracking-widest block mb-3 flex items-center gap-1.5">
+                        <i data-lucide="pen-tool" class="w-3 h-3"></i> Documentary Tools
+                    </label>
+                    <div class="grid grid-cols-2 gap-2 mb-2">
+                        <button class="tool-btn py-2.5 rounded-lg text-xs font-medium text-zinc-300 bg-black/40 border border-white/10 flex justify-center items-center gap-1.5 col-span-full mb-1" data-tool="select" onclick="setTool('select')">
+                            <i data-lucide="mouse-pointer-2" class="w-4 h-4"></i> Select & Edit
+                        </button>
+                        
+                        <button class="tool-btn active py-2.5 rounded-lg text-xs font-medium text-zinc-300 bg-black/20 border border-transparent flex flex-col justify-center items-center gap-1.5" data-tool="highlighter" onclick="setTool('highlighter')">
+                            <div class="w-5 h-2 bg-yellow-400 rounded-sm opacity-80"></div>
+                            <span class="mt-0.5">Highlighter</span>
+                        </button>
+                        <button class="tool-btn py-2.5 rounded-lg text-xs font-medium text-zinc-300 bg-black/20 border border-transparent flex flex-col justify-center items-center gap-1.5" data-tool="arrow" onclick="setTool('arrow')">
+                            <i data-lucide="arrow-up-right" class="w-5 h-5"></i> <span>Kinetic Arrow</span>
+                        </button>
+                        <button class="tool-btn py-2.5 rounded-lg text-xs font-medium text-zinc-300 bg-black/20 border border-transparent flex flex-col justify-center items-center gap-1.5" data-tool="box" onclick="setTool('box')">
+                            <i data-lucide="square" class="w-5 h-5"></i> <span>Focus Box</span>
+                        </button>
+                        <button class="tool-btn py-2.5 rounded-lg text-xs font-medium text-zinc-300 bg-black/20 border border-transparent flex flex-col justify-center items-center gap-1.5" data-tool="circle" onclick="setTool('circle')">
+                            <i data-lucide="circle" class="w-5 h-5"></i> <span>Focus Circle</span>
+                        </button>
+                        <button class="tool-btn py-2.5 rounded-lg text-xs font-medium text-zinc-300 bg-black/20 border border-transparent flex flex-col justify-center items-center gap-1.5 col-span-2" data-tool="cross" onclick="setTool('cross')">
+                            <i data-lucide="x" class="w-5 h-5"></i> <span>Cross Out</span>
+                        </button>
+                    </div>
+                </div>
+
+                <div class="w-full h-px bg-white/5"></div>
+
+                <!-- Properties -->
+                <div class="space-y-4">
+                    <div class="flex items-center justify-between mb-1">
+                        <label class="text-[11px] font-bold text-zinc-500 uppercase tracking-widest block">Shape Properties</label>
+                        <span id="selection-badge" class="text-[9px] font-bold uppercase tracking-widest text-yellow-500 bg-yellow-500/10 px-2 py-0.5 rounded hidden">Editing</span>
+                    </div>
+                    
+                    <div class="flex items-center justify-between">
+                        <span class="text-xs text-zinc-300">Color</span>
+                        <div class="flex gap-2">
+                            <!-- Vox Signature Colors -->
+                            <button class="w-6 h-6 rounded-full bg-[#fde047] border border-white/20" onclick="updateProp('color', '#fde047')" title="Yellow"></button>
+                            <button class="w-6 h-6 rounded-full bg-[#f472b6] border border-white/20" onclick="updateProp('color', '#f472b6')" title="Pink"></button>
+                            <button class="w-6 h-6 rounded-full bg-[#60a5fa] border border-white/20" onclick="updateProp('color', '#60a5fa')" title="Blue"></button>
+                            <button class="w-6 h-6 rounded-full bg-[#f87171] border border-white/20" onclick="updateProp('color', '#f87171')" title="Red"></button>
+                            <button class="w-6 h-6 rounded-full bg-[#1e293b] border border-white/20" onclick="updateProp('color', '#1e293b')" title="Dark Ink"></button>
+                            
+                            <div class="relative w-6 h-6 rounded-full border border-white/20 bg-[url('data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAAAoAAAAKCAYAAACNMs+9AAAAAXNSR0IArs4c6QAAACVJREFUKFNjZCASMDKgAnv37v3/n0QciwZkR+BThM8wUshwQxgAYeAU/6+E4wYAAAAASUVORK5CYII=')] overflow-hidden cursor-pointer" title="Custom Color">
+                                <input type="color" class="absolute w-full h-full opacity-0 inset-0 cursor-pointer" value="#fde047" id="prop-color" onchange="updateProp('color', this.value)" oninput="updateProp('color', this.value)">
+                            </div>
+                        </div>
+                    </div>
+
+                    <div>
+                        <div class="flex justify-between items-center mb-2">
+                            <span class="text-xs text-zinc-300 font-medium">Stroke Thickness</span>
+                            <span id="width-val" class="text-xs text-zinc-400 font-mono">16px</span>
+                        </div>
+                        <input type="range" id="prop-width" min="2" max="150" value="16" class="w-full accent-yellow-400" oninput="updateProp('width', parseInt(this.value)); document.getElementById('width-val').innerText = this.value + 'px';">
+                    </div>
+
+                    <div>
+                        <div class="flex justify-between items-center mb-2">
+                            <span class="text-xs text-zinc-300 font-medium">Roughness (Jitter)</span>
+                            <span id="roughness-val" class="text-xs text-zinc-400 font-mono">1.0</span>
+                        </div>
+                        <input type="range" id="prop-roughness" min="0" max="15" step="0.1" value="1.0" class="w-full accent-yellow-400" oninput="updateProp('roughness', parseFloat(this.value)); document.getElementById('roughness-val').innerText = parseFloat(this.value).toFixed(1);">
+                    </div>
+
+                    <div>
+                        <span class="text-xs text-zinc-300 block mb-1.5">Animation Seed Mode</span>
+                        <select id="prop-rough-seed" class="w-full bg-black/40 border border-white/10 rounded-lg text-xs text-zinc-300 px-3 py-2 outline-none focus:ring-1 focus:ring-yellow-400 appearance-none" onchange="updateProp('roughSeedMode', this.value)">
+                            <option value="static">Static (Stable)</option>
+                            <option value="live">Live (Boiling effect)</option>
+                        </select>
+                    </div>
+
+                    <!-- Shape Scaling Tools -->
+                    <div id="scale-panel" class="hidden pt-3 border-t border-white/5 space-y-3">
+                        <div>
+                            <div class="flex justify-between items-center mb-2">
+                                <span class="text-xs text-zinc-300 font-medium">Scale X (Width)</span>
+                                <span id="scale-x-val" class="text-xs text-zinc-400 font-mono">1.0x</span>
+                            </div>
+                            <input type="range" id="prop-scale-x" min="0.1" max="5" step="0.1" value="1.0" class="w-full accent-yellow-400" oninput="updateProp('scaleX', parseFloat(this.value)); document.getElementById('scale-x-val').innerText = parseFloat(this.value).toFixed(1) + 'x';">
+                        </div>
+                        <div>
+                            <div class="flex justify-between items-center mb-2">
+                                <span class="text-xs text-zinc-300 font-medium">Scale Y (Length/Height)</span>
+                                <span id="scale-y-val" class="text-xs text-zinc-400 font-mono">1.0x</span>
+                            </div>
+                            <input type="range" id="prop-scale-y" min="0.1" max="5" step="0.1" value="1.0" class="w-full accent-yellow-400" oninput="updateProp('scaleY', parseFloat(this.value)); document.getElementById('scale-y-val').innerText = parseFloat(this.value).toFixed(1) + 'x';">
+                        </div>
+                    </div>
+
+                    <button id="btn-delete" onclick="deleteSelected()" class="w-full mt-2 py-2 bg-red-500/10 hover:bg-red-500/20 text-red-400 rounded-lg text-xs font-bold transition-colors hidden border border-red-500/20 flex items-center justify-center gap-2">
+                        <i data-lucide="trash" class="w-3.5 h-3.5"></i> Delete Shape
+                    </button>
+                </div>
+
+                <div class="w-full h-px bg-white/5"></div>
+
+                <!-- Canvas Background Setup -->
+                <div class="bg-white/5 rounded-2xl p-4 ring-1 ring-white/5 space-y-4">
+                    <div class="flex items-center justify-between">
+                        <label class="text-[11px] font-bold text-zinc-500 uppercase tracking-widest block">Canvas Base</label>
+                        <label class="flex items-center gap-1.5 cursor-pointer text-[10px] text-zinc-400 hover:text-white transition-colors" title="Export as transparent media">
+                            <input type="checkbox" id="bg-transparent-toggle" class="accent-yellow-400 w-3 h-3" onchange="state.bgTransparent = this.checked; renderScene();"> Transparent
+                        </label>
+                    </div>
+                    
+                    <button onclick="document.getElementById('bg-upload').click()" class="w-full py-2.5 bg-zinc-800 hover:bg-zinc-700 text-zinc-200 rounded-lg text-xs font-medium transition-colors ring-1 ring-white/10 flex items-center justify-center gap-2">
+                        <i data-lucide="image" class="w-4 h-4 text-yellow-400"></i> Upload Article/Image
+                    </button>
+                    <input type="file" id="bg-upload" accept="image/*" class="hidden" onchange="handleBgUpload(event)">
+                    <p class="text-[10px] text-zinc-500 leading-relaxed">Upload a screenshot of an article to annotate over it, exactly like a documentary.</p>
+                </div>
+
+                <!-- Timing Engine -->
+                <div class="space-y-4">
+                    <label class="text-[11px] font-bold text-zinc-500 uppercase tracking-widest block mb-1">Animation Engine</label>
+                    <div>
+                        <div class="flex justify-between items-center mb-2">
+                            <span class="text-xs text-zinc-300 font-medium">Draw Duration</span>
+                            <span id="dur-val" class="text-xs text-yellow-400 font-bold">0.6s</span>
+                        </div>
+                        <input type="range" min="0.2" max="2.0" step="0.1" value="0.6" class="w-full accent-yellow-400" oninput="state.animDuration = parseFloat(this.value); document.getElementById('dur-val').innerText = parseFloat(this.value).toFixed(1) + 's';">
+                        <p class="text-[10px] text-zinc-500 mt-2 leading-relaxed">Shapes are automatically sequenced on the timeline in the order you draw them.</p>
+                    </div>
+                </div>
+
+            </div>
+        </aside>
+
+        <!-- Main Canvas Area -->
+        <main class="flex-1 relative bg-zinc-950 checker-bg overflow-hidden order-1 md:order-2 flex items-center justify-center">
+            
+            <div id="scale-wrapper">
+                <!-- Standard 1080p Canvas -->
+                <canvas id="draw-canvas" width="1920" height="1080"></canvas>
+            </div>
+            
+            <div id="status-indicator" class="absolute top-6 right-6 flex items-center gap-2 bg-yellow-400/10 border border-yellow-400/50 text-yellow-400 px-4 py-2.5 rounded-full shadow-lg opacity-0 transition-opacity duration-300 pointer-events-none backdrop-blur-md z-50">
+                <div class="w-2 h-2 rounded-full bg-yellow-400 animate-pulse" id="status-dot"></div>
+                <span class="text-xs font-bold tracking-wide uppercase" id="status-text">Playing Sequence</span>
+            </div>
+        </main>
+    </div>
+
+    <!-- Export Loading Overlay -->
+    <div id="export-loader" class="fixed inset-0 z-50 bg-black/80 hidden flex flex-col items-center justify-center transition-opacity opacity-0 backdrop-blur-sm">
+        <div class="w-12 h-12 border-4 border-white/10 border-t-yellow-400 rounded-full animate-spin mb-4"></div>
+        <h2 class="text-xl font-bold text-white mb-2">Processing Media Export</h2>
+        <p class="text-sm text-zinc-400 font-mono font-medium" id="rec-time">Processing 0%</p>
+    </div>
+
+    <!-- Toasts -->
+    <div id="toast-container" class="fixed top-20 right-6 z-[60] flex flex-col gap-2 pointer-events-none"></div>
+
+    <script>
+        lucide.createIcons();
+
+        // --- Fetch GIF.js Worker to guarantee CORS safety ---
+        let gifWorkerUrl = null;
+        fetch('https://cdnjs.cloudflare.com/ajax/libs/gif.js/0.2.0/gif.worker.js')
+            .then(res => res.text())
+            .then(text => {
+                const blob = new Blob([text], { type: 'application/javascript' });
+                gifWorkerUrl = URL.createObjectURL(blob);
+            })
+            .catch(err => console.error('Failed to load GIF worker:', err));
+
+        // --- Application State ---
+        const state = {
+            tool: 'highlighter', 
+            
+            // Global Defaults
+            strokeColor: '#fde047',
+            strokeWidth: 16,
+            roughness: 1.0,
+            roughSeedMode: 'static', // static, live
+            scaleX: 1.0,
+            scaleY: 1.0,
+            animDuration: 0.6, 
+            
+            bgTransparent: false,
+            bgColor: '#ffffff',
+            bgImage: null,
+            
+            // Interaction Engine
+            selectedShapeId: null,
+            isDragging: false,
+            lastDragPos: {x: 0, y: 0},
+            currentShape: null,
+            shapes: [], 
+            
+            // Timeline Engine
+            timelineCursor: 0, 
+            
+            // Playback & Export Engine
+            isPlaying: false,
+            isExporting: false,
+            playbackStartTime: 0,
+            
+            mediaRecorder: null,
+            recordedChunks: []
+        };
+
+        const canvas = document.getElementById('draw-canvas');
+        const ctx = canvas.getContext('2d', { willReadFrequently: true });
+        const rc = rough.canvas(canvas);
+
+        // --- Viewport Scaling ---
+        function updateLayoutScale() {
+            const wrapper = document.getElementById('scale-wrapper');
+            const padding = 40; 
+            const availW = wrapper.clientWidth - padding;
+            const availH = wrapper.clientHeight - padding;
+
+            const logicalW = 1920;
+            const logicalH = 1080;
+
+            const scale = Math.min(availW / logicalW, availH / logicalH, 1.0);
+            canvas.style.transform = `scale(${scale})`;
+        }
+        window.addEventListener('resize', updateLayoutScale);
+        updateLayoutScale();
+
+        // --- UI Updaters ---
+        function setTool(tool) {
+            state.tool = tool;
+            state.selectedShapeId = null; 
+            syncUI();
+            
+            document.querySelectorAll('.tool-btn').forEach(btn => {
+                btn.classList.remove('active');
+                if(btn.dataset.tool === tool) btn.classList.add('active');
+            });
+            
+            if (tool === 'select') canvas.classList.replace('cursor-draw', 'cursor-select');
+            else canvas.classList.replace('cursor-select', 'cursor-draw');
+            
+            renderScene();
+        }
+
+        function updateProp(prop, val) {
+            if (state.selectedShapeId) {
+                const shape = state.shapes.find(s => s.id === state.selectedShapeId);
+                if (shape) {
+                    if (prop === 'color') shape.color = val;
+                    if (prop === 'width') shape.width = val;
+                    if (prop === 'roughness') shape.roughness = val;
+                    if (prop === 'scaleX') shape.scaleX = val;
+                    if (prop === 'scaleY') shape.scaleY = val;
+                    if (prop === 'roughSeedMode') shape.roughSeedMode = val;
+                    renderScene();
+                }
+            } else {
+                if (prop === 'color') { state.strokeColor = val; document.getElementById('prop-color').value = val; }
+                if (prop === 'width') { state.strokeWidth = val; }
+                if (prop === 'roughness') { state.roughness = val; }
+                if (prop === 'scaleX') { state.scaleX = val; }
+                if (prop === 'scaleY') { state.scaleY = val; }
+                if (prop === 'roughSeedMode') { state.roughSeedMode = val; }
+            }
+        }
+
+        function deleteSelected() {
+            if (state.selectedShapeId) {
+                state.shapes = state.shapes.filter(s => s.id !== state.selectedShapeId);
+                state.selectedShapeId = null;
+                
+                // Recalculate timeline cursor
+                state.timelineCursor = 0;
+                state.shapes.forEach(s => {
+                    s.startTime = state.timelineCursor;
+                    state.timelineCursor += s.duration;
+                });
+                
+                syncUI();
+                renderScene();
+                showToast('Annotation deleted', 'success');
+            }
+        }
+
+        function updateExportBtnText() {
+            const fmt = document.getElementById('export-fmt').value;
+            const txt = document.getElementById('text-export');
+            if (fmt === 'png') txt.innerText = 'PNG';
+            else if (fmt === 'gif') txt.innerText = 'GIF';
+            else txt.innerText = 'WebM';
+        }
+
+        function syncUI() {
+            const badge = document.getElementById('selection-badge');
+            const btnDel = document.getElementById('btn-delete');
+            const scalePnl = document.getElementById('scale-panel');
+            
+            const getVal = (s, property, fallback) => (s && s[property] !== undefined) ? s[property] : fallback;
+            const shape = state.selectedShapeId ? state.shapes.find(s => s.id === state.selectedShapeId) : null;
+
+            if (state.selectedShapeId) {
+                badge.classList.remove('hidden');
+                btnDel.classList.remove('hidden');
+                btnDel.classList.add('flex');
+                if (scalePnl) scalePnl.classList.remove('hidden');
+            } else {
+                badge.classList.add('hidden');
+                btnDel.classList.add('hidden');
+                btnDel.classList.remove('flex');
+                if (scalePnl) scalePnl.classList.add('hidden');
+            }
+
+            document.getElementById('prop-color').value = getVal(shape, 'color', state.strokeColor);
+            
+            let w = getVal(shape, 'width', state.strokeWidth);
+            document.getElementById('prop-width').value = w;
+            document.getElementById('width-val').innerText = w + 'px';
+            
+            let r = getVal(shape, 'roughness', state.roughness);
+            document.getElementById('prop-roughness').value = r;
+            document.getElementById('roughness-val').innerText = parseFloat(r).toFixed(1);
+
+            let sx = getVal(shape, 'scaleX', state.scaleX);
+            document.getElementById('prop-scale-x').value = sx;
+            document.getElementById('scale-x-val').innerText = parseFloat(sx).toFixed(1) + 'x';
+
+            let sy = getVal(shape, 'scaleY', state.scaleY);
+            document.getElementById('prop-scale-y').value = sy;
+            document.getElementById('scale-y-val').innerText = parseFloat(sy).toFixed(1) + 'x';
+
+            let sm = getVal(shape, 'roughSeedMode', state.roughSeedMode);
+            if(document.getElementById('prop-rough-seed')) document.getElementById('prop-rough-seed').value = sm;
+        }
+        
+        function handleBgUpload(e) {
+            const file = e.target.files[0];
+            if (!file) return;
+            if (!file.type.startsWith('image/')) {
+                return showToast('Please upload a valid image file.', 'error');
+            }
+            const reader = new FileReader();
+            reader.onload = (event) => {
+                const img = new Image();
+                img.onload = () => {
+                    state.bgImage = img;
+                    state.bgTransparent = false;
+                    document.getElementById('bg-transparent-toggle').checked = false;
+                    renderScene();
+                    showToast('Article background loaded!', 'success');
+                };
+                img.src = event.target.result;
+            };
+            reader.readAsDataURL(file);
+        }
+
+        function showToast(message, type = 'info') {
+            const container = document.getElementById('toast-container');
+            const toast = document.createElement('div');
+            toast.className = `bg-zinc-800/95 backdrop-blur-md text-white px-4 py-3 rounded-xl shadow-2xl ring-1 ring-white/10 flex items-center gap-3 transform transition-all -translate-y-4 opacity-0 z-50`;
+            let icon = type === 'success' ? 'check-circle' : (type === 'error' ? 'alert-triangle' : 'info');
+            let color = type === 'success' ? 'text-green-400' : (type === 'error' ? 'text-red-400' : 'text-yellow-400');
+            toast.innerHTML = `<i data-lucide="${icon}" class="w-4 h-4 ${color}"></i> <span class="text-sm font-medium">${message}</span>`;
+            container.appendChild(toast); lucide.createIcons();
+            requestAnimationFrame(() => toast.classList.remove('-translate-y-4', 'opacity-0'));
+            setTimeout(() => { toast.classList.add('-translate-y-4', 'opacity-0'); setTimeout(() => toast.remove(), 300); }, 3000);
+        }
+
+        // --- Mathematics & Hit Testing ---
+
+        function easeOutQuart(x) { return 1 - Math.pow(1 - x, 4); }
+
+        function getShapeBounds(shape) {
+            const pad = Math.max(20, shape.width * 2); 
+            let minX = Math.min(shape.startX, shape.endX) - pad;
+            let maxX = Math.max(shape.startX, shape.endX) + pad;
+            let minY = Math.min(shape.startY, shape.endY) - pad;
+            let maxY = Math.max(shape.startY, shape.endY) + pad;
+            return {minX, maxX, minY, maxY};
+        }
+
+        function hitTest(x, y) {
+            for (let i = state.shapes.length - 1; i >= 0; i--) {
+                const shape = state.shapes[i];
+                
+                // Account for transformations (Inverse scale to check bounds properly)
+                const cx = shape.startX + (shape.endX - shape.startX) / 2;
+                const cy = shape.startY + (shape.endY - shape.startY) / 2;
+                const scaleX = shape.scaleX || 1.0;
+                const scaleY = shape.scaleY || 1.0;
+
+                let px = x - cx;
+                let py = y - cy;
+                
+                px /= scaleX;
+                py /= scaleY;
+                
+                let finalX = px + cx;
+                let finalY = py + cy;
+
+                const b = getShapeBounds(shape);
+                if (finalX >= b.minX && finalX <= b.maxX && finalY >= b.minY && finalY <= b.maxY) {
+                    return shape.id;
+                }
+            }
+            return null;
+        }
+
+        function getMousePos(e) {
+            const rect = canvas.getBoundingClientRect();
+            const scaleX = canvas.width / rect.width;
+            const scaleY = canvas.height / rect.height;
+            return {
+                x: (e.clientX - rect.left) * scaleX,
+                y: (e.clientY - rect.top) * scaleY
+            };
+        }
+
+        // --- Rough.js Unified Rendering Engine ---
+        
+        function hexToRgb(hex) {
+            var result = /^#?([a-f\d]{2})([a-f\d]{2})([a-f\d]{2})$/i.exec(hex);
+            return result ? {
+                r: parseInt(result[1], 16),
+                g: parseInt(result[2], 16),
+                b: parseInt(result[3], 16)
+            } : null;
+        }
+
+        // Master render function used by Preview, WebM, GIF, and PNG
+        function renderFrameToContext(targetCtx, targetRc, targetW, targetH, exportScale, elapsedSec, timeMs, isLivePreview) {
+            
+            // 1. Background
+            targetCtx.clearRect(0, 0, targetW, targetH);
+            if (!state.bgTransparent) {
+                if (state.bgImage) {
+                    const imgRatio = state.bgImage.width / state.bgImage.height;
+                    const canvasRatio = targetW / targetH;
+                    let drawW = targetW; let drawH = targetH;
+                    let drawX = 0; let drawY = 0;
+                    
+                    if (imgRatio > canvasRatio) {
+                        drawH = targetH;
+                        drawW = state.bgImage.width * (targetH / state.bgImage.height);
+                        drawX = (targetW - drawW) / 2;
+                    } else {
+                        drawW = targetW;
+                        drawH = state.bgImage.height * (targetW / state.bgImage.width);
+                        drawY = (targetH - drawH) / 2;
+                    }
+                    targetCtx.globalCompositeOperation = 'source-over';
+                    targetCtx.drawImage(state.bgImage, drawX, drawY, drawW, drawH);
+                } else {
+                    targetCtx.globalCompositeOperation = 'source-over';
+                    targetCtx.fillStyle = state.bgColor;
+                    targetCtx.fillRect(0, 0, targetW, targetH);
+                }
+            }
+
+            // 2. Completed Shapes & Active Drag
+            targetCtx.save();
+            targetCtx.scale(exportScale, exportScale);
+
+            // Create a temporary array including currentShape if dragging in preview
+            let shapesToDraw = [...state.shapes];
+            if (isLivePreview && state.isDragging && state.currentShape && state.tool !== 'select') {
+                shapesToDraw.push({...state.currentShape, duration: 0}); // Force instant draw
+            }
+
+            shapesToDraw.forEach(shape => {
+                let progress = 1;
+                if (elapsedSec !== null && elapsedSec < shape.startTime + shape.duration) {
+                    progress = Math.max(0, (elapsedSec - shape.startTime) / shape.duration);
+                }
+                
+                if (progress <= 0) return;
+
+                const p = easeOutQuart(Math.min(1, progress));
+                targetCtx.save();
+
+                // Transforms
+                const scaleX = shape.scaleX || 1.0;
+                const scaleY = shape.scaleY || 1.0;
+                const cx = shape.startX + (shape.endX - shape.startX) / 2;
+                const cy = shape.startY + (shape.endY - shape.startY) / 2;
+                
+                targetCtx.translate(cx, cy);
+                targetCtx.scale(scaleX, scaleY);
+                targetCtx.translate(-cx, -cy);
+
+                // Seed calculation for Boiling effect
+                let currentSeed = shape.seed;
+                if (shape.roughSeedMode === 'live') {
+                    // Seed changes approx every 100ms (10 frames per second)
+                    currentSeed = shape.seed + Math.floor(timeMs / 100);
+                }
+
+                // Rough.js Configuration
+                const rOptions = {
+                    stroke: shape.color,
+                    strokeWidth: shape.width,
+                    roughness: shape.roughness,
+                    bowing: 1,
+                    seed: currentSeed, 
+                    disableMultiStroke: true 
+                };
+
+                let perimeter = 2000;
+                if (shape.type === 'box') perimeter = 2 * (Math.abs(shape.endX - shape.startX) + Math.abs(shape.endY - shape.startY));
+                else if (shape.type === 'circle') perimeter = 2 * Math.PI * Math.max(Math.abs(shape.endX - shape.startX)/2, Math.abs(shape.endY - shape.startY)/2);
+                else perimeter = Math.hypot(shape.endX - shape.startX, shape.endY - shape.startY) * 1.5; 
+
+                if (p < 1) {
+                    rOptions.strokeLineDash = [perimeter];
+                    rOptions.strokeLineDashOffset = perimeter * (1 - p);
+                }
+
+                // Tool specific calls
+                if (shape.type === 'highlighter') {
+                    targetCtx.globalCompositeOperation = 'multiply';
+                    const rgb = hexToRgb(shape.color);
+                    if(rgb) {
+                        rOptions.stroke = `rgba(${rgb.r}, ${rgb.g}, ${rgb.b}, 0.5)`;
+                    }
+                    rOptions.roughness = Math.min(shape.roughness, 1.0); 
+                    rOptions.bowing = 0.5;
+                    targetRc.line(shape.startX, shape.startY, shape.endX, shape.endY, rOptions);
+                }
+                else if (shape.type === 'arrow') {
+                    targetCtx.globalCompositeOperation = 'source-over';
+                    targetRc.line(shape.startX, shape.startY, shape.endX, shape.endY, rOptions);
+                    if (p > 0.05) {
+                        const tipX = shape.startX + (shape.endX - shape.startX) * p;
+                        const tipY = shape.startY + (shape.endY - shape.startY) * p;
+                        const angle = Math.atan2(shape.endY - shape.startY, shape.endX - shape.startX);
+                        const headSize = shape.width * 2.5;
+                        
+                        const h1x = tipX - Math.cos(angle - Math.PI / 6) * headSize;
+                        const h1y = tipY - Math.sin(angle - Math.PI / 6) * headSize;
+                        const h2x = tipX - Math.cos(angle + Math.PI / 6) * headSize;
+                        const h2y = tipY - Math.sin(angle + Math.PI / 6) * headSize;
+                        
+                        const headOpts = { ...rOptions, strokeLineDash: [], strokeLineDashOffset: 0 };
+                        targetRc.line(tipX, tipY, h1x, h1y, headOpts);
+                        targetRc.line(tipX, tipY, h2x, h2y, headOpts);
+                    }
+                }
+                else if (shape.type === 'box') {
+                    targetCtx.globalCompositeOperation = 'source-over';
+                    const w = shape.endX - shape.startX;
+                    const h = shape.endY - shape.startY;
+                    targetRc.rectangle(shape.startX, shape.startY, w, h, rOptions);
+                }
+                else if (shape.type === 'circle') {
+                    targetCtx.globalCompositeOperation = 'source-over';
+                    const rx = Math.abs(shape.endX - shape.startX);
+                    const ry = Math.abs(shape.endY - shape.startY);
+                    const ex = shape.startX + (shape.endX - shape.startX) / 2;
+                    const ey = shape.startY + (shape.endY - shape.startY) / 2;
+                    targetRc.ellipse(ex, ey, rx, ry, rOptions);
+                }
+                else if (shape.type === 'cross') {
+                    targetCtx.globalCompositeOperation = 'source-over';
+                    targetRc.line(shape.startX, shape.startY, shape.endX, shape.endY, rOptions);
+                    if (p > 0.5) {
+                        const p2 = (p - 0.5) * 2; 
+                        const rOpts2 = { ...rOptions };
+                        if (p2 < 1) {
+                            rOpts2.strokeLineDash = [perimeter];
+                            rOpts2.strokeLineDashOffset = perimeter * (1 - p2);
+                        } else {
+                            rOpts2.strokeLineDash = [];
+                        }
+                        targetRc.line(shape.endX, shape.startY, shape.startX, shape.endY, rOpts2);
+                    }
+                }
+                
+                targetCtx.restore();
+            });
+            
+            // 3. Selection Highlight
+            if (isLivePreview && state.selectedShapeId && !state.isPlaying && !state.isExporting) {
+                const shape = state.shapes.find(s => s.id === state.selectedShapeId);
+                if (shape) {
+                    targetCtx.globalCompositeOperation = 'source-over';
+                    targetCtx.save();
+                    const scaleX = shape.scaleX || 1.0;
+                    const scaleY = shape.scaleY || 1.0;
+                    
+                    const cx = shape.startX + (shape.endX - shape.startX) / 2;
+                    const cy = shape.startY + (shape.endY - shape.startY) / 2;
+                    
+                    targetCtx.translate(cx, cy);
+                    targetCtx.scale(scaleX, scaleY);
+                    targetCtx.translate(-cx, -cy);
+                    
+                    const b = getShapeBounds(shape);
+                    targetCtx.strokeStyle = '#3b82f6'; 
+                    targetCtx.lineWidth = 2 / Math.max(scaleX, scaleY);
+                    targetCtx.setLineDash([8 / scaleX, 8 / scaleY]);
+                    targetCtx.strokeRect(b.minX, b.minY, b.maxX - b.minX, b.maxY - b.minY);
+                    
+                    targetCtx.restore();
+                }
+            }
+
+            targetCtx.restore();
+        }
+
+        // Live Wrapper
+        function renderScene(forcedTimeSec = null, forcedTimeMs = null) {
+            const timeMs = forcedTimeMs !== null ? forcedTimeMs : performance.now();
+            const elapsedSec = forcedTimeSec !== null ? forcedTimeSec : (timeMs / 1000);
+            
+            renderFrameToContext(ctx, rc, canvas.width, canvas.height, 1.0, elapsedSec, timeMs, true);
+        }
+
+        // Idle Animation Loop for "Live Boiling" Seed
+        function idleLoop(timestamp) {
+            if (!state.isPlaying && !state.isExporting) {
+                // Only redraw if there's a live element
+                const hasLive = state.shapes.some(s => s.roughSeedMode === 'live') || 
+                                (state.currentShape && state.currentShape.roughSeedMode === 'live');
+                if (hasLive) {
+                    renderScene(null, timestamp);
+                }
+            }
+            requestAnimationFrame(idleLoop);
+        }
+        requestAnimationFrame(idleLoop);
+
+
+        // --- Interaction Engine ---
+        canvas.addEventListener('pointerdown', (e) => {
+            if (state.isPlaying || state.isExporting) return;
+            e.preventDefault();
+            
+            const pos = getMousePos(e);
+            
+            if (state.tool === 'select') {
+                const hitId = hitTest(pos.x, pos.y);
+                state.selectedShapeId = hitId;
+                syncUI();
+                renderScene();
+                
+                if (hitId) {
+                    state.isDragging = true;
+                    state.lastDragPos = pos;
+                    canvas.setPointerCapture(e.pointerId);
+                }
+                return;
+            }
+
+            state.selectedShapeId = null; 
+            syncUI();
+            
+            state.isDragging = true;
+            canvas.setPointerCapture(e.pointerId);
+
+            state.currentShape = {
+                id: Date.now() + Math.random(),
+                type: state.tool,
+                color: state.strokeColor,
+                width: state.strokeWidth,
+                roughness: state.roughness,
+                roughSeedMode: state.roughSeedMode,
+                scaleX: state.scaleX,
+                scaleY: state.scaleY,
+                seed: Math.floor(Math.random() * 2147483648),
+                
+                startX: pos.x,
+                startY: pos.y,
+                endX: pos.x,
+                endY: pos.y,
+                startTime: state.timelineCursor,
+                duration: state.animDuration
+            };
+            renderScene();
+        });
+
+        canvas.addEventListener('pointermove', (e) => {
+            if (!state.isDragging || state.isPlaying) return;
+            e.preventDefault();
+            const pos = getMousePos(e);
+            
+            if (state.tool === 'select' && state.selectedShapeId) {
+                const shape = state.shapes.find(s => s.id === state.selectedShapeId);
+                if (shape) {
+                    const dx = pos.x - state.lastDragPos.x;
+                    const dy = pos.y - state.lastDragPos.y;
+                    shape.startX += dx;
+                    shape.endX += dx;
+                    shape.startY += dy;
+                    shape.endY += dy;
+                    state.lastDragPos = pos;
+                    renderScene();
+                }
+            } else if (state.tool !== 'select' && state.currentShape) {
+                state.currentShape.endX = pos.x;
+                state.currentShape.endY = pos.y;
+                renderScene();
+            }
+        });
+
+        canvas.addEventListener('pointerup', (e) => {
+            if (!state.isDragging || state.isPlaying) return;
+            state.isDragging = false;
+            canvas.releasePointerCapture(e.pointerId);
+            
+            if (state.tool !== 'select' && state.currentShape) {
+                const dx = Math.abs(state.currentShape.endX - state.currentShape.startX);
+                const dy = Math.abs(state.currentShape.endY - state.currentShape.startY);
+                
+                if (dx > 10 || dy > 10) {
+                    state.shapes.push({...state.currentShape});
+                    state.timelineCursor += state.animDuration;
+                    
+                    state.selectedShapeId = state.currentShape.id;
+                    syncUI();
+                }
+                state.currentShape = null;
+            }
+            renderScene();
+        });
+
+        function clearCanvas() {
+            if (state.isPlaying || state.isExporting) return;
+            state.shapes = [];
+            state.timelineCursor = 0;
+            state.selectedShapeId = null;
+            syncUI();
+            renderScene();
+            showToast('Canvas cleared', 'success');
+        }
+
+        function undoLast() {
+            if (state.isPlaying || state.isExporting) return;
+            if (state.shapes.length > 0) {
+                const removed = state.shapes.pop();
+                state.timelineCursor = Math.max(0, state.timelineCursor - removed.duration);
+                if (state.selectedShapeId === removed.id) {
+                    state.selectedShapeId = null;
+                    syncUI();
+                }
+                renderScene();
+            }
+        }
+
+        // --- Playback Engine ---
+        function setPlayUI(playing) {
+            const btnPlay = document.getElementById('btn-play');
+            const iconPlay = document.getElementById('icon-play');
+            const textPlay = document.getElementById('text-play');
+            const ind = document.getElementById('status-indicator');
+            const txt = document.getElementById('status-text');
+
+            document.querySelectorAll('button:not(#btn-play):not(#btn-export), input, select').forEach(b => b.disabled = playing);
+
+            if (playing) {
+                ind.classList.remove('opacity-0');
+                if (state.isExporting) {
+                    btnPlay.disabled = true;
+                    ind.classList.replace('bg-yellow-400/10', 'bg-rose-500/10');
+                    ind.classList.replace('border-yellow-400/50', 'border-rose-500/50');
+                    ind.classList.replace('text-yellow-400', 'text-rose-400');
+                    document.getElementById('status-dot').classList.replace('bg-yellow-400', 'bg-rose-400');
+                    txt.innerText = 'Rendering Video...';
+                } else {
+                    btnPlay.classList.add('bg-white/5', 'text-zinc-400', 'ring-white/10');
+                    btnPlay.classList.remove('bg-white/5', 'text-white', 'ring-white/5');
+                    iconPlay.setAttribute('data-lucide', 'square');
+                    textPlay.innerText = 'Stop';
+                    txt.innerText = 'Playing Sequence';
+                }
+            } else {
+                btnPlay.disabled = false;
+                btnPlay.classList.remove('bg-white/5', 'text-zinc-400', 'ring-white/10');
+                btnPlay.classList.add('bg-white/5', 'text-white', 'ring-white/5');
+                iconPlay.setAttribute('data-lucide', 'play');
+                textPlay.innerText = 'Preview';
+                
+                ind.classList.add('opacity-0');
+                
+                ind.classList.replace('bg-rose-500/10', 'bg-yellow-400/10');
+                ind.classList.replace('border-rose-500/50', 'border-yellow-400/50');
+                ind.classList.replace('text-rose-400', 'text-yellow-400');
+                document.getElementById('status-dot').classList.replace('bg-rose-400', 'bg-yellow-400');
+            }
+            lucide.createIcons();
+        }
+
+        function togglePreview() {
+            if (state.isPlaying) {
+                stopPlayback();
+                return;
+            }
+            if (state.shapes.length === 0) return showToast('Draw annotations first!', 'error');
+
+            state.isPlaying = true;
+            setPlayUI(true);
+            
+            requestAnimationFrame((timestamp) => {
+                state.playbackStartTime = timestamp;
+                playbackLoop(timestamp);
+            });
+        }
+
+        function playbackLoop(timestamp) {
+            if (!state.isPlaying) return;
+            
+            let elapsed = (timestamp - state.playbackStartTime) / 1000; 
+            let totalTime = state.timelineCursor + 1.0; 
+
+            renderScene(elapsed, timestamp - state.playbackStartTime);
+
+            if (state.isExporting) {
+                let pct = Math.min(100, Math.round((elapsed / totalTime) * 100));
+                document.getElementById('rec-time').innerText = `Processing ${pct}%`;
+            }
+
+            if (elapsed >= totalTime) {
+                if (state.isExporting) {
+                    document.getElementById('rec-time').innerText = `Finalizing File...`;
+                    setTimeout(stopPlayback, 500); 
+                } else {
+                    stopPlayback();
+                }
+                return;
+            }
+
+            requestAnimationFrame(playbackLoop);
+        }
+
+        function stopPlayback() {
+            state.isPlaying = false;
+            if (state.isExporting && state.mediaRecorder) {
+                if (state.mediaRecorder.state !== 'inactive') state.mediaRecorder.stop();
+                state.isExporting = false;
+                document.getElementById('export-loader').classList.add('opacity-0');
+                setTimeout(() => document.getElementById('export-loader').classList.add('hidden'), 300);
+            }
+            setPlayUI(false);
+            renderScene(); 
+        }
+
+        // --- Export Media Controller ---
+        function exportMedia() {
+            const fmt = document.getElementById('export-fmt').value;
+            if (fmt === 'png') exportSnapshot();
+            else if (fmt === 'gif') exportGIF();
+            else exportVideo();
+        }
+
+        function exportSnapshot() {
+            if (state.shapes.length === 0 && !state.bgImage) return showToast('Nothing to export!', 'error');
+            
+            showToast('Rendering high-res PNG...', 'info');
+            const targetWidth = parseInt(document.getElementById('export-res').value);
+            const aspect = 1080 / 1920;
+            const targetHeight = targetWidth * aspect;
+            const exportScale = targetWidth / 1920;
+
+            const expCanvas = document.createElement('canvas');
+            expCanvas.width = targetWidth;
+            expCanvas.height = targetHeight;
+            const eCtx = expCanvas.getContext('2d');
+            const expRc = rough.canvas(expCanvas);
+
+            // Time forced to end of sequence
+            const totalTime = state.timelineCursor + 1.0;
+            
+            renderFrameToContext(eCtx, expRc, targetWidth, targetHeight, exportScale, totalTime, 0, false);
+
+            const link = document.createElement('a');
+            const bgStatus = state.bgTransparent ? 'transparent' : 'solid';
+            link.download = `vox-snap-${targetWidth}w-${bgStatus}-${Date.now()}.png`;
+            link.href = expCanvas.toDataURL('image/png');
+            link.click();
+            showToast('Snapshot exported successfully!', 'success');
+        }
+
+        function exportGIF() {
+            if (state.shapes.length === 0 && !state.bgImage) return showToast('Draw annotations first!', 'error');
+            if (state.isPlaying || state.isExporting) return;
+            if (!gifWorkerUrl) return showToast('GIF encoder initializing. Try again in a moment.', 'info');
+
+            let targetWidth = parseInt(document.getElementById('export-res').value);
+            // Cap GIF at 1280 to prevent massive memory usage/crashing
+            if (targetWidth > 1280) {
+                targetWidth = 1280; 
+                showToast('GIF resolution capped at 1280 to prevent crashing.', 'info');
+            } else {
+                showToast('Rendering GIF... This may take a while.', 'info');
+            }
+
+            const aspect = 1080 / 1920;
+            const targetHeight = targetWidth * aspect;
+            const exportScale = targetWidth / 1920;
+
+            const expCanvas = document.createElement('canvas');
+            expCanvas.width = targetWidth;
+            expCanvas.height = targetHeight;
+            const eCtx = expCanvas.getContext('2d', { willReadFrequently: true });
+            const expRc = rough.canvas(expCanvas);
+
+            const gif = new GIF({
+                workers: 2,
+                quality: 10,
+                width: targetWidth,
+                height: targetHeight,
+                workerScript: gifWorkerUrl,
+                transparent: state.bgTransparent ? 'rgba(0,0,0,0)' : null
+            });
+
+            state.isPlaying = true;
+            state.isExporting = true;
+            setPlayUI(true);
+            
+            const loader = document.getElementById('export-loader');
+            loader.classList.remove('hidden');
+            requestAnimationFrame(() => loader.classList.remove('opacity-0'));
+            document.getElementById('rec-time').innerText = `Preparing GIF...`;
+
+            const totalTime = state.timelineCursor + 1.0;
+            const fps = 15; // 15 FPS is optimal for GIFs
+            const totalFrames = Math.ceil(totalTime * fps);
+            let currentFrame = 0;
+
+            function renderNextFrame() {
+                if (!state.isExporting) return; // aborted
+
+                let elapsedSec = currentFrame / fps;
+                let timeMs = elapsedSec * 1000;
+                
+                renderFrameToContext(eCtx, expRc, targetWidth, targetHeight, exportScale, elapsedSec, timeMs, false);
+                
+                // Handle pure transparency requirement for gif.js
+                if(state.bgTransparent) {
+                    gif.addFrame(eCtx, {copy: true, delay: 1000 / fps, dispose: 2});
+                } else {
+                    gif.addFrame(eCtx, {copy: true, delay: 1000 / fps});
+                }
+                
+                // Sync live preview so user isn't bored
+                renderScene(elapsedSec, timeMs);
+
+                let pct = Math.round((currentFrame / totalFrames) * 50); 
+                document.getElementById('rec-time').innerText = `Rendering Frames ${pct}%`;
+
+                currentFrame++;
+                if (currentFrame < totalFrames) {
+                    requestAnimationFrame(renderNextFrame);
+                } else {
+                    document.getElementById('rec-time').innerText = `Encoding GIF... (This takes a while)`;
+                    gif.render();
+                }
+            }
+
+            gif.on('finished', function(blob) {
+                const url = URL.createObjectURL(blob);
+                const link = document.createElement('a');
+                link.href = url;
+                const bgStatus = state.bgTransparent ? 'transparent' : 'solid';
+                link.download = `vox-anim-${targetWidth}w-${bgStatus}-${Date.now()}.gif`;
+                link.click();
+                URL.revokeObjectURL(url);
+                
+                showToast('GIF exported successfully!', 'success');
+                stopPlayback();
+            });
+
+            renderNextFrame();
+        }
+
+        function exportVideo() {
+            if (state.shapes.length === 0) return showToast('Draw annotations first!', 'error');
+            if (state.isPlaying || state.isExporting) return;
+
+            try {
+                const targetWidth = parseInt(document.getElementById('export-res').value);
+                const aspect = 1080 / 1920;
+                const targetHeight = targetWidth * aspect;
+
+                const expCanvas = document.createElement('canvas');
+                expCanvas.width = targetWidth;
+                expCanvas.height = targetHeight;
+                const eCtx = expCanvas.getContext('2d');
+                const expRc = rough.canvas(expCanvas);
+                
+                const exportScale = targetWidth / 1920;
+
+                const stream = expCanvas.captureStream(60); 
+                state.recordedChunks = [];
+                
+                state.mediaRecorder = new MediaRecorder(stream, { 
+                    mimeType: 'video/webm; codecs=vp9',
+                    videoBitsPerSecond: 20000000 
+                });
+                
+                state.mediaRecorder.ondataavailable = (e) => {
+                    if (e.data.size > 0) state.recordedChunks.push(e.data);
+                };
+
+                state.mediaRecorder.onstop = () => {
+                    const blob = new Blob(state.recordedChunks, { type: 'video/webm' });
+                    const url = URL.createObjectURL(blob);
+                    const link = document.createElement('a');
+                    link.href = url;
+                    
+                    const bgStatus = state.bgTransparent ? 'transparent' : 'solid';
+                    link.download = `vox-anim-${targetWidth}w-${bgStatus}-${Date.now()}.webm`;
+                    
+                    link.click();
+                    URL.revokeObjectURL(url);
+                    showToast('Video exported successfully!', 'success');
+                };
+
+                state.mediaRecorder.start();
+                
+                state.isPlaying = true;
+                state.isExporting = true;
+                setPlayUI(true);
+                
+                const loader = document.getElementById('export-loader');
+                loader.classList.remove('hidden');
+                requestAnimationFrame(() => loader.classList.remove('opacity-0'));
+
+                const totalTime = state.timelineCursor + 1.0;
+                let exportStartTime = performance.now();
+                
+                function exportRenderLoop(now) {
+                    let elapsedSec = (now - exportStartTime) / 1000;
+                    let timeMs = now - exportStartTime;
+                    
+                    renderFrameToContext(eCtx, expRc, targetWidth, targetHeight, exportScale, elapsedSec, timeMs, false);
+
+                    // Sync visual preview canvas
+                    renderScene(elapsedSec, timeMs);
+
+                    let pct = Math.min(100, Math.round((elapsedSec / totalTime) * 100));
+                    document.getElementById('rec-time').innerText = `Processing WebM ${pct}%`;
+
+                    if (elapsedSec < totalTime) {
+                        requestAnimationFrame(exportRenderLoop);
+                    } else {
+                        document.getElementById('rec-time').innerText = `Finalizing File...`;
+                        setTimeout(stopPlayback, 500); 
+                    }
+                }
+                
+                requestAnimationFrame(exportRenderLoop);
+
+            } catch (err) {
+                console.error(err);
+                showToast('Export failed. Browser might not support high-res WebM recording.', 'error');
+                stopPlayback();
+            }
+        }
+
+        // Initial Paint
+        renderScene();
+
+    </script>
+</body>
+</html>

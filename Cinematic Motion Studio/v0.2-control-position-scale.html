@@ -1,0 +1,766 @@
+<!DOCTYPE html>
+<html lang="en" class="dark">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+    <title>Cinematic Motion Studio Pro</title>
+    <!-- Tailwind CSS -->
+    <script src="https://cdn.tailwindcss.com"></script>
+    <!-- Google Fonts -->
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
+    <!-- Lucide Icons -->
+    <script src="https://unpkg.com/lucide@latest"></script>
+    <style>
+        :root { color-scheme: dark; }
+
+        body {
+            font-family: 'Inter', sans-serif;
+            background-color: #09090b; 
+            color: #ececf1;
+            overflow: hidden;
+            touch-action: none;
+            -webkit-font-smoothing: antialiased;
+        }
+
+        ::-webkit-scrollbar { width: 6px; height: 6px; }
+        ::-webkit-scrollbar-track { background: transparent; }
+        ::-webkit-scrollbar-thumb { background: rgba(255, 255, 255, 0.15); border-radius: 10px; }
+        ::-webkit-scrollbar-thumb:hover { background: rgba(255, 255, 255, 0.25); }
+
+        .transparent-pattern {
+            background-image: 
+                linear-gradient(45deg, rgba(255,255,255,0.02) 25%, transparent 25%, transparent 75%, rgba(255,255,255,0.02) 75%, rgba(255,255,255,0.02)), 
+                linear-gradient(45deg, rgba(255,255,255,0.02) 25%, transparent 25%, transparent 75%, rgba(255,255,255,0.02) 75%, rgba(255,255,255,0.02));
+            background-size: 20px 20px;
+            background-position: 0 0, 10px 10px;
+        }
+
+        /* macOS style sliders */
+        input[type="range"] {
+            -webkit-appearance: none;
+            height: 4px;
+            background: rgba(255, 255, 255, 0.1);
+            border-radius: 2px;
+            outline: none;
+        }
+        input[type="range"]::-webkit-slider-thumb {
+            -webkit-appearance: none;
+            width: 16px;
+            height: 16px;
+            border-radius: 50%;
+            background: #fff;
+            box-shadow: 0 2px 6px rgba(0,0,0,0.4);
+            cursor: pointer;
+            transition: transform 0.1s;
+        }
+        input[type="range"]::-webkit-slider-thumb:hover { transform: scale(1.15); }
+        
+        input[type="color"] {
+            -webkit-appearance: none;
+            border: none;
+            width: 28px;
+            height: 28px;
+            border-radius: 50%;
+            padding: 0;
+            cursor: pointer;
+            background: transparent;
+        }
+        input[type="color"]::-webkit-color-swatch-wrapper { padding: 0; }
+        input[type="color"]::-webkit-color-swatch { border: none; border-radius: 50%; box-shadow: inset 0 0 0 1px rgba(255,255,255,0.2); }
+
+        /* Segmented Buttons */
+        .segmented-btn { transition: all 0.2s cubic-bezier(0.4, 0, 0.2, 1); }
+        .segmented-btn.active {
+            background: rgba(255, 255, 255, 0.15);
+            color: white;
+            box-shadow: 0 1px 3px rgba(0,0,0,0.2), inset 0 1px 0 rgba(255,255,255,0.1);
+        }
+
+        /* Canvas Wrapper & Scaling */
+        #scale-wrapper {
+            position: absolute;
+            inset: 0;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            overflow: hidden;
+            padding: 24px;
+        }
+
+        #preview-canvas {
+            box-shadow: 0 25px 50px -12px rgba(0,0,0,0.8), 0 0 0 1px rgba(255,255,255,0.05);
+            border-radius: 8px;
+            background-color: #000;
+            transform-origin: center center;
+            will-change: transform;
+            transition: width 0.3s ease, height 0.3s ease;
+        }
+    </style>
+</head>
+<body class="flex flex-col h-screen text-sm">
+
+    <!-- macOS Glass Header -->
+    <header class="absolute top-0 w-full h-14 bg-zinc-900/80 backdrop-blur-2xl border-b border-white/5 flex items-center justify-between px-4 sm:px-6 z-40">
+        
+        <!-- Logo -->
+        <div class="flex items-center gap-3">
+            <div class="w-7 h-7 rounded-lg bg-gradient-to-br from-indigo-500 to-purple-600 flex items-center justify-center shadow-inner shadow-white/20">
+                <i data-lucide="image-play" class="w-4 h-4 text-white"></i>
+            </div>
+            <h1 class="font-semibold tracking-tight whitespace-nowrap hidden sm:block text-zinc-100">Cinematic <span class="text-zinc-500 font-normal">Motion</span></h1>
+        </div>
+
+        <!-- Image Upload (Center) -->
+        <div class="flex-1 flex justify-center mx-4">
+            <button onclick="document.getElementById('image-upload').click()" class="flex items-center gap-2 px-4 py-1.5 bg-white/5 hover:bg-white/10 border border-white/10 rounded-lg text-zinc-300 transition-all shadow-inner text-xs font-medium">
+                <i data-lucide="upload-cloud" class="w-4 h-4 text-indigo-400"></i>
+                <span id="upload-text" class="truncate max-w-[150px] sm:max-w-[300px]">Upload High-Res Image</span>
+            </button>
+            <input type="file" id="image-upload" accept="image/*" class="hidden" onchange="handleImageUpload(event)">
+        </div>
+
+        <!-- Export & Play Controls -->
+        <div class="flex items-center justify-end gap-2 shrink-0">
+            <button onclick="togglePreview()" id="btn-play" class="flex items-center gap-2 px-3 py-1.5 bg-white/5 hover:bg-white/10 text-white rounded-lg font-medium transition-colors ring-1 ring-white/5 text-xs sm:text-sm shadow-sm">
+                <i data-lucide="play" class="w-4 h-4" id="icon-play"></i>
+                <span id="text-play" class="hidden sm:inline">Preview</span>
+            </button>
+            
+            <div class="flex bg-indigo-600 rounded-lg shadow-lg shadow-indigo-600/20 ring-1 ring-inset ring-white/20 transition-all hover:bg-indigo-500">
+                <select id="export-res" class="bg-transparent text-white font-medium pl-2 pr-1 py-1.5 outline-none cursor-pointer appearance-none text-xs border-r border-indigo-400/30 hidden sm:block">
+                    <option value="1080" selected>HD 1080p</option>
+                    <option value="1440">2K 1440p</option>
+                    <option value="2160">4K 2160p</option>
+                </select>
+                <button onclick="exportVideo()" id="btn-export" class="flex items-center gap-2 px-3 py-1.5 text-white font-medium transition-all rounded-r-lg text-xs sm:text-sm">
+                    <i data-lucide="download" class="w-4 h-4" id="icon-export"></i>
+                    <span class="hidden sm:inline" id="text-export">WebM</span>
+                </button>
+            </div>
+        </div>
+    </header>
+
+    <!-- Main Layout -->
+    <div class="flex flex-1 pt-14 relative overflow-hidden flex-col md:flex-row">
+        
+        <!-- Left Sidebar: Controls -->
+        <aside class="w-full md:w-80 flex-shrink-0 bg-zinc-900/60 backdrop-blur-3xl border-r border-white/5 z-30 h-[45%] md:h-full flex flex-col shadow-[0_-10px_40px_rgba(0,0,0,0.5)] md:shadow-none order-2 md:order-1">
+            
+            <div class="p-5 overflow-y-auto space-y-6">
+                
+                <!-- Format & Background -->
+                <div>
+                    <div class="flex items-center justify-between mb-3">
+                        <label class="text-[11px] font-bold text-zinc-500 uppercase tracking-widest block flex items-center gap-1.5">
+                            <i data-lucide="monitor" class="w-3 h-3"></i> Frame Setup
+                        </label>
+                        <div class="flex items-center gap-2 bg-black/40 px-2 py-1 rounded-lg border border-white/5">
+                            <span class="text-[10px] text-zinc-400">BG</span>
+                            <div class="relative w-4 h-4 rounded-full border border-white/20 overflow-hidden cursor-pointer">
+                                <input type="color" class="absolute w-full h-full opacity-0 inset-0 cursor-pointer" value="#000000" id="prop-bgcolor" onchange="state.bgColor = this.value; if(!state.isPlaying) renderFrame(1);" oninput="state.bgColor = this.value; if(!state.isPlaying) renderFrame(1);">
+                            </div>
+                        </div>
+                    </div>
+                    
+                    <div class="flex p-1 bg-black/40 rounded-xl ring-1 ring-white/5">
+                        <button class="segmented-btn active flex-1 py-2 rounded-lg text-[11px] font-medium text-zinc-400 flex flex-col justify-center items-center gap-1" data-ar="16:9" onclick="setAspectRatio('16:9')">
+                            <div class="w-5 h-3 border-2 border-current rounded-sm"></div>
+                            16:9
+                        </button>
+                        <button class="segmented-btn flex-1 py-2 rounded-lg text-[11px] font-medium text-zinc-400 flex flex-col justify-center items-center gap-1" data-ar="9:16" onclick="setAspectRatio('9:16')">
+                            <div class="w-3 h-5 border-2 border-current rounded-sm"></div>
+                            9:16
+                        </button>
+                        <button class="segmented-btn flex-1 py-2 rounded-lg text-[11px] font-medium text-zinc-400 flex flex-col justify-center items-center gap-1" data-ar="1:1" onclick="setAspectRatio('1:1')">
+                            <div class="w-4 h-4 border-2 border-current rounded-sm"></div>
+                            1:1
+                        </button>
+                    </div>
+                </div>
+
+                <div class="w-full h-px bg-white/5"></div>
+
+                <!-- Image Transform (Scale & Pan) -->
+                <div class="space-y-4">
+                    <div class="flex items-center justify-between">
+                        <label class="text-[11px] font-bold text-zinc-500 uppercase tracking-widest block flex items-center gap-1.5">
+                            <i data-lucide="move" class="w-3 h-3"></i> Transform
+                        </label>
+                        <button onclick="resetTransform()" class="text-[10px] text-indigo-400 hover:text-indigo-300 font-medium">Reset</button>
+                    </div>
+
+                    <div>
+                        <div class="flex justify-between items-center mb-1.5">
+                            <span class="text-[10px] text-zinc-300">Base Scale</span>
+                            <span id="scale-val" class="text-[10px] text-zinc-400 font-mono">1.00x</span>
+                        </div>
+                        <input type="range" id="slide-scale" min="0.1" max="4" step="0.05" value="1" class="w-full accent-indigo-500" oninput="state.baseScale = parseFloat(this.value); document.getElementById('scale-val').innerText = parseFloat(this.value).toFixed(2) + 'x'; if(!state.isPlaying) renderFrame(1);">
+                    </div>
+
+                    <div class="grid grid-cols-2 gap-4">
+                        <div>
+                            <div class="flex justify-between items-center mb-1.5">
+                                <span class="text-[10px] text-zinc-300">Position X</span>
+                                <span id="posx-val" class="text-[10px] text-zinc-400 font-mono">0</span>
+                            </div>
+                            <input type="range" id="slide-posx" min="-100" max="100" value="0" class="w-full accent-indigo-500" oninput="state.offsetX = parseInt(this.value); document.getElementById('posx-val').innerText = this.value; if(!state.isPlaying) renderFrame(1);">
+                        </div>
+                        <div>
+                            <div class="flex justify-between items-center mb-1.5">
+                                <span class="text-[10px] text-zinc-300">Position Y</span>
+                                <span id="posy-val" class="text-[10px] text-zinc-400 font-mono">0</span>
+                            </div>
+                            <input type="range" id="slide-posy" min="-100" max="100" value="0" class="w-full accent-indigo-500" oninput="state.offsetY = parseInt(this.value); document.getElementById('posy-val').innerText = this.value; if(!state.isPlaying) renderFrame(1);">
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Image Cropping -->
+                <div class="bg-white/5 rounded-2xl p-4 ring-1 ring-white/5 space-y-3">
+                    <div class="flex items-center justify-between">
+                        <label class="text-[10px] font-bold text-zinc-500 uppercase tracking-widest block flex items-center gap-1.5"><i data-lucide="crop" class="w-3 h-3"></i> Crop</label>
+                    </div>
+                    <div class="grid grid-cols-2 gap-x-4 gap-y-4">
+                        <div>
+                            <div class="flex justify-between items-center mb-1.5"><span class="text-[10px] text-zinc-400">Top</span><span id="cropT-val" class="text-[10px] text-zinc-500">0%</span></div>
+                            <input type="range" id="slide-cropT" min="0" max="95" value="0" class="w-full accent-indigo-500" oninput="updateCrop('T', this.value)">
+                        </div>
+                        <div>
+                            <div class="flex justify-between items-center mb-1.5"><span class="text-[10px] text-zinc-400">Bottom</span><span id="cropB-val" class="text-[10px] text-zinc-500">0%</span></div>
+                            <input type="range" id="slide-cropB" min="0" max="95" value="0" class="w-full accent-indigo-500" oninput="updateCrop('B', this.value)">
+                        </div>
+                        <div>
+                            <div class="flex justify-between items-center mb-1.5"><span class="text-[10px] text-zinc-400">Left</span><span id="cropL-val" class="text-[10px] text-zinc-500">0%</span></div>
+                            <input type="range" id="slide-cropL" min="0" max="95" value="0" class="w-full accent-indigo-500" oninput="updateCrop('L', this.value)">
+                        </div>
+                        <div>
+                            <div class="flex justify-between items-center mb-1.5"><span class="text-[10px] text-zinc-400">Right</span><span id="cropR-val" class="text-[10px] text-zinc-500">0%</span></div>
+                            <input type="range" id="slide-cropR" min="0" max="95" value="0" class="w-full accent-indigo-500" oninput="updateCrop('R', this.value)">
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Animation Engine Settings -->
+                <div class="space-y-4">
+                    <label class="text-[11px] font-bold text-indigo-400 uppercase tracking-widest block flex items-center gap-1.5">
+                        <i data-lucide="film" class="w-3 h-3"></i> Cinematic Engine
+                    </label>
+                    
+                    <div>
+                        <span class="text-xs text-zinc-400 block mb-2">Camera Movement (Vox Style)</span>
+                        <select class="w-full bg-black/40 border border-white/10 rounded-lg text-xs text-zinc-200 px-3 py-2.5 outline-none focus:ring-1 focus:ring-indigo-500 appearance-none cursor-pointer" onchange="state.animType = this.value; if(!state.isPlaying) renderFrame(1);">
+                            <optgroup label="Documentary Essentials">
+                                <option value="ken-burns-in" selected>Ken Burns (Push & Pan)</option>
+                                <option value="ken-burns-out">Ken Burns (Pull & Pan)</option>
+                                <option value="dutch-angle">Dutch Angle (Tilt & Zoom)</option>
+                            </optgroup>
+                            <optgroup label="Standard Linear">
+                                <option value="zoom-in">Steady Zoom In</option>
+                                <option value="zoom-out">Steady Zoom Out</option>
+                                <option value="pan-up">Pan Up</option>
+                                <option value="pan-down">Pan Down</option>
+                                <option value="pan-left">Pan Left</option>
+                                <option value="pan-right">Pan Right</option>
+                            </optgroup>
+                            <optgroup label="Dynamic Shifts">
+                                <option value="whip-pan-left">Whip Pan Left</option>
+                                <option value="whip-pan-right">Whip Pan Right</option>
+                            </optgroup>
+                            <option value="none">No Animation</option>
+                        </select>
+                    </div>
+
+                    <div>
+                        <div class="flex justify-between items-center mb-2">
+                            <span class="text-xs text-zinc-300 font-medium">Motion Intensity</span>
+                            <span id="intensity-val" class="text-xs text-zinc-400 font-mono">15%</span>
+                        </div>
+                        <input type="range" min="5" max="100" value="15" class="w-full accent-indigo-500" oninput="state.intensity = parseInt(this.value); document.getElementById('intensity-val').innerText = this.value + '%'; if(!state.isPlaying) renderFrame(1);">
+                    </div>
+
+                    <div>
+                        <span class="text-xs text-zinc-400 block mb-2">Easing Function (Velocity)</span>
+                        <select class="w-full bg-black/40 border border-white/10 rounded-lg text-xs text-zinc-200 px-3 py-2 outline-none focus:ring-1 focus:ring-indigo-500 appearance-none cursor-pointer" onchange="state.easing = this.value; if(!state.isPlaying) renderFrame(1);">
+                            <option value="easeInOutSine" selected>Smooth In & Out (Classic)</option>
+                            <option value="easeOutCubic">Decelerate (Fast Start)</option>
+                            <option value="easeInOutCubic">Dramatic (Whip-like)</option>
+                            <option value="linear">Linear (Constant Speed)</option>
+                        </select>
+                    </div>
+
+                    <div>
+                        <div class="flex justify-between items-center mb-2 pt-4 border-t border-white/5">
+                            <span class="text-xs text-zinc-300 font-bold">Video Duration</span>
+                            <span id="dur-val" class="text-xs text-indigo-400 font-bold">5.0s</span>
+                        </div>
+                        <input type="range" min="1.0" max="15.0" step="0.5" value="5.0" class="w-full accent-indigo-500" oninput="state.duration = parseFloat(this.value); document.getElementById('dur-val').innerText = parseFloat(this.value).toFixed(1) + 's';">
+                    </div>
+                </div>
+
+            </div>
+        </aside>
+
+        <!-- Main Canvas Area -->
+        <main class="flex-1 relative bg-zinc-950 transparent-pattern overflow-hidden order-1 md:order-2 flex items-center justify-center">
+            
+            <div id="scale-wrapper">
+                <canvas id="preview-canvas" width="1920" height="1080"></canvas>
+            </div>
+            
+            <!-- Playback Indicator -->
+            <div id="status-indicator" class="absolute top-6 right-6 flex items-center gap-2 bg-indigo-500/10 border border-indigo-500/50 text-indigo-400 px-4 py-2.5 rounded-full shadow-lg opacity-0 transition-opacity duration-300 pointer-events-none backdrop-blur-md z-50">
+                <div class="w-2 h-2 rounded-full bg-indigo-400 animate-pulse" id="status-dot"></div>
+                <span class="text-xs font-bold tracking-wide uppercase" id="status-text">Playing Sequence</span>
+            </div>
+        </main>
+    </div>
+
+    <!-- Export Loading Overlay -->
+    <div id="export-loader" class="fixed inset-0 z-50 bg-black/80 hidden flex flex-col items-center justify-center transition-opacity opacity-0 backdrop-blur-sm">
+        <div class="w-12 h-12 border-4 border-white/10 border-t-indigo-500 rounded-full animate-spin mb-4"></div>
+        <h2 class="text-xl font-bold text-white mb-2">Rendering WebM Video</h2>
+        <p class="text-sm text-zinc-400 font-mono font-medium" id="rec-time">Processing 0%</p>
+    </div>
+
+    <!-- Toasts -->
+    <div id="toast-container" class="fixed top-20 right-6 z-[60] flex flex-col gap-2 pointer-events-none"></div>
+
+    <script>
+        lucide.createIcons();
+
+        // --- Application State ---
+        const state = {
+            image: null,
+            aspectRatio: '16:9', 
+            bgColor: '#000000',
+            
+            // Image Customization
+            baseScale: 1.0,
+            offsetX: 0, // -100 to 100 percentage
+            offsetY: 0, // -100 to 100 percentage
+            cropT: 0, cropB: 0, cropL: 0, cropR: 0, // percentages
+            
+            // Animation Engine
+            animType: 'ken-burns-in', 
+            intensity: 15, // 5% to 100%
+            easing: 'easeInOutSine',
+            duration: 5.0,
+            
+            // App Control
+            isPlaying: false,
+            isExporting: false,
+            animStartTime: 0,
+            reqId: null,
+            
+            mediaRecorder: null,
+            recordedChunks: []
+        };
+
+        const canvas = document.getElementById('preview-canvas');
+        const ctx = canvas.getContext('2d', { alpha: false }); 
+
+        // --- Easing Mathematics ---
+        const Easing = {
+            linear: (t) => t,
+            easeInOutSine: (t) => -(Math.cos(Math.PI * t) - 1) / 2,
+            easeOutCubic: (t) => 1 - Math.pow(1 - t, 3),
+            easeInOutCubic: (t) => t < 0.5 ? 4 * t * t * t : 1 - Math.pow(-2 * t + 2, 3) / 2
+        };
+
+        // --- UI Updaters ---
+        function setAspectRatio(ar) {
+            state.aspectRatio = ar;
+            document.querySelectorAll('[data-ar]').forEach(btn => {
+                btn.classList.remove('active');
+                if(btn.dataset.ar === ar) btn.classList.add('active');
+            });
+            
+            if (ar === '16:9') { canvas.width = 1920; canvas.height = 1080; } 
+            else if (ar === '9:16') { canvas.width = 1080; canvas.height = 1920; } 
+            else if (ar === '1:1') { canvas.width = 1080; canvas.height = 1080; }
+            
+            updateLayoutScale();
+            if (!state.isPlaying) renderFrame(1.0); 
+        }
+
+        function updateLayoutScale() {
+            const wrapper = document.getElementById('scale-wrapper');
+            const padding = 40; 
+            const availW = wrapper.clientWidth - padding;
+            const availH = wrapper.clientHeight - padding;
+
+            const scale = Math.min(availW / canvas.width, availH / canvas.height);
+            canvas.style.transform = `scale(${scale})`;
+        }
+        window.addEventListener('resize', updateLayoutScale);
+
+        function updateCrop(axis, val) {
+            let num = parseInt(val);
+            if(axis === 'T' && num + state.cropB >= 95) num = 95 - state.cropB;
+            if(axis === 'B' && num + state.cropT >= 95) num = 95 - state.cropT;
+            if(axis === 'L' && num + state.cropR >= 95) num = 95 - state.cropR;
+            if(axis === 'R' && num + state.cropL >= 95) num = 95 - state.cropL;
+            
+            state['crop'+axis] = num;
+            document.getElementById(`slide-crop${axis}`).value = num;
+            document.getElementById(`crop${axis}-val`).innerText = num + '%';
+            if(!state.isPlaying) renderFrame(1);
+        }
+
+        function resetTransform() {
+            state.baseScale = 1.0;
+            state.offsetX = 0;
+            state.offsetY = 0;
+            
+            document.getElementById('slide-scale').value = 1.0;
+            document.getElementById('scale-val').innerText = '1.00x';
+            
+            document.getElementById('slide-posx').value = 0;
+            document.getElementById('posx-val').innerText = '0';
+            
+            document.getElementById('slide-posy').value = 0;
+            document.getElementById('posy-val').innerText = '0';
+            
+            if(!state.isPlaying) renderFrame(1);
+        }
+
+        function handleImageUpload(e) {
+            const file = e.target.files[0];
+            if (!file) return;
+            if (!file.type.startsWith('image/')) return showToast('Please upload an image file.', 'error');
+            
+            const reader = new FileReader();
+            reader.onload = (event) => {
+                const img = new Image();
+                img.onload = () => {
+                    state.image = img;
+                    document.getElementById('upload-text').innerText = file.name;
+                    resetTransform(); // Reset position when new image loaded
+                    showToast('Image loaded successfully!', 'success');
+                    if (!state.isPlaying) renderFrame(1.0);
+                };
+                img.src = event.target.result;
+            };
+            reader.readAsDataURL(file);
+        }
+
+        function showToast(message, type = 'info') {
+            const container = document.getElementById('toast-container');
+            const toast = document.createElement('div');
+            toast.className = `bg-zinc-800/95 backdrop-blur-md text-white px-4 py-3 rounded-xl shadow-2xl ring-1 ring-white/10 flex items-center gap-3 transform transition-all -translate-y-4 opacity-0 z-50`;
+            let icon = type === 'success' ? 'check-circle' : (type === 'error' ? 'alert-triangle' : 'info');
+            let color = type === 'success' ? 'text-emerald-400' : (type === 'error' ? 'text-rose-400' : 'text-indigo-400');
+            toast.innerHTML = `<i data-lucide="${icon}" class="w-4 h-4 ${color}"></i> <span class="text-sm font-medium">${message}</span>`;
+            container.appendChild(toast); lucide.createIcons();
+            requestAnimationFrame(() => toast.classList.remove('-translate-y-4', 'opacity-0'));
+            setTimeout(() => { toast.classList.add('-translate-y-4', 'opacity-0'); setTimeout(() => toast.remove(), 300); }, 3000);
+        }
+
+        function generatePlaceholderImage() {
+            const tempCanvas = document.createElement('canvas');
+            tempCanvas.width = 1920; tempCanvas.height = 1080;
+            const tCtx = tempCanvas.getContext('2d');
+
+            const grad = tCtx.createLinearGradient(0, 0, 1920, 1080);
+            grad.addColorStop(0, '#1e1b4b'); grad.addColorStop(0.5, '#881337'); grad.addColorStop(1, '#f59e0b'); 
+            tCtx.fillStyle = grad; tCtx.fillRect(0, 0, 1920, 1080);
+
+            tCtx.fillStyle = 'rgba(255,255,255,0.05)';
+            tCtx.beginPath(); tCtx.arc(400, 300, 600, 0, Math.PI*2); tCtx.fill();
+            tCtx.beginPath(); tCtx.arc(1600, 800, 400, 0, Math.PI*2); tCtx.fill();
+            
+            tCtx.fillStyle = 'rgba(0,0,0,0.2)';
+            tCtx.beginPath(); tCtx.moveTo(0, 1080); tCtx.lineTo(960, 400); tCtx.lineTo(1920, 1080); tCtx.fill();
+
+            const img = new Image();
+            img.onload = () => { state.image = img; if (!state.isPlaying) renderFrame(1.0); };
+            img.src = tempCanvas.toDataURL('image/jpeg', 0.9);
+        }
+
+        // --- Core Render Engine ---
+        function renderFrame(rawProgress) {
+            if (!state.image) return;
+
+            const w = canvas.width;
+            const h = canvas.height;
+            const img = state.image;
+
+            // Background Fill (Visible if image scaled down)
+            ctx.fillStyle = state.bgColor;
+            ctx.fillRect(0, 0, w, h);
+
+            // 1. Calculate Crop Metrics
+            const cL = (state.cropL / 100) * img.width;
+            const cR = (state.cropR / 100) * img.width;
+            const cT = (state.cropT / 100) * img.height;
+            const cB = (state.cropB / 100) * img.height;
+
+            const srcX = cL;
+            const srcY = cT;
+            const srcW = img.width - cL - cR;
+            const srcH = img.height - cT - cB;
+
+            // 2. Base Fit Scale (Object-Fit: Cover style logic for the cropped area)
+            const fitScale = Math.max(w / srcW, h / srcH);
+            
+            // Apply user base scale
+            const finalBaseScale = fitScale * state.baseScale;
+            const dw = srcW * finalBaseScale;
+            const dh = srcH * finalBaseScale;
+
+            // Apply user offsets
+            // Offset is a percentage of half the canvas width/height to make slider intuitive
+            const userOffsetX = (state.offsetX / 100) * (w / 1.5);
+            const userOffsetY = (state.offsetY / 100) * (h / 1.5);
+
+            // 3. Mathematical Animation Engine
+            const p = Easing[state.easing](Math.max(0, Math.min(1, rawProgress)));
+            const intensityFloat = state.intensity / 100; 
+
+            let animScale = 1.0;
+            let panX = 0; let panY = 0;
+            let rotation = 0;
+
+            switch(state.animType) {
+                case 'ken-burns-in':
+                    animScale = 1.0 + (intensityFloat * p);
+                    panX = (intensityFloat * w * 0.1) * p; // Slow pan
+                    panY = (intensityFloat * h * 0.1) * p;
+                    break;
+                case 'ken-burns-out':
+                    animScale = (1.0 + intensityFloat) - (intensityFloat * p);
+                    panX = -(intensityFloat * w * 0.1) * (1 - p); 
+                    panY = -(intensityFloat * h * 0.1) * (1 - p);
+                    break;
+                case 'dutch-angle':
+                    // Add extra padding to scale to hide corners when rotating
+                    const rotScalePad = 0.15; 
+                    animScale = 1.0 + rotScalePad + (intensityFloat * p);
+                    // Rotate a max of roughly 8 degrees
+                    rotation = (Math.PI / 180) * (intensityFloat * 20 * p); 
+                    break;
+                case 'zoom-in':
+                    animScale = 1.0 + (intensityFloat * p);
+                    break;
+                case 'zoom-out':
+                    animScale = (1.0 + intensityFloat) - (intensityFloat * p);
+                    break;
+                case 'pan-left':
+                    animScale = 1.0 + intensityFloat; 
+                    // Safely pan by the overflow amount.
+                    panX = ((dw * animScale - w) / 2) * (1 - 2*p) / animScale; 
+                    break;
+                case 'pan-right':
+                    animScale = 1.0 + intensityFloat;
+                    panX = -((dw * animScale - w) / 2) * (1 - 2*p) / animScale; 
+                    break;
+                case 'pan-up':
+                    animScale = 1.0 + intensityFloat;
+                    panY = ((dh * animScale - h) / 2) * (1 - 2*p) / animScale;
+                    break;
+                case 'pan-down':
+                    animScale = 1.0 + intensityFloat;
+                    panY = -((dh * animScale - h) / 2) * (1 - 2*p) / animScale;
+                    break;
+                case 'whip-pan-left':
+                    animScale = 1.0 + intensityFloat;
+                    panX = ((dw * animScale - w) / 2) * (1 - 2*p) / animScale;
+                    // Usually whip pan requires aggressive easing, user should select easeInOutCubic
+                    break;
+                case 'whip-pan-right':
+                    animScale = 1.0 + intensityFloat;
+                    panX = -((dw * animScale - w) / 2) * (1 - 2*p) / animScale;
+                    break;
+            }
+
+            // 4. Execute Context Transformations
+            ctx.save();
+            ctx.translate(w / 2, h / 2); // Center Origin
+            
+            // Apply Animation Transforms
+            ctx.scale(animScale, animScale); 
+            ctx.translate(panX, panY); 
+            ctx.rotate(rotation);
+
+            // Apply User Base Offsets
+            ctx.translate(userOffsetX, userOffsetY);
+
+            // Draw cropped & scaled image perfectly centered
+            ctx.drawImage(img, srcX, srcY, srcW, srcH, -dw / 2, -dh / 2, dw, dh);
+            
+            ctx.restore();
+        }
+
+        // --- Playback Engine ---
+        function setPlayUI(playing) {
+            const btnPlay = document.getElementById('btn-play');
+            const iconPlay = document.getElementById('icon-play');
+            const textPlay = document.getElementById('text-play');
+            const ind = document.getElementById('status-indicator');
+
+            document.querySelectorAll('button:not(#btn-play):not(#btn-export), input, select').forEach(b => b.disabled = playing);
+
+            if (playing) {
+                ind.classList.remove('opacity-0');
+                if (state.isExporting) {
+                    btnPlay.disabled = true;
+                    ind.classList.replace('bg-indigo-500/10', 'bg-red-500/10');
+                    ind.classList.replace('border-indigo-500/50', 'border-red-500/50');
+                    ind.classList.replace('text-indigo-400', 'text-red-400');
+                    document.getElementById('status-dot').classList.replace('bg-indigo-400', 'bg-red-400');
+                    document.getElementById('status-text').innerText = 'Rendering Video...';
+                } else {
+                    btnPlay.classList.add('bg-white/5', 'text-zinc-400');
+                    btnPlay.classList.remove('bg-white/5', 'text-white');
+                    iconPlay.setAttribute('data-lucide', 'square');
+                    textPlay.innerText = 'Stop';
+                }
+            } else {
+                btnPlay.disabled = false;
+                btnPlay.classList.remove('bg-white/5', 'text-zinc-400');
+                btnPlay.classList.add('bg-white/5', 'text-white');
+                iconPlay.setAttribute('data-lucide', 'play');
+                textPlay.innerText = 'Preview';
+                
+                ind.classList.add('opacity-0');
+                ind.classList.replace('bg-red-500/10', 'bg-indigo-500/10');
+                ind.classList.replace('border-red-500/50', 'border-indigo-500/50');
+                ind.classList.replace('text-red-400', 'text-indigo-400');
+                document.getElementById('status-dot').classList.replace('bg-red-400', 'bg-indigo-400');
+                document.getElementById('status-text').innerText = 'Playing Sequence';
+            }
+            lucide.createIcons();
+        }
+
+        function togglePreview() {
+            if (state.isPlaying) {
+                stopPlayback();
+                return;
+            }
+            if (!state.image) return showToast('No image loaded!', 'error');
+
+            state.isPlaying = true;
+            setPlayUI(true);
+            
+            state.animStartTime = performance.now();
+            requestAnimationFrame(playbackLoop);
+        }
+
+        function playbackLoop(timestamp) {
+            if (!state.isPlaying) return;
+            
+            const elapsedSec = (timestamp - state.animStartTime) / 1000;
+            let rawProgress = elapsedSec / state.duration;
+
+            if (rawProgress >= 1.0) {
+                rawProgress = 1.0;
+                renderFrame(rawProgress);
+                
+                if (state.isExporting) {
+                    document.getElementById('rec-time').innerText = `Finalizing File...`;
+                    setTimeout(stopPlayback, 500); 
+                } else {
+                    stopPlayback();
+                }
+                return;
+            }
+
+            renderFrame(rawProgress);
+
+            if (state.isExporting) {
+                let pct = Math.min(100, Math.round(rawProgress * 100));
+                document.getElementById('rec-time').innerText = `Processing ${pct}%`;
+            }
+
+            state.reqId = requestAnimationFrame(playbackLoop);
+        }
+
+        function stopPlayback() {
+            state.isPlaying = false;
+            cancelAnimationFrame(state.reqId);
+            
+            if (state.isExporting && state.mediaRecorder) {
+                if (state.mediaRecorder.state !== 'inactive') state.mediaRecorder.stop();
+                state.isExporting = false;
+                document.getElementById('export-loader').classList.add('opacity-0');
+                setTimeout(() => document.getElementById('export-loader').classList.add('hidden'), 300);
+            }
+            setPlayUI(false);
+            renderFrame(1.0); // Reset to end state
+        }
+
+        // --- WebM Export Engine ---
+        function exportVideo() {
+            if (!state.image) return showToast('No image loaded!', 'error');
+            if (state.isPlaying || state.isExporting) return;
+
+            try {
+                // Ensure internal canvas resolution matches selected export resolution
+                const targetHeight = parseInt(document.getElementById('export-res').value);
+                const isVertical = state.aspectRatio === '9:16';
+                const isSquare = state.aspectRatio === '1:1';
+                
+                let targetWidth = targetHeight;
+                if (!isSquare) {
+                    targetWidth = isVertical ? Math.round(targetHeight * (9/16)) : Math.round(targetHeight * (16/9));
+                }
+
+                // Temporarily resize real canvas for recording
+                canvas.width = targetWidth;
+                canvas.height = targetHeight;
+
+                const stream = canvas.captureStream(60); 
+                state.recordedChunks = [];
+                
+                const bitrate = targetHeight >= 2160 ? 30000000 : 15000000;
+                
+                state.mediaRecorder = new MediaRecorder(stream, { 
+                    mimeType: 'video/webm; codecs=vp9',
+                    videoBitsPerSecond: bitrate 
+                });
+                
+                state.mediaRecorder.ondataavailable = (e) => {
+                    if (e.data.size > 0) state.recordedChunks.push(e.data);
+                };
+
+                state.mediaRecorder.onstop = () => {
+                    const blob = new Blob(state.recordedChunks, { type: 'video/webm' });
+                    const url = URL.createObjectURL(blob);
+                    const link = document.createElement('a');
+                    link.href = url;
+                    link.download = `cinematic-motion-${targetHeight}p-${Date.now()}.webm`;
+                    link.click();
+                    URL.revokeObjectURL(url);
+                    showToast('Video exported successfully!', 'success');
+                    
+                    // Reset canvas resolution
+                    setAspectRatio(state.aspectRatio); 
+                };
+
+                state.mediaRecorder.start();
+                state.isPlaying = true;
+                state.isExporting = true;
+                setPlayUI(true);
+                
+                const loader = document.getElementById('export-loader');
+                loader.classList.remove('hidden');
+                requestAnimationFrame(() => loader.classList.remove('opacity-0'));
+
+                state.animStartTime = performance.now();
+                requestAnimationFrame(playbackLoop);
+
+            } catch (err) {
+                console.error(err);
+                showToast('Export failed. Browser might not support VP9 WebM recording.', 'error');
+                setAspectRatio(state.aspectRatio); 
+                stopPlayback();
+            }
+        }
+
+        // Initialize Defaults
+        setAspectRatio('16:9');
+        generatePlaceholderImage();
+
+    </script>
+</body>
+</html>

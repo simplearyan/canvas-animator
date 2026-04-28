@@ -1,0 +1,915 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+    <title>Macify Web Studio 5.3</title>
+    <!-- Tailwind CSS -->
+    <script src="https://cdn.tailwindcss.com"></script>
+    <!-- Google Fonts -->
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
+    <!-- Lucide Icons -->
+    <script src="https://unpkg.com/lucide@latest"></script>
+    <style>
+        /* Force dark mode native UI elements (like dropdowns) */
+        :root { color-scheme: dark; }
+
+        body {
+            font-family: 'Inter', sans-serif;
+            background-color: #09090b; 
+            color: #ececf1;
+            overflow: hidden;
+            touch-action: none;
+            -webkit-font-smoothing: antialiased;
+        }
+
+        ::-webkit-scrollbar { width: 6px; height: 6px; }
+        ::-webkit-scrollbar-track { background: transparent; }
+        ::-webkit-scrollbar-thumb { background: rgba(255, 255, 255, 0.1); border-radius: 10px; }
+        ::-webkit-scrollbar-thumb:hover { background: rgba(255, 255, 255, 0.2); }
+
+        .transparent-pattern {
+            background-image: 
+                linear-gradient(45deg, #18181b 25%, transparent 25%, transparent 75%, #18181b 75%, #18181b), 
+                linear-gradient(45deg, #18181b 25%, transparent 25%, transparent 75%, #18181b 75%, #18181b);
+            background-size: 20px 20px;
+            background-position: 0 0, 10px 10px;
+        }
+
+        input[type="range"] {
+            -webkit-appearance: none;
+            height: 4px;
+            background: rgba(255, 255, 255, 0.1);
+            border-radius: 2px;
+            outline: none;
+        }
+        input[type="range"]::-webkit-slider-thumb {
+            -webkit-appearance: none;
+            width: 16px;
+            height: 16px;
+            border-radius: 50%;
+            background: #fff;
+            box-shadow: 0 2px 6px rgba(0,0,0,0.4);
+            cursor: pointer;
+            transition: transform 0.1s;
+        }
+
+        .segmented-btn { transition: all 0.2s cubic-bezier(0.4, 0, 0.2, 1); }
+        .segmented-btn.active {
+            background: rgba(255, 255, 255, 0.1);
+            color: white;
+            box-shadow: 0 1px 3px rgba(0,0,0,0.2), inset 0 1px 0 rgba(255,255,255,0.1);
+        }
+
+        #scale-wrapper {
+            position: absolute;
+            inset: 0;
+            overflow: hidden;
+            padding: 20px;
+        }
+
+        /* 1:1 EXPORT FRAME MASKS - Mimics the final PNG exactly */
+        #export-mask {
+            position: absolute;
+            overflow: hidden;
+            border-radius: 6px;
+            box-shadow: 0 20px 40px -10px rgba(0,0,0,0.6);
+            transition: width 0.3s ease, height 0.3s ease, left 0.3s ease, top 0.3s ease;
+        }
+
+        #export-frame {
+            position: absolute;
+            top: 0; left: 0;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            transform-origin: 0 0;
+            will-change: transform;
+            transition: transform 0.2s ease-out, background 0.3s ease, width 0.3s ease, height 0.3s ease;
+        }
+
+        /* MAC WINDOW PREVIEW */
+        #mac-window-preview {
+            display: flex;
+            flex-direction: column;
+            box-shadow: 0 25px 50px -12px rgba(0,0,0,0.8), 0 0 0 1px rgba(255,255,255,0.05);
+            overflow: hidden;
+            flex-shrink: 0; 
+            transition: box-shadow 0.3s ease, border-radius 0.3s ease, width 0.3s ease, height 0.3s ease;
+        }
+
+        iframe { flex: 1; width: 100%; height: 100%; border: none; background-color: white; }
+        .gradient-btn { transition: transform 0.1s; }
+        .gradient-btn:hover { transform: scale(1.05); }
+    </style>
+</head>
+<body class="flex flex-col h-screen text-sm">
+
+    <!-- Responsive Header -->
+    <header class="w-full h-16 bg-zinc-900/90 backdrop-blur-2xl border-b border-white/5 flex items-center justify-between px-3 sm:px-6 z-40 flex-shrink-0">
+        
+        <!-- Logo -->
+        <div class="hidden lg:flex items-center gap-2 sm:gap-3 w-1/5">
+            <div class="w-8 h-8 rounded-lg bg-gradient-to-br from-orange-400 to-rose-600 flex items-center justify-center shadow-inner shadow-white/20">
+                <i data-lucide="globe" class="w-4 h-4 text-white"></i>
+            </div>
+            <h1 class="font-semibold text-zinc-100 tracking-tight whitespace-nowrap">Macify <span class="text-zinc-500 font-normal">Live 5.3</span></h1>
+        </div>
+
+        <!-- Master URL Input -->
+        <div class="flex-1 max-w-2xl flex justify-center mx-2 lg:mx-4">
+            <form id="url-form" class="w-full relative flex items-center">
+                <i data-lucide="search" class="absolute left-3 w-4 h-4 text-zinc-400"></i>
+                <input type="url" id="app-url-input" placeholder="https://" value="https://simplearyan.github.io/canvas-animator/" class="w-full bg-black/40 border border-white/10 hover:border-white/20 focus:border-orange-500 rounded-xl py-2 pl-9 pr-12 sm:pr-20 text-sm text-zinc-200 outline-none transition-all shadow-inner">
+                <button type="submit" class="absolute right-1.5 px-2 sm:px-3 py-1 bg-orange-600 hover:bg-orange-500 text-white text-xs font-semibold rounded-lg transition-colors flex items-center">
+                    <span class="hidden sm:inline">Load</span>
+                    <i data-lucide="arrow-right" class="w-4 h-4 sm:hidden"></i>
+                </button>
+            </form>
+        </div>
+
+        <!-- Toggles & Export -->
+        <div class="flex items-center justify-end gap-2 w-auto lg:w-1/5">
+            
+            <!-- Viewport Dropdown Selector -->
+            <div class="relative flex items-center bg-black/40 rounded-xl ring-1 ring-white/10 hover:ring-white/20 transition-all mr-1 shrink-0 h-9">
+                <div class="absolute left-2.5 pointer-events-none flex items-center">
+                    <i data-lucide="monitor" class="w-4 h-4 text-zinc-400" id="icon-viewport"></i>
+                </div>
+                <select id="viewport-select" class="bg-transparent text-zinc-200 font-medium pl-8 pr-6 py-1 outline-none cursor-pointer appearance-none text-xs h-full w-24 sm:w-36" onchange="setViewportMode(this.value)">
+                    <option value="mobile" class="bg-zinc-800 text-white">Phone</option>
+                    <option value="ipad" class="bg-zinc-800 text-white">iPad Pro</option>
+                    <option value="desktop" class="bg-zinc-800 text-white" selected>Desktop</option>
+                    <option value="desktop2k-h" class="bg-zinc-800 text-white">2K Desktop (H)</option>
+                    <option value="desktop2k-v" class="bg-zinc-800 text-white">2K Desktop (V)</option>
+                    <option value="ultrawide" class="bg-zinc-800 text-white">Ultra Wide</option>
+                    <option value="desktop4k" class="bg-zinc-800 text-white">4K Display</option>
+                </select>
+                <div class="absolute right-2 pointer-events-none flex items-center">
+                    <i data-lucide="chevron-down" class="w-3 h-3 text-zinc-500"></i>
+                </div>
+            </div>
+
+            <!-- Export -->
+            <div class="flex bg-indigo-600 rounded-xl shadow-lg shadow-indigo-600/20 ring-1 ring-inset ring-white/20 transition-all hover:bg-indigo-500 shrink-0">
+                <select id="export-res" class="bg-transparent text-white font-medium pl-2 pr-1 py-2 outline-none cursor-pointer appearance-none text-xs border-r border-indigo-400/30 hidden sm:block">
+                    <option value="1280" class="bg-zinc-800">Std</option>
+                    <option value="1920" class="bg-zinc-800" selected>HD 1080p</option>
+                    <option value="2560" class="bg-zinc-800">2K 1440p</option>
+                    <option value="3840" class="bg-zinc-800">4K 2160p</option>
+                </select>
+                <button onclick="exportSnapshot()" class="flex items-center gap-2 px-3 sm:px-4 py-2 text-white font-medium rounded-xl sm:rounded-none sm:rounded-r-xl hover:bg-white/10 transition-colors h-9">
+                    <i data-lucide="camera" class="w-4 h-4"></i>
+                    <span class="hidden xl:inline text-xs">Export PNG</span>
+                </button>
+            </div>
+        </div>
+    </header>
+
+    <!-- Main Layout -->
+    <div class="flex flex-1 relative overflow-hidden flex-col md:flex-row">
+        
+        <!-- Live Browser Area (Scale-to-fit wrapper) -->
+        <main id="main-canvas-area" class="flex-1 relative bg-zinc-950 transparent-pattern overflow-hidden">
+            
+            <div id="scale-wrapper">
+                
+                <!-- 1:1 EXPORT MASK (Acts as the boundary of the final image) -->
+                <div id="export-mask">
+                    
+                    <!-- EXPORT FRAME (Contains Background + Mac Window, pans via transforms) -->
+                    <div id="export-frame">
+                        
+                        <!-- MAC WINDOW -->
+                        <div id="mac-window-preview">
+                            <!-- Chrome MacOS Style Header -->
+                            <div class="flex-col p-0 w-full shrink-0" id="mac-header" style="height: 76px; display: flex;">
+                                <!-- Tabs Row -->
+                                <div id="mac-tabs-row" class="w-full h-[36px] flex items-end px-4 relative transition-colors" style="background-color: #202124;">
+                                    <div class="traffic-lights absolute left-4 bottom-[12px] flex gap-2 items-center">
+                                        <div class="w-3 h-3 rounded-full bg-[#ff5f56] border border-[#e0443e]"></div>
+                                        <div class="w-3 h-3 rounded-full bg-[#ffbd2e] border border-[#dea123]"></div>
+                                        <div class="w-3 h-3 rounded-full bg-[#27c93f] border border-[#1aab29]"></div>
+                                    </div>
+                                    
+                                    <div class="mac-tab ml-[72px] h-[32px] rounded-t-lg flex items-center px-3 gap-2 w-60 justify-between transition-colors relative" id="mac-tab" style="background-color: #35363a; color: #e8eaed;">
+                                        <div class="flex items-center gap-2 overflow-hidden w-full">
+                                            <img src="" id="mac-favicon" class="w-4 h-4 rounded-sm object-contain" onerror="this.style.display='none'">
+                                            <span id="mac-title" class="truncate text-[12px] font-normal">Loading...</span>
+                                        </div>
+                                        <i data-lucide="x" class="w-3 h-3 opacity-50 shrink-0 hover:opacity-100 cursor-pointer"></i>
+                                    </div>
+
+                                    <div class="w-6 h-6 rounded-full flex items-center justify-center ml-1 mb-1 opacity-60 hover:bg-white/10 cursor-pointer text-white hidden sm:flex">
+                                        <i data-lucide="plus" class="w-4 h-4"></i>
+                                    </div>
+                                </div>
+
+                                <!-- Toolbar Row -->
+                                <div id="mac-toolbar-row" class="w-full h-[40px] flex items-center px-4 gap-4 transition-colors" style="background-color: #35363a; color: #e8eaed;">
+                                    <div class="flex items-center gap-4 opacity-70">
+                                        <i data-lucide="arrow-left" class="w-4 h-4 cursor-pointer hover:opacity-100"></i>
+                                        <i data-lucide="arrow-right" class="w-4 h-4 opacity-30"></i>
+                                        <i data-lucide="rotate-cw" class="w-4 h-4 cursor-pointer hover:opacity-100"></i>
+                                    </div>
+                                    
+                                    <div id="mac-address-bar" class="flex-1 h-[28px] rounded-full flex items-center px-3 gap-2 transition-colors max-w-[800px] mx-auto" style="background-color: #202124;">
+                                        <i data-lucide="lock" class="w-3 h-3 opacity-70 shrink-0" id="mac-lock"></i>
+                                        <span id="mac-url-text" class="truncate text-[13px] opacity-90 tracking-wide w-full text-center"></span>
+                                    </div>
+                                </div>
+                            </div>
+                            
+                            <!-- Iframe -->
+                            <iframe id="live-iframe" src="https://simplearyan.github.io/canvas-animator/" sandbox="allow-same-origin allow-scripts allow-popups allow-forms"></iframe>
+                            
+                            <div id="iframe-block-warning" class="hidden absolute inset-0 top-[76px] bg-zinc-900 flex flex-col items-center justify-center p-8 text-center z-20">
+                                <i data-lucide="shield-alert" class="w-12 h-12 text-rose-500 mb-4"></i>
+                                <h3 class="text-lg font-bold text-white mb-2">Preview Blocked by Website</h3>
+                                <p class="text-sm text-zinc-400 max-w-md">This website has strict security policies preventing live previews. <br><br><b>Don't worry!</b> You can still click "Export PNG" to generate a high-quality capture using our cloud engine.</p>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+
+            </div>
+
+        </main>
+
+        <!-- Inspector Sidebar -->
+        <aside class="w-full md:w-80 flex-shrink-0 bg-zinc-900/90 backdrop-blur-3xl border-t md:border-t-0 md:border-l border-white/5 z-30 h-[45vh] md:h-full flex flex-col shadow-[0_-10px_40px_rgba(0,0,0,0.5)] md:shadow-none">
+            
+            <div class="p-4 border-b border-white/5 flex items-center gap-2">
+                <i data-lucide="sliders" class="w-4 h-4 text-zinc-400"></i>
+                <h2 class="text-xs font-bold text-zinc-300 uppercase tracking-wider">Appearance</h2>
+            </div>
+
+            <div class="flex-1 overflow-y-auto p-5 space-y-6">
+                <!-- Theme -->
+                <div>
+                    <div class="flex items-center justify-between mb-2">
+                        <label class="text-[11px] font-bold text-zinc-500 uppercase tracking-widest block">Browser Theme</label>
+                    </div>
+                    <div class="flex p-1 bg-black/20 rounded-xl ring-1 ring-white/5">
+                        <button class="segmented-btn active flex-1 py-1.5 rounded-lg text-xs text-zinc-400 flex justify-center items-center gap-2" data-theme="dark" onclick="setTheme('dark')">
+                            <i data-lucide="moon" class="w-3.5 h-3.5"></i> Dark
+                        </button>
+                        <button class="segmented-btn flex-1 py-1.5 rounded-lg text-xs text-zinc-400 flex justify-center items-center gap-2" data-theme="light" onclick="setTheme('light')">
+                            <i data-lucide="sun" class="w-3.5 h-3.5"></i> Light
+                        </button>
+                    </div>
+                </div>
+
+                <!-- Window Structure -->
+                <div class="space-y-4">
+                    <label class="text-[11px] font-bold text-zinc-500 uppercase tracking-widest block">Window Structure</label>
+                    
+                    <div>
+                        <div class="flex justify-between items-center mb-1.5"><span class="text-[10px] text-zinc-400">Border Radius</span><span id="radius-val" class="text-[10px] text-zinc-500">12px</span></div>
+                        <input type="range" min="0" max="24" value="12" class="w-full accent-orange-500" oninput="state.borderRadius = parseInt(this.value); updatePreviewStyles();">
+                    </div>
+                    <div>
+                        <div class="flex justify-between items-center mb-1.5"><span class="text-[10px] text-zinc-400">Shadow Intensity</span><span id="shadow-val" class="text-[10px] text-zinc-500">50%</span></div>
+                        <input type="range" min="0" max="100" value="50" class="w-full accent-orange-500" oninput="state.shadowSize = parseInt(this.value); updatePreviewStyles();">
+                    </div>
+                    <div>
+                        <div class="flex justify-between items-center mb-1.5"><span class="text-[10px] text-zinc-400">Outer Padding</span><span id="padding-val" class="text-[10px] text-zinc-500">64px</span></div>
+                        <input type="range" min="0" max="240" value="64" class="w-full accent-orange-500" oninput="state.padding = parseInt(this.value); updateLayoutScale();">
+                    </div>
+                </div>
+
+                <!-- Framing & Camera Zoom -->
+                <div class="space-y-4">
+                    <label class="text-[11px] font-bold text-zinc-500 uppercase tracking-widest block">Camera POV</label>
+                    <div>
+                        <div class="flex justify-between items-center mb-1.5">
+                            <span class="text-[10px] text-zinc-400">Camera Zoom</span>
+                            <span id="zoom-val" class="text-[10px] text-zinc-500">100%</span>
+                        </div>
+                        <input type="range" min="1" max="4" step="0.1" value="1" class="w-full accent-orange-500" oninput="state.zoom = parseFloat(this.value); document.getElementById('zoom-val').innerText = Math.round(this.value * 100) + '%'; updateLayoutScale();">
+                    </div>
+                    <div class="grid grid-cols-2 gap-3">
+                        <div>
+                            <div class="flex justify-between items-center mb-1.5">
+                                <span class="text-[10px] text-zinc-400">Pan X</span>
+                                <span id="camx-val" class="text-[10px] text-zinc-500">50%</span>
+                            </div>
+                            <input type="range" min="0" max="100" value="50" class="w-full accent-orange-500" oninput="state.cameraX = parseInt(this.value); document.getElementById('camx-val').innerText = this.value + '%'; updateLayoutScale();">
+                        </div>
+                        <div>
+                            <div class="flex justify-between items-center mb-1.5">
+                                <span class="text-[10px] text-zinc-400">Pan Y</span>
+                                <span id="camy-val" class="text-[10px] text-zinc-500">50%</span>
+                            </div>
+                            <input type="range" min="0" max="100" value="50" class="w-full accent-orange-500" oninput="state.cameraY = parseInt(this.value); document.getElementById('camy-val').innerText = this.value + '%'; updateLayoutScale();">
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Background Customization -->
+                <div class="bg-white/5 rounded-2xl p-4 ring-1 ring-white/5 space-y-3">
+                    <div class="flex items-center justify-between">
+                        <label class="text-[11px] font-bold text-zinc-500 uppercase tracking-widest block">Background</label>
+                        <label class="flex items-center gap-1.5 cursor-pointer text-[10px] text-zinc-400 hover:text-white transition-colors" title="Export as transparent PNG">
+                            <input type="checkbox" id="bg-transparent-toggle" class="accent-orange-500 w-3 h-3" onchange="state.bgTransparent = this.checked; updatePreviewStyles();"> Transparent
+                        </label>
+                    </div>
+                    <div class="grid grid-cols-5 gap-2">
+                        <!-- macOS Premium Wallpapers -->
+                        <button class="gradient-btn w-full aspect-square rounded-lg shadow-sm border border-white/10" style="background: linear-gradient(135deg, #f59e0b, #ef4444);" onclick="setGradient('#f59e0b', '#ef4444')"></button>
+                        <button class="gradient-btn w-full aspect-square rounded-lg shadow-sm border border-white/10" style="background: linear-gradient(135deg, #ec4899, #8b5cf6);" onclick="setGradient('#ec4899', '#8b5cf6')"></button>
+                        <button class="gradient-btn w-full aspect-square rounded-lg shadow-sm border border-white/10" style="background: linear-gradient(135deg, #3b82f6, #f43f5e);" onclick="setGradient('#3b82f6', '#f43f5e')"></button>
+                        <button class="gradient-btn w-full aspect-square rounded-lg shadow-sm border border-white/10" style="background: linear-gradient(135deg, #06b6d4, #3b82f6);" onclick="setGradient('#06b6d4', '#3b82f6')"></button>
+                        <button class="gradient-btn w-full aspect-square rounded-lg shadow-sm border border-white/10" style="background: linear-gradient(135deg, #8b5cf6, #f97316);" onclick="setGradient('#8b5cf6', '#f97316')"></button>
+                        
+                        <!-- Minimalist Defaults -->
+                        <button class="gradient-btn w-full aspect-square rounded-lg shadow-sm border border-white/10" style="background: linear-gradient(135deg, #0f172a, #1e293b);" onclick="setGradient('#0f172a', '#1e293b')"></button>
+                        <button class="gradient-btn w-full aspect-square rounded-lg shadow-sm border border-white/10" style="background: linear-gradient(135deg, #f8fafc, #e2e8f0);" onclick="setGradient('#f8fafc', '#e2e8f0')"></button>
+                        <button class="gradient-btn w-full aspect-square rounded-lg shadow-sm border border-white/10" style="background: #18181b;" onclick="setSolid('#18181b')"></button>
+                        <button class="gradient-btn w-full aspect-square rounded-lg shadow-sm border border-white/10" style="background: #ffffff;" onclick="setSolid('#ffffff')"></button>
+                        
+                        <div class="relative w-full aspect-square rounded-lg shadow-sm border border-white/10 bg-[url('data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAAAoAAAAKCAYAAACNMs+9AAAAAXNSR0IArs4c6QAAACVJREFUKFNjZCASMDKgAnv37v3/n0QciwZkR+BThM8wUshwQxgAYeAU/6+E4wYAAAAASUVORK5CYII=')] overflow-hidden cursor-pointer">
+                            <input type="color" id="custom-color-picker" class="absolute -top-2 -left-2 w-20 h-20 opacity-0 cursor-pointer" onchange="setSolid(this.value)" oninput="setSolid(this.value)">
+                            <div class="absolute inset-0 flex items-center justify-center pointer-events-none text-[10px] font-bold text-white drop-shadow-md">
+                                <i data-lucide="palette" class="w-4 h-4"></i>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+
+            </div>
+        </aside>
+    </div>
+
+    <!-- Export Loading Overlay -->
+    <div id="export-loader" class="fixed inset-0 z-50 bg-black/60 hidden flex flex-col items-center justify-center transition-opacity opacity-0 backdrop-blur-sm">
+        <div class="w-12 h-12 border-4 border-white/10 border-t-orange-500 rounded-full animate-spin mb-4"></div>
+        <h2 class="text-xl font-bold text-white mb-2">Generating High-Res Snapshot</h2>
+        <p class="text-sm text-zinc-400">Rendering safe CORS image via cloud...</p>
+    </div>
+
+    <!-- Toasts -->
+    <div id="toast-container" class="fixed top-20 right-6 z-[60] flex flex-col gap-2 pointer-events-none"></div>
+
+    <script>
+        lucide.createIcons();
+
+        const state = {
+            url: 'https://simplearyan.github.io/canvas-animator/',
+            domain: 'simplearyan.github.io',
+            pageTitle: 'Animator Studio',
+            
+            cachedLogo: null, 
+            
+            viewportMode: 'desktop', 
+            
+            windowTheme: 'dark',
+            borderRadius: 12,
+            shadowSize: 50,
+            padding: 64,
+            
+            zoom: 1,
+            cameraX: 50,
+            cameraY: 50,
+
+            bgType: 'gradient',
+            solidColor: '#18181b',
+            gradStart: '#f59e0b',
+            gradEnd: '#ef4444',
+            bgTransparent: false
+        };
+
+        // --- Core Scaling Engine (V5.3 - Multiple Viewport Support) ---
+        function updateLayoutScale() {
+            const wrapper = document.getElementById('scale-wrapper');
+            const exportMask = document.getElementById('export-mask');
+            const exportFrame = document.getElementById('export-frame');
+            const iframePreview = document.getElementById('mac-window-preview');
+            
+            const padding = 40; 
+            const availW = wrapper.clientWidth - padding;
+            const availH = wrapper.clientHeight - padding;
+
+            // 1. Force strict pixel dimensions on the Mac Window
+            let logicalW = 1200, logicalH = 800;
+            switch (state.viewportMode) {
+                case 'mobile': logicalW = 375; logicalH = 812; break;
+                case 'ipad': logicalW = 1024; logicalH = 1366; break;
+                case 'ultrawide': logicalW = 1920; logicalH = 800; break;
+                case 'desktop2k-h': logicalW = 2560; logicalH = 1440; break;
+                case 'desktop2k-v': logicalW = 1440; logicalH = 2560; break;
+                case 'desktop4k': logicalW = 3840; logicalH = 2160; break;
+                case 'desktop': default: logicalW = 1200; logicalH = 800; break;
+            }
+
+            iframePreview.style.width = logicalW + 'px';
+            iframePreview.style.height = logicalH + 'px';
+
+            // 2. Calculate Base Size for the overall "Export Frame" which includes padding
+            let baseW = logicalW + (state.padding * 2);
+            let baseH = logicalH + (state.padding * 2) + 76; // 76px is Chrome Header height
+
+            // 3. Determine the base visual scale to fit the UI screen
+            const baseScale = Math.min(availW / baseW, availH / baseH, 1.0);
+            
+            // 4. Configure the Mask (Acts exactly like the bounds of the final exported PNG)
+            const maskW = baseW * baseScale;
+            const maskH = baseH * baseScale;
+            
+            exportMask.style.width = maskW + 'px';
+            exportMask.style.height = maskH + 'px';
+            exportMask.style.left = (wrapper.clientWidth - maskW) / 2 + 'px';
+            exportMask.style.top = (wrapper.clientHeight - maskH) / 2 + 'px';
+
+            // 5. Configure the inner Export Frame
+            exportFrame.style.width = baseW + 'px';
+            exportFrame.style.height = baseH + 'px';
+            
+            // 6. Calculate exactly how to pan the frame to match the Canvas POV origin
+            let ox = baseW * (state.cameraX / 100); 
+            let oy = baseH * (state.cameraY / 100);
+
+            const scaledX = ox * baseScale * state.zoom;
+            const scaledY = oy * baseScale * state.zoom;
+            const targetX = ox * baseScale;
+            const targetY = oy * baseScale;
+            
+            const tx = targetX - scaledX;
+            const ty = targetY - scaledY;
+            
+            // Apply scale and translation to inner frame
+            exportFrame.style.transform = `translate(${tx}px, ${ty}px) scale(${baseScale * state.zoom})`;
+        }
+
+        window.addEventListener('resize', updateLayoutScale);
+
+        // --- Viewport Toggles ---
+        function setViewportMode(mode) {
+            state.viewportMode = mode;
+            
+            // Update UI Select
+            const selectEl = document.getElementById('viewport-select');
+            if(selectEl && selectEl.value !== mode) selectEl.value = mode;
+
+            // Update Icon
+            const icon = document.getElementById('icon-viewport');
+            if (mode === 'mobile') icon.setAttribute('data-lucide', 'smartphone');
+            else if (mode === 'ipad') icon.setAttribute('data-lucide', 'tablet');
+            else if (mode === 'ultrawide') icon.setAttribute('data-lucide', 'monitor-play');
+            else icon.setAttribute('data-lucide', 'monitor');
+            
+            lucide.createIcons();
+
+            updateLayoutScale();
+            updatePreviewStyles();
+        }
+
+        // --- UI Updates ---
+        function setTheme(theme) {
+            state.windowTheme = theme;
+            document.querySelectorAll('[data-theme]').forEach(btn => { 
+                btn.classList.remove('active', 'bg-white/10', 'text-white'); 
+                if(btn.dataset.theme === theme) btn.classList.add('active', 'bg-white/10', 'text-white'); 
+            });
+            updatePreviewStyles();
+        }
+
+        function setGradient(start, end) { 
+            state.bgType = 'gradient'; state.gradStart = start; state.gradEnd = end; state.bgTransparent = false; 
+            const chk = document.getElementById('bg-transparent-toggle');
+            if(chk) chk.checked = false; 
+            updatePreviewStyles();
+        }
+        
+        function setSolid(color) { 
+            state.bgType = 'solid'; state.solidColor = color; state.bgTransparent = false; 
+            const chk = document.getElementById('bg-transparent-toggle');
+            if(chk) chk.checked = false; 
+            updatePreviewStyles();
+        }
+
+        // --- Iframe CSS Updates ---
+        function updatePreviewStyles() {
+            document.getElementById('radius-val').innerText = state.borderRadius + 'px';
+            document.getElementById('shadow-val').innerText = state.shadowSize + '%';
+            document.getElementById('padding-val').innerText = state.padding + 'px';
+
+            const win = document.getElementById('mac-window-preview');
+            win.style.borderRadius = state.borderRadius + 'px';
+            win.style.boxShadow = `0 ${state.shadowSize}px ${state.shadowSize * 2}px -12px rgba(0,0,0,${state.shadowSize/100}), 0 0 0 1px rgba(255,255,255,0.05)`;
+
+            const isDark = state.windowTheme === 'dark';
+            const bgRow1 = isDark ? '#202124' : '#dfe1e5';
+            const bgRow2 = isDark ? '#35363a' : '#ffffff';
+            const fgText = isDark ? '#e8eaed' : '#3c4043';
+            const bgAddress = isDark ? '#202124' : '#f1f3f4';
+
+            document.getElementById('mac-tabs-row').style.backgroundColor = bgRow1;
+            document.getElementById('mac-toolbar-row').style.backgroundColor = bgRow2;
+            document.getElementById('mac-toolbar-row').style.color = fgText;
+            
+            const tab = document.getElementById('mac-tab');
+            if (tab) {
+                // Hide tabs on mobile entirely
+                if (state.viewportMode === 'mobile') {
+                    tab.style.display = 'none';
+                } else {
+                    tab.style.display = 'flex';
+                    tab.style.backgroundColor = bgRow2;
+                    tab.style.color = fgText;
+                }
+            }
+
+            const addr = document.getElementById('mac-address-bar');
+            addr.style.backgroundColor = bgAddress;
+            addr.style.color = fgText;
+            
+            // Adjust address bar width
+            const windowW = win.offsetWidth || 1200;
+            const abW = state.viewportMode === 'mobile' ? Math.min(windowW - 120, 250) : Math.min(windowW - 104 - 16, 800);
+            addr.style.maxWidth = abW + 'px';
+
+            document.getElementById('mac-title').style.color = fgText;
+            document.getElementById('mac-url-text').style.color = fgText;
+
+            const exportFrame = document.getElementById('export-frame');
+            if (state.bgTransparent) {
+                exportFrame.style.background = 'transparent';
+            } else {
+                if (state.bgType === 'solid') {
+                    exportFrame.style.background = state.solidColor;
+                } else {
+                    exportFrame.style.background = `linear-gradient(135deg, ${state.gradStart}, ${state.gradEnd})`;
+                }
+            }
+
+            updateLayoutScale(); 
+        }
+
+        function showToast(message, type = 'info') {
+            const container = document.getElementById('toast-container');
+            const toast = document.createElement('div');
+            toast.className = `bg-zinc-800/95 backdrop-blur-md text-white px-4 py-3 rounded-xl shadow-2xl ring-1 ring-white/10 flex items-center gap-3 transform transition-all -translate-y-4 opacity-0 z-50`;
+            let icon = type === 'success' ? 'check-circle' : (type === 'error' ? 'alert-triangle' : 'info');
+            let color = type === 'success' ? 'text-green-400' : (type === 'error' ? 'text-rose-400' : 'text-blue-400');
+            toast.innerHTML = `<i data-lucide="${icon}" class="w-4 h-4 ${color}"></i> <span class="text-sm font-medium">${message}</span>`;
+            container.appendChild(toast); lucide.createIcons();
+            requestAnimationFrame(() => toast.classList.remove('-translate-y-4', 'opacity-0'));
+            setTimeout(() => { toast.classList.add('-translate-y-4', 'opacity-0'); setTimeout(() => toast.remove(), 300); }, 3000);
+        }
+
+        // --- Safe CORS Image Loader ---
+        async function loadCorsImageSecure(url) {
+            try {
+                const cacheBustedUrl = url + (url.includes('?') ? '&' : '?') + 'cb=' + Date.now();
+                const response = await fetch(cacheBustedUrl, { mode: 'cors', cache: 'no-cache' });
+                if (!response.ok) throw new Error("Network response was not ok");
+                const blob = await response.blob();
+                const blobUrl = URL.createObjectURL(blob);
+                
+                return new Promise((resolve) => {
+                    const img = new Image();
+                    img.onload = () => resolve(img);
+                    img.onerror = () => resolve(null);
+                    img.src = blobUrl;
+                });
+            } catch (err) {
+                console.warn("CORS fetch failed, falling back to standard Image tag:", err);
+                return new Promise((resolve) => {
+                    const img = new Image();
+                    img.crossOrigin = "anonymous";
+                    img.onload = () => resolve(img);
+                    img.onerror = () => resolve(null);
+                    img.src = url + (url.includes('?') ? '&' : '?') + 'cb=' + Date.now();
+                });
+            }
+        }
+
+        // --- URL Handling & Metadata Fetch ---
+        function loadUrl(rawUrl) {
+            if (!rawUrl.startsWith('http://') && !rawUrl.startsWith('https://')) { rawUrl = 'https://' + rawUrl; }
+            state.url = rawUrl;
+            document.getElementById('app-url-input').value = rawUrl;
+            
+            try {
+                const urlObj = new URL(rawUrl);
+                state.domain = urlObj.hostname.replace('www.', '');
+                const displayUrl = rawUrl.replace(/^https?:\/\//, '');
+                
+                document.getElementById('mac-url-text').innerText = displayUrl;
+                document.getElementById('mac-title').innerText = "Loading...";
+                
+                const favImg = document.getElementById('mac-favicon');
+                favImg.style.display = 'block';
+                favImg.src = `https://www.google.com/s2/favicons?domain=${state.domain}&sz=64`;
+                
+                document.getElementById('live-iframe').src = rawUrl;
+                document.getElementById('iframe-block-warning').classList.add('hidden');
+                
+                showToast(`Loading ${state.domain}...`);
+
+                state.cachedLogo = null;
+                fetch(`https://api.microlink.io?url=${encodeURIComponent(rawUrl)}&meta=true`)
+                    .then(res => res.json())
+                    .then(async data => {
+                        if (data.status === 'success' && data.data) {
+                            state.pageTitle = data.data.title || state.domain;
+                            document.getElementById('mac-title').innerText = state.pageTitle;
+                            
+                            if (data.data.logo?.url) {
+                                state.cachedLogo = await loadCorsImageSecure(data.data.logo.url);
+                            } 
+                            if (!state.cachedLogo) {
+                                state.cachedLogo = await loadCorsImageSecure(`https://unavatar.io/${state.domain}?fallback=false`);
+                            }
+                        }
+                    }).catch(() => {
+                        state.pageTitle = state.domain;
+                        document.getElementById('mac-title').innerText = state.pageTitle;
+                    });
+
+            } catch (err) { showToast('Invalid URL format.', 'error'); }
+        }
+
+        document.getElementById('url-form').addEventListener('submit', (e) => { e.preventDefault(); loadUrl(document.getElementById('app-url-input').value.trim()); });
+
+        // --- Canvas Drawing Math ---
+        function drawRoundedRect(targetCtx, x, y, width, height, radii) {
+            let tl = 0, tr = 0, br = 0, bl = 0;
+            if (typeof radii === 'number') { tl = tr = br = bl = radii; } 
+            else if (Array.isArray(radii)) {
+                if (radii.length >= 4) [tl, tr, br, bl] = radii;
+                else if (radii.length === 1) tl = tr = br = bl = radii[0];
+            }
+            tl = Math.min(tl, width/2, height/2); tr = Math.min(tr, width/2, height/2);
+            br = Math.min(br, width/2, height/2); bl = Math.min(bl, width/2, height/2);
+            targetCtx.beginPath();
+            targetCtx.moveTo(x + tl, y); targetCtx.lineTo(x + width - tr, y); targetCtx.quadraticCurveTo(x + width, y, x + width, y + tr);
+            targetCtx.lineTo(x + width, y + height - br); targetCtx.quadraticCurveTo(x + width, y + height, x + width - br, y + height);
+            targetCtx.lineTo(x + bl, y + height); targetCtx.quadraticCurveTo(x, y + height, x, y + height - bl);
+            targetCtx.lineTo(x, y + tl); targetCtx.quadraticCurveTo(x, y, x + tl, y); targetCtx.closePath();
+        }
+
+        // --- High-Res Snapshot Export Engine ---
+        function toggleLoader(show) {
+            const l = document.getElementById('export-loader');
+            if(show) {
+                l.classList.remove('hidden');
+                requestAnimationFrame(() => l.classList.remove('opacity-0'));
+            } else {
+                l.classList.add('opacity-0');
+                setTimeout(() => l.classList.add('hidden'), 300);
+            }
+        }
+
+        async function exportSnapshot() {
+            if (!state.url) return showToast('Enter a valid URL first.', 'error');
+            
+            toggleLoader(true);
+            
+            try {
+                let finalLogo = state.cachedLogo;
+                const targetWidth = parseInt(document.getElementById('export-res').value);
+                
+                let reqWidth = 1440, reqHeight = 900;
+                switch (state.viewportMode) {
+                    case 'mobile': reqWidth = 375; reqHeight = 812; break;
+                    case 'ipad': reqWidth = 1024; reqHeight = 1366; break;
+                    case 'ultrawide': reqWidth = 2560; reqHeight = 1080; break;
+                    case 'desktop2k-h': reqWidth = 2560; reqHeight = 1440; break;
+                    case 'desktop2k-v': reqWidth = 1440; reqHeight = 2560; break;
+                    case 'desktop4k': reqWidth = 3840; reqHeight = 2160; break;
+                    case 'desktop': default: reqWidth = 1440; reqHeight = 900; break;
+                }
+
+                let apiUrl = `https://api.microlink.io?url=${encodeURIComponent(state.url)}&screenshot=true&meta=true&viewport.width=${reqWidth}&viewport.height=${reqHeight}`;
+                if (state.viewportMode === 'mobile' || state.viewportMode === 'ipad') apiUrl += `&viewport.isMobile=true`;
+                
+                const response = await fetch(apiUrl);
+                const data = await response.json();
+                
+                if (data.status !== 'success' || !data.data?.screenshot?.url) {
+                    const reason = data.message || data.error?.message || "The site may actively block bots/live-previews (like YouTube) or the API is rate-limited.";
+                    throw new Error(reason);
+                }
+
+                const finalImg = await loadCorsImageSecure(data.data.screenshot.url);
+                if (!finalImg) throw new Error("Failed to load screenshot safely.");
+                
+                if (data.data.logo?.url) {
+                    finalLogo = await loadCorsImageSecure(data.data.logo.url);
+                } else if (state.domain) {
+                    finalLogo = await loadCorsImageSecure(`https://unavatar.io/${state.domain}?fallback=false`);
+                }
+
+                // Mathematical setup to decouple exact image resolution from the scaling logic.
+                const windowW = reqWidth;
+                const windowH = reqHeight + 76; // 76px Header height
+                
+                const baseW = windowW + (state.padding * 2);
+                const baseH = windowH + (state.padding * 2);
+
+                const exportScale = targetWidth / baseW;
+                const targetHeight = baseH * exportScale;
+
+                const expCanvas = document.createElement('canvas');
+                expCanvas.width = targetWidth;
+                expCanvas.height = targetHeight;
+                const tCtx = expCanvas.getContext('2d');
+                
+                tCtx.imageSmoothingEnabled = true;
+                tCtx.imageSmoothingQuality = 'high';
+
+                drawToContext(tCtx, targetWidth, targetHeight, exportScale, finalImg, finalLogo, windowW, windowH);
+
+                const dataUrl = expCanvas.toDataURL('image/png');
+                const link = document.createElement('a');
+                const nameBase = state.domain ? state.domain : 'capture';
+                link.download = `macify-chrome-${nameBase}-${state.viewportMode}.png`;
+                link.href = dataUrl;
+                link.click();
+                
+                showToast('Snapshot Exported Successfully!', 'success');
+
+            } catch (err) {
+                console.error(err);
+                showToast(err.message || 'Failed to capture. Check URL or try another site.', 'error');
+            }
+            toggleLoader(false);
+        }
+
+        // Shared Drawing Function for Export
+        function drawToContext(targetCtx, targetWidth, targetHeight, globalScale, sourceImg, logoImg, windowW, windowH) {
+            targetCtx.clearRect(0, 0, targetWidth, targetHeight);
+            targetCtx.save();
+            targetCtx.scale(globalScale, globalScale);
+
+            const headerHeight = 76;
+            const tabHeight = 36;
+            const toolbarHeight = 40;
+
+            const winX = state.padding;
+            const winY = state.padding;
+            const baseW = windowW + (state.padding * 2);
+            const baseH = windowH + (state.padding * 2);
+
+            // Apply Monitor POV Zoom directly onto the canvas context
+            let originX = baseW * (state.cameraX / 100); 
+            let originY = baseH * (state.cameraY / 100);
+            
+            targetCtx.translate(originX, originY);
+            targetCtx.scale(state.zoom, state.zoom);
+            targetCtx.translate(-originX, -originY);
+
+            // 1. Background
+            if (!state.bgTransparent) {
+                const bleed = 5000;
+                if (state.bgType === 'solid') {
+                    targetCtx.fillStyle = state.solidColor;
+                    targetCtx.fillRect(-bleed, -bleed, baseW + bleed*2, baseH + bleed*2);
+                } else {
+                    const grad = targetCtx.createLinearGradient(0, 0, baseW, baseH);
+                    grad.addColorStop(0, state.gradStart);
+                    grad.addColorStop(1, state.gradEnd);
+                    targetCtx.fillStyle = grad;
+                    targetCtx.fillRect(-bleed, -bleed, baseW + bleed*2, baseH + bleed*2);
+                }
+            }
+
+            // 2. Drop Shadow
+            targetCtx.shadowColor = 'rgba(0, 0, 0, 0.4)';
+            targetCtx.shadowBlur = state.shadowSize * 1.5;
+            targetCtx.shadowOffsetY = state.shadowSize * 0.8;
+
+            const isDark = state.windowTheme === 'dark';
+            const bgRow1 = isDark ? '#202124' : '#dfe1e5';
+            const bgRow2 = isDark ? '#35363a' : '#ffffff';
+            const fgText = isDark ? '#e8eaed' : '#3c4043';
+            const bgAddress = isDark ? '#202124' : '#f1f3f4';
+
+            // 3. Window Base
+            drawRoundedRect(targetCtx, winX, winY, windowW, windowH, state.borderRadius);
+            targetCtx.fillStyle = isDark ? '#1e1e1e' : '#ffffff';
+            targetCtx.fill();
+            targetCtx.shadowColor = 'transparent'; targetCtx.shadowBlur = 0; targetCtx.shadowOffsetY = 0;
+
+            // 4. Header Top Row (Tabs bg)
+            drawRoundedRect(targetCtx, winX, winY, windowW, headerHeight, [state.borderRadius, state.borderRadius, 0, 0]);
+            targetCtx.fillStyle = bgRow1;
+            targetCtx.fill();
+
+            // 5. Header Bottom Row (Toolbar bg)
+            targetCtx.beginPath();
+            targetCtx.rect(winX, winY + tabHeight, windowW, toolbarHeight);
+            targetCtx.fillStyle = bgRow2;
+            targetCtx.fill();
+
+            // 6. Traffic Lights
+            const btnColors = ['#ff5f56', '#ffbd2e', '#27c93f'];
+            const btnBorders = ['#e0443e', '#dea123', '#1aab29'];
+            btnColors.forEach((color, i) => {
+                targetCtx.beginPath(); 
+                targetCtx.arc(winX + 22 + (i * 20), winY + 18, 6, 0, Math.PI * 2);
+                targetCtx.fillStyle = color; targetCtx.fill();
+                targetCtx.lineWidth = 0.5; targetCtx.strokeStyle = btnBorders[i]; targetCtx.stroke();
+            });
+
+            // 7. Chrome Tab
+            if (state.viewportMode !== 'mobile') {
+                const tabX = winX + 88;
+                const tabW = Math.min(240, windowW - 140);
+                
+                if (tabW > 50) {
+                    targetCtx.beginPath();
+                    drawRoundedRect(targetCtx, tabX, winY + 4, tabW, 32, [8, 8, 0, 0]);
+                    targetCtx.fillStyle = bgRow2;
+                    targetCtx.fill();
+
+                    // Plus icon
+                    targetCtx.strokeStyle = fgText;
+                    targetCtx.lineWidth = 1.5;
+                    targetCtx.globalAlpha = 0.6;
+                    targetCtx.beginPath();
+                    targetCtx.moveTo(tabX + tabW + 14, winY + 20);
+                    targetCtx.lineTo(tabX + tabW + 22, winY + 20);
+                    targetCtx.moveTo(tabX + tabW + 18, winY + 16);
+                    targetCtx.lineTo(tabX + tabW + 18, winY + 24);
+                    targetCtx.stroke();
+                    targetCtx.globalAlpha = 1.0;
+
+                    // Favicon
+                    if (logoImg && logoImg.complete && logoImg.naturalWidth > 0) {
+                        try { targetCtx.drawImage(logoImg, tabX + 12, winY + 12, 16, 16); } catch(e) {}
+                    }
+
+                    targetCtx.font = "400 12px Inter, sans-serif";
+                    targetCtx.fillStyle = fgText;
+                    targetCtx.textAlign = "left"; targetCtx.textBaseline = "middle";
+                    
+                    let titleText = state.pageTitle || state.domain;
+                    while (targetCtx.measureText(titleText).width > tabW - 60 && titleText.length > 0) {
+                        titleText = titleText.slice(0, -1);
+                    }
+                    if (titleText !== (state.pageTitle || state.domain)) titleText += '...';
+                    targetCtx.fillText(titleText, tabX + 36, winY + 20);
+                }
+            }
+
+            // 8. Chrome Toolbar Icons
+            const navY = winY + tabHeight + (toolbarHeight / 2);
+            targetCtx.strokeStyle = fgText; targetCtx.lineWidth = 1.5; targetCtx.lineCap = 'round'; targetCtx.lineJoin = 'round';
+            
+            targetCtx.globalAlpha = 0.7;
+            targetCtx.beginPath(); targetCtx.moveTo(winX + 24, navY); targetCtx.lineTo(winX + 16, navY); targetCtx.moveTo(winX + 20, navY - 4); targetCtx.lineTo(winX + 16, navY); targetCtx.lineTo(winX + 20, navY + 4); targetCtx.stroke();
+            
+            targetCtx.globalAlpha = 0.3; 
+            targetCtx.beginPath(); targetCtx.moveTo(winX + 40, navY); targetCtx.lineTo(winX + 48, navY); targetCtx.moveTo(winX + 44, navY - 4); targetCtx.lineTo(winX + 48, navY); targetCtx.lineTo(winX + 44, navY + 4); targetCtx.stroke(); 
+            
+            targetCtx.globalAlpha = 0.7;
+            targetCtx.beginPath(); targetCtx.arc(winX + 76, navY, 5, -Math.PI/4, Math.PI * 1.5); targetCtx.moveTo(winX + 76 + 3.5, navY - 3.5); targetCtx.lineTo(winX + 76 + 3.5, navY - 7); targetCtx.stroke();
+            targetCtx.globalAlpha = 1.0;
+
+            // 9. Address Bar
+            const abX = winX + 104;
+            const abW = state.viewportMode === 'mobile' ? Math.min(windowW - 120, 250) : Math.min(windowW - 104 - 16, 800);
+            drawRoundedRect(targetCtx, abX, winY + tabHeight + 6, abW, 28, 14);
+            targetCtx.fillStyle = bgAddress; targetCtx.fill();
+            if(!isDark) { targetCtx.lineWidth = 1; targetCtx.strokeStyle = 'rgba(0,0,0,0.05)'; targetCtx.stroke(); }
+
+            // Lock icon
+            targetCtx.globalAlpha = 0.7;
+            targetCtx.strokeStyle = fgText;
+            targetCtx.beginPath(); 
+            targetCtx.rect(abX + 12, navY - 2, 10, 7); 
+            targetCtx.moveTo(abX + 14, navY - 2); targetCtx.lineTo(abX + 14, navY - 5); 
+            targetCtx.arc(abX + 17, navY - 4, 3, Math.PI, 0); 
+            targetCtx.lineTo(abX + 20, navY - 2); 
+            targetCtx.stroke();
+            targetCtx.globalAlpha = 1.0;
+
+            targetCtx.font = "400 13px Inter, sans-serif"; targetCtx.fillStyle = fgText; targetCtx.textAlign = "left"; 
+            const displayUrl = state.url.replace(/^https?:\/\//, '');
+            targetCtx.fillText(displayUrl, abX + 32, navY);
+
+            // 10. Image Content
+            targetCtx.save();
+            drawRoundedRect(targetCtx, winX, winY + headerHeight, windowW, windowH - headerHeight, [0, 0, state.borderRadius, state.borderRadius]);
+            targetCtx.clip();
+            targetCtx.drawImage(sourceImg, winX, winY + headerHeight, windowW, windowH - headerHeight);
+            targetCtx.restore();
+            
+            // 11. Inner Stroke
+            drawRoundedRect(targetCtx, winX, winY, windowW, windowH, state.borderRadius);
+            targetCtx.lineWidth = 1; targetCtx.strokeStyle = isDark ? 'rgba(255,255,255,0.1)' : 'rgba(0,0,0,0.1)'; targetCtx.stroke();
+
+            targetCtx.restore(); 
+        }
+
+        // Initialize Defaults
+        updatePreviewStyles();
+        setViewportMode('desktop');
+        loadUrl('https://simplearyan.github.io/canvas-animator/');
+
+    </script>
+</body>
+</html>
