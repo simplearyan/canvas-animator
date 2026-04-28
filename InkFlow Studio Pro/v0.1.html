@@ -1,0 +1,831 @@
+<!DOCTYPE html>
+<html lang="en" class="dark">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+    <title>InkFlow Studio Pro</title>
+    
+    <!-- Tailwind CSS -->
+    <script src="https://cdn.tailwindcss.com"></script>
+    <script>
+        tailwind.config = {
+            darkMode: 'class',
+            theme: { extend: { fontFamily: { sans: ['Inter', 'sans-serif'] } } }
+        }
+    </script>
+    
+    <!-- Google Fonts -->
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
+    
+    <!-- Lucide Icons -->
+    <script src="https://unpkg.com/lucide@latest"></script>
+
+    <style>
+        :root { color-scheme: dark; }
+        
+        body {
+            font-family: 'Inter', sans-serif;
+            background-color: #09090b; /* Zinc 950 */
+            color: #ececf1;
+            overflow: hidden;
+            touch-action: none; /* Prevents mobile scrolling while drawing */
+            -webkit-font-smoothing: antialiased;
+        }
+
+        /* macOS style scrollbars */
+        ::-webkit-scrollbar { width: 6px; height: 6px; }
+        ::-webkit-scrollbar-track { background: transparent; }
+        ::-webkit-scrollbar-thumb { background: rgba(255, 255, 255, 0.1); border-radius: 10px; }
+        ::-webkit-scrollbar-thumb:hover { background: rgba(255, 255, 255, 0.2); }
+
+        .pattern-grid {
+            background-size: 40px 40px;
+            background-image: 
+                linear-gradient(to right, rgba(255, 255, 255, 0.03) 1px, transparent 1px),
+                linear-gradient(to bottom, rgba(255, 255, 255, 0.03) 1px, transparent 1px);
+        }
+
+        /* Sleek Range Sliders */
+        input[type="range"] {
+            -webkit-appearance: none;
+            height: 4px;
+            background: rgba(255, 255, 255, 0.1);
+            border-radius: 2px;
+            outline: none;
+        }
+        input[type="range"]::-webkit-slider-thumb {
+            -webkit-appearance: none;
+            width: 16px;
+            height: 16px;
+            border-radius: 50%;
+            background: #fff;
+            box-shadow: 0 2px 6px rgba(0,0,0,0.4);
+            cursor: pointer;
+            transition: transform 0.1s;
+        }
+        input[type="range"]::-webkit-slider-thumb:hover { transform: scale(1.1); }
+
+        /* Color Picker Reset */
+        input[type="color"] {
+            -webkit-appearance: none;
+            border: none;
+            width: 28px;
+            height: 28px;
+            border-radius: 50%;
+            padding: 0;
+            cursor: pointer;
+            background: transparent;
+        }
+        input[type="color"]::-webkit-color-swatch-wrapper { padding: 0; }
+        input[type="color"]::-webkit-color-swatch { border: none; border-radius: 50%; box-shadow: inset 0 0 0 1px rgba(255,255,255,0.2); }
+
+        .segmented-btn { transition: all 0.2s cubic-bezier(0.4, 0, 0.2, 1); }
+        .segmented-btn.active {
+            background: rgba(255, 255, 255, 0.1);
+            color: white;
+            box-shadow: 0 1px 3px rgba(0,0,0,0.2), inset 0 1px 0 rgba(255,255,255,0.1);
+        }
+
+        #scale-wrapper {
+            position: absolute;
+            inset: 0;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            overflow: hidden;
+            padding: 0px; 
+        }
+
+        #draw-canvas {
+            box-shadow: 0 0 0 1px rgba(255,255,255,0.05), 0 30px 60px -12px rgba(0,0,0,0.8);
+            transform-origin: center center;
+            will-change: transform;
+            border-radius: 8px;
+            background-color: #09090b;
+            cursor: crosshair;
+        }
+    </style>
+</head>
+<body class="flex flex-col h-screen text-sm">
+
+    <!-- Glass Header -->
+    <header class="absolute top-0 w-full h-14 bg-zinc-900/80 backdrop-blur-2xl border-b border-white/5 flex items-center justify-between px-4 sm:px-6 z-40">
+        
+        <!-- Logo -->
+        <div class="flex items-center gap-3">
+            <div class="w-7 h-7 rounded-lg bg-gradient-to-br from-cyan-400 to-blue-600 flex items-center justify-center shadow-inner shadow-white/20">
+                <i data-lucide="waves" class="w-4 h-4 text-white"></i>
+            </div>
+            <h1 class="font-semibold tracking-tight whitespace-nowrap hidden sm:block text-zinc-100">InkFlow <span class="text-zinc-500 font-normal">Studio Pro</span></h1>
+        </div>
+
+        <!-- Canvas Actions -->
+        <div class="flex items-center gap-2 bg-black/40 p-1 rounded-xl ring-1 ring-white/10 shrink-0">
+            <button onclick="undoLast()" class="px-3 py-1.5 rounded-lg text-zinc-400 hover:text-white hover:bg-white/10 transition-colors flex items-center gap-2 text-xs font-medium" title="Undo Last Stroke">
+                <i data-lucide="undo" class="w-3.5 h-3.5"></i> <span class="hidden md:inline">Undo</span>
+            </button>
+            <div class="w-px h-4 bg-white/10"></div>
+            <button onclick="clearCanvas()" class="px-3 py-1.5 rounded-lg text-rose-400 hover:text-rose-300 hover:bg-rose-500/10 transition-colors flex items-center gap-2 text-xs font-medium" title="Clear All">
+                <i data-lucide="trash-2" class="w-3.5 h-3.5"></i> <span class="hidden md:inline">Clear</span>
+            </button>
+        </div>
+
+        <!-- Play & Export -->
+        <div class="flex items-center justify-end gap-3 shrink-0">
+            <button onclick="togglePreview()" id="btn-play" class="flex items-center gap-2 px-3 py-1.5 bg-white/5 hover:bg-white/10 text-white rounded-lg font-medium transition-colors ring-1 ring-white/5 text-xs sm:text-sm shadow-sm">
+                <i data-lucide="play" class="w-4 h-4" id="icon-play"></i>
+                <span id="text-play" class="hidden sm:inline">Preview</span>
+            </button>
+            
+            <div class="flex bg-cyan-600 rounded-lg shadow-lg shadow-cyan-600/20 ring-1 ring-inset ring-white/20 transition-all hover:bg-cyan-500">
+                <select id="export-res" class="bg-transparent text-white font-medium pl-2 pr-1 py-1.5 outline-none cursor-pointer appearance-none text-xs border-r border-cyan-400/30 hidden sm:block">
+                    <option value="1920" class="bg-zinc-800" selected>HD 1080p</option>
+                    <option value="2560" class="bg-zinc-800">2K 1440p</option>
+                    <option value="3840" class="bg-zinc-800">4K 2160p</option>
+                </select>
+                <button onclick="exportVideo()" id="btn-export" class="flex items-center gap-2 px-3 py-1.5 text-white font-medium transition-all rounded-r-lg text-xs sm:text-sm">
+                    <i data-lucide="download" class="w-4 h-4"></i>
+                    <span class="hidden sm:inline">Export WebM</span>
+                </button>
+            </div>
+        </div>
+    </header>
+
+    <!-- Main Layout -->
+    <div class="flex flex-1 pt-14 relative overflow-hidden flex-col md:flex-row">
+        
+        <!-- Left Sidebar: Drawing Tools & Properties -->
+        <aside class="w-full md:w-80 flex-shrink-0 bg-zinc-900/60 backdrop-blur-3xl border-r border-white/5 z-30 h-[45%] md:h-full flex flex-col shadow-[0_-10px_40px_rgba(0,0,0,0.5)] md:shadow-none order-2 md:order-1">
+            
+            <div class="p-5 overflow-y-auto space-y-6">
+                
+                <!-- Color Properties -->
+                <div class="space-y-4">
+                    <label class="text-[11px] font-bold text-zinc-500 uppercase tracking-widest block mb-1">Ink Color</label>
+                    
+                    <div class="flex items-center justify-between mb-2">
+                        <span class="text-xs text-zinc-300">Magic Rainbow</span>
+                        <label class="relative inline-flex items-center cursor-pointer">
+                            <input type="checkbox" id="prop-rainbow" class="sr-only peer" checked onchange="state.rainbowMode = this.checked">
+                            <div class="w-8 h-4 bg-zinc-700 peer-focus:outline-none rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border-gray-300 after:border after:rounded-full after:h-3 after:w-3 after:transition-all peer-checked:bg-cyan-500"></div>
+                        </label>
+                    </div>
+
+                    <div class="flex items-center justify-between">
+                        <span class="text-xs text-zinc-300 hidden md:inline">Solid Hue</span>
+                        <div class="flex-1 md:flex-none flex justify-between md:justify-end gap-2">
+                            <button class="w-6 h-6 rounded-full bg-[#06b6d4] border border-white/20" onclick="setColor('#06b6d4')"></button>
+                            <button class="w-6 h-6 rounded-full bg-[#8b5cf6] border border-white/20" onclick="setColor('#8b5cf6')"></button>
+                            <button class="w-6 h-6 rounded-full bg-[#ec4899] border border-white/20" onclick="setColor('#ec4899')"></button>
+                            <button class="w-6 h-6 rounded-full bg-[#10b981] border border-white/20" onclick="setColor('#10b981')"></button>
+                            <button class="w-6 h-6 rounded-full bg-[#ffffff] border border-white/20" onclick="setColor('#ffffff')"></button>
+                            
+                            <div class="relative w-6 h-6 rounded-full border border-white/20 bg-[url('data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAAAoAAAAKCAYAAACNMs+9AAAAAXNSR0IArs4c6QAAACVJREFUKFNjZCASMDKgAnv37v3/n0QciwZkR+BThM8wUshwQxgAYeAU/6+E4wYAAAAASUVORK5CYII=')] overflow-hidden cursor-pointer" title="Custom Color">
+                                <input type="color" class="absolute w-full h-full opacity-0 inset-0 cursor-pointer" value="#06b6d4" id="prop-color" onchange="setColor(this.value)" oninput="setColor(this.value)">
+                            </div>
+                        </div>
+                    </div>
+                </div>
+
+                <div class="w-full h-px bg-white/5"></div>
+
+                <!-- Particle Engine Settings -->
+                <div class="space-y-4">
+                    <label class="text-[11px] font-bold text-cyan-400 uppercase tracking-widest block flex items-center gap-1.5"><i data-lucide="sparkles" class="w-3 h-3"></i> Fluid Engine</label>
+                    
+                    <div>
+                        <div class="flex justify-between items-center mb-2">
+                            <span class="text-xs text-zinc-300 font-medium">Ink Size</span>
+                            <span id="size-val" class="text-xs text-zinc-400 font-mono">3px</span>
+                        </div>
+                        <input type="range" min="1" max="15" value="3" class="w-full accent-cyan-500" oninput="state.brushSize = parseInt(this.value); document.getElementById('size-val').innerText = this.value + 'px';">
+                    </div>
+                    
+                    <div>
+                        <div class="flex justify-between items-center mb-2">
+                            <span class="text-xs text-zinc-300 font-medium">Density (Particles/px)</span>
+                            <span id="density-val" class="text-xs text-zinc-400 font-mono">Medium</span>
+                        </div>
+                        <input type="range" min="1" max="10" value="3" class="w-full accent-cyan-500" oninput="state.density = parseInt(this.value); const labels=['Low','Medium','High']; document.getElementById('density-val').innerText = this.value < 3 ? 'Low' : (this.value > 6 ? 'High' : 'Medium');">
+                    </div>
+
+                    <div>
+                        <div class="flex justify-between items-center mb-2">
+                            <span class="text-xs text-zinc-300 font-medium">Flow Speed</span>
+                            <span id="speed-val" class="text-xs text-zinc-400 font-mono">2.0x</span>
+                        </div>
+                        <input type="range" min="0.5" max="5.0" step="0.1" value="2.0" class="w-full accent-cyan-500" oninput="state.flowSpeed = parseFloat(this.value); document.getElementById('speed-val').innerText = parseFloat(this.value).toFixed(1) + 'x';">
+                    </div>
+
+                    <div>
+                        <div class="flex justify-between items-center mb-2">
+                            <span class="text-xs text-zinc-300 font-medium">Field Complexity</span>
+                            <span id="complex-val" class="text-xs text-zinc-400 font-mono">1.0x</span>
+                        </div>
+                        <input type="range" min="0.1" max="3.0" step="0.1" value="1.0" class="w-full accent-cyan-500" oninput="state.complexity = parseFloat(this.value); document.getElementById('complex-val').innerText = parseFloat(this.value).toFixed(1) + 'x';">
+                    </div>
+                    
+                    <div>
+                        <div class="flex justify-between items-center mb-2">
+                            <span class="text-xs text-zinc-300 font-medium">Trail Length (Fade)</span>
+                            <span id="fade-val" class="text-xs text-zinc-400 font-mono">Long</span>
+                        </div>
+                        <!-- Lower value = less fade = longer trails -->
+                        <input type="range" min="1" max="20" value="3" class="w-full accent-cyan-500" oninput="state.fadeRate = parseInt(this.value) / 100; document.getElementById('fade-val').innerText = this.value < 5 ? 'Long' : (this.value > 15 ? 'Short' : 'Medium');">
+                    </div>
+                </div>
+
+                <div class="w-full h-px bg-white/5"></div>
+
+                <!-- Export Timing -->
+                <div class="space-y-4">
+                    <label class="text-[11px] font-bold text-zinc-500 uppercase tracking-widest block mb-1">Export Settings</label>
+                    <div>
+                        <div class="flex justify-between items-center mb-2">
+                            <span class="text-xs text-zinc-300 font-medium">Extra Record Time</span>
+                            <span id="pad-val" class="text-xs text-cyan-400 font-bold">2.0s</span>
+                        </div>
+                        <input type="range" min="0" max="10" step="0.5" value="2.0" class="w-full accent-cyan-500" oninput="state.exportPadding = parseFloat(this.value); document.getElementById('pad-val').innerText = parseFloat(this.value).toFixed(1) + 's';">
+                        <p class="text-[10px] text-zinc-500 mt-2 leading-relaxed">Amount of extra time to continue recording the flow simulation after the last stroke finishes drawing.</p>
+                    </div>
+                </div>
+
+            </div>
+        </aside>
+
+        <!-- Main Canvas Area -->
+        <main class="flex-1 relative bg-zinc-900 pattern-grid overflow-hidden order-1 md:order-2 flex items-center justify-center">
+            
+            <div id="scale-wrapper">
+                <canvas id="draw-canvas" width="1920" height="1080"></canvas>
+            </div>
+            
+            <div id="status-indicator" class="absolute top-6 right-6 flex items-center gap-2 bg-cyan-500/10 border border-cyan-500/50 text-cyan-400 px-4 py-2.5 rounded-full shadow-lg opacity-0 transition-opacity duration-300 pointer-events-none backdrop-blur-md z-50">
+                <div class="w-2 h-2 rounded-full bg-cyan-400 animate-pulse" id="status-dot"></div>
+                <span class="text-xs font-bold tracking-wide uppercase" id="status-text">Playing Sequence</span>
+            </div>
+        </main>
+    </div>
+
+    <!-- Export Loading Overlay -->
+    <div id="export-loader" class="fixed inset-0 z-50 bg-black/80 hidden flex flex-col items-center justify-center transition-opacity opacity-0 backdrop-blur-sm">
+        <div class="w-12 h-12 border-4 border-white/10 border-t-cyan-500 rounded-full animate-spin mb-4"></div>
+        <h2 class="text-xl font-bold text-white mb-2">Rendering WebM Video</h2>
+        <p class="text-sm text-zinc-400 font-mono font-medium" id="rec-time">Processing 0%</p>
+    </div>
+
+    <!-- Toasts -->
+    <div id="toast-container" class="fixed top-20 right-6 z-[60] flex flex-col gap-2 pointer-events-none"></div>
+
+    <script>
+        lucide.createIcons();
+
+        // --- Application State ---
+        const state = {
+            strokeColor: '#06b6d4',
+            rainbowMode: true,
+            brushSize: 3,
+            density: 3,
+            flowSpeed: 2.0,
+            complexity: 1.0,
+            fadeRate: 0.03,
+            
+            exportPadding: 2.0, 
+            
+            // Interaction Engine
+            isDragging: false,
+            currentStroke: null,
+            history: [], // Array of strokes: { startTime, duration, points: [{x,y,t}] }
+            
+            // Playback & Export Engine
+            logicalTime: 0,
+            lastEventTime: 0,
+            
+            isPlaying: false,
+            isExporting: false,
+            playbackStartTime: 0,
+            
+            mediaRecorder: null,
+            recordedChunks: []
+        };
+
+        const canvas = document.getElementById('draw-canvas');
+        const ctx = canvas.getContext('2d', { alpha: false }); // alpha false optimizes performance since bg is solid
+
+        // --- Viewport Scaling ---
+        function updateLayoutScale() {
+            const wrapper = document.getElementById('scale-wrapper');
+            const padding = 0; 
+            const availW = wrapper.clientWidth - padding;
+            const availH = wrapper.clientHeight - padding;
+
+            const logicalW = 1920;
+            const logicalH = 1080;
+
+            const scale = Math.min(availW / logicalW, availH / logicalH, 1.0);
+            canvas.style.transform = `scale(${scale})`;
+        }
+        window.addEventListener('resize', updateLayoutScale);
+        updateLayoutScale();
+
+        // --- UI Updaters ---
+        function setColor(hex) {
+            state.strokeColor = hex;
+            document.getElementById('prop-color').value = hex;
+            state.rainbowMode = false;
+            document.getElementById('prop-rainbow').checked = false;
+        }
+
+        function showToast(message, type = 'info') {
+            const container = document.getElementById('toast-container');
+            const toast = document.createElement('div');
+            toast.className = `bg-zinc-800/95 backdrop-blur-md text-white px-4 py-3 rounded-xl shadow-2xl ring-1 ring-white/10 flex items-center gap-3 transform transition-all -translate-y-4 opacity-0 z-50`;
+            let icon = type === 'success' ? 'check-circle' : (type === 'error' ? 'alert-triangle' : 'info');
+            let color = type === 'success' ? 'text-emerald-400' : (type === 'error' ? 'text-rose-400' : 'text-cyan-400');
+            toast.innerHTML = `<i data-lucide="${icon}" class="w-4 h-4 ${color}"></i> <span class="text-sm font-medium">${message}</span>`;
+            container.appendChild(toast); lucide.createIcons();
+            requestAnimationFrame(() => toast.classList.remove('-translate-y-4', 'opacity-0'));
+            setTimeout(() => { toast.classList.add('-translate-y-4', 'opacity-0'); setTimeout(() => toast.remove(), 300); }, 3000);
+        }
+
+        // --- Flow Field Engine ---
+        class Particle {
+            constructor(x, y, color, size, speedMul) {
+                this.x = x;
+                this.y = y;
+                this.vx = (Math.random() - 0.5) * 2;
+                this.vy = (Math.random() - 0.5) * 2;
+                this.color = color;
+                this.baseSize = size;
+                this.size = size * (0.5 + Math.random() * 1.5);
+                this.life = 1.0;
+                this.decay = 0.005 + Math.random() * 0.01;
+                this.speedMul = speedMul;
+            }
+
+            update(time, complexity, width, height) {
+                // Procedural Vector Field (Simulated Curl Noise via Trig)
+                const scale = 0.003 * complexity;
+                const a = Math.sin(this.x * scale + time) * Math.cos(this.y * scale + time);
+                const b = Math.sin(this.y * scale - time) * Math.cos(this.x * scale + time);
+                const angle = Math.atan2(b, a) * Math.PI * 2;
+
+                // Apply Force
+                this.vx += Math.cos(angle) * 0.5 * this.speedMul;
+                this.vy += Math.sin(angle) * 0.5 * this.speedMul;
+
+                // Friction
+                this.vx *= 0.95;
+                this.vy *= 0.95;
+
+                this.x += this.vx;
+                this.y += this.vy;
+                this.life -= this.decay;
+
+                // Screen wrap logic
+                if (this.x < 0) this.x = width;
+                if (this.x > width) this.x = 0;
+                if (this.y < 0) this.y = height;
+                if (this.y > height) this.y = 0;
+            }
+
+            draw(ctx) {
+                if (this.life <= 0) return;
+                ctx.globalAlpha = Math.max(0, this.life);
+                ctx.fillStyle = this.color;
+                ctx.beginPath();
+                ctx.arc(this.x, this.y, this.size * this.life, 0, Math.PI * 2);
+                ctx.fill();
+            }
+        }
+
+        class FlowEngine {
+            constructor(context, width, height) {
+                this.ctx = context;
+                this.width = width;
+                this.height = height;
+                this.particles = [];
+                this.globalTime = 0;
+                this.clear();
+            }
+
+            clear() {
+                this.particles = [];
+                this.ctx.globalCompositeOperation = 'source-over';
+                this.ctx.globalAlpha = 1.0;
+                this.ctx.fillStyle = '#09090b';
+                this.ctx.fillRect(0, 0, this.width, this.height);
+            }
+
+            spawn(x, y, color, size, density, speedMul) {
+                const count = density * 2;
+                for (let i = 0; i < count; i++) {
+                    const px = x + (Math.random() - 0.5) * size * 2;
+                    const py = y + (Math.random() - 0.5) * size * 2;
+                    this.particles.push(new Particle(px, py, color, size, speedMul));
+                }
+            }
+
+            step(dt, fadeRate, complexity) {
+                this.globalTime += dt * 0.5;
+
+                // Fade background for trails
+                this.ctx.globalCompositeOperation = 'source-over';
+                this.ctx.globalAlpha = fadeRate;
+                this.ctx.fillStyle = '#09090b';
+                this.ctx.fillRect(0, 0, this.width, this.height);
+
+                // Additive blending for magical ink effect
+                this.ctx.globalCompositeOperation = 'screen';
+                
+                // Update and draw
+                for (let i = this.particles.length - 1; i >= 0; i--) {
+                    const p = this.particles[i];
+                    p.update(this.globalTime, complexity, this.width, this.height);
+                    p.draw(this.ctx);
+                    if (p.life <= 0) {
+                        this.particles.splice(i, 1);
+                    }
+                }
+                
+                // Hard cap particles to maintain 60fps
+                if (this.particles.length > 5000) {
+                    this.particles.splice(0, this.particles.length - 5000);
+                }
+            }
+        }
+
+        // Initialize Live Engine
+        const liveEngine = new FlowEngine(ctx, canvas.width, canvas.height);
+
+        // Render loop for live sandbox
+        let lastTime = performance.now();
+        function liveLoop(now) {
+            const dt = (now - lastTime) / 1000;
+            lastTime = now;
+            
+            if (!state.isPlaying && !state.isExporting) {
+                liveEngine.step(dt, state.fadeRate, state.complexity);
+            }
+            requestAnimationFrame(liveLoop);
+        }
+        requestAnimationFrame(liveLoop);
+
+        // --- Interaction Engine ---
+        function getMousePos(e) {
+            const rect = canvas.getBoundingClientRect();
+            const scaleX = canvas.width / rect.width;
+            const scaleY = canvas.height / rect.height;
+            return {
+                x: (e.clientX - rect.left) * scaleX,
+                y: (e.clientY - rect.top) * scaleY
+            };
+        }
+
+        function getColorForStroke(time) {
+            if (state.rainbowMode) {
+                const hue = (time * 100) % 360;
+                return `hsl(${hue}, 100%, 60%)`;
+            }
+            return state.strokeColor;
+        }
+
+        canvas.addEventListener('pointerdown', (e) => {
+            if (state.isPlaying || state.isExporting) return;
+            e.preventDefault();
+            
+            state.isDragging = true;
+            canvas.setPointerCapture(e.pointerId);
+            const pos = getMousePos(e);
+            
+            let now = performance.now();
+            if (state.history.length === 0) {
+                state.logicalTime = 0;
+            } else {
+                let diff = now - state.lastEventTime;
+                if (diff > 1000) diff = 1000; // Cap idle time between drawings
+                state.logicalTime += diff;
+            }
+            state.lastEventTime = now;
+
+            const col = getColorForStroke(state.logicalTime);
+
+            state.currentStroke = {
+                color: col,
+                size: state.brushSize,
+                density: state.density,
+                speedMul: state.flowSpeed,
+                startTime: state.logicalTime,
+                duration: 0,
+                points: [{ x: pos.x, y: pos.y, t: state.logicalTime }]
+            };
+
+            liveEngine.spawn(pos.x, pos.y, col, state.brushSize, state.density, state.flowSpeed);
+        });
+
+        canvas.addEventListener('pointermove', (e) => {
+            if (!state.isDragging || state.isPlaying) return;
+            e.preventDefault();
+            const pos = getMousePos(e);
+            
+            let now = performance.now();
+            let diff = now - state.lastEventTime;
+            state.logicalTime += diff;
+            state.lastEventTime = now;
+
+            state.currentStroke.points.push({ x: pos.x, y: pos.y, t: state.logicalTime });
+            state.currentStroke.duration = state.logicalTime - state.currentStroke.startTime;
+
+            liveEngine.spawn(pos.x, pos.y, state.currentStroke.color, state.currentStroke.size, state.currentStroke.density, state.currentStroke.speedMul);
+        });
+
+        canvas.addEventListener('pointerup', (e) => {
+            if (!state.isDragging || state.isPlaying) return;
+            state.isDragging = false;
+            canvas.releasePointerCapture(e.pointerId);
+            
+            if (state.currentStroke && state.currentStroke.points.length > 1) {
+                state.history.push({...state.currentStroke});
+            }
+            state.currentStroke = null;
+        });
+
+        function clearCanvas() {
+            if (state.isPlaying || state.isExporting) return;
+            state.history = [];
+            state.logicalTime = 0;
+            liveEngine.clear();
+            showToast('Canvas cleared', 'success');
+        }
+
+        function undoLast() {
+            if (state.isPlaying || state.isExporting) return;
+            if (state.history.length > 0) {
+                const removed = state.history.pop();
+                state.logicalTime = Math.max(0, removed.startTime);
+                // Clear and fast-forward state to match history
+                liveEngine.clear();
+                showToast('Undo successful', 'info');
+            }
+        }
+
+        function getTotalTime() {
+            if (state.history.length === 0) return 0;
+            const last = state.history[state.history.length - 1];
+            return (last.startTime + last.duration) / 1000; // in seconds
+        }
+
+        // --- Playback Engine ---
+        let playEngine = null;
+        let pStrokeIndex = 0;
+        let pPointIndex = 0;
+
+        function setPlayUI(playing) {
+            const btnPlay = document.getElementById('btn-play');
+            const iconPlay = document.getElementById('icon-play');
+            const textPlay = document.getElementById('text-play');
+            const ind = document.getElementById('status-indicator');
+            const txt = document.getElementById('status-text');
+
+            document.querySelectorAll('button:not(#btn-play):not(#btn-export), input, select').forEach(b => b.disabled = playing);
+
+            if (playing) {
+                ind.classList.remove('opacity-0');
+                if (state.isExporting) {
+                    btnPlay.disabled = true;
+                    ind.classList.replace('bg-cyan-500/10', 'bg-red-500/10');
+                    ind.classList.replace('border-cyan-500/50', 'border-red-500/50');
+                    ind.classList.replace('text-cyan-400', 'text-red-400');
+                    document.getElementById('status-dot').classList.replace('bg-cyan-400', 'bg-red-400');
+                    txt.innerText = 'Rendering Video...';
+                } else {
+                    btnPlay.classList.add('bg-rose-500/20', 'text-rose-400', 'border-rose-500/50');
+                    btnPlay.classList.remove('bg-white/5', 'text-white', 'border-white/5');
+                    iconPlay.setAttribute('data-lucide', 'square');
+                    textPlay.innerText = 'Stop';
+                    txt.innerText = 'Playing Sequence';
+                }
+            } else {
+                btnPlay.disabled = false;
+                btnPlay.classList.remove('bg-rose-500/20', 'text-rose-400', 'border-rose-500/50');
+                btnPlay.classList.add('bg-white/5', 'text-white', 'border-white/5');
+                iconPlay.setAttribute('data-lucide', 'play');
+                textPlay.innerText = 'Preview';
+                
+                ind.classList.add('opacity-0');
+                
+                // Reset styling
+                ind.classList.replace('bg-rose-500/10', 'bg-cyan-500/10');
+                ind.classList.replace('border-rose-500/50', 'border-cyan-500/50');
+                ind.classList.replace('text-rose-400', 'text-cyan-400');
+                document.getElementById('status-dot').classList.replace('bg-rose-400', 'bg-cyan-400');
+            }
+            lucide.createIcons();
+        }
+
+        function togglePreview() {
+            if (state.isPlaying) {
+                stopPlayback();
+                return;
+            }
+            if (state.history.length === 0) return showToast('Draw something first!', 'error');
+
+            state.isPlaying = true;
+            state.isExporting = false;
+            setPlayUI(true);
+            
+            playEngine = new FlowEngine(ctx, canvas.width, canvas.height);
+            pStrokeIndex = 0;
+            pPointIndex = 0;
+            
+            requestAnimationFrame((timestamp) => {
+                state.playbackStartTime = timestamp;
+                playbackLoop(timestamp);
+            });
+        }
+
+        function playbackLoop(timestamp) {
+            if (!state.isPlaying) return;
+            
+            let elapsedSec = (timestamp - state.playbackStartTime) / 1000; 
+            let elapsedMs = elapsedSec * 1000;
+            let totalTimeSec = getTotalTime() + state.exportPadding; 
+
+            // Inject points into engine
+            while (pStrokeIndex < state.history.length) {
+                let stroke = state.history[pStrokeIndex];
+
+                if (pPointIndex >= stroke.points.length) {
+                    pStrokeIndex++;
+                    pPointIndex = 0;
+                    continue;
+                }
+
+                let pt = stroke.points[pPointIndex];
+                if (pt.t <= elapsedMs) {
+                    playEngine.spawn(pt.x, pt.y, stroke.color, stroke.size, stroke.density, stroke.speedMul);
+                    pPointIndex++;
+                } else {
+                    break; // Future point, wait for next frame
+                }
+            }
+
+            // Always step engine visually
+            // Use fixed delta for smooth playback regardless of actual framerate stutters
+            playEngine.step(1/60, state.fadeRate, state.complexity);
+
+            if (state.isExporting) {
+                let pct = Math.min(100, Math.round((elapsedSec / totalTimeSec) * 100));
+                document.getElementById('rec-time').innerText = `Processing ${pct}%`;
+            }
+
+            if (elapsedSec >= totalTimeSec) {
+                if (state.isExporting) {
+                    document.getElementById('rec-time').innerText = `Finalizing File...`;
+                    setTimeout(stopPlayback, 500); 
+                } else {
+                    stopPlayback();
+                }
+                return;
+            }
+
+            requestAnimationFrame(playbackLoop);
+        }
+
+        function stopPlayback() {
+            state.isPlaying = false;
+            if (state.isExporting && state.mediaRecorder) {
+                if (state.mediaRecorder.state !== 'inactive') state.mediaRecorder.stop();
+                state.isExporting = false;
+                document.getElementById('export-loader').classList.add('opacity-0');
+                setTimeout(() => document.getElementById('export-loader').classList.add('hidden'), 300);
+            }
+            setPlayUI(false);
+            
+            // Revert back to live engine state (cleared)
+            liveEngine.clear();
+        }
+
+        // --- Export Engine ---
+        function exportVideo() {
+            if (state.history.length === 0) return showToast('Draw something first!', 'error');
+            if (state.isPlaying || state.isExporting) return;
+
+            try {
+                const targetWidth = parseInt(document.getElementById('export-res').value);
+                const aspect = 1080 / 1920;
+                const targetHeight = targetWidth * aspect;
+
+                const expCanvas = document.createElement('canvas');
+                expCanvas.width = targetWidth;
+                expCanvas.height = targetHeight;
+                const eCtx = expCanvas.getContext('2d', { alpha: false });
+                
+                const exportScale = targetWidth / 1920;
+                const exportEngine = new FlowEngine(eCtx, targetWidth, targetHeight);
+
+                const stream = expCanvas.captureStream(60); 
+                state.recordedChunks = [];
+                
+                // High Bitrate VP9 WebM for crisp particles
+                state.mediaRecorder = new MediaRecorder(stream, { 
+                    mimeType: 'video/webm; codecs=vp9',
+                    videoBitsPerSecond: 20000000 
+                });
+                
+                state.mediaRecorder.ondataavailable = (e) => {
+                    if (e.data.size > 0) state.recordedChunks.push(e.data);
+                };
+
+                state.mediaRecorder.onstop = () => {
+                    const blob = new Blob(state.recordedChunks, { type: 'video/webm' });
+                    const url = URL.createObjectURL(blob);
+                    const link = document.createElement('a');
+                    link.href = url;
+                    link.download = `inkflow-${targetWidth}w-${Date.now()}.webm`;
+                    link.click();
+                    URL.revokeObjectURL(url);
+                    showToast('Video exported successfully!', 'success');
+                };
+
+                state.mediaRecorder.start();
+                
+                state.isPlaying = true;
+                state.isExporting = true;
+                setPlayUI(true);
+                
+                const loader = document.getElementById('export-loader');
+                loader.classList.remove('hidden');
+                requestAnimationFrame(() => loader.classList.remove('opacity-0'));
+
+                const totalTimeSec = getTotalTime() + state.exportPadding;
+                let exportStartTime = performance.now();
+                let eStrokeIndex = 0;
+                let ePointIndex = 0;
+                
+                function exportRenderLoop(now) {
+                    let elapsedSec = (now - exportStartTime) / 1000;
+                    let elapsedMs = elapsedSec * 1000;
+                    
+                    // Inject scaled points into export engine
+                    while (eStrokeIndex < state.history.length) {
+                        let stroke = state.history[eStrokeIndex];
+
+                        if (ePointIndex >= stroke.points.length) {
+                            eStrokeIndex++;
+                            ePointIndex = 0;
+                            continue;
+                        }
+
+                        let pt = stroke.points[ePointIndex];
+                        if (pt.t <= elapsedMs) {
+                            exportEngine.spawn(pt.x * exportScale, pt.y * exportScale, stroke.color, stroke.size * exportScale, stroke.density, stroke.speedMul * exportScale);
+                            ePointIndex++;
+                        } else {
+                            break; 
+                        }
+                    }
+
+                    // Step export engine
+                    exportEngine.step(1/60, state.fadeRate, state.complexity);
+
+                    // We also step the live engine visually so the user sees the progress!
+                    // (But we use the playEngine to mirror the data)
+                    if(eStrokeIndex === 0 && ePointIndex === 0) {
+                        playEngine = new FlowEngine(ctx, canvas.width, canvas.height);
+                        pStrokeIndex = 0; pPointIndex = 0;
+                    }
+                    while (pStrokeIndex < state.history.length) {
+                        let stroke = state.history[pStrokeIndex];
+                        if (pPointIndex >= stroke.points.length) { pStrokeIndex++; pPointIndex = 0; continue; }
+                        let pt = stroke.points[pPointIndex];
+                        if (pt.t <= elapsedMs) {
+                            playEngine.spawn(pt.x, pt.y, stroke.color, stroke.size, stroke.density, stroke.speedMul);
+                            pPointIndex++;
+                        } else break; 
+                    }
+                    playEngine.step(1/60, state.fadeRate, state.complexity);
+
+                    let pct = Math.min(100, Math.round((elapsedSec / totalTimeSec) * 100));
+                    document.getElementById('rec-time').innerText = `Processing ${pct}%`;
+
+                    if (elapsedSec < totalTimeSec) {
+                        requestAnimationFrame(exportRenderLoop);
+                    } else {
+                        document.getElementById('rec-time').innerText = `Finalizing File...`;
+                        setTimeout(stopPlayback, 500); 
+                    }
+                }
+                
+                requestAnimationFrame(exportRenderLoop);
+
+            } catch (err) {
+                console.error(err);
+                showToast('Export failed. Browser might not support high-res WebM recording.', 'error');
+                stopPlayback();
+            }
+        }
+
+    </script>
+</body>
+</html>

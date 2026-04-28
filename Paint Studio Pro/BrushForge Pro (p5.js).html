@@ -1,0 +1,871 @@
+<!DOCTYPE html>
+<html lang="en" class="dark">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+    <title>BrushForge Pro</title>
+    
+    <!-- Tailwind CSS -->
+    <script src="https://cdn.tailwindcss.com"></script>
+    <script>
+        tailwind.config = {
+            darkMode: 'class',
+            theme: { extend: { fontFamily: { sans: ['Inter', 'sans-serif'] } } }
+        }
+    </script>
+    
+    <!-- Google Fonts -->
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
+    
+    <!-- Lucide Icons -->
+    <script src="https://unpkg.com/lucide@latest"></script>
+
+    <!-- p5.js Library -->
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/p5.js/1.9.0/p5.min.js"></script>
+
+    <style>
+        :root { color-scheme: dark; }
+        
+        body {
+            font-family: 'Inter', sans-serif;
+            background-color: #09090b; 
+            color: #ececf1;
+            overflow: hidden;
+            touch-action: none;
+        }
+
+        ::-webkit-scrollbar { width: 6px; height: 6px; }
+        ::-webkit-scrollbar-track { background: transparent; }
+        ::-webkit-scrollbar-thumb { background: rgba(255, 255, 255, 0.1); border-radius: 10px; }
+        ::-webkit-scrollbar-thumb:hover { background: rgba(255, 255, 255, 0.2); }
+
+        .checker-bg {
+            background-color: #0f172a;
+            background-image: 
+                linear-gradient(45deg, #1e293b 25%, transparent 25%), 
+                linear-gradient(-45deg, #1e293b 25%, transparent 25%), 
+                linear-gradient(45deg, transparent 75%, #1e293b 75%), 
+                linear-gradient(-45deg, transparent 75%, #1e293b 75%);
+            background-size: 24px 24px;
+            background-position: 0 0, 0 12px, 12px -12px, -12px 0px;
+        }
+
+        input[type="range"] {
+            -webkit-appearance: none;
+            height: 4px;
+            background: rgba(255, 255, 255, 0.1);
+            border-radius: 2px;
+            outline: none;
+        }
+        input[type="range"]::-webkit-slider-thumb {
+            -webkit-appearance: none;
+            width: 16px;
+            height: 16px;
+            border-radius: 50%;
+            background: #fff;
+            box-shadow: 0 2px 6px rgba(0,0,0,0.4);
+            cursor: pointer;
+            transition: transform 0.1s;
+        }
+        input[type="range"]::-webkit-slider-thumb:hover { transform: scale(1.1); }
+
+        input[type="color"] {
+            -webkit-appearance: none;
+            border: none;
+            width: 28px;
+            height: 28px;
+            border-radius: 50%;
+            padding: 0;
+            cursor: pointer;
+            background: transparent;
+        }
+        input[type="color"]::-webkit-color-swatch-wrapper { padding: 0; }
+        input[type="color"]::-webkit-color-swatch { border: none; border-radius: 50%; box-shadow: inset 0 0 0 1px rgba(255,255,255,0.2); }
+
+        .tool-btn { transition: all 0.2s ease; border: 1px solid transparent; }
+        .tool-btn.active {
+            background-color: rgba(99, 102, 241, 0.2); 
+            border-color: rgba(99, 102, 241, 0.5);
+            color: #818cf8; 
+        }
+        .tool-btn:hover:not(.active) { background-color: rgba(255, 255, 255, 0.05); }
+
+        #scale-wrapper {
+            position: absolute;
+            inset: 0;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            overflow: hidden;
+            padding: 0px; 
+        }
+
+        #p5-container canvas {
+            box-shadow: 0 0 0 1px rgba(255,255,255,0.05), 0 30px 60px -12px rgba(0,0,0,0.8);
+            transform-origin: center center;
+            will-change: transform;
+            border-radius: 8px;
+            cursor: crosshair;
+        }
+    </style>
+</head>
+<body class="flex flex-col h-screen text-sm">
+
+    <!-- Header -->
+    <header class="absolute top-0 w-full h-14 bg-zinc-900/80 backdrop-blur-2xl border-b border-white/5 flex items-center justify-between px-4 sm:px-6 z-40">
+        <div class="flex items-center gap-3">
+            <div class="w-7 h-7 rounded-lg bg-gradient-to-br from-indigo-500 to-purple-600 flex items-center justify-center shadow-inner shadow-white/20">
+                <i data-lucide="brush" class="w-4 h-4 text-white"></i>
+            </div>
+            <h1 class="font-semibold tracking-tight whitespace-nowrap hidden sm:block text-zinc-100">BrushForge <span class="text-zinc-500 font-normal">Pro (p5.js)</span></h1>
+        </div>
+
+        <div class="flex items-center gap-2 bg-black/40 p-1 rounded-xl ring-1 ring-white/10 shrink-0">
+            <button onclick="undoStroke()" class="px-3 py-1.5 rounded-lg text-zinc-400 hover:text-white hover:bg-white/10 transition-colors flex items-center gap-2 text-xs font-medium" title="Undo Last Stroke">
+                <i data-lucide="undo" class="w-3.5 h-3.5"></i> <span class="hidden md:inline">Undo</span>
+            </button>
+            <div class="w-px h-4 bg-white/10"></div>
+            <button onclick="clearCanvas()" class="px-3 py-1.5 rounded-lg text-rose-400 hover:text-rose-300 hover:bg-rose-500/10 transition-colors flex items-center gap-2 text-xs font-medium" title="Clear All">
+                <i data-lucide="trash-2" class="w-3.5 h-3.5"></i> <span class="hidden md:inline">Clear</span>
+            </button>
+        </div>
+
+        <div class="flex items-center justify-end gap-3 shrink-0">
+            <button onclick="togglePreview()" id="btn-play" class="flex items-center gap-2 px-3 py-1.5 bg-white/5 hover:bg-white/10 text-white rounded-lg font-medium transition-colors ring-1 ring-white/5 text-xs sm:text-sm shadow-sm">
+                <i data-lucide="play" class="w-4 h-4" id="icon-play"></i>
+                <span id="text-play" class="hidden sm:inline">Preview</span>
+            </button>
+            
+            <div class="flex bg-indigo-600 rounded-lg shadow-lg shadow-indigo-600/20 ring-1 ring-inset ring-white/20 transition-all hover:bg-indigo-500">
+                <select id="export-res" class="bg-transparent text-white font-medium pl-2 pr-1 py-1.5 outline-none cursor-pointer appearance-none text-xs border-r border-indigo-400/30 hidden sm:block">
+                    <option value="1920" class="bg-zinc-800" selected>HD 1080p</option>
+                    <option value="2560" class="bg-zinc-800">2K 1440p</option>
+                    <option value="3840" class="bg-zinc-800">4K 2160p</option>
+                </select>
+                <button onclick="exportVideo()" id="btn-export" class="flex items-center gap-2 px-3 py-1.5 text-white font-medium transition-all rounded-r-lg text-xs sm:text-sm">
+                    <i data-lucide="download" class="w-4 h-4"></i>
+                    <span class="hidden sm:inline">Export WebM</span>
+                </button>
+            </div>
+        </div>
+    </header>
+
+    <!-- Main Layout -->
+    <div class="flex flex-1 pt-14 relative overflow-hidden flex-col md:flex-row">
+        
+        <!-- Left Sidebar -->
+        <aside class="w-full md:w-80 flex-shrink-0 bg-zinc-900/60 backdrop-blur-3xl border-r border-white/5 z-30 h-[45%] md:h-full flex flex-col shadow-[0_-10px_40px_rgba(0,0,0,0.5)] md:shadow-none order-2 md:order-1">
+            
+            <div class="p-5 overflow-y-auto space-y-6">
+                
+                <!-- Brush Engine -->
+                <div>
+                    <label class="text-[11px] font-bold text-zinc-500 uppercase tracking-widest block mb-3 flex items-center gap-1.5">
+                        <i data-lucide="brush" class="w-3 h-3"></i> Physical Brushes
+                    </label>
+                    <div class="grid grid-cols-5 md:grid-cols-2 gap-2">
+                        <button class="tool-btn active py-2.5 rounded-lg text-xs font-medium text-zinc-300 bg-black/40 border-white/10 flex flex-col justify-center items-center gap-1.5" data-tool="ink" onclick="setTool('ink')">
+                            <i data-lucide="pen-tool" class="w-4 h-4"></i> <span class="hidden md:inline">Real Ink</span>
+                        </button>
+                        <button class="tool-btn py-2.5 rounded-lg text-xs font-medium text-zinc-300 bg-black/40 border-white/10 flex flex-col justify-center items-center gap-1.5" data-tool="watercolor" onclick="setTool('watercolor')">
+                            <i data-lucide="droplet" class="w-4 h-4"></i> <span class="hidden md:inline">Watercolor</span>
+                        </button>
+                        <button class="tool-btn py-2.5 rounded-lg text-xs font-medium text-zinc-300 bg-black/40 border-white/10 flex flex-col justify-center items-center gap-1.5" data-tool="charcoal" onclick="setTool('charcoal')">
+                            <i data-lucide="flame" class="w-4 h-4"></i> <span class="hidden md:inline">Charcoal</span>
+                        </button>
+                        <button class="tool-btn py-2.5 rounded-lg text-xs font-medium text-zinc-300 bg-black/40 border-white/10 flex flex-col justify-center items-center gap-1.5" data-tool="marker" onclick="setTool('marker')">
+                            <i data-lucide="edit-3" class="w-4 h-4"></i> <span class="hidden md:inline">Marker</span>
+                        </button>
+                        <button class="tool-btn py-2.5 rounded-lg text-xs font-medium text-zinc-300 bg-black/40 border-white/10 flex flex-col justify-center items-center gap-1.5" data-tool="airbrush" onclick="setTool('airbrush')">
+                            <i data-lucide="wind" class="w-4 h-4"></i> <span class="hidden md:inline">Airbrush</span>
+                        </button>
+                        <button class="tool-btn py-2.5 rounded-lg text-xs font-medium text-zinc-300 bg-black/40 border-white/10 flex flex-col justify-center items-center gap-1.5 text-rose-400 md:col-span-1" data-tool="eraser" onclick="setTool('eraser')">
+                            <i data-lucide="eraser" class="w-4 h-4"></i> <span class="hidden md:inline">Eraser</span>
+                        </button>
+                    </div>
+                </div>
+
+                <div class="w-full h-px bg-white/5"></div>
+
+                <!-- Properties -->
+                <div class="space-y-4">
+                    <label class="text-[11px] font-bold text-zinc-500 uppercase tracking-widest block mb-1">Stroke Properties</label>
+                    
+                    <div class="flex items-center justify-between">
+                        <span class="text-xs text-zinc-300 hidden md:inline">Color</span>
+                        <div class="flex-1 md:flex-none flex justify-between md:justify-end gap-2">
+                            <button class="w-6 h-6 rounded-full bg-[#000000] border border-white/20" onclick="setColor('#000000')"></button>
+                            <button class="w-6 h-6 rounded-full bg-[#4f46e5] border border-white/20" onclick="setColor('#4f46e5')"></button>
+                            <button class="w-6 h-6 rounded-full bg-[#10b981] border border-white/20" onclick="setColor('#10b981')"></button>
+                            <button class="w-6 h-6 rounded-full bg-[#f43f5e] border border-white/20" onclick="setColor('#f43f5e')"></button>
+                            <button class="w-6 h-6 rounded-full bg-[#ffffff] border border-white/20" onclick="setColor('#ffffff')"></button>
+                            
+                            <div class="relative w-6 h-6 rounded-full border border-white/20 bg-[url('data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAAAoAAAAKCAYAAACNMs+9AAAAAXNSR0IArs4c6QAAACVJREFUKFNjZCASMDKgAnv37v3/n0QciwZkR+BThM8wUshwQxgAYeAU/6+E4wYAAAAASUVORK5CYII=')] overflow-hidden cursor-pointer" title="Custom Color">
+                                <input type="color" class="absolute w-full h-full opacity-0 inset-0 cursor-pointer" value="#000000" id="prop-color" onchange="setColor(this.value)" oninput="setColor(this.value)">
+                            </div>
+                        </div>
+                    </div>
+
+                    <div>
+                        <div class="flex justify-between items-center mb-2">
+                            <span class="text-xs text-zinc-300 font-medium">Brush Size</span>
+                            <span id="size-val" class="text-xs text-zinc-400 font-mono">15px</span>
+                        </div>
+                        <input type="range" min="1" max="100" value="15" class="w-full accent-indigo-500" oninput="appState.size = parseInt(this.value); document.getElementById('size-val').innerText = this.value + 'px';">
+                    </div>
+                    
+                    <div>
+                        <div class="flex justify-between items-center mb-2">
+                            <span class="text-xs text-zinc-300 font-medium">Opacity / Pressure</span>
+                            <span id="opacity-val" class="text-xs text-zinc-400 font-mono">80%</span>
+                        </div>
+                        <input type="range" min="5" max="100" value="80" class="w-full accent-indigo-500" oninput="appState.opacity = parseInt(this.value); document.getElementById('opacity-val').innerText = this.value + '%';">
+                    </div>
+
+                    <div>
+                        <div class="flex justify-between items-center mb-2">
+                            <span class="text-xs text-zinc-300 font-medium">Scatter / Texture</span>
+                            <span id="scatter-val" class="text-xs text-zinc-400 font-mono">50%</span>
+                        </div>
+                        <input type="range" min="0" max="100" value="50" class="w-full accent-indigo-500" oninput="appState.scatter = parseInt(this.value); document.getElementById('scatter-val').innerText = this.value + '%';">
+                    </div>
+                </div>
+
+                <div class="w-full h-px bg-white/5"></div>
+
+                <!-- Background -->
+                <div class="space-y-4">
+                    <div class="flex items-center justify-between">
+                        <label class="text-[11px] font-bold text-zinc-500 uppercase tracking-widest block">Canvas Setup</label>
+                        <label class="flex items-center gap-1.5 cursor-pointer text-[10px] text-zinc-400 hover:text-white transition-colors">
+                            <input type="checkbox" id="bg-transparent-toggle" class="accent-indigo-500 w-3 h-3" onchange="appState.bgTransparent = this.checked; updateBg();"> Transparent
+                        </label>
+                    </div>
+                    <div class="flex items-center justify-between">
+                        <span class="text-xs text-zinc-300 hidden md:inline">Background</span>
+                        <div class="flex-1 md:flex-none flex justify-between md:justify-end gap-2">
+                            <button class="w-6 h-6 rounded-full bg-[#ffffff] border border-white/20" onclick="setBgColor('#ffffff')"></button>
+                            <button class="w-6 h-6 rounded-full bg-[#f8fafc] border border-white/20" onclick="setBgColor('#f8fafc')"></button>
+                            <button class="w-6 h-6 rounded-full bg-[#fef3c7] border border-white/20" onclick="setBgColor('#fef3c7')"></button>
+                            <button class="w-6 h-6 rounded-full bg-[#18181b] border border-white/20" onclick="setBgColor('#18181b')"></button>
+                            
+                            <div class="relative w-6 h-6 rounded-full border border-white/20 bg-[url('data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAAAoAAAAKCAYAAACNMs+9AAAAAXNSR0IArs4c6QAAACVJREFUKFNjZCASMDKgAnv37v3/n0QciwZkR+BThM8wUshwQxgAYeAU/6+E4wYAAAAASUVORK5CYII=')] overflow-hidden cursor-pointer" title="Custom Background">
+                                <input type="color" class="absolute w-full h-full opacity-0 inset-0 cursor-pointer" value="#ffffff" id="bg-color" onchange="setBgColor(this.value)" oninput="setBgColor(this.value)">
+                            </div>
+                        </div>
+                    </div>
+                </div>
+
+            </div>
+        </aside>
+
+        <!-- Main Canvas Area -->
+        <main class="flex-1 relative bg-zinc-950 pattern-grid overflow-hidden order-1 md:order-2 flex items-center justify-center">
+            
+            <div id="scale-wrapper" class="checker-bg">
+                <div id="p5-container"></div>
+            </div>
+            
+            <div id="status-indicator" class="absolute top-6 right-6 flex items-center gap-2 bg-indigo-500/10 border border-indigo-500/50 text-indigo-400 px-4 py-2.5 rounded-full shadow-lg opacity-0 transition-opacity duration-300 pointer-events-none backdrop-blur-md z-50">
+                <div class="w-2 h-2 rounded-full bg-indigo-400 animate-pulse" id="status-dot"></div>
+                <span class="text-xs font-bold tracking-wide uppercase" id="status-text">Playing Sequence</span>
+            </div>
+        </main>
+    </div>
+
+    <!-- Export Loading Overlay -->
+    <div id="export-loader" class="fixed inset-0 z-50 bg-black/80 hidden flex flex-col items-center justify-center transition-opacity opacity-0 backdrop-blur-sm">
+        <div class="w-12 h-12 border-4 border-white/10 border-t-indigo-500 rounded-full animate-spin mb-4"></div>
+        <h2 class="text-xl font-bold text-white mb-2">Rendering WebM Video</h2>
+        <p class="text-sm text-zinc-400 font-mono font-medium" id="rec-time">Processing 0%</p>
+    </div>
+
+    <!-- Toasts -->
+    <div id="toast-container" class="fixed top-20 right-6 z-[60] flex flex-col gap-2 pointer-events-none"></div>
+
+    <script>
+        lucide.createIcons();
+
+        // --- Shared App State ---
+        const appState = {
+            tool: 'ink', 
+            color: '#000000',
+            size: 15,
+            opacity: 80,
+            scatter: 50,
+            
+            bgColor: '#ffffff',
+            bgTransparent: false,
+            
+            history: [], // [{ tool, color, size, opacity, scatter, startTime, duration, points: [{x,y,t, px, py}] }]
+            
+            isPlaying: false,
+            isExporting: false
+        };
+
+        // --- UI Functions ---
+        function setTool(toolName) {
+            if(appState.isPlaying) return;
+            appState.tool = toolName;
+            document.querySelectorAll('.tool-btn').forEach(btn => {
+                btn.classList.remove('active');
+                if(btn.dataset.tool === toolName) btn.classList.add('active');
+            });
+        }
+
+        function setColor(hex) {
+            appState.color = hex;
+            document.getElementById('prop-color').value = hex;
+        }
+
+        function setBgColor(hex) {
+            appState.bgColor = hex;
+            document.getElementById('bg-color').value = hex;
+            appState.bgTransparent = false;
+            document.getElementById('bg-transparent-toggle').checked = false;
+            updateBg();
+        }
+
+        function updateBg() {
+            if (window.p5inst && !appState.isPlaying) {
+                window.p5inst.redrawHistory();
+            }
+        }
+
+        function clearCanvas() {
+            if (appState.isPlaying || appState.isExporting) return;
+            if (confirm('Clear the entire canvas?')) {
+                appState.history = [];
+                window.p5inst.clearCanvas();
+                showToast('Canvas cleared', 'success');
+            }
+        }
+
+        function undoStroke() {
+            if (appState.isPlaying || appState.isExporting) return;
+            if (appState.history.length > 0) {
+                appState.history.pop();
+                window.p5inst.redrawHistory();
+                showToast('Undo successful', 'info');
+            }
+        }
+
+        function showToast(message, type = 'info') {
+            const container = document.getElementById('toast-container');
+            const toast = document.createElement('div');
+            toast.className = `bg-zinc-800/95 backdrop-blur-md text-white px-4 py-3 rounded-xl shadow-2xl ring-1 ring-white/10 flex items-center gap-3 transform transition-all -translate-y-4 opacity-0 z-50`;
+            let icon = type === 'success' ? 'check-circle' : (type === 'error' ? 'alert-triangle' : 'info');
+            let color = type === 'success' ? 'text-green-400' : (type === 'error' ? 'text-red-400' : 'text-indigo-400');
+            toast.innerHTML = `<i data-lucide="${icon}" class="w-4 h-4 ${color}"></i> <span class="text-sm font-medium">${message}</span>`;
+            container.appendChild(toast); lucide.createIcons();
+            requestAnimationFrame(() => toast.classList.remove('-translate-y-4', 'opacity-0'));
+            setTimeout(() => { toast.classList.add('-translate-y-4', 'opacity-0'); setTimeout(() => toast.remove(), 300); }, 3000);
+        }
+
+        // --- Global Controller ---
+        function togglePreview() {
+            if (window.p5inst) {
+                if (appState.isPlaying) window.p5inst.stopPlayback();
+                else window.p5inst.startPlayback();
+            }
+        }
+
+        function exportVideo() {
+            if (window.p5inst) window.p5inst.exportVideo();
+        }
+
+        // --- Viewport Scaling ---
+        function updateLayoutScale() {
+            const wrapper = document.getElementById('scale-wrapper');
+            const padding = 0; 
+            const availW = wrapper.clientWidth - padding;
+            const availH = wrapper.clientHeight - padding;
+
+            const logicalW = 1920;
+            const logicalH = 1080;
+
+            const scale = Math.min(availW / logicalW, availH / logicalH, 1.0);
+            const container = document.getElementById('p5-container');
+            if(container) container.style.transform = `scale(${scale})`;
+        }
+        window.addEventListener('resize', updateLayoutScale);
+
+        // ==========================================
+        // P5.JS ENGINE (Instance Mode)
+        // ==========================================
+        const sketch = (p) => {
+            
+            const LOGICAL_W = 1920;
+            const LOGICAL_H = 1080;
+            
+            let mainCanvas;
+            
+            // Interaction State
+            let isDrawing = false;
+            let currentStroke = null;
+            let logicalTime = 0;
+            let lastEventTime = 0;
+            let pX = 0, pY = 0; // tracked previous positions
+
+            // Playback State
+            let playStartTime = 0;
+            let playStrokeIdx = 0;
+            let playPointIdx = 0;
+            let playGraphics = null; // Buffer for playback to avoid clearing main canvas
+
+            p.setup = () => {
+                mainCanvas = p.createCanvas(LOGICAL_W, LOGICAL_H);
+                mainCanvas.parent('p5-container');
+                p.pixelDensity(1); // Standardize across screens for exact export matching
+                
+                // Add event listeners to the canvas element itself to handle scaled coordinates accurately
+                const el = mainCanvas.elt;
+                el.addEventListener('pointerdown', handlePointerDown);
+                el.addEventListener('pointermove', handlePointerMove);
+                window.addEventListener('pointerup', handlePointerUp); // Catch outside
+                
+                updateLayoutScale();
+                p.clearCanvas();
+            };
+
+            p.draw = () => {
+                if (appState.isPlaying && !appState.isExporting) {
+                    let elapsed = p.millis() - playStartTime;
+                    stepPlayback(elapsed, mainCanvas);
+                }
+            };
+
+            // --- Custom Interaction Handlers ---
+            // Bypasses p.mouseX/Y because they break when CSS transform: scale() is applied
+            function getScaledPos(evt) {
+                const rect = mainCanvas.elt.getBoundingClientRect();
+                const scaleX = LOGICAL_W / rect.width;
+                const scaleY = LOGICAL_H / rect.height;
+                return {
+                    x: (evt.clientX - rect.left) * scaleX,
+                    y: (evt.clientY - rect.top) * scaleY
+                };
+            }
+
+            function handlePointerDown(e) {
+                if (appState.isPlaying || appState.isExporting) return;
+                e.preventDefault();
+                mainCanvas.elt.setPointerCapture(e.pointerId);
+                
+                isDrawing = true;
+                const pos = getScaledPos(e);
+                pX = pos.x; pY = pos.y;
+                
+                let now = p.millis();
+                if (appState.history.length === 0) logicalTime = 0;
+                else {
+                    let diff = now - lastEventTime;
+                    if (diff > 1000) diff = 1000;
+                    logicalTime += diff;
+                }
+                lastEventTime = now;
+
+                currentStroke = {
+                    tool: appState.tool,
+                    color: appState.color,
+                    size: appState.size,
+                    opacity: appState.opacity,
+                    scatter: appState.scatter,
+                    startTime: logicalTime,
+                    duration: 0,
+                    points: []
+                };
+            }
+
+            function handlePointerMove(e) {
+                if (!isDrawing || appState.isPlaying || appState.isExporting) return;
+                e.preventDefault();
+                
+                const pos = getScaledPos(e);
+                let now = p.millis();
+                logicalTime += (now - lastEventTime);
+                lastEventTime = now;
+
+                // Only record point if moved slightly
+                let d = p.dist(pX, pY, pos.x, pos.y);
+                if (d > 2) {
+                    let pt = { x: pos.x, y: pos.y, px: pX, py: pY, t: logicalTime };
+                    currentStroke.points.push(pt);
+                    currentStroke.duration = logicalTime - currentStroke.startTime;
+                    
+                    // Draw Live
+                    drawBrushSegment(p, pt, currentStroke, 1.0);
+                    
+                    pX = pos.x; pY = pos.y;
+                }
+            }
+
+            function handlePointerUp(e) {
+                if (!isDrawing) return;
+                isDrawing = false;
+                if(e.pointerId) mainCanvas.elt.releasePointerCapture(e.pointerId);
+                
+                if (currentStroke && currentStroke.points.length > 0) {
+                    appState.history.push(currentStroke);
+                }
+                currentStroke = null;
+            }
+
+            // --- Brush Math Engine ---
+            function drawBrushSegment(target, pt, strokeData, exportScale = 1.0) {
+                let x = pt.x * exportScale;
+                let y = pt.y * exportScale;
+                let px = pt.px * exportScale;
+                let py = pt.py * exportScale;
+                let size = strokeData.size * exportScale;
+                
+                let c = p.color(strokeData.color);
+                let op = strokeData.opacity / 100;
+                let scatter = strokeData.scatter / 100;
+                
+                let d = p.dist(x, y, px, py);
+                if (d === 0) return;
+
+                target.push();
+
+                if (strokeData.tool === 'eraser') {
+                    // Erase using background color or clear
+                    target.strokeWeight(size);
+                    target.strokeCap(p.ROUND);
+                    target.strokeJoin(p.ROUND);
+                    if (appState.bgTransparent) {
+                        target.drawingContext.globalCompositeOperation = 'destination-out';
+                        c = p.color(0); c.setAlpha(255);
+                    } else {
+                        target.drawingContext.globalCompositeOperation = 'source-over';
+                        c = p.color(appState.bgColor);
+                        c.setAlpha(255 * op);
+                    }
+                    target.stroke(c);
+                    target.line(px, py, x, y);
+                }
+                else if (strokeData.tool === 'ink') {
+                    // Sumi-e style bristle ink
+                    target.drawingContext.globalCompositeOperation = 'source-over';
+                    target.strokeWeight(1 * exportScale);
+                    c.setAlpha(255 * op);
+                    target.stroke(c);
+                    
+                    let angle = p.atan2(y - py, x - px);
+                    let nx = p.cos(angle - p.HALF_PI);
+                    let ny = p.sin(angle - p.HALF_PI);
+                    
+                    // Fixed number of bristles based on size
+                    let bristles = Math.max(5, Math.floor(size * 0.8));
+                    
+                    for (let i = 0; i < bristles; i++) {
+                        // Use noise seeded by the bristle index to keep the line continuous
+                        let n1 = p.noise(i * 10, px * 0.01, py * 0.01);
+                        let n2 = p.noise(i * 10, x * 0.01, y * 0.01);
+                        
+                        let spread = size * (0.2 + scatter * 1.5);
+                        let offsetPx = p.map(n1, 0, 1, -spread, spread);
+                        let offsetNx = p.map(n2, 0, 1, -spread, spread);
+                        
+                        // Thin out edges
+                        let alphaMod = 1.0 - Math.abs(offsetPx) / spread;
+                        c.setAlpha(255 * op * alphaMod);
+                        target.stroke(c);
+                        
+                        target.line(px + nx * offsetPx, py + ny * offsetPx, x + nx * offsetNx, y + ny * offsetNx);
+                    }
+                }
+                else if (strokeData.tool === 'watercolor') {
+                    // Bleeding circles
+                    target.drawingContext.globalCompositeOperation = 'multiply';
+                    target.noStroke();
+                    c.setAlpha(20 * op); // very low alpha for overlapping
+                    target.fill(c);
+                    
+                    let steps = Math.max(1, p.floor(d / (size * 0.2)));
+                    for (let i = 0; i <= steps; i++) {
+                        let interX = p.lerp(px, x, i / steps);
+                        let interY = p.lerp(py, y, i / steps);
+                        
+                        let radMod = p.map(p.noise(interX*0.02, interY*0.02), 0, 1, 0.5, 1.5 + scatter);
+                        let finalRadius = size * radMod;
+                        
+                        target.circle(interX, interY, finalRadius);
+                    }
+                }
+                else if (strokeData.tool === 'charcoal') {
+                    // Grainy scatter
+                    target.drawingContext.globalCompositeOperation = 'source-over';
+                    target.noStroke();
+                    c.setAlpha(200 * op);
+                    target.fill(c);
+                    
+                    let steps = Math.max(1, p.floor(d));
+                    for (let i = 0; i <= steps; i++) {
+                        let interX = p.lerp(px, x, i / steps);
+                        let interY = p.lerp(py, y, i / steps);
+                        
+                        let dots = p.floor(size * 0.5 * (scatter + 0.5));
+                        for (let j = 0; j < dots; j++) {
+                            let rx = interX + p.random(-size, size) * scatter;
+                            let ry = interY + p.random(-size, size) * scatter;
+                            // Only draw if inside circular radius
+                            if (p.dist(interX, interY, rx, ry) <= size * (0.5 + scatter*0.5)) {
+                                target.rect(rx, ry, 1 * exportScale, 1 * exportScale);
+                            }
+                        }
+                    }
+                }
+                else if (strokeData.tool === 'marker') {
+                    // Thick angled flat line
+                    target.drawingContext.globalCompositeOperation = 'multiply';
+                    target.strokeWeight(size);
+                    target.strokeCap(p.SQUARE);
+                    c.setAlpha(100 * op);
+                    target.stroke(c);
+                    target.line(px, py, x, y);
+                }
+                else if (strokeData.tool === 'airbrush') {
+                    // Fine mist
+                    target.drawingContext.globalCompositeOperation = 'source-over';
+                    target.noStroke();
+                    c.setAlpha(15 * op);
+                    target.fill(c);
+                    
+                    let steps = Math.max(1, p.floor(d / 2));
+                    let spread = size * (1 + scatter * 2);
+                    
+                    for (let i = 0; i <= steps; i++) {
+                        let interX = p.lerp(px, x, i / steps);
+                        let interY = p.lerp(py, y, i / steps);
+                        
+                        let drops = p.floor(20 * (scatter + 0.1));
+                        for(let j = 0; j < drops; j++) {
+                            let angle = p.random(p.TWO_PI);
+                            let radius = p.random(spread);
+                            // bias towards center
+                            if (p.random() > 0.3) radius *= p.random();
+                            
+                            target.circle(interX + p.cos(angle)*radius, interY + p.sin(angle)*radius, 1.5 * exportScale);
+                        }
+                    }
+                }
+
+                target.pop();
+            }
+
+            // --- Control Methods exposed to Window ---
+            p.clearCanvas = () => {
+                p.drawingContext.globalCompositeOperation = 'source-over';
+                if (appState.bgTransparent) {
+                    p.clear();
+                } else {
+                    p.background(appState.bgColor);
+                }
+            };
+
+            p.redrawHistory = () => {
+                p.clearCanvas();
+                for (let stroke of appState.history) {
+                    for (let pt of stroke.points) {
+                        drawBrushSegment(p, pt, stroke, 1.0);
+                    }
+                }
+            };
+
+            p.getTotalTime = () => {
+                if (appState.history.length === 0) return 0;
+                let last = appState.history[appState.history.length - 1];
+                return last.startTime + last.duration;
+            };
+
+            function setPlayUI(playing, exporting = false) {
+                const btnPlay = document.getElementById('btn-play');
+                const iconPlay = document.getElementById('icon-play');
+                const textPlay = document.getElementById('text-play');
+                const ind = document.getElementById('status-indicator');
+                const txt = document.getElementById('status-text');
+
+                document.querySelectorAll('.tool-btn, input, select').forEach(b => b.disabled = playing);
+                document.getElementById('btn-export').disabled = playing;
+
+                if (playing) {
+                    ind.classList.remove('opacity-0');
+                    if (exporting) {
+                        btnPlay.disabled = true;
+                        ind.classList.replace('bg-indigo-500/10', 'bg-rose-500/10');
+                        ind.classList.replace('border-indigo-500/50', 'border-rose-500/50');
+                        ind.classList.replace('text-indigo-400', 'text-rose-400');
+                        document.getElementById('status-dot').classList.replace('bg-indigo-400', 'bg-rose-400');
+                        txt.innerText = 'Rendering Video...';
+                    } else {
+                        btnPlay.classList.add('bg-rose-500/20', 'text-rose-400', 'border-rose-500/50');
+                        btnPlay.classList.remove('bg-white/5', 'text-white', 'border-white/5');
+                        iconPlay.setAttribute('data-lucide', 'square');
+                        textPlay.innerText = 'Stop';
+                        txt.innerText = 'Playing Sequence';
+                    }
+                } else {
+                    btnPlay.disabled = false;
+                    btnPlay.classList.remove('bg-rose-500/20', 'text-rose-400', 'border-rose-500/50');
+                    btnPlay.classList.add('bg-white/5', 'text-white', 'border-white/5');
+                    iconPlay.setAttribute('data-lucide', 'play');
+                    textPlay.innerText = 'Preview';
+                    ind.classList.add('opacity-0');
+                    
+                    // Reset styling
+                    ind.classList.replace('bg-rose-500/10', 'bg-indigo-500/10');
+                    ind.classList.replace('border-rose-500/50', 'border-indigo-500/50');
+                    ind.classList.replace('text-rose-400', 'text-indigo-400');
+                    document.getElementById('status-dot').classList.replace('bg-rose-400', 'bg-indigo-400');
+                }
+                lucide.createIcons();
+            }
+
+            p.startPlayback = () => {
+                if (appState.history.length === 0) {
+                    showToast('Draw something first!', 'error');
+                    return;
+                }
+                appState.isPlaying = true;
+                appState.isExporting = false;
+                setPlayUI(true);
+                
+                p.clearCanvas();
+                playStartTime = p.millis();
+                playStrokeIdx = 0;
+                playPointIdx = 0;
+            };
+
+            p.stopPlayback = () => {
+                appState.isPlaying = false;
+                setPlayUI(false);
+                p.redrawHistory();
+            };
+
+            function stepPlayback(elapsedMs, targetBuffer, scale = 1.0) {
+                while (playStrokeIdx < appState.history.length) {
+                    let stroke = appState.history[playStrokeIdx];
+
+                    if (playPointIdx >= stroke.points.length) {
+                        playStrokeIdx++;
+                        playPointIdx = 0;
+                        continue;
+                    }
+
+                    let pt = stroke.points[playPointIdx];
+                    if (pt.t <= elapsedMs) {
+                        drawBrushSegment(targetBuffer, pt, stroke, scale);
+                        playPointIdx++;
+                    } else {
+                        break; // Wait for next frame
+                    }
+                }
+
+                let totalTime = p.getTotalTime();
+                
+                if (appState.isExporting) {
+                    let pct = Math.min(100, Math.round((elapsedMs / totalTime) * 100));
+                    document.getElementById('rec-time').innerText = `Processing ${pct}%`;
+                }
+
+                if (elapsedMs >= totalTime + 1000) { // 1 second padding
+                    if (appState.isExporting) {
+                        document.getElementById('rec-time').innerText = `Finalizing File...`;
+                        setTimeout(() => {
+                            if (appState.mediaRecorder && appState.mediaRecorder.state !== 'inactive') {
+                                appState.mediaRecorder.stop();
+                            }
+                        }, 500);
+                        // Prevent multiple timeouts
+                        appState.isPlaying = false;
+                    } else {
+                        p.stopPlayback();
+                    }
+                }
+            }
+
+            p.exportVideo = () => {
+                if (appState.history.length === 0) return showToast('Draw something first!', 'error');
+                if (appState.isPlaying || appState.isExporting) return;
+
+                const targetWidth = parseInt(document.getElementById('export-res').value);
+                const aspect = LOGICAL_H / LOGICAL_W;
+                const targetHeight = targetWidth * aspect;
+                const exportScale = targetWidth / LOGICAL_W;
+
+                // Create headless p5 Graphics buffer at exact target resolution!
+                const pg = p.createGraphics(targetWidth, targetHeight);
+                pg.drawingContext.globalCompositeOperation = 'source-over';
+                if (appState.bgTransparent) pg.clear();
+                else pg.background(appState.bgColor);
+
+                const stream = pg.elt.captureStream(60); 
+                appState.recordedChunks = [];
+                appState.mediaRecorder = new MediaRecorder(stream, { 
+                    mimeType: 'video/webm; codecs=vp9',
+                    videoBitsPerSecond: 20000000 
+                });
+                
+                appState.mediaRecorder.ondataavailable = (e) => {
+                    if (e.data.size > 0) appState.recordedChunks.push(e.data);
+                };
+
+                appState.mediaRecorder.onstop = () => {
+                    const blob = new Blob(appState.recordedChunks, { type: 'video/webm' });
+                    const url = URL.createObjectURL(blob);
+                    const link = document.createElement('a');
+                    link.href = url;
+                    link.download = `brushforge-${targetWidth}w-${Date.now()}.webm`;
+                    link.click();
+                    URL.revokeObjectURL(url);
+                    
+                    appState.isExporting = false;
+                    appState.isPlaying = false;
+                    setPlayUI(false);
+                    document.getElementById('export-loader').classList.add('opacity-0');
+                    setTimeout(() => document.getElementById('export-loader').classList.add('hidden'), 300);
+                    
+                    pg.remove(); // Cleanup memory
+                    p.redrawHistory();
+                    showToast('Video exported successfully!', 'success');
+                };
+
+                appState.mediaRecorder.start();
+                appState.isPlaying = true;
+                appState.isExporting = true;
+                setPlayUI(true, true);
+                
+                const loader = document.getElementById('export-loader');
+                loader.classList.remove('hidden');
+                requestAnimationFrame(() => loader.classList.remove('opacity-0'));
+
+                playStrokeIdx = 0;
+                playPointIdx = 0;
+                let exportStartTime = p.millis();
+                
+                function exportLoop() {
+                    if (!appState.isExporting) return;
+                    let elapsedMs = p.millis() - exportStartTime;
+                    
+                    // Render to hidden high-res buffer
+                    stepPlayback(elapsedMs, pg, exportScale);
+                    
+                    // Sync main canvas purely for user visual feedback
+                    p.clearCanvas();
+                    p.image(pg, 0, 0, LOGICAL_W, LOGICAL_H);
+
+                    requestAnimationFrame(exportLoop);
+                }
+                exportLoop();
+            };
+
+            window.p5inst = p;
+        };
+
+        // Boot P5
+        new p5(sketch);
+
+    </script>
+</body>
+</html>

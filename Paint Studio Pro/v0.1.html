@@ -1,0 +1,973 @@
+<!DOCTYPE html>
+<html lang="en" class="dark">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+    <title>Paint Studio Pro</title>
+    
+    <!-- Tailwind CSS -->
+    <script src="https://cdn.tailwindcss.com"></script>
+    <script>
+        tailwind.config = {
+            darkMode: 'class',
+            theme: { extend: { fontFamily: { sans: ['Inter', 'sans-serif'] } } }
+        }
+    </script>
+    
+    <!-- Google Fonts -->
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
+    
+    <!-- Lucide Icons -->
+    <script src="https://unpkg.com/lucide@latest"></script>
+
+    <style>
+        :root { color-scheme: dark; }
+        
+        body {
+            font-family: 'Inter', sans-serif;
+            background-color: #09090b; /* Zinc 950 */
+            color: #ececf1;
+            overflow: hidden;
+            touch-action: none; /* Prevents mobile scrolling while drawing */
+            -webkit-font-smoothing: antialiased;
+        }
+
+        /* macOS style scrollbars */
+        ::-webkit-scrollbar { width: 6px; height: 6px; }
+        ::-webkit-scrollbar-track { background: transparent; }
+        ::-webkit-scrollbar-thumb { background: rgba(255, 255, 255, 0.1); border-radius: 10px; }
+        ::-webkit-scrollbar-thumb:hover { background: rgba(255, 255, 255, 0.2); }
+
+        .pattern-grid {
+            background-size: 40px 40px;
+            background-image: 
+                linear-gradient(to right, rgba(255, 255, 255, 0.03) 1px, transparent 1px),
+                linear-gradient(to bottom, rgba(255, 255, 255, 0.03) 1px, transparent 1px);
+        }
+
+        /* Sleek Range Sliders */
+        input[type="range"] {
+            -webkit-appearance: none;
+            height: 4px;
+            background: rgba(255, 255, 255, 0.1);
+            border-radius: 2px;
+            outline: none;
+        }
+        input[type="range"]::-webkit-slider-thumb {
+            -webkit-appearance: none;
+            width: 16px;
+            height: 16px;
+            border-radius: 50%;
+            background: #fff;
+            box-shadow: 0 2px 6px rgba(0,0,0,0.4);
+            cursor: pointer;
+            transition: transform 0.1s;
+        }
+        input[type="range"]::-webkit-slider-thumb:hover { transform: scale(1.1); }
+
+        /* Color Picker Reset */
+        input[type="color"] {
+            -webkit-appearance: none;
+            border: none;
+            width: 28px;
+            height: 28px;
+            border-radius: 50%;
+            padding: 0;
+            cursor: pointer;
+            background: transparent;
+        }
+        input[type="color"]::-webkit-color-swatch-wrapper { padding: 0; }
+        input[type="color"]::-webkit-color-swatch { border: none; border-radius: 50%; box-shadow: inset 0 0 0 1px rgba(255,255,255,0.2); }
+
+        /* Tool Buttons */
+        .tool-btn { transition: all 0.2s ease; border: 1px solid transparent; }
+        .tool-btn.active {
+            background-color: rgba(59, 130, 246, 0.2); /* Blue 500 w/ opacity */
+            border-color: rgba(59, 130, 246, 0.5);
+            color: #60a5fa; /* Blue 400 */
+        }
+        .tool-btn:hover:not(.active) { background-color: rgba(255, 255, 255, 0.05); }
+
+        #scale-wrapper {
+            position: absolute;
+            inset: 0;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            overflow: hidden;
+            padding: 0px; 
+        }
+
+        #draw-canvas {
+            box-shadow: 0 0 0 1px rgba(255,255,255,0.05), 0 30px 60px -12px rgba(0,0,0,0.8);
+            transform-origin: center center;
+            will-change: transform;
+            border-radius: 8px;
+            background-color: #ffffff;
+            cursor: crosshair;
+        }
+    </style>
+</head>
+<body class="flex flex-col h-screen text-sm">
+
+    <!-- Glass Header -->
+    <header class="absolute top-0 w-full h-14 bg-zinc-900/80 backdrop-blur-2xl border-b border-white/5 flex items-center justify-between px-4 sm:px-6 z-40">
+        
+        <!-- Logo -->
+        <div class="flex items-center gap-3">
+            <div class="w-7 h-7 rounded-lg bg-gradient-to-br from-blue-400 to-indigo-600 flex items-center justify-center shadow-inner shadow-white/20">
+                <i data-lucide="palette" class="w-4 h-4 text-white"></i>
+            </div>
+            <h1 class="font-semibold tracking-tight whitespace-nowrap hidden sm:block text-zinc-100">Paint Studio <span class="text-zinc-500 font-normal">Pro</span></h1>
+        </div>
+
+        <!-- Canvas Actions -->
+        <div class="flex items-center gap-2 bg-black/40 p-1 rounded-xl ring-1 ring-white/10 shrink-0">
+            <button onclick="undoLast()" class="px-3 py-1.5 rounded-lg text-zinc-400 hover:text-white hover:bg-white/10 transition-colors flex items-center gap-2 text-xs font-medium" title="Undo Last Stroke">
+                <i data-lucide="undo" class="w-3.5 h-3.5"></i> <span class="hidden md:inline">Undo</span>
+            </button>
+            <div class="w-px h-4 bg-white/10"></div>
+            <button onclick="clearCanvas()" class="px-3 py-1.5 rounded-lg text-rose-400 hover:text-rose-300 hover:bg-rose-500/10 transition-colors flex items-center gap-2 text-xs font-medium" title="Clear All">
+                <i data-lucide="trash-2" class="w-3.5 h-3.5"></i> <span class="hidden md:inline">Clear</span>
+            </button>
+        </div>
+
+        <!-- Play & Export -->
+        <div class="flex items-center justify-end gap-3 shrink-0">
+            <button onclick="togglePreview()" id="btn-play" class="flex items-center gap-2 px-3 py-1.5 bg-white/5 hover:bg-white/10 text-white rounded-lg font-medium transition-colors ring-1 ring-white/5 text-xs sm:text-sm shadow-sm">
+                <i data-lucide="play" class="w-4 h-4" id="icon-play"></i>
+                <span id="text-play" class="hidden sm:inline">Preview</span>
+            </button>
+            
+            <div class="flex bg-blue-600 rounded-lg shadow-lg shadow-blue-600/20 ring-1 ring-inset ring-white/20 transition-all hover:bg-blue-500">
+                <select id="export-res" class="bg-transparent text-white font-medium pl-2 pr-1 py-1.5 outline-none cursor-pointer appearance-none text-xs border-r border-blue-400/30 hidden sm:block">
+                    <option value="1920" class="bg-zinc-800" selected>HD 1080p</option>
+                    <option value="2560" class="bg-zinc-800">2K 1440p</option>
+                    <option value="3840" class="bg-zinc-800">4K 2160p</option>
+                </select>
+                <button onclick="exportVideo()" id="btn-export" class="flex items-center gap-2 px-3 py-1.5 text-white font-medium transition-all rounded-r-lg text-xs sm:text-sm">
+                    <i data-lucide="download" class="w-4 h-4"></i>
+                    <span class="hidden sm:inline">Export WebM</span>
+                </button>
+            </div>
+        </div>
+    </header>
+
+    <!-- Main Layout -->
+    <div class="flex flex-1 pt-14 relative overflow-hidden flex-col md:flex-row">
+        
+        <!-- Left Sidebar: Drawing Tools & Properties -->
+        <aside class="w-full md:w-80 flex-shrink-0 bg-zinc-900/60 backdrop-blur-3xl border-r border-white/5 z-30 h-[45%] md:h-full flex flex-col shadow-[0_-10px_40px_rgba(0,0,0,0.5)] md:shadow-none order-2 md:order-1">
+            
+            <div class="p-5 overflow-y-auto space-y-6">
+                
+                <!-- Brush Tools -->
+                <div>
+                    <label class="text-[11px] font-bold text-zinc-500 uppercase tracking-widest block mb-3 flex items-center gap-1.5">
+                        <i data-lucide="brush" class="w-3 h-3"></i> Brushes
+                    </label>
+                    <div class="grid grid-cols-5 md:grid-cols-2 gap-2">
+                        <button class="tool-btn active py-2 rounded-lg text-xs font-medium text-zinc-300 bg-black/40 border-white/10 flex flex-col justify-center items-center gap-1" data-tool="pen" onclick="setTool('pen')">
+                            <i data-lucide="pen-line" class="w-4 h-4"></i> <span class="hidden md:inline">Solid Pen</span>
+                        </button>
+                        <button class="tool-btn py-2 rounded-lg text-xs font-medium text-zinc-300 bg-black/40 border-white/10 flex flex-col justify-center items-center gap-1" data-tool="calligraphy" onclick="setTool('calligraphy')">
+                            <i data-lucide="pen-tool" class="w-4 h-4"></i> <span class="hidden md:inline">Calligraphy</span>
+                        </button>
+                        <button class="tool-btn py-2 rounded-lg text-xs font-medium text-zinc-300 bg-black/40 border-white/10 flex flex-col justify-center items-center gap-1" data-tool="pencil" onclick="setTool('pencil')">
+                            <i data-lucide="pencil" class="w-4 h-4"></i> <span class="hidden md:inline">Pencil</span>
+                        </button>
+                        <button class="tool-btn py-2 rounded-lg text-xs font-medium text-zinc-300 bg-black/40 border-white/10 flex flex-col justify-center items-center gap-1" data-tool="charcoal" onclick="setTool('charcoal')">
+                            <i data-lucide="flame" class="w-4 h-4"></i> <span class="hidden md:inline">Charcoal</span>
+                        </button>
+                        <button class="tool-btn py-2 rounded-lg text-xs font-medium text-zinc-300 bg-black/40 border-white/10 flex flex-col justify-center items-center gap-1" data-tool="chalk" onclick="setTool('chalk')">
+                            <i data-lucide="square" class="w-4 h-4"></i> <span class="hidden md:inline">Chalk</span>
+                        </button>
+                        <button class="tool-btn py-2 rounded-lg text-xs font-medium text-zinc-300 bg-black/40 border-white/10 flex flex-col justify-center items-center gap-1" data-tool="oil" onclick="setTool('oil')">
+                            <i data-lucide="brush" class="w-4 h-4"></i> <span class="hidden md:inline">Oil Paint</span>
+                        </button>
+                        <button class="tool-btn py-2 rounded-lg text-xs font-medium text-zinc-300 bg-black/40 border-white/10 flex flex-col justify-center items-center gap-1" data-tool="watercolor" onclick="setTool('watercolor')">
+                            <i data-lucide="droplet" class="w-4 h-4"></i> <span class="hidden md:inline">Watercolor</span>
+                        </button>
+                        <button class="tool-btn py-2 rounded-lg text-xs font-medium text-zinc-300 bg-black/40 border-white/10 flex flex-col justify-center items-center gap-1" data-tool="airbrush" onclick="setTool('airbrush')">
+                            <i data-lucide="wind" class="w-4 h-4"></i> <span class="hidden md:inline">Airbrush</span>
+                        </button>
+                        <button class="tool-btn py-2 rounded-lg text-xs font-medium text-zinc-300 bg-black/40 border-white/10 flex flex-col justify-center items-center gap-1" data-tool="marker" onclick="setTool('marker')">
+                            <i data-lucide="edit-3" class="w-4 h-4"></i> <span class="hidden md:inline">Marker</span>
+                        </button>
+                        <button class="tool-btn py-2 rounded-lg text-xs font-medium text-zinc-300 bg-black/40 border-white/10 flex flex-col justify-center items-center gap-1 text-rose-400" data-tool="eraser" onclick="setTool('eraser')">
+                            <i data-lucide="eraser" class="w-4 h-4"></i> <span class="hidden md:inline">Eraser</span>
+                        </button>
+                    </div>
+                </div>
+
+                <div class="w-full h-px bg-white/5"></div>
+
+                <!-- Properties Settings -->
+                <div class="space-y-5">
+                    <label class="text-[11px] font-bold text-zinc-500 uppercase tracking-widest block mb-1">Properties</label>
+                    
+                    <div class="flex items-center justify-between">
+                        <span class="text-xs text-zinc-300 hidden md:inline">Ink Color</span>
+                        <div class="flex-1 md:flex-none flex justify-between md:justify-end gap-2">
+                            <button class="w-6 h-6 rounded-full bg-[#000000] border border-white/20" onclick="setColor('#000000')"></button>
+                            <button class="w-6 h-6 rounded-full bg-[#3b82f6] border border-white/20" onclick="setColor('#3b82f6')"></button>
+                            <button class="w-6 h-6 rounded-full bg-[#ef4444] border border-white/20" onclick="setColor('#ef4444')"></button>
+                            <button class="w-6 h-6 rounded-full bg-[#10b981] border border-white/20" onclick="setColor('#10b981')"></button>
+                            <button class="w-6 h-6 rounded-full bg-[#f59e0b] border border-white/20" onclick="setColor('#f59e0b')"></button>
+                            
+                            <div class="relative w-6 h-6 rounded-full border border-white/20 bg-[url('data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAAAoAAAAKCAYAAACNMs+9AAAAAXNSR0IArs4c6QAAACVJREFUKFNjZCASMDKgAnv37v3/n0QciwZkR+BThM8wUshwQxgAYeAU/6+E4wYAAAAASUVORK5CYII=')] overflow-hidden cursor-pointer" title="Custom Color">
+                                <input type="color" class="absolute w-full h-full opacity-0 inset-0 cursor-pointer" value="#000000" id="prop-color" onchange="setColor(this.value)" oninput="setColor(this.value)">
+                            </div>
+                        </div>
+                    </div>
+
+                    <div>
+                        <div class="flex justify-between items-center mb-2">
+                            <span class="text-xs text-zinc-300 font-medium">Brush Size</span>
+                            <span id="size-val" class="text-xs text-zinc-400 font-mono">10px</span>
+                        </div>
+                        <input type="range" min="2" max="150" value="10" class="w-full accent-blue-500" oninput="state.size = parseInt(this.value); document.getElementById('size-val').innerText = this.value + 'px';">
+                    </div>
+                    
+                    <div>
+                        <div class="flex justify-between items-center mb-2">
+                            <span class="text-xs text-zinc-300 font-medium">Opacity</span>
+                            <span id="opacity-val" class="text-xs text-zinc-400 font-mono">100%</span>
+                        </div>
+                        <input type="range" min="1" max="100" value="100" class="w-full accent-blue-500" oninput="state.opacity = parseInt(this.value); document.getElementById('opacity-val').innerText = this.value + '%';">
+                    </div>
+
+                    <div>
+                        <div class="flex justify-between items-center mb-2">
+                            <span class="text-xs text-zinc-300 font-medium">Density / Flow</span>
+                            <span id="density-val" class="text-xs text-zinc-400 font-mono">50%</span>
+                        </div>
+                        <input type="range" min="1" max="100" value="50" class="w-full accent-blue-500" oninput="state.density = parseInt(this.value); document.getElementById('density-val').innerText = this.value + '%';">
+                    </div>
+                </div>
+
+                <div class="w-full h-px bg-white/5"></div>
+
+                <!-- Canvas Background -->
+                <div class="space-y-4">
+                    <label class="text-[11px] font-bold text-zinc-500 uppercase tracking-widest block mb-1">Canvas Setup</label>
+                    <div class="flex items-center justify-between">
+                        <span class="text-xs text-zinc-300 hidden md:inline">Background Color</span>
+                        <div class="flex-1 md:flex-none flex justify-between md:justify-end gap-2">
+                            <button class="w-6 h-6 rounded-full bg-[#ffffff] border border-white/20" onclick="setBgColor('#ffffff')"></button>
+                            <button class="w-6 h-6 rounded-full bg-[#f8fafc] border border-white/20" onclick="setBgColor('#f8fafc')"></button>
+                            <button class="w-6 h-6 rounded-full bg-[#fef3c7] border border-white/20" onclick="setBgColor('#fef3c7')"></button>
+                            <button class="w-6 h-6 rounded-full bg-[#18181b] border border-white/20" onclick="setBgColor('#18181b')"></button>
+                            
+                            <div class="relative w-6 h-6 rounded-full border border-white/20 bg-[url('data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAAAoAAAAKCAYAAACNMs+9AAAAAXNSR0IArs4c6QAAACVJREFUKFNjZCASMDKgAnv37v3/n0QciwZkR+BThM8wUshwQxgAYeAU/6+E4wYAAAAASUVORK5CYII=')] overflow-hidden cursor-pointer" title="Custom Background">
+                                <input type="color" class="absolute w-full h-full opacity-0 inset-0 cursor-pointer" value="#ffffff" id="bg-color" onchange="setBgColor(this.value)" oninput="setBgColor(this.value)">
+                            </div>
+                        </div>
+                    </div>
+                </div>
+
+                <div class="w-full h-px bg-white/5"></div>
+
+                <!-- Export Timing -->
+                <div class="space-y-4">
+                    <label class="text-[11px] font-bold text-zinc-500 uppercase tracking-widest block mb-1">Export Settings</label>
+                    <div>
+                        <div class="flex justify-between items-center mb-2">
+                            <span class="text-xs text-zinc-300 font-medium">Extra Record Time</span>
+                            <span id="pad-val" class="text-xs text-blue-400 font-bold">2.0s</span>
+                        </div>
+                        <input type="range" min="0" max="10" step="0.5" value="2.0" class="w-full accent-blue-500" oninput="state.exportPadding = parseFloat(this.value); document.getElementById('pad-val').innerText = parseFloat(this.value).toFixed(1) + 's';">
+                        <p class="text-[10px] text-zinc-500 mt-2 leading-relaxed">Amount of extra time to hold the final frame in the exported video.</p>
+                    </div>
+                </div>
+
+            </div>
+        </aside>
+
+        <!-- Main Canvas Area -->
+        <main class="flex-1 relative bg-zinc-900 pattern-grid overflow-hidden order-1 md:order-2 flex items-center justify-center">
+            
+            <div id="scale-wrapper">
+                <canvas id="draw-canvas" width="1920" height="1080"></canvas>
+            </div>
+            
+            <div id="status-indicator" class="absolute top-6 right-6 flex items-center gap-2 bg-blue-500/10 border border-blue-500/50 text-blue-400 px-4 py-2.5 rounded-full shadow-lg opacity-0 transition-opacity duration-300 pointer-events-none backdrop-blur-md z-50">
+                <div class="w-2 h-2 rounded-full bg-blue-400 animate-pulse" id="status-dot"></div>
+                <span class="text-xs font-bold tracking-wide uppercase" id="status-text">Playing Sequence</span>
+            </div>
+        </main>
+    </div>
+
+    <!-- Export Loading Overlay -->
+    <div id="export-loader" class="fixed inset-0 z-50 bg-black/80 hidden flex flex-col items-center justify-center transition-opacity opacity-0 backdrop-blur-sm">
+        <div class="w-12 h-12 border-4 border-white/10 border-t-blue-500 rounded-full animate-spin mb-4"></div>
+        <h2 class="text-xl font-bold text-white mb-2">Rendering WebM Video</h2>
+        <p class="text-sm text-zinc-400 font-mono font-medium" id="rec-time">Processing 0%</p>
+    </div>
+
+    <!-- Toasts -->
+    <div id="toast-container" class="fixed top-20 right-6 z-[60] flex flex-col gap-2 pointer-events-none"></div>
+
+    <script>
+        lucide.createIcons();
+
+        // --- Application State ---
+        const state = {
+            tool: 'pen', 
+            color: '#000000',
+            size: 10,
+            opacity: 100,
+            density: 50,
+            bgColor: '#ffffff',
+            
+            exportPadding: 2.0, 
+            
+            // Interaction Engine
+            isDrawing: false,
+            lastX: 0,
+            lastY: 0,
+            currentStroke: null,
+            history: [], // Array of strokes: { tool, color, size, opacity, density, points: [{x,y,t}] }
+            
+            // Playback & Export Engine
+            logicalTime: 0,
+            lastEventTime: 0,
+            
+            isPlaying: false,
+            isExporting: false,
+            playbackStartTime: 0,
+            
+            mediaRecorder: null,
+            recordedChunks: []
+        };
+
+        const canvas = document.getElementById('draw-canvas');
+        const ctx = canvas.getContext('2d', { willReadFrequently: true });
+
+        // --- Viewport Scaling ---
+        function updateLayoutScale() {
+            const wrapper = document.getElementById('scale-wrapper');
+            const padding = 0; 
+            const availW = wrapper.clientWidth - padding;
+            const availH = wrapper.clientHeight - padding;
+
+            const logicalW = 1920;
+            const logicalH = 1080;
+
+            const scale = Math.min(availW / logicalW, availH / logicalH, 1.0);
+            canvas.style.transform = `scale(${scale})`;
+        }
+        window.addEventListener('resize', updateLayoutScale);
+        updateLayoutScale();
+
+        // --- UI Updaters ---
+        function setTool(toolName) {
+            if(state.isPlaying) return;
+            state.tool = toolName;
+            document.querySelectorAll('.tool-btn').forEach(btn => {
+                btn.classList.remove('active');
+                if(btn.dataset.tool === toolName) btn.classList.add('active');
+            });
+        }
+
+        function setColor(hex) {
+            state.color = hex;
+            document.getElementById('prop-color').value = hex;
+        }
+
+        function setBgColor(hex) {
+            state.bgColor = hex;
+            document.getElementById('bg-color').value = hex;
+            if(!state.isPlaying) {
+                // Redraw everything to apply new background
+                renderEntireHistory();
+            }
+        }
+
+        function showToast(message, type = 'info') {
+            const container = document.getElementById('toast-container');
+            const toast = document.createElement('div');
+            toast.className = `bg-zinc-800/95 backdrop-blur-md text-white px-4 py-3 rounded-xl shadow-2xl ring-1 ring-white/10 flex items-center gap-3 transform transition-all -translate-y-4 opacity-0 z-50`;
+            let icon = type === 'success' ? 'check-circle' : (type === 'error' ? 'alert-triangle' : 'info');
+            let color = type === 'success' ? 'text-emerald-400' : (type === 'error' ? 'text-rose-400' : 'text-blue-400');
+            toast.innerHTML = `<i data-lucide="${icon}" class="w-4 h-4 ${color}"></i> <span class="text-sm font-medium">${message}</span>`;
+            container.appendChild(toast); lucide.createIcons();
+            requestAnimationFrame(() => toast.classList.remove('-translate-y-4', 'opacity-0'));
+            setTimeout(() => { toast.classList.add('-translate-y-4', 'opacity-0'); setTimeout(() => toast.remove(), 300); }, 3000);
+        }
+
+        // --- Brush Render Engine ---
+        // Includes exportScale parameter so brushes look identical in 4K
+        function applyBrush(context, x, y, lastX, lastY, tool, color, size, opacityVal, densityVal, exportScale = 1) {
+            // Scale Coordinates & Sizes
+            x *= exportScale; 
+            y *= exportScale; 
+            lastX *= exportScale; 
+            lastY *= exportScale; 
+            size *= exportScale;
+
+            let op = opacityVal / 100;
+            let den = densityVal / 100;
+
+            if (tool === 'eraser') {
+                // We don't use 'destination-out' because we have a solid color background.
+                // We just paint with the background color to act as an eraser.
+                context.globalCompositeOperation = 'source-over';
+                context.globalAlpha = op;
+                context.strokeStyle = state.bgColor;
+                context.lineWidth = size;
+                context.lineCap = 'round';
+                context.lineJoin = 'round';
+                context.beginPath(); context.moveTo(lastX, lastY); context.lineTo(x, y); context.stroke();
+                return;
+            }
+
+            context.strokeStyle = color;
+            context.fillStyle = color;
+
+            if (tool === 'pen') {
+                context.globalCompositeOperation = 'source-over';
+                context.globalAlpha = op;
+                context.lineWidth = size;
+                context.lineCap = 'round';
+                context.lineJoin = 'round';
+                context.beginPath(); context.moveTo(lastX, lastY); context.lineTo(x, y); context.stroke();
+            } 
+            else if (tool === 'calligraphy') {
+                context.globalCompositeOperation = 'source-over';
+                context.globalAlpha = op;
+                
+                let angle = -Math.PI / 4; 
+                let offsetX = Math.cos(angle) * (size / 2);
+                let offsetY = Math.sin(angle) * (size / 2);
+
+                context.beginPath();
+                context.moveTo(lastX - offsetX, lastY - offsetY);
+                context.lineTo(lastX + offsetX, lastY + offsetY);
+                context.lineTo(x + offsetX, y + offsetY);
+                context.lineTo(x - offsetX, y - offsetY);
+                context.closePath();
+                context.fill();
+            }
+            else if (tool === 'marker') {
+                context.globalCompositeOperation = 'multiply';
+                context.globalAlpha = 0.05 * op; 
+                context.lineWidth = size;
+                context.lineCap = 'round';
+                context.lineJoin = 'round';
+                context.beginPath(); context.moveTo(lastX, lastY); context.lineTo(x, y); context.stroke();
+            }
+            else if (tool === 'pencil') {
+                context.globalCompositeOperation = 'source-over';
+                context.globalAlpha = 0.4 * op;
+                context.lineWidth = Math.max(1 * exportScale, size * 0.1);
+                context.lineCap = 'butt';
+                
+                let numLines = Math.max(2, Math.floor((size / (2 * exportScale)) * den));
+                for(let i=0; i<numLines; i++){
+                    let offset = (Math.random() - 0.5) * size * 0.8;
+                    context.beginPath(); 
+                    context.moveTo(lastX + offset, lastY + offset); 
+                    context.lineTo(x + offset, y + offset); 
+                    context.stroke();
+                }
+            }
+            else if (tool === 'charcoal') {
+                context.globalCompositeOperation = 'source-over';
+                context.globalAlpha = 0.7 * op;
+                let dist = Math.hypot(x - lastX, y - lastY);
+                let steps = Math.max(1, dist / (2 * exportScale)); 
+                
+                for (let i = 0; i <= steps; i++) {
+                    let px = lastX + (x - lastX) * (i / steps);
+                    let py = lastY + (y - lastY) * (i / steps);
+                    
+                    let dots = Math.max(3, (size/exportScale) * den);
+                    for(let j=0; j < dots; j++) {
+                        let rx = px + (Math.random() - 0.5) * size;
+                        let ry = py + (Math.random() - 0.5) * size;
+                        if (Math.hypot(rx - px, ry - py) < (size/2) * Math.random()) {
+                            context.fillRect(rx, ry, Math.random()*2*exportScale, Math.random()*2*exportScale);
+                        }
+                    }
+                }
+            }
+            else if (tool === 'chalk') {
+                context.globalCompositeOperation = 'source-over';
+                context.globalAlpha = 0.6 * op;
+                let dist = Math.hypot(x - lastX, y - lastY);
+                let steps = Math.max(1, dist);
+                
+                for(let i=0; i<=steps; i++) {
+                    let px = lastX + (x - lastX) * (i / steps);
+                    let py = lastY + (y - lastY) * (i / steps);
+                    
+                    let particles = Math.floor(10 * den * (size/(10 * exportScale)));
+                    for(let j=0; j<particles; j++) {
+                        let rx = px + (Math.random() - 0.5) * size;
+                        let ry = py + (Math.random() - 0.5) * size;
+                        context.fillRect(rx, ry, 2*exportScale, 2*exportScale); 
+                    }
+                }
+            }
+            else if (tool === 'oil') {
+                context.globalCompositeOperation = 'source-over';
+                context.lineWidth = Math.max(1 * exportScale, size * 0.15);
+                context.lineCap = 'round';
+                context.lineJoin = 'round';
+                
+                let dx = x - lastX;
+                let dy = y - lastY;
+                let dist = Math.hypot(dx, dy);
+                let nx = dist > 0 ? -dy / dist : 0; 
+                let ny = dist > 0 ? dx / dist : 0;  
+                
+                let bristles = Math.max(3, Math.floor(15 * den * (size/(20 * exportScale))));
+                
+                for(let i=0; i<bristles; i++) {
+                    let hash = Math.sin(i * 12.9898) * 43758.5453;
+                    let frac = hash - Math.floor(hash);
+                    let offset = (frac - 0.5) * size;
+                    
+                    context.globalAlpha = (0.3 + 0.7 * frac) * op;
+                    context.beginPath();
+                    context.moveTo(lastX + nx * offset, lastY + ny * offset);
+                    context.lineTo(x + nx * offset, y + ny * offset);
+                    context.stroke();
+                }
+            }
+            else if (tool === 'airbrush') {
+                context.globalCompositeOperation = 'source-over';
+                context.globalAlpha = 0.05 * op;
+                let dist = Math.hypot(x - lastX, y - lastY);
+                let steps = Math.max(1, dist);
+                
+                for(let i=0; i<=steps; i++) {
+                    let px = lastX + (x - lastX) * (i / steps);
+                    let py = lastY + (y - lastY) * (i / steps);
+                    
+                    let drops = Math.floor(30 * den * (size/(20 * exportScale)));
+                    for(let j=0; j<drops; j++) {
+                        let angle = Math.random() * Math.PI * 2;
+                        let radius = Math.random() * (size/2);
+                        if(Math.random() > 0.3) radius *= Math.random();
+                        
+                        context.beginPath();
+                        context.arc(px + Math.cos(angle)*radius, py + Math.sin(angle)*radius, Math.random()*1.5*exportScale, 0, Math.PI*2);
+                        context.fill();
+                    }
+                }
+            }
+            else if (tool === 'watercolor') {
+                context.globalCompositeOperation = 'multiply'; 
+                context.globalAlpha = 0.02 * op; 
+                
+                let dist = Math.hypot(x - lastX, y - lastY);
+                let steps = Math.max(1, dist / (size / 4) * den);
+                
+                for (let i = 0; i <= steps; i++) {
+                    let px = lastX + (x - lastX) * (i / steps);
+                    let py = lastY + (y - lastY) * (i / steps);
+                    
+                    context.beginPath();
+                    let jx = px + (Math.random() - 0.5) * (size/4);
+                    let jy = py + (Math.random() - 0.5) * (size/4);
+                    let radius = (size/2) + Math.random()*(size/2);
+                    context.arc(jx, jy, radius, 0, Math.PI*2);
+                    context.fill();
+                }
+            }
+        }
+
+        // --- Drawing & Event Logic ---
+        function clearCanvasInternal(targetCtx = ctx, w = canvas.width, h = canvas.height) {
+            targetCtx.globalCompositeOperation = 'source-over';
+            targetCtx.globalAlpha = 1.0;
+            targetCtx.fillStyle = state.bgColor;
+            targetCtx.fillRect(0, 0, w, h);
+        }
+
+        function clearCanvas() {
+            if (state.isPlaying || state.isExporting) return;
+            if (confirm('Are you sure you want to clear the canvas?')) {
+                clearCanvasInternal();
+                state.history = [];
+                state.logicalTime = 0;
+                state.lastEventTime = performance.now();
+                showToast('Canvas cleared', 'success');
+            }
+        }
+
+        function undoLast() {
+            if (state.isPlaying || state.isExporting) return;
+            if (state.history.length > 0) {
+                const removed = state.history.pop();
+                state.logicalTime = Math.max(0, removed.points[0]?.t || 0);
+                renderEntireHistory();
+                showToast('Undo successful', 'info');
+            }
+        }
+
+        function renderEntireHistory(targetCtx = ctx, exportScale = 1) {
+            clearCanvasInternal(targetCtx, canvas.width * exportScale, canvas.height * exportScale);
+            for (let stroke of state.history) {
+                for (let i = 0; i < stroke.points.length; i++) {
+                    let pt = stroke.points[i];
+                    if (i > 0) {
+                        let prev = stroke.points[i - 1];
+                        applyBrush(targetCtx, pt.x, pt.y, prev.x, prev.y, stroke.tool, stroke.color, stroke.size, stroke.opacity, stroke.density, exportScale);
+                    } else {
+                        applyBrush(targetCtx, pt.x, pt.y, pt.x, pt.y, stroke.tool, stroke.color, stroke.size, stroke.opacity, stroke.density, exportScale);
+                    }
+                }
+            }
+        }
+
+        function getMousePos(e) {
+            const rect = canvas.getBoundingClientRect();
+            const scaleX = canvas.width / rect.width;
+            const scaleY = canvas.height / rect.height;
+            return {
+                x: (e.clientX - rect.left) * scaleX,
+                y: (e.clientY - rect.top) * scaleY
+            };
+        }
+
+        canvas.addEventListener('pointerdown', (e) => {
+            if (state.isPlaying || state.isExporting) return;
+            e.preventDefault();
+            
+            state.isDrawing = true;
+            canvas.setPointerCapture(e.pointerId);
+            const pos = getMousePos(e);
+            state.lastX = pos.x;
+            state.lastY = pos.y;
+            
+            let now = performance.now();
+            if (state.history.length === 0) {
+                state.logicalTime = 0;
+            } else {
+                let diff = now - state.lastEventTime;
+                if (diff > 1000) diff = 1000; // Cap idle time in playback
+                state.logicalTime += diff;
+            }
+            state.lastEventTime = now;
+
+            state.currentStroke = {
+                tool: state.tool,
+                color: state.color,
+                size: state.size,
+                opacity: state.opacity,
+                density: state.density,
+                points: [{ x: pos.x, y: pos.y, t: state.logicalTime }]
+            };
+
+            applyBrush(ctx, pos.x, pos.y, pos.x, pos.y, state.tool, state.color, state.size, state.opacity, state.density);
+        });
+
+        canvas.addEventListener('pointermove', (e) => {
+            if (!state.isDrawing || state.isPlaying) return;
+            e.preventDefault();
+            const pos = getMousePos(e);
+            
+            let now = performance.now();
+            let diff = now - state.lastEventTime;
+            state.logicalTime += diff;
+            state.lastEventTime = now;
+
+            state.currentStroke.points.push({ x: pos.x, y: pos.y, t: state.logicalTime });
+            applyBrush(ctx, pos.x, pos.y, state.lastX, state.lastY, state.tool, state.color, state.size, state.opacity, state.density);
+
+            state.lastX = pos.x;
+            state.lastY = pos.y;
+        });
+
+        canvas.addEventListener('pointerup', (e) => {
+            if (!state.isDrawing || state.isPlaying) return;
+            state.isDrawing = false;
+            canvas.releasePointerCapture(e.pointerId);
+            
+            if (state.currentStroke && state.currentStroke.points.length > 0) {
+                state.history.push(state.currentStroke);
+            }
+            state.currentStroke = null;
+        });
+
+        canvas.addEventListener('pointercancel', (e) => {
+            if (!state.isDrawing || state.isPlaying) return;
+            state.isDrawing = false;
+            canvas.releasePointerCapture(e.pointerId);
+            if (state.currentStroke && state.currentStroke.points.length > 0) {
+                state.history.push(state.currentStroke);
+            }
+            state.currentStroke = null;
+        });
+
+        function getTotalTime() {
+            if (state.history.length === 0) return 0;
+            const lastStroke = state.history[state.history.length - 1];
+            if (lastStroke.points.length === 0) return 0;
+            return lastStroke.points[lastStroke.points.length - 1].t / 1000; // in seconds
+        }
+
+        // --- Playback & Export Engine ---
+        let pStrokeIndex = 0;
+        let pPointIndex = 0;
+
+        function setPlayUI(playing) {
+            const btnPlay = document.getElementById('btn-play');
+            const iconPlay = document.getElementById('icon-play');
+            const textPlay = document.getElementById('text-play');
+            const ind = document.getElementById('status-indicator');
+            const txt = document.getElementById('status-text');
+
+            document.querySelectorAll('button:not(#btn-play):not(#btn-export), input, select').forEach(b => b.disabled = playing);
+
+            if (playing) {
+                ind.classList.remove('opacity-0');
+                if (state.isExporting) {
+                    btnPlay.disabled = true;
+                    ind.classList.replace('bg-blue-500/10', 'bg-red-500/10');
+                    ind.classList.replace('border-blue-500/50', 'border-red-500/50');
+                    ind.classList.replace('text-blue-400', 'text-red-400');
+                    document.getElementById('status-dot').classList.replace('bg-blue-400', 'bg-red-400');
+                    txt.innerText = 'Rendering Video...';
+                } else {
+                    btnPlay.classList.add('bg-rose-500/20', 'text-rose-400', 'border-rose-500/50');
+                    btnPlay.classList.remove('bg-white/5', 'text-white', 'border-white/5');
+                    iconPlay.setAttribute('data-lucide', 'square');
+                    textPlay.innerText = 'Stop';
+                    txt.innerText = 'Playing Sequence';
+                }
+            } else {
+                btnPlay.disabled = false;
+                btnPlay.classList.remove('bg-rose-500/20', 'text-rose-400', 'border-rose-500/50');
+                btnPlay.classList.add('bg-white/5', 'text-white', 'border-white/5');
+                iconPlay.setAttribute('data-lucide', 'play');
+                textPlay.innerText = 'Preview';
+                
+                ind.classList.add('opacity-0');
+                
+                ind.classList.replace('bg-rose-500/10', 'bg-blue-500/10');
+                ind.classList.replace('border-rose-500/50', 'border-blue-500/50');
+                ind.classList.replace('text-rose-400', 'text-blue-400');
+                document.getElementById('status-dot').classList.replace('bg-rose-400', 'bg-blue-400');
+            }
+            lucide.createIcons();
+        }
+
+        function togglePreview() {
+            if (state.isPlaying) {
+                stopPlayback();
+                return;
+            }
+            if (state.history.length === 0) return showToast('Draw something first!', 'error');
+
+            state.isPlaying = true;
+            state.isExporting = false;
+            setPlayUI(true);
+            
+            clearCanvasInternal();
+            pStrokeIndex = 0;
+            pPointIndex = 0;
+            
+            requestAnimationFrame((timestamp) => {
+                state.playbackStartTime = timestamp;
+                playbackLoop(timestamp);
+            });
+        }
+
+        function playbackLoop(timestamp) {
+            if (!state.isPlaying) return;
+            
+            let elapsedSec = (timestamp - state.playbackStartTime) / 1000; 
+            let elapsedMs = elapsedSec * 1000;
+            let totalTimeSec = getTotalTime() + state.exportPadding; 
+
+            // Forward drawing engine (avoids slow full-canvas clears)
+            while (pStrokeIndex < state.history.length) {
+                let stroke = state.history[pStrokeIndex];
+
+                if (pPointIndex >= stroke.points.length) {
+                    pStrokeIndex++;
+                    pPointIndex = 0;
+                    continue;
+                }
+
+                let pt = stroke.points[pPointIndex];
+                if (pt.t <= elapsedMs) {
+                    if (pPointIndex > 0) {
+                        let prev = stroke.points[pPointIndex - 1];
+                        applyBrush(ctx, pt.x, pt.y, prev.x, prev.y, stroke.tool, stroke.color, stroke.size, stroke.opacity, stroke.density);
+                    } else {
+                        applyBrush(ctx, pt.x, pt.y, pt.x, pt.y, stroke.tool, stroke.color, stroke.size, stroke.opacity, stroke.density);
+                    }
+                    pPointIndex++;
+                } else {
+                    break; // Future point, wait for next frame
+                }
+            }
+
+            if (state.isExporting) {
+                let pct = Math.min(100, Math.round((elapsedSec / totalTimeSec) * 100));
+                document.getElementById('rec-time').innerText = `Processing ${pct}%`;
+            }
+
+            if (elapsedSec >= totalTimeSec) {
+                if (state.isExporting) {
+                    document.getElementById('rec-time').innerText = `Finalizing File...`;
+                    setTimeout(stopPlayback, 500); 
+                } else {
+                    stopPlayback();
+                }
+                return;
+            }
+
+            requestAnimationFrame(playbackLoop);
+        }
+
+        function stopPlayback() {
+            state.isPlaying = false;
+            if (state.isExporting && state.mediaRecorder) {
+                if (state.mediaRecorder.state !== 'inactive') state.mediaRecorder.stop();
+                state.isExporting = false;
+                document.getElementById('export-loader').classList.add('opacity-0');
+                setTimeout(() => document.getElementById('export-loader').classList.add('hidden'), 300);
+            }
+            setPlayUI(false);
+            
+            // Re-render completely in case it was stopped mid-way to ensure end-state matches history exactly
+            renderEntireHistory();
+        }
+
+        function exportVideo() {
+            if (state.history.length === 0) return showToast('Draw something first!', 'error');
+            if (state.isPlaying || state.isExporting) return;
+
+            try {
+                const targetWidth = parseInt(document.getElementById('export-res').value);
+                const aspect = 1080 / 1920;
+                const targetHeight = targetWidth * aspect;
+
+                const expCanvas = document.createElement('canvas');
+                expCanvas.width = targetWidth;
+                expCanvas.height = targetHeight;
+                const eCtx = expCanvas.getContext('2d', { alpha: false });
+                
+                const exportScale = targetWidth / 1920;
+
+                const stream = expCanvas.captureStream(60); 
+                state.recordedChunks = [];
+                
+                // High Bitrate VP9 WebM for crisp brushes and preserving watercolor/chalk alpha overlaps
+                state.mediaRecorder = new MediaRecorder(stream, { 
+                    mimeType: 'video/webm; codecs=vp9',
+                    videoBitsPerSecond: 20000000 
+                });
+                
+                state.mediaRecorder.ondataavailable = (e) => {
+                    if (e.data.size > 0) state.recordedChunks.push(e.data);
+                };
+
+                state.mediaRecorder.onstop = () => {
+                    const blob = new Blob(state.recordedChunks, { type: 'video/webm' });
+                    const url = URL.createObjectURL(blob);
+                    const link = document.createElement('a');
+                    link.href = url;
+                    link.download = `paintflow-${targetWidth}w-${Date.now()}.webm`;
+                    link.click();
+                    URL.revokeObjectURL(url);
+                    showToast('Video exported successfully!', 'success');
+                };
+
+                state.mediaRecorder.start();
+                
+                state.isPlaying = true;
+                state.isExporting = true;
+                setPlayUI(true);
+                
+                const loader = document.getElementById('export-loader');
+                loader.classList.remove('hidden');
+                requestAnimationFrame(() => loader.classList.remove('opacity-0'));
+
+                const totalTimeSec = getTotalTime() + state.exportPadding;
+                let exportStartTime = performance.now();
+                let eStrokeIndex = 0;
+                let ePointIndex = 0;
+                
+                // Clear export canvas explicitly
+                clearCanvasInternal(eCtx, targetWidth, targetHeight);
+                clearCanvasInternal(ctx, canvas.width, canvas.height);
+                pStrokeIndex = 0;
+                pPointIndex = 0;
+                
+                function exportRenderLoop(now) {
+                    let elapsedSec = (now - exportStartTime) / 1000;
+                    let elapsedMs = elapsedSec * 1000;
+                    
+                    // Inject scaled points into export engine
+                    while (eStrokeIndex < state.history.length) {
+                        let stroke = state.history[eStrokeIndex];
+
+                        if (ePointIndex >= stroke.points.length) {
+                            eStrokeIndex++;
+                            ePointIndex = 0;
+                            continue;
+                        }
+
+                        let pt = stroke.points[ePointIndex];
+                        if (pt.t <= elapsedMs) {
+                            if (ePointIndex > 0) {
+                                let prev = stroke.points[ePointIndex - 1];
+                                applyBrush(eCtx, pt.x, pt.y, prev.x, prev.y, stroke.tool, stroke.color, stroke.size, stroke.opacity, stroke.density, exportScale);
+                            } else {
+                                applyBrush(eCtx, pt.x, pt.y, pt.x, pt.y, stroke.tool, stroke.color, stroke.size, stroke.opacity, stroke.density, exportScale);
+                            }
+                            ePointIndex++;
+                        } else {
+                            break; 
+                        }
+                    }
+
+                    // We also step the live engine visually so the user sees the progress!
+                    while (pStrokeIndex < state.history.length) {
+                        let stroke = state.history[pStrokeIndex];
+                        if (pPointIndex >= stroke.points.length) { pStrokeIndex++; pPointIndex = 0; continue; }
+                        let pt = stroke.points[pPointIndex];
+                        if (pt.t <= elapsedMs) {
+                            if (pPointIndex > 0) {
+                                let prev = stroke.points[pPointIndex - 1];
+                                applyBrush(ctx, pt.x, pt.y, prev.x, prev.y, stroke.tool, stroke.color, stroke.size, stroke.opacity, stroke.density, 1);
+                            } else {
+                                applyBrush(ctx, pt.x, pt.y, pt.x, pt.y, stroke.tool, stroke.color, stroke.size, stroke.opacity, stroke.density, 1);
+                            }
+                            pPointIndex++;
+                        } else break; 
+                    }
+
+                    let pct = Math.min(100, Math.round((elapsedSec / totalTimeSec) * 100));
+                    document.getElementById('rec-time').innerText = `Processing ${pct}%`;
+
+                    if (elapsedSec < totalTimeSec) {
+                        requestAnimationFrame(exportRenderLoop);
+                    } else {
+                        document.getElementById('rec-time').innerText = `Finalizing File...`;
+                        setTimeout(stopPlayback, 500); 
+                    }
+                }
+                
+                requestAnimationFrame(exportRenderLoop);
+
+            } catch (err) {
+                console.error(err);
+                showToast('Export failed. Browser might not support high-res WebM recording.', 'error');
+                stopPlayback();
+            }
+        }
+
+        // Init
+        clearCanvasInternal();
+
+    </script>
+</body>
+</html>

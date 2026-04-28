@@ -1,0 +1,933 @@
+<!DOCTYPE html>
+<html lang="en" class="dark">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+    <title>Title Animator Pro</title>
+    
+    <!-- Tailwind CSS -->
+    <script src="https://cdn.tailwindcss.com"></script>
+    <script>
+        tailwind.config = {
+            darkMode: 'class',
+            theme: { extend: { fontFamily: { sans: ['Inter', 'sans-serif'] } } }
+        }
+    </script>
+    
+    <!-- Google Fonts (Premium display fonts for titles) -->
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;600;800;900&family=Playfair+Display:ital,wght@0,600;0,800;1,600&family=Space+Mono:wght@400;700&family=Oswald:wght@500;700&display=swap" rel="stylesheet">
+    
+    <!-- Lucide Icons -->
+    <script src="https://unpkg.com/lucide@latest"></script>
+
+    <style>
+        :root { color-scheme: dark; }
+        
+        body {
+            font-family: 'Inter', sans-serif;
+            background-color: #09090b; /* Zinc 950 */
+            color: #ececf1;
+            overflow: hidden;
+            touch-action: none;
+            -webkit-font-smoothing: antialiased;
+        }
+
+        /* macOS style scrollbars */
+        ::-webkit-scrollbar { width: 6px; height: 6px; }
+        ::-webkit-scrollbar-track { background: transparent; }
+        ::-webkit-scrollbar-thumb { background: rgba(255, 255, 255, 0.1); border-radius: 10px; }
+        ::-webkit-scrollbar-thumb:hover { background: rgba(255, 255, 255, 0.2); }
+
+        .pattern-grid {
+            background-size: 40px 40px;
+            background-image: 
+                linear-gradient(to right, rgba(255, 255, 255, 0.05) 1px, transparent 1px),
+                linear-gradient(to bottom, rgba(255, 255, 255, 0.05) 1px, transparent 1px);
+        }
+
+        /* Transparency Checkerboard */
+        .checker-bg {
+            background-color: #0f172a;
+            background-image: 
+                linear-gradient(45deg, #1e293b 25%, transparent 25%), 
+                linear-gradient(-45deg, #1e293b 25%, transparent 25%), 
+                linear-gradient(45deg, transparent 75%, #1e293b 75%), 
+                linear-gradient(-45deg, transparent 75%, #1e293b 75%);
+            background-size: 24px 24px;
+            background-position: 0 0, 0 12px, 12px -12px, -12px 0px;
+        }
+
+        /* Sliders */
+        input[type="range"] {
+            -webkit-appearance: none;
+            height: 4px;
+            background: rgba(255, 255, 255, 0.1);
+            border-radius: 2px;
+            outline: none;
+        }
+        input[type="range"]::-webkit-slider-thumb {
+            -webkit-appearance: none;
+            width: 16px;
+            height: 16px;
+            border-radius: 50%;
+            background: #fff;
+            box-shadow: 0 2px 6px rgba(0,0,0,0.4);
+            cursor: pointer;
+            transition: transform 0.1s;
+        }
+        input[type="range"]::-webkit-slider-thumb:hover { transform: scale(1.1); }
+
+        /* Color Picker Reset */
+        input[type="color"] {
+            -webkit-appearance: none;
+            border: none;
+            width: 28px;
+            height: 28px;
+            border-radius: 50%;
+            padding: 0;
+            cursor: pointer;
+            background: transparent;
+        }
+        input[type="color"]::-webkit-color-swatch-wrapper { padding: 0; }
+        input[type="color"]::-webkit-color-swatch { border: none; border-radius: 50%; box-shadow: inset 0 0 0 1px rgba(255,255,255,0.2); }
+
+        .gradient-btn { transition: transform 0.1s; }
+        .gradient-btn:hover { transform: scale(1.05); }
+
+        #scale-wrapper {
+            position: absolute;
+            inset: 0;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            overflow: hidden;
+            padding: 20px; 
+        }
+
+        #anim-canvas {
+            box-shadow: 0 0 0 1px rgba(255,255,255,0.05), 0 30px 60px -12px rgba(0,0,0,0.8);
+            transform-origin: center center;
+            will-change: transform;
+            border-radius: 8px;
+            max-width: 100%;
+            max-height: 100%;
+            object-fit: contain;
+        }
+    </style>
+</head>
+<body class="flex flex-col h-screen text-sm">
+
+    <!-- Glass Header -->
+    <header class="absolute top-0 w-full h-14 bg-zinc-900/80 backdrop-blur-2xl border-b border-white/5 flex items-center justify-between px-4 sm:px-6 z-40">
+        
+        <!-- Logo -->
+        <div class="flex items-center gap-3">
+            <div class="w-7 h-7 rounded-lg bg-gradient-to-br from-fuchsia-500 to-purple-600 flex items-center justify-center shadow-inner shadow-white/20">
+                <i data-lucide="type" class="w-4 h-4 text-white"></i>
+            </div>
+            <h1 class="font-semibold tracking-tight whitespace-nowrap hidden sm:block text-zinc-100">Title Animator <span class="text-[10px] bg-purple-600 px-1.5 py-0.5 rounded ml-1 uppercase font-bold tracking-wider">Pro</span></h1>
+        </div>
+
+        <!-- Play & Export -->
+        <div class="flex items-center justify-end gap-3 shrink-0">
+            <button onclick="togglePreview()" id="btn-play" class="flex items-center gap-2 px-3 py-1.5 bg-white/5 hover:bg-white/10 text-white rounded-lg font-medium transition-colors ring-1 ring-white/5 text-xs sm:text-sm">
+                <i data-lucide="play" class="w-4 h-4" id="icon-play"></i>
+                <span id="text-play" class="hidden sm:inline">Preview</span>
+            </button>
+            
+            <div class="flex bg-purple-600 rounded-lg shadow-lg shadow-purple-600/20 ring-1 ring-inset ring-white/20 transition-all hover:bg-purple-500">
+                <select id="export-res" class="bg-transparent text-white font-medium pl-2 pr-1 py-1.5 outline-none cursor-pointer appearance-none text-xs border-r border-purple-400/30 hidden sm:block">
+                    <option value="1920" class="bg-zinc-800" selected>HD 1080p</option>
+                    <option value="2560" class="bg-zinc-800">2K 1440p</option>
+                    <option value="3840" class="bg-zinc-800">4K 2160p</option>
+                </select>
+                <button onclick="exportVideo()" id="btn-export" class="flex items-center gap-2 px-3 py-1.5 text-white font-medium transition-all rounded-r-lg text-xs sm:text-sm">
+                    <i data-lucide="download" class="w-4 h-4"></i>
+                    <span class="hidden sm:inline">Export WebM</span>
+                </button>
+            </div>
+        </div>
+    </header>
+
+    <!-- Main Layout -->
+    <div class="flex flex-1 pt-14 relative overflow-hidden flex-col md:flex-row">
+        
+        <!-- Left Sidebar: Text Properties -->
+        <aside class="w-full md:w-80 flex-shrink-0 bg-zinc-900/60 backdrop-blur-3xl border-r border-white/5 z-30 h-[45%] md:h-full flex flex-col shadow-[0_-10px_40px_rgba(0,0,0,0.5)] md:shadow-none order-2 md:order-1">
+            <div class="p-5 overflow-y-auto space-y-6">
+                
+                <!-- Text Editor -->
+                <div>
+                    <label class="text-[11px] font-bold text-zinc-500 uppercase tracking-widest block mb-2">Title Content</label>
+                    <textarea id="prop-text" rows="4" class="w-full bg-black/40 border border-white/10 rounded-xl px-3 py-2 text-base font-medium text-white focus:ring-1 focus:ring-purple-500 outline-none resize-none" oninput="state.text = this.value; renderCanvas();">The Next Evolution
+of Cinema.</textarea>
+                </div>
+
+                <div class="w-full h-px bg-white/5"></div>
+
+                <!-- Typography -->
+                <div class="space-y-4">
+                    <label class="text-[11px] font-bold text-zinc-500 uppercase tracking-widest block">Typography</label>
+                    
+                    <div>
+                        <select class="w-full bg-black/40 border border-white/10 rounded-lg text-sm text-zinc-200 px-3 py-2 outline-none focus:ring-1 focus:ring-purple-500 appearance-none" onchange="state.fontFamily = this.value; renderCanvas();">
+                            <option value="'Inter', sans-serif" style="font-family: 'Inter', sans-serif;">Inter (Modern Sans)</option>
+                            <option value="'Playfair Display', serif" style="font-family: 'Playfair Display', serif;">Playfair (Elegant Serif)</option>
+                            <option value="'Oswald', sans-serif" style="font-family: 'Oswald', sans-serif;">Oswald (Cinematic Bold)</option>
+                            <option value="'Space Mono', monospace" style="font-family: 'Space Mono', monospace;">Space Mono (Tech)</option>
+                        </select>
+                    </div>
+
+                    <div class="grid grid-cols-2 gap-3">
+                        <div>
+                            <span class="text-[10px] text-zinc-400 block mb-1.5">Font Weight</span>
+                            <select class="w-full bg-black/40 border border-white/10 rounded-lg text-xs text-zinc-200 px-3 py-1.5 outline-none appearance-none" onchange="state.fontWeight = this.value; renderCanvas();">
+                                <option value="400">Regular</option>
+                                <option value="600">Semibold</option>
+                                <option value="800" selected>Bold</option>
+                                <option value="900">Black</option>
+                            </select>
+                        </div>
+                        <div>
+                            <span class="text-[10px] text-zinc-400 block mb-1.5">Alignment</span>
+                            <select class="w-full bg-black/40 border border-white/10 rounded-lg text-xs text-zinc-200 px-3 py-1.5 outline-none appearance-none" onchange="state.align = this.value; renderCanvas();">
+                                <option value="center" selected>Center</option>
+                                <option value="left">Left Align</option>
+                                <option value="right">Right Align</option>
+                            </select>
+                        </div>
+                    </div>
+
+                    <div>
+                        <div class="flex justify-between items-center mb-2">
+                            <span class="text-xs text-zinc-300 font-medium">Font Size</span>
+                            <span id="size-val" class="text-xs text-zinc-400 font-mono">120px</span>
+                        </div>
+                        <input type="range" min="20" max="300" value="120" class="w-full accent-purple-500" oninput="state.fontSize = parseInt(this.value); document.getElementById('size-val').innerText = this.value + 'px'; renderCanvas();">
+                    </div>
+                </div>
+
+                <div class="w-full h-px bg-white/5"></div>
+
+                <!-- Text Style -->
+                <div class="space-y-4">
+                    <label class="text-[11px] font-bold text-zinc-500 uppercase tracking-widest block">Text Appearance</label>
+                    
+                    <div class="flex items-center justify-between">
+                        <span class="text-xs text-zinc-300 font-medium">Text Color</span>
+                        <div class="flex gap-2">
+                            <button class="w-6 h-6 rounded-full bg-[#ffffff] border border-white/20" onclick="state.textColor = '#ffffff'; document.getElementById('prop-color').value = '#ffffff'; renderCanvas();"></button>
+                            <button class="w-6 h-6 rounded-full bg-[#f43f5e] border border-white/20" onclick="state.textColor = '#f43f5e'; document.getElementById('prop-color').value = '#f43f5e'; renderCanvas();"></button>
+                            <button class="w-6 h-6 rounded-full bg-[#eab308] border border-white/20" onclick="state.textColor = '#eab308'; document.getElementById('prop-color').value = '#eab308'; renderCanvas();"></button>
+                            <div class="relative w-6 h-6 rounded-full border border-white/20 bg-[url('data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAAAoAAAAKCAYAAACNMs+9AAAAAXNSR0IArs4c6QAAACVJREFUKFNjZCASMDKgAnv37v3/n0QciwZkR+BThM8wUshwQxgAYeAU/6+E4wYAAAAASUVORK5CYII=')] overflow-hidden cursor-pointer">
+                                <input type="color" id="prop-color" value="#ffffff" class="absolute opacity-0 inset-0 cursor-pointer w-full h-full" onchange="state.textColor = this.value; renderCanvas();" oninput="state.textColor = this.value; renderCanvas();">
+                            </div>
+                        </div>
+                    </div>
+
+                    <div>
+                        <div class="flex items-center justify-between mb-2">
+                            <span class="text-xs text-zinc-300 font-medium">Text Glow (Shadow)</span>
+                            <label class="relative inline-flex items-center cursor-pointer">
+                                <input type="checkbox" checked onchange="state.shadowEnabled = this.checked; renderCanvas();" class="sr-only peer">
+                                <div class="w-8 h-4 bg-zinc-700 peer-focus:outline-none rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border-gray-300 after:border after:rounded-full after:h-3 after:w-3 after:transition-all peer-checked:bg-purple-500"></div>
+                            </label>
+                        </div>
+                    </div>
+                </div>
+
+            </div>
+        </aside>
+
+        <!-- Right Sidebar: Animation & Timeline -->
+        <aside class="w-full md:w-80 flex-shrink-0 bg-zinc-900/60 backdrop-blur-3xl border-l border-white/5 z-30 h-[45%] md:h-full flex flex-col shadow-[0_-10px_40px_rgba(0,0,0,0.5)] md:shadow-none order-3">
+            
+            <div class="p-5 overflow-y-auto space-y-6">
+                
+                <!-- Animation Engine -->
+                <div class="bg-purple-500/10 rounded-2xl p-4 ring-1 ring-purple-500/30 space-y-4">
+                    <label class="text-[11px] font-bold text-purple-400 uppercase tracking-widest block flex items-center gap-1.5">
+                        <i data-lucide="film" class="w-3 h-3"></i> Motion Engine
+                    </label>
+
+                    <div>
+                        <span class="text-[10px] text-zinc-400 block mb-1.5">In Animation (Intro)</span>
+                        <select class="w-full bg-black/40 border border-purple-500/30 rounded-lg text-sm text-zinc-300 px-3 py-2 outline-none focus:ring-1 focus:ring-purple-500 appearance-none" onchange="state.animIn = this.value; resetPreview();">
+                            <optgroup label="Per-Character Styles">
+                                <option value="char-pop" selected>Character Pop (Kinetic Bounce)</option>
+                                <option value="char-fade">Character Fade In</option>
+                                <option value="typewriter-cursor">Typewriter (with Cursor)</option>
+                            </optgroup>
+                            <optgroup label="Cinematic Advanced">
+                                <option value="rgb-glitch">RGB Cyber Glitch</option>
+                                <option value="blur-reveal">Cinematic Blur Reveal</option>
+                                <option value="spin-entry">Spin Entry (Chaotic)</option>
+                            </optgroup>
+                            <optgroup label="Global Transitions">
+                                <option value="pop">Spring Pop (Global)</option>
+                                <option value="slide-up">Slide Up</option>
+                                <option value="slide-left">Slide Left</option>
+                                <option value="slide-right">Slide Right</option>
+                                <option value="fade">Simple Fade In</option>
+                                <option value="none">No Animation (Cut)</option>
+                            </optgroup>
+                        </select>
+                    </div>
+
+                    <div>
+                        <span class="text-[10px] text-zinc-400 block mb-1.5">Continuous Hold Effect</span>
+                        <select class="w-full bg-black/40 border border-purple-500/30 rounded-lg text-sm text-zinc-300 px-3 py-2 outline-none focus:ring-1 focus:ring-purple-500 appearance-none" onchange="state.continuousEffect = this.value; resetPreview();">
+                            <option value="none">Static (None)</option>
+                            <option value="float" selected>Gentle Float</option>
+                            <option value="pulse">Urgent Pulse</option>
+                            <option value="shake">Violent Shake (Jitter)</option>
+                        </select>
+                    </div>
+
+                    <div>
+                        <span class="text-[10px] text-zinc-400 block mb-1.5">Out Animation (Outro)</span>
+                        <select class="w-full bg-black/40 border border-purple-500/30 rounded-lg text-sm text-zinc-300 px-3 py-2 outline-none focus:ring-1 focus:ring-purple-500 appearance-none" onchange="state.animOut = this.value; resetPreview();">
+                            <option value="fade" selected>Fade Out</option>
+                            <option value="zoom-fade">Zoom & Fade</option>
+                            <option value="slide-down">Slide Down</option>
+                            <option value="none">No Animation (Cut)</option>
+                        </select>
+                    </div>
+                </div>
+
+                <!-- Timeline -->
+                <div class="space-y-4">
+                    <label class="text-[11px] font-bold text-zinc-500 uppercase tracking-widest block">Timeline Duration</label>
+                    
+                    <div>
+                        <div class="flex justify-between items-center mb-1">
+                            <span class="text-xs text-zinc-300">Build In (Animate In)</span>
+                            <span id="dur-in-val" class="text-xs text-zinc-500 font-mono">1.5s</span>
+                        </div>
+                        <input type="range" min="0" max="5" step="0.1" value="1.5" class="w-full accent-purple-500" oninput="state.durIn = parseFloat(this.value); updateTimeline();">
+                    </div>
+                    <div>
+                        <div class="flex justify-between items-center mb-1">
+                            <span class="text-xs text-zinc-300">Hold (Continuous)</span>
+                            <span id="dur-hold-val" class="text-xs text-zinc-500 font-mono">2.0s</span>
+                        </div>
+                        <input type="range" min="0" max="10" step="0.5" value="2.0" class="w-full accent-purple-500" oninput="state.durHold = parseFloat(this.value); updateTimeline();">
+                    </div>
+                    <div>
+                        <div class="flex justify-between items-center mb-1">
+                            <span class="text-xs text-zinc-300">Build Out (Animate Out)</span>
+                            <span id="dur-out-val" class="text-xs text-zinc-500 font-mono">1.0s</span>
+                        </div>
+                        <input type="range" min="0" max="5" step="0.1" value="1.0" class="w-full accent-purple-500" oninput="state.durOut = parseFloat(this.value); updateTimeline();">
+                    </div>
+
+                    <div class="flex justify-between items-center pt-2 border-t border-white/5">
+                        <span class="text-xs font-semibold text-white">Total Video Length</span>
+                        <span id="total-dur-val" class="text-sm font-bold text-purple-400 font-mono">4.5s</span>
+                    </div>
+                </div>
+
+                <div class="w-full h-px bg-white/5"></div>
+
+                <!-- Canvas Background Customization -->
+                <div class="bg-white/5 rounded-2xl p-4 ring-1 ring-white/5 space-y-3">
+                    <div class="flex items-center justify-between">
+                        <label class="text-[11px] font-bold text-zinc-500 uppercase tracking-widest block">Video Background</label>
+                        <label class="flex items-center gap-1.5 cursor-pointer text-[10px] text-zinc-400 hover:text-white transition-colors" title="Export as transparent WebM (Alpha Channel)">
+                            <input type="checkbox" id="bg-transparent-toggle" class="accent-purple-500 w-3 h-3" onchange="state.bgTransparent = this.checked; renderCanvas();"> Transparent
+                        </label>
+                    </div>
+
+                    <div class="grid grid-cols-5 gap-2">
+                        <button class="gradient-btn w-full aspect-square rounded-lg shadow-sm border border-white/10" style="background: #18181b;" onclick="setBgColor('#18181b')"></button>
+                        <button class="gradient-btn w-full aspect-square rounded-lg shadow-sm border border-white/10" style="background: #000000;" onclick="setBgColor('#000000')"></button>
+                        <button class="gradient-btn w-full aspect-square rounded-lg shadow-sm border border-white/10" style="background: #ffffff;" onclick="setBgColor('#ffffff')"></button>
+                        <button class="gradient-btn w-full aspect-square rounded-lg shadow-sm border border-white/10" style="background: #1e1b4b;" onclick="setBgColor('#1e1b4b')"></button>
+                        
+                        <!-- Custom BG Color Picker -->
+                        <div class="relative w-full aspect-square rounded-lg shadow-sm border border-white/10 bg-[url('data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAAAoAAAAKCAYAAACNMs+9AAAAAXNSR0IArs4c6QAAACVJREFUKFNjZCASMDKgAnv37v3/n0QciwZkR+BThM8wUshwQxgAYeAU/6+E4wYAAAAASUVORK5CYII=')] overflow-hidden cursor-pointer col-span-1">
+                             <input type="color" class="absolute opacity-0 w-full h-full inset-0 cursor-pointer" onchange="setBgColor(this.value)" oninput="setBgColor(this.value)">
+                             <div class="absolute inset-0 flex items-center justify-center pointer-events-none text-[10px] font-bold text-white drop-shadow-md">
+                                 <i data-lucide="palette" class="w-4 h-4"></i>
+                             </div>
+                        </div>
+                    </div>
+                </div>
+
+            </div>
+        </aside>
+
+        <!-- Main Canvas Area -->
+        <main class="flex-1 relative bg-zinc-950 pattern-grid overflow-hidden order-1 md:order-2 flex items-center justify-center">
+            
+            <div id="scale-wrapper" class="checker-bg">
+                <canvas id="anim-canvas" width="1920" height="1080"></canvas>
+            </div>
+            
+            <div id="status-indicator" class="absolute top-6 right-6 flex items-center gap-2 bg-purple-500/10 border border-purple-500/50 text-purple-400 px-4 py-2.5 rounded-full shadow-lg opacity-0 transition-opacity duration-300 pointer-events-none backdrop-blur-sm z-50">
+                <div class="w-2 h-2 rounded-full bg-purple-400 animate-pulse" id="status-dot"></div>
+                <span class="text-xs font-bold tracking-wide uppercase" id="status-text">Playing Sequence</span>
+            </div>
+        </main>
+    </div>
+
+    <!-- Export Loading Overlay -->
+    <div id="export-loader" class="fixed inset-0 z-50 bg-black/80 hidden flex flex-col items-center justify-center transition-opacity opacity-0 backdrop-blur-sm">
+        <div class="w-12 h-12 border-4 border-white/10 border-t-purple-500 rounded-full animate-spin mb-4"></div>
+        <h2 class="text-xl font-bold text-white mb-2">Rendering WebM Video</h2>
+        <p class="text-sm text-zinc-400 font-mono font-medium" id="rec-time">Processing 0%</p>
+    </div>
+
+    <!-- Toasts -->
+    <div id="toast-container" class="fixed top-20 right-6 z-[60] flex flex-col gap-2 pointer-events-none"></div>
+
+    <script>
+        lucide.createIcons();
+
+        // --- Application State ---
+        const state = {
+            text: "The Next Evolution\nof Cinema.",
+            fontFamily: "'Inter', sans-serif",
+            fontWeight: "800",
+            fontSize: 120,
+            align: 'center', // left, center, right
+            textColor: '#ffffff',
+            shadowEnabled: true,
+            
+            animIn: 'char-pop', // char-pop, char-fade, typewriter-cursor, rgb-glitch, blur-reveal, spin-entry, pop, slide-up, slide-left, slide-right, fade, none
+            continuousEffect: 'float', // none, float, pulse, shake
+            animOut: 'fade', // none, fade, zoom-fade, slide-down
+            
+            durIn: 1.5,
+            durHold: 2.0,
+            durOut: 1.0,
+            
+            bgTransparent: false,
+            bgColor: '#18181b', // Zinc 900
+            
+            // Playback Engine
+            isPlaying: false,
+            isExporting: false,
+            playbackStartTime: 0,
+            animReqId: null,
+            
+            mediaRecorder: null,
+            recordedChunks: []
+        };
+
+        const canvas = document.getElementById('anim-canvas');
+        const ctx = canvas.getContext('2d');
+
+        // --- Viewport Scaling ---
+        function updateLayoutScale() {
+            const wrapper = document.getElementById('scale-wrapper');
+            const padding = 40; 
+            const availW = wrapper.clientWidth - padding;
+            const availH = wrapper.clientHeight - padding;
+
+            const logicalW = 1920;
+            const logicalH = 1080;
+
+            const scale = Math.min(availW / logicalW, availH / logicalH, 1.0);
+            canvas.style.transform = `scale(${scale})`;
+            
+            if (!state.isPlaying) renderCanvas(state.durIn + state.durHold / 2); // Show hold state natively
+        }
+        window.addEventListener('resize', updateLayoutScale);
+
+        // --- UI Logic ---
+        function updateTimeline() {
+            document.getElementById('dur-in-val').innerText = state.durIn.toFixed(1) + 's';
+            document.getElementById('dur-hold-val').innerText = state.durHold.toFixed(1) + 's';
+            document.getElementById('dur-out-val').innerText = state.durOut.toFixed(1) + 's';
+            
+            const total = state.durIn + state.durHold + state.durOut;
+            document.getElementById('total-dur-val').innerText = total.toFixed(1) + 's';
+            
+            if (!state.isPlaying) renderCanvas(state.durIn + state.durHold / 2);
+        }
+
+        function setBgColor(hex) {
+            state.bgTransparent = false;
+            state.bgColor = hex;
+            document.getElementById('bg-transparent-toggle').checked = false;
+            if (!state.isPlaying) renderCanvas(state.durIn + state.durHold / 2);
+        }
+
+        function resetPreview() {
+            if (!state.isPlaying && !state.isExporting) {
+                renderCanvas(state.durIn + state.durHold / 2);
+            }
+        }
+
+        function showToast(message, type = 'info') {
+            const container = document.getElementById('toast-container');
+            const toast = document.createElement('div');
+            toast.className = `bg-zinc-800/95 backdrop-blur-md text-white px-4 py-3 rounded-xl shadow-2xl ring-1 ring-white/10 flex items-center gap-3 transform transition-all -translate-y-4 opacity-0 z-50`;
+            let icon = type === 'success' ? 'check-circle' : (type === 'error' ? 'alert-triangle' : 'info');
+            let color = type === 'success' ? 'text-emerald-400' : (type === 'error' ? 'text-rose-400' : 'text-purple-400');
+            toast.innerHTML = `<i data-lucide="${icon}" class="w-4 h-4 ${color}"></i> <span class="text-sm font-medium">${message}</span>`;
+            container.appendChild(toast); lucide.createIcons();
+            requestAnimationFrame(() => toast.classList.remove('-translate-y-4', 'opacity-0'));
+            setTimeout(() => { toast.classList.add('-translate-y-4', 'opacity-0'); setTimeout(() => toast.remove(), 300); }, 3000);
+        }
+
+        // --- Math & Easing Engine ---
+        function easeOutCubic(x) { return 1 - Math.pow(1 - x, 3); }
+        function springEase(t) {
+            if (t <= 0) return 0;
+            if (t >= 1) return 1;
+            return 1 - Math.cos(t * Math.PI * 3.5) * Math.exp(-t * 6);
+        }
+
+        // --- Rendering Engine ---
+        function renderCanvas(time = null) {
+            const w = canvas.width;
+            const h = canvas.height;
+
+            // 1. Background
+            ctx.clearRect(0, 0, w, h);
+            if (!state.bgTransparent) {
+                ctx.fillStyle = state.bgColor;
+                ctx.fillRect(0, 0, w, h);
+            }
+
+            // 2. State & Timing Calculation
+            let t = time !== null ? time : 0;
+            const totalDur = state.durIn + state.durHold + state.durOut;
+            if (t > totalDur) t = totalDur;
+
+            let phase = 'in';
+            let localProgress = 0;
+
+            if (t <= state.durIn) {
+                phase = 'in';
+                localProgress = state.durIn > 0 ? t / state.durIn : 1;
+            } else if (t <= state.durIn + state.durHold) {
+                phase = 'hold';
+                localProgress = 1;
+            } else {
+                phase = 'out';
+                localProgress = state.durOut > 0 ? (t - state.durIn - state.durHold) / state.durOut : 1;
+            }
+
+            if (state.text.trim() === '') return;
+
+            // 3. Setup Text Styling
+            ctx.font = `${state.fontWeight} ${state.fontSize}px ${state.fontFamily}`;
+            ctx.textBaseline = 'middle';
+
+            if (state.shadowEnabled) {
+                ctx.shadowColor = 'rgba(0,0,0,0.5)';
+                ctx.shadowBlur = 40;
+                ctx.shadowOffsetY = 10;
+            } else {
+                ctx.shadowColor = 'transparent';
+                ctx.shadowBlur = 0;
+                ctx.shadowOffsetY = 0;
+            }
+
+            // 4. Split lines and calculate metrics
+            const lines = state.text.split('\n');
+            const lineHeight = state.fontSize * 1.2;
+            const totalHeight = lines.length * lineHeight;
+            let startY = (h - totalHeight) / 2 + (lineHeight / 2);
+            
+            let startX = w / 2;
+            if (state.align === 'left') startX = w * 0.15;
+            else if (state.align === 'right') startX = w * 0.85;
+
+            // 5. Apply Global Animations
+            ctx.save();
+            ctx.translate(startX, h / 2); // Center for global transforms
+            
+            let alpha = 1.0;
+            let scale = 1.0;
+            let translateX = 0;
+            let translateY = 0;
+            let rotation = 0;
+            let blurAmount = 0;
+
+            // IN Phase
+            if (phase === 'in') {
+                const p = localProgress;
+                const eased = easeOutCubic(p);
+                
+                switch(state.animIn) {
+                    case 'fade': alpha = eased; break;
+                    case 'slide-up': alpha = eased; translateY = 150 * (1 - eased); break;
+                    case 'slide-left': alpha = eased; translateX = -200 * (1 - eased); break;
+                    case 'slide-right': alpha = eased; translateX = 200 * (1 - eased); break;
+                    case 'spin-entry': 
+                        alpha = eased; 
+                        scale = eased; 
+                        rotation = Math.PI * 4 * (1 - eased); 
+                        break;
+                    case 'pop':
+                        scale = springEase(p);
+                        alpha = Math.min(1, p * 3);
+                        break;
+                    case 'blur-reveal':
+                        alpha = eased;
+                        scale = 0.85 + (0.15 * eased);
+                        blurAmount = 30 * (1 - eased);
+                        break;
+                    case 'none': alpha = p >= 1 ? 1 : 0; break;
+                    // char-fade, char-pop, typewriter-cursor, rgb-glitch handle their own internal math, but global alpha can be 1
+                }
+            }
+            // OUT Phase
+            else if (phase === 'out') {
+                const eased = easeOutCubic(localProgress);
+                switch(state.animOut) {
+                    case 'fade': alpha = 1 - eased; break;
+                    case 'zoom-fade': alpha = 1 - eased; scale = 1.0 + (0.2 * eased); break;
+                    case 'slide-down': alpha = 1 - eased; translateY = 150 * eased; break;
+                    case 'none': alpha = localProgress > 0 ? 0 : 1; break;
+                }
+            }
+
+            // Continuous Hold Effects (Calculated based on absolute time 't' so it loops)
+            if (state.continuousEffect === 'float') {
+                translateY += Math.sin(t * 3) * 12;
+            } else if (state.continuousEffect === 'pulse') {
+                scale *= 1 + Math.sin(t * 8) * 0.03;
+            } else if (state.continuousEffect === 'shake') {
+                translateX += (Math.random() - 0.5) * 10;
+                translateY += (Math.random() - 0.5) * 10;
+            }
+
+            // Apply global transform matrix
+            ctx.translate(translateX, translateY);
+            ctx.rotate(rotation);
+            ctx.scale(scale, scale);
+            ctx.translate(0, -h / 2); // Reset Y translation to draw lines relatively
+            
+            ctx.globalAlpha = Math.max(0, Math.min(1, alpha));
+            if (blurAmount > 0) ctx.filter = `blur(${blurAmount}px)`;
+
+            // 6. Draw Lines (Handling specialized text logic)
+            const totalCharsStr = state.text.replace(/\n/g, ''); // excluding newlines for math timing
+            const totalChars = totalCharsStr.length;
+            let charCounter = 0;
+
+            if (state.animIn === 'typewriter-cursor' && phase === 'in') {
+                const charsToShow = Math.floor(localProgress * totalChars);
+                let charsDrawn = 0;
+                ctx.textAlign = state.align;
+                
+                for (let i = 0; i < lines.length; i++) {
+                    const line = lines[i];
+                    if (charsDrawn >= charsToShow) break;
+                    
+                    let lineStr = line;
+                    let isCursorLine = false;
+                    if (charsDrawn + line.length > charsToShow) {
+                        lineStr = line.substring(0, charsToShow - charsDrawn);
+                        isCursorLine = true;
+                    }
+                    
+                    ctx.fillStyle = state.textColor;
+                    ctx.fillText(lineStr, 0, startY + (i * lineHeight));
+                    
+                    // Draw Cursor
+                    if (isCursorLine) {
+                        const metrics = ctx.measureText(lineStr);
+                        let cursorX = metrics.width;
+                        if (state.align === 'center') cursorX = metrics.width / 2;
+                        if (state.align === 'right') cursorX = 0; // rough approx
+                        
+                        // Blink cursor
+                        if (Math.floor(t * 6) % 2 === 0) {
+                            ctx.fillRect(cursorX + 8, startY + (i * lineHeight) - state.fontSize/2, state.fontSize * 0.4, state.fontSize);
+                        }
+                    }
+                    charsDrawn += line.length;
+                }
+            } else {
+                for (let i = 0; i < lines.length; i++) {
+                    const line = lines[i];
+                    
+                    // Per-Character Animation Logic
+                    if (['char-fade', 'char-pop'].includes(state.animIn) && phase === 'in') {
+                        const lw = ctx.measureText(line).width;
+                        let lx = 0;
+                        if (state.align === 'center') lx = -lw / 2;
+                        else if (state.align === 'right') lx = -lw;
+                        
+                        ctx.textAlign = 'center'; // Align center specifically so char scales/rotates around its own middle
+                        for (let j = 0; j < line.length; j++) {
+                            const char = line[j];
+                            const cw = ctx.measureText(char).width;
+                            const cx = lx + cw / 2;
+                            const cy = startY + (i * lineHeight);
+                            
+                            let cAlpha = 1;
+                            let cScale = 1;
+                            
+                            if (char !== ' ') {
+                                const staggerDelay = (charCounter / totalChars) * 0.6; // finish entering by 60% of duration
+                                let charP = 0;
+                                if (localProgress > staggerDelay) {
+                                    charP = Math.min(1, (localProgress - staggerDelay) * (1 / 0.4)); // use remaining 40%
+                                }
+                                
+                                if (state.animIn === 'char-fade') {
+                                    cAlpha = charP;
+                                } else if (state.animIn === 'char-pop') {
+                                    cScale = springEase(charP);
+                                    cAlpha = Math.min(1, charP * 3);
+                                }
+                                charCounter++;
+                            }
+                            
+                            if (cAlpha > 0) {
+                                ctx.save();
+                                ctx.translate(cx, cy);
+                                ctx.scale(cScale, cScale);
+                                ctx.globalAlpha = Math.max(0, Math.min(1, alpha * cAlpha));
+                                ctx.fillStyle = state.textColor;
+                                ctx.fillText(char, 0, 0);
+                                ctx.restore();
+                            }
+                            lx += cw;
+                        }
+                    } 
+                    // Global RGB Glitch Logic
+                    else if (state.animIn === 'rgb-glitch' && phase === 'in') {
+                        ctx.textAlign = state.align;
+                        const intensity = easeOutCubic(1 - localProgress);
+                        
+                        // Random jitter calculations
+                        const rx = (Math.random() - 0.5) * 40 * intensity;
+                        const ry = (Math.random() - 0.5) * 20 * intensity;
+                        const cx = (Math.random() - 0.5) * 40 * intensity;
+                        const cy = (Math.random() - 0.5) * 20 * intensity;
+
+                        ctx.globalAlpha = alpha * 0.8;
+                        
+                        // Red Channel
+                        ctx.fillStyle = 'rgba(255, 0, 0, 0.9)';
+                        ctx.fillText(line, rx, startY + (i * lineHeight) + ry);
+
+                        // Cyan Channel
+                        ctx.fillStyle = 'rgba(0, 255, 255, 0.9)';
+                        ctx.fillText(line, cx, startY + (i * lineHeight) + cy);
+
+                        // Main Text (Flickering)
+                        ctx.fillStyle = (Math.random() > 0.1 || localProgress > 0.9) ? state.textColor : 'rgba(255,255,255,0.1)';
+                        ctx.fillText(line, 0, startY + (i * lineHeight));
+                    } 
+                    // Standard Global Line Logic (Everything else)
+                    else {
+                        ctx.textAlign = state.align;
+                        ctx.fillStyle = state.textColor;
+                        ctx.fillText(line, 0, startY + (i * lineHeight));
+                    }
+                }
+            }
+
+            ctx.restore();
+        }
+
+        // --- Playback Engine ---
+        function setPlayUI(playing) {
+            const btnPlay = document.getElementById('btn-play');
+            const iconPlay = document.getElementById('icon-play');
+            const textPlay = document.getElementById('text-play');
+            const ind = document.getElementById('status-indicator');
+            const txt = document.getElementById('status-text');
+
+            document.querySelectorAll('button:not(#btn-play):not(#btn-export), input, select, textarea').forEach(b => b.disabled = playing);
+
+            if (playing) {
+                ind.classList.remove('opacity-0');
+                if (state.isExporting) {
+                    btnPlay.disabled = true;
+                    ind.classList.replace('bg-purple-500/10', 'bg-red-500/10');
+                    ind.classList.replace('border-purple-500/50', 'border-red-500/50');
+                    ind.classList.replace('text-purple-400', 'text-red-400');
+                    document.getElementById('status-dot').classList.replace('bg-purple-400', 'bg-red-400');
+                    txt.innerText = 'Rendering Video...';
+                } else {
+                    btnPlay.classList.add('bg-white/5', 'text-zinc-400', 'ring-white/10');
+                    btnPlay.classList.remove('bg-white/5', 'text-white', 'ring-white/5');
+                    iconPlay.setAttribute('data-lucide', 'square');
+                    textPlay.innerText = 'Stop';
+                    txt.innerText = 'Playing Sequence';
+                }
+            } else {
+                btnPlay.disabled = false;
+                btnPlay.classList.remove('bg-white/5', 'text-zinc-400', 'ring-white/10');
+                btnPlay.classList.add('bg-white/5', 'text-white', 'ring-white/5');
+                iconPlay.setAttribute('data-lucide', 'play');
+                textPlay.innerText = 'Preview';
+                
+                ind.classList.add('opacity-0');
+                
+                // Reset styling back from export mode
+                ind.classList.replace('bg-red-500/10', 'bg-purple-500/10');
+                ind.classList.replace('border-red-500/50', 'border-purple-500/50');
+                ind.classList.replace('text-red-400', 'text-purple-400');
+                document.getElementById('status-dot').classList.replace('bg-red-400', 'bg-purple-400');
+            }
+            lucide.createIcons();
+        }
+
+        function togglePreview() {
+            if (state.isPlaying) {
+                stopPlayback();
+                return;
+            }
+            if (state.text.trim() === '') return showToast('Enter some text first!', 'error');
+
+            state.isPlaying = true;
+            setPlayUI(true);
+            
+            requestAnimationFrame((timestamp) => {
+                state.playbackStartTime = timestamp;
+                playbackLoop(timestamp);
+            });
+        }
+
+        function playbackLoop(timestamp) {
+            if (!state.isPlaying) return;
+            
+            let elapsed = (timestamp - state.playbackStartTime) / 1000; 
+            let totalTime = state.durIn + state.durHold + state.durOut; 
+
+            renderCanvas(elapsed);
+
+            if (state.isExporting) {
+                let pct = Math.min(100, Math.round((elapsed / totalTime) * 100));
+                document.getElementById('rec-time').innerText = `Processing ${pct}%`;
+            }
+
+            if (elapsed >= totalTime) {
+                if (state.isExporting) {
+                    document.getElementById('rec-time').innerText = `Finalizing File...`;
+                    setTimeout(stopPlayback, 500); 
+                } else {
+                    stopPlayback();
+                }
+                return;
+            }
+
+            state.animReqId = requestAnimationFrame(playbackLoop);
+        }
+
+        function stopPlayback() {
+            state.isPlaying = false;
+            if (state.isExporting && state.mediaRecorder) {
+                if (state.mediaRecorder.state !== 'inactive') state.mediaRecorder.stop();
+                state.isExporting = false;
+                document.getElementById('export-loader').classList.add('opacity-0');
+                setTimeout(() => document.getElementById('export-loader').classList.add('hidden'), 300);
+            }
+            setPlayUI(false);
+            renderCanvas(state.durIn + state.durHold / 2); // Show static frame
+        }
+
+        // --- Export Engine ---
+        function exportVideo() {
+            if (state.text.trim() === '') return showToast('Enter some text first!', 'error');
+            if (state.isPlaying || state.isExporting) return;
+
+            try {
+                const targetWidth = parseInt(document.getElementById('export-res').value);
+                const aspect = 1080 / 1920;
+                const targetHeight = targetWidth * aspect;
+
+                const expCanvas = document.createElement('canvas');
+                expCanvas.width = targetWidth;
+                expCanvas.height = targetHeight;
+                const eCtx = expCanvas.getContext('2d');
+                
+                // Redefine context locally for the offscreen render loop
+                const originalCtx = ctx;
+                
+                const exportScale = targetWidth / 1920;
+
+                const stream = expCanvas.captureStream(60); 
+                state.recordedChunks = [];
+                
+                state.mediaRecorder = new MediaRecorder(stream, { 
+                    mimeType: 'video/webm; codecs=vp9',
+                    videoBitsPerSecond: 20000000 
+                });
+                
+                state.mediaRecorder.ondataavailable = (e) => {
+                    if (e.data.size > 0) state.recordedChunks.push(e.data);
+                };
+
+                state.mediaRecorder.onstop = () => {
+                    const blob = new Blob(state.recordedChunks, { type: 'video/webm' });
+                    const url = URL.createObjectURL(blob);
+                    const link = document.createElement('a');
+                    link.href = url;
+                    
+                    const bgStatus = state.bgTransparent ? 'transparent' : 'solid';
+                    link.download = `title-anim-${targetWidth}w-${bgStatus}-${Date.now()}.webm`;
+                    
+                    link.click();
+                    URL.revokeObjectURL(url);
+                    showToast('Video exported successfully!', 'success');
+                };
+
+                state.mediaRecorder.start();
+                
+                state.isPlaying = true;
+                state.isExporting = true;
+                setPlayUI(true);
+                
+                const loader = document.getElementById('export-loader');
+                loader.classList.remove('hidden');
+                requestAnimationFrame(() => loader.classList.remove('opacity-0'));
+
+                const totalTime = state.durIn + state.durHold + state.durOut;
+                let exportStartTime = performance.now();
+                
+                function exportRenderLoop(now) {
+                    let elapsed = (now - exportStartTime) / 1000;
+                    
+                    // Render to the hidden high-res canvas
+                    eCtx.save();
+                    eCtx.scale(exportScale, exportScale);
+                    
+                    // Overload global context temporarily (Hack to reuse renderCanvas code simply)
+                    window.ctx = eCtx;
+                    renderCanvas(elapsed);
+                    window.ctx = originalCtx;
+                    
+                    eCtx.restore();
+
+                    // Render to preview canvas simultaneously
+                    renderCanvas(elapsed);
+
+                    let pct = Math.min(100, Math.round((elapsed / totalTime) * 100));
+                    document.getElementById('rec-time').innerText = `Processing ${pct}%`;
+
+                    if (elapsed < totalTime) {
+                        requestAnimationFrame(exportRenderLoop);
+                    } else {
+                        document.getElementById('rec-time').innerText = `Finalizing File...`;
+                        setTimeout(stopPlayback, 500); 
+                    }
+                }
+                
+                requestAnimationFrame(exportRenderLoop);
+
+            } catch (err) {
+                console.error(err);
+                showToast('Export failed. Browser might not support high-res WebM recording.', 'error');
+                stopPlayback();
+            }
+        }
+
+        // Initialize UI
+        updateLayoutScale();
+        updateTimeline();
+
+    </script>
+</body>
+</html>
