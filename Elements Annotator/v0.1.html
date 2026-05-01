@@ -1,0 +1,1060 @@
+<!DOCTYPE html>
+<html lang="en" class="dark">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+    <title>macOS Elements Annotator</title>
+    
+    <!-- Tailwind CSS -->
+    <script src="https://cdn.tailwindcss.com"></script>
+    <script>
+        tailwind.config = {
+            darkMode: 'class',
+            theme: { 
+                extend: { 
+                    fontFamily: { sans: ['Inter', 'sans-serif'] },
+                    colors: {
+                        mac: { bg: '#1e1e1e', panel: '#252526', border: '#3f3f46' }
+                    }
+                } 
+            }
+        }
+    </script>
+    
+    <!-- Google Fonts -->
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
+    
+    <!-- Lucide Icons -->
+    <script src="https://unpkg.com/lucide@latest"></script>
+
+    <!-- Rough.js & Gifshot -->
+    <script src="https://unpkg.com/roughjs@4.6.6/bundled/rough.js"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/gifshot/0.3.2/gifshot.min.js"></script>
+
+    <style>
+        :root { color-scheme: dark; }
+        
+        body {
+            font-family: 'Inter', sans-serif;
+            background-color: #09090b;
+            color: #ececf1;
+            overflow: hidden;
+            touch-action: none;
+            -webkit-font-smoothing: antialiased;
+        }
+
+        /* macOS style scrollbars */
+        ::-webkit-scrollbar { width: 4px; height: 4px; }
+        ::-webkit-scrollbar-track { background: transparent; }
+        ::-webkit-scrollbar-thumb { background: rgba(255, 255, 255, 0.15); border-radius: 10px; }
+        ::-webkit-scrollbar-thumb:hover { background: rgba(255, 255, 255, 0.3); }
+
+        /* Checkerboard Canvas Background */
+        .checker-bg {
+            background-color: #121212;
+            background-image: 
+                linear-gradient(45deg, #18181b 25%, transparent 25%), 
+                linear-gradient(-45deg, #18181b 25%, transparent 25%), 
+                linear-gradient(45deg, transparent 75%, #18181b 75%), 
+                linear-gradient(-45deg, transparent 75%, #18181b 75%);
+            background-size: 24px 24px;
+            background-position: 0 0, 0 12px, 12px -12px, -12px 0px;
+        }
+
+        /* Sleek macOS UI Elements */
+        input[type="range"] {
+            -webkit-appearance: none;
+            height: 4px;
+            background: rgba(255, 255, 255, 0.1);
+            border-radius: 2px;
+            outline: none;
+        }
+        input[type="range"]::-webkit-slider-thumb {
+            -webkit-appearance: none;
+            width: 14px;
+            height: 14px;
+            border-radius: 50%;
+            background: #fff;
+            border: 1px solid rgba(0,0,0,0.1);
+            box-shadow: 0 1px 4px rgba(0,0,0,0.5);
+            cursor: pointer;
+            transition: transform 0.1s;
+        }
+        input[type="range"]::-webkit-slider-thumb:hover { transform: scale(1.15); }
+
+        input[type="color"] {
+            -webkit-appearance: none;
+            border: none;
+            width: 100%;
+            height: 100%;
+            padding: 0;
+            cursor: pointer;
+            background: transparent;
+        }
+        input[type="color"]::-webkit-color-swatch-wrapper { padding: 0; }
+        input[type="color"]::-webkit-color-swatch { 
+            border: none; 
+            border-radius: 4px;
+            box-shadow: inset 0 0 0 1px rgba(255,255,255,0.15); 
+        }
+
+        .mac-btn { transition: all 0.2s ease; }
+        .mac-btn:hover { transform: scale(1.02); }
+        .mac-btn:active { transform: scale(0.98); }
+
+        /* Draggable Element Cards */
+        .element-card {
+            transition: all 0.2s ease;
+            cursor: grab;
+        }
+        .element-card:hover {
+            background-color: rgba(255, 255, 255, 0.05);
+            border-color: rgba(255, 255, 255, 0.2);
+            transform: translateY(-1px);
+        }
+        .element-card:active {
+            cursor: grabbing;
+        }
+
+        #scale-wrapper {
+            position: absolute;
+            inset: 0;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            overflow: hidden;
+            padding: 20px; 
+        }
+
+        #draw-canvas {
+            box-shadow: 0 0 0 1px rgba(255,255,255,0.05), 0 30px 60px -12px rgba(0,0,0,0.8);
+            transform-origin: center center;
+            will-change: transform;
+            border-radius: 4px;
+        }
+        .cursor-draw { cursor: crosshair; }
+        .cursor-select { cursor: default; }
+        
+        details > summary { list-style: none; }
+        details > summary::-webkit-details-marker { display: none; }
+    </style>
+</head>
+<body class="flex flex-col h-screen text-sm">
+
+    <!-- Header -->
+    <header class="absolute top-0 w-full h-14 bg-zinc-900/80 backdrop-blur-2xl border-b border-white/5 flex items-center justify-between px-3 sm:px-6 z-40">
+        <div class="flex items-center gap-3">
+            <div class="w-7 h-7 rounded-lg bg-gradient-to-br from-indigo-500 to-purple-600 flex items-center justify-center shadow-inner shadow-white/30">
+                <i data-lucide="layers" class="w-4 h-4 text-white"></i>
+            </div>
+            <h1 class="font-semibold tracking-tight whitespace-nowrap hidden sm:block text-zinc-100">Elements <span class="text-zinc-500 font-normal">Annotator</span></h1>
+        </div>
+
+        <div class="flex items-center gap-2 shrink-0">
+            <button onclick="undoLast()" class="mac-btn px-3 py-1.5 rounded-lg text-zinc-400 hover:text-white hover:bg-white/10 transition-colors flex items-center gap-2 text-xs font-medium border border-transparent hover:border-white/10">
+                <i data-lucide="undo" class="w-3.5 h-3.5"></i> <span class="hidden md:inline">Undo</span>
+            </button>
+            <button onclick="clearCanvas()" class="mac-btn px-3 py-1.5 rounded-lg text-rose-400 hover:text-rose-300 hover:bg-rose-500/10 transition-colors flex items-center gap-2 text-xs font-medium border border-transparent hover:border-rose-500/20">
+                <i data-lucide="trash-2" class="w-3.5 h-3.5"></i> <span class="hidden md:inline">Clear</span>
+            </button>
+            
+            <div class="w-px h-4 bg-white/10 mx-1"></div>
+
+            <button onclick="togglePreview()" id="btn-play" class="mac-btn flex items-center gap-2 px-3 py-1.5 bg-white/5 hover:bg-white/10 text-white rounded-lg font-medium transition-colors ring-1 ring-white/10 text-xs sm:text-sm">
+                <i data-lucide="play" class="w-4 h-4" id="icon-play"></i>
+                <span id="text-play" class="hidden sm:inline">Preview</span>
+            </button>
+            
+            <div class="flex bg-indigo-500 rounded-lg shadow-lg shadow-indigo-500/20 ring-1 ring-inset ring-white/20 transition-all hover:bg-indigo-400">
+                <select id="export-fmt" class="bg-transparent text-white font-medium pl-2 pr-1 py-1.5 outline-none cursor-pointer appearance-none text-xs border-r border-indigo-400/30 hidden sm:block">
+                    <option value="webm">WebM Video</option>
+                    <option value="gif">GIF Anim</option>
+                    <option value="png">PNG Snap</option>
+                </select>
+                <button onclick="exportMedia()" id="btn-export" class="flex items-center gap-2 px-3 py-1.5 text-white font-medium transition-all rounded-r-lg text-xs sm:text-sm">
+                    <i data-lucide="download" class="w-4 h-4"></i>
+                    <span class="hidden sm:inline">Export</span>
+                </button>
+            </div>
+        </div>
+    </header>
+
+    <!-- Main Layout -->
+    <div class="flex flex-1 pt-14 relative overflow-hidden flex-col md:flex-row">
+        
+        <!-- Left Sidebar: Elements Library -->
+        <aside class="w-full md:w-[280px] flex-shrink-0 bg-zinc-900/60 backdrop-blur-3xl border-r border-white/5 z-30 h-[30%] md:h-full flex flex-col order-2 md:order-1">
+            <div class="p-4 border-b border-white/5 bg-white/[0.02]">
+                <label class="text-[10px] font-semibold text-zinc-400 uppercase tracking-wider flex items-center gap-1.5">
+                    <i data-lucide="library" class="w-3.5 h-3.5"></i> Element Library
+                </label>
+                <p class="text-[10px] text-zinc-500 mt-1">Drag and drop elements onto the canvas.</p>
+            </div>
+            
+            <div class="flex-1 overflow-y-auto p-3 space-y-4 custom-scrollbar">
+                
+                <!-- Category: Circles -->
+                <div>
+                    <h3 class="text-[10px] font-bold text-zinc-500 mb-2 px-1">THE CIRCLE</h3>
+                    <div class="grid grid-cols-1 gap-2">
+                        <!-- Rough Red -->
+                        <div class="element-card bg-black/20 border border-white/5 rounded-lg p-2 flex items-center gap-3" draggable="true" data-preset="circle_rough_red">
+                            <div class="w-8 h-6 border-2 border-[#f43f5e] rounded-[50%] border-dashed"></div>
+                            <div class="flex flex-col">
+                                <span class="text-xs text-zinc-300 font-medium">Rough Emphasis</span>
+                                <span class="text-[9px] text-zinc-500">Red • Sketchy</span>
+                            </div>
+                        </div>
+                        <!-- Double Blue -->
+                        <div class="element-card bg-black/20 border border-white/5 rounded-lg p-2 flex items-center gap-3" draggable="true" data-preset="circle_double_blue">
+                            <div class="relative w-8 h-6 flex items-center justify-center">
+                                <div class="absolute w-8 h-6 border-[1.5px] border-[#3b82f6] rounded-[50%]"></div>
+                                <div class="absolute w-6 h-4 border-[1.5px] border-[#3b82f6] rounded-[50%]"></div>
+                            </div>
+                            <div class="flex flex-col">
+                                <span class="text-xs text-zinc-300 font-medium">Double Importance</span>
+                                <span class="text-[9px] text-zinc-500">Blue • Concentric</span>
+                            </div>
+                        </div>
+                        <!-- Single Clean -->
+                        <div class="element-card bg-black/20 border border-white/5 rounded-lg p-2 flex items-center gap-3" draggable="true" data-preset="circle_single_green">
+                            <div class="w-8 h-6 border-[2px] border-[#10b981] rounded-[50%]"></div>
+                            <div class="flex flex-col">
+                                <span class="text-xs text-zinc-300 font-medium">Single Selection</span>
+                                <span class="text-[9px] text-zinc-500">Green • Clean</span>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Category: Highlighters -->
+                <div>
+                    <h3 class="text-[10px] font-bold text-zinc-500 mb-2 px-1">THE HIGHLIGHTER</h3>
+                    <div class="grid grid-cols-2 gap-2">
+                        <div class="element-card bg-black/20 border border-white/5 rounded-lg p-2 flex flex-col items-center gap-1.5" draggable="true" data-preset="hl_yellow">
+                            <div class="w-full h-3 bg-[#fef08a] rounded-sm opacity-80"></div>
+                            <span class="text-[10px] text-zinc-400">Standard</span>
+                        </div>
+                        <div class="element-card bg-black/20 border border-white/5 rounded-lg p-2 flex flex-col items-center gap-1.5" draggable="true" data-preset="hl_pink">
+                            <div class="w-full h-3 bg-[#fbcfe8] rounded-sm opacity-80"></div>
+                            <span class="text-[10px] text-zinc-400">Neon Pink</span>
+                        </div>
+                        <div class="element-card bg-black/20 border border-white/5 rounded-lg p-2 flex flex-col items-center gap-1.5" draggable="true" data-preset="hl_cyan">
+                            <div class="w-full h-3 bg-[#67e8f9] rounded-sm opacity-80"></div>
+                            <span class="text-[10px] text-zinc-400">Electric</span>
+                        </div>
+                        <div class="element-card bg-black/20 border border-white/5 rounded-lg p-2 flex flex-col items-center gap-1.5" draggable="true" data-preset="hl_green">
+                            <div class="w-full h-3 bg-[#86efac] rounded-sm opacity-80"></div>
+                            <span class="text-[10px] text-zinc-400">Bright</span>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Category: Strokes -->
+                <div>
+                    <h3 class="text-[10px] font-bold text-zinc-500 mb-2 px-1">THE STROKE SCALE</h3>
+                    <div class="grid grid-cols-1 gap-2">
+                        <div class="element-card bg-black/20 border border-white/5 rounded-lg p-2 flex items-center gap-3" draggable="true" data-preset="stroke_thin">
+                            <div class="w-8 h-px bg-zinc-400"></div>
+                            <div class="flex flex-col">
+                                <span class="text-xs text-zinc-300 font-medium">Thin Note</span>
+                                <span class="text-[9px] text-zinc-500">Delicate • Clean</span>
+                            </div>
+                        </div>
+                        <div class="element-card bg-black/20 border border-white/5 rounded-lg p-2 flex items-center gap-3" draggable="true" data-preset="stroke_thick">
+                            <div class="w-8 h-2 bg-[#fbbf24] rounded-full"></div>
+                            <div class="flex flex-col">
+                                <span class="text-xs text-zinc-300 font-medium">Thick Claim</span>
+                                <span class="text-[9px] text-zinc-500">Bold • Yellow</span>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+
+            </div>
+        </aside>
+
+        <!-- Center: Canvas Area -->
+        <main class="flex-1 relative bg-zinc-950 overflow-hidden order-1 md:order-2 flex items-center justify-center">
+            <div id="scale-wrapper" class="checker-bg w-full h-full">
+                <!-- Drop Target Overlay (Visual only during drag) -->
+                <div id="drop-overlay" class="absolute inset-0 z-20 bg-indigo-500/10 border-2 border-indigo-500/50 border-dashed rounded-lg opacity-0 pointer-events-none transition-opacity flex items-center justify-center backdrop-blur-sm">
+                    <span class="text-indigo-400 font-bold tracking-widest uppercase bg-zinc-900/80 px-4 py-2 rounded-full">Drop to Place</span>
+                </div>
+                <canvas id="draw-canvas" width="1920" height="1080" class="cursor-select relative z-10"></canvas>
+            </div>
+            
+            <div id="status-indicator" class="absolute top-6 right-6 flex items-center gap-2 bg-indigo-500/10 border border-indigo-500/50 text-indigo-400 px-4 py-2 rounded-full shadow-lg opacity-0 transition-opacity duration-300 pointer-events-none backdrop-blur-md z-50">
+                <div class="w-2 h-2 rounded-full bg-indigo-400 animate-pulse" id="status-dot"></div>
+                <span class="text-xs font-bold tracking-wide uppercase" id="status-text">Animating</span>
+            </div>
+        </main>
+
+        <!-- Right Sidebar: Properties Inspector -->
+        <aside class="w-full md:w-[280px] flex-shrink-0 bg-zinc-900/80 backdrop-blur-3xl border-l border-white/5 z-30 h-[25%] md:h-full flex flex-col order-3 shadow-[-20px_0_40px_rgba(0,0,0,0.3)]">
+            
+            <div class="p-4 border-b border-white/5 bg-white/[0.02] flex justify-between items-center">
+                <label class="text-[10px] font-semibold text-zinc-400 uppercase tracking-wider flex items-center gap-1.5">
+                    <i data-lucide="sliders-horizontal" class="w-3.5 h-3.5"></i> Inspector
+                </label>
+                <span id="selection-badge" class="text-[8px] font-bold uppercase tracking-widest text-indigo-400 bg-indigo-500/10 border border-indigo-500/20 px-2 py-0.5 rounded-full hidden">Selected</span>
+            </div>
+
+            <div id="empty-state" class="flex-1 flex flex-col items-center justify-center p-6 text-center opacity-50">
+                <i data-lucide="mouse-pointer-click" class="w-8 h-8 mb-3 text-zinc-500"></i>
+                <p class="text-xs text-zinc-400">Select an element on the canvas to inspect its properties.</p>
+            </div>
+
+            <div id="properties-panel" class="flex-1 overflow-y-auto p-4 space-y-5 hidden custom-scrollbar">
+                
+                <!-- Dimensions -->
+                <div class="space-y-3">
+                    <h4 class="text-[10px] font-bold text-zinc-600 uppercase tracking-widest">Dimensions</h4>
+                    <div>
+                        <div class="flex justify-between items-center mb-1">
+                            <span class="text-xs text-zinc-400">Width</span>
+                            <span id="dim-w-val" class="text-[10px] text-zinc-500 font-mono">0px</span>
+                        </div>
+                        <input type="range" id="prop-dim-w" min="10" max="1000" class="w-full accent-indigo-400" oninput="updateDim('w', parseInt(this.value))">
+                    </div>
+                    <div>
+                        <div class="flex justify-between items-center mb-1">
+                            <span class="text-xs text-zinc-400">Height</span>
+                            <span id="dim-h-val" class="text-[10px] text-zinc-500 font-mono">0px</span>
+                        </div>
+                        <input type="range" id="prop-dim-h" min="10" max="1000" class="w-full accent-indigo-400" oninput="updateDim('h', parseInt(this.value))">
+                    </div>
+                </div>
+
+                <div class="w-full h-px bg-white/5"></div>
+
+                <!-- Appearance -->
+                <div class="space-y-3">
+                    <h4 class="text-[10px] font-bold text-zinc-600 uppercase tracking-widest">Appearance</h4>
+                    
+                    <div class="flex items-center justify-between">
+                        <span class="text-xs text-zinc-400">Color</span>
+                        <div class="relative w-6 h-6 rounded-md ring-1 ring-white/10 overflow-hidden cursor-pointer bg-zinc-800 hover:scale-105 transition-transform">
+                            <input type="color" value="#ffcc00" id="prop-color" onchange="updateProp('color', this.value)" oninput="updateProp('color', this.value)">
+                        </div>
+                    </div>
+
+                    <div>
+                        <div class="flex justify-between items-center mb-1">
+                            <span class="text-xs text-zinc-400">Thickness</span>
+                            <span id="width-val" class="text-[10px] text-zinc-500 font-mono">6px</span>
+                        </div>
+                        <input type="range" id="prop-width" min="1" max="80" value="6" class="w-full accent-zinc-400" oninput="updateProp('width', parseInt(this.value))">
+                    </div>
+
+                    <div>
+                        <div class="flex justify-between items-center mb-1">
+                            <span class="text-xs text-zinc-400">Opacity</span>
+                            <span id="opacity-val" class="text-[10px] text-zinc-500 font-mono">100%</span>
+                        </div>
+                        <input type="range" id="prop-opacity" min="0.1" max="1.0" step="0.05" value="1.0" class="w-full accent-zinc-400" oninput="updateProp('opacity', parseFloat(this.value))">
+                    </div>
+
+                    <!-- Arc Bend -->
+                    <div id="panel-bend" class="hidden pt-3 border-t border-white/5">
+                        <div class="flex justify-between items-center mb-2">
+                            <span class="text-xs text-indigo-400 font-medium">Curve Arc</span>
+                            <span id="bend-val" class="text-xs text-zinc-500 font-mono">25%</span>
+                        </div>
+                        <input type="range" id="prop-bend" min="-100" max="100" value="25" class="w-full accent-indigo-500" oninput="updateProp('bend', parseInt(this.value))">
+                    </div>
+
+                    <!-- Smoothing (Pen only) -->
+                    <div id="panel-smooth" class="hidden pt-3 border-t border-white/5">
+                        <div class="flex justify-between items-center mb-2">
+                            <span class="text-xs text-indigo-400 font-medium">Auto-Smoothing</span>
+                            <span id="smooth-val" class="text-xs text-zinc-500 font-mono">High</span>
+                        </div>
+                        <input type="range" id="prop-smooth" min="0" max="15" value="8" class="w-full accent-indigo-500" oninput="updateProp('smoothness', parseInt(this.value))">
+                    </div>
+                </div>
+
+                <div class="w-full h-px bg-white/5"></div>
+
+                <!-- Style Modifiers -->
+                <div class="space-y-3">
+                    <h4 class="text-[10px] font-bold text-zinc-600 uppercase tracking-widest">Style Options</h4>
+                    
+                    <div class="flex items-center justify-between">
+                        <span class="text-xs text-zinc-400">Rough Sketch Effect</span>
+                        <label class="relative inline-flex items-center cursor-pointer">
+                            <input type="checkbox" id="prop-rough" class="sr-only peer" onchange="updateProp('useRough', this.checked)">
+                            <div class="w-7 h-4 bg-zinc-700 peer-focus:outline-none rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border-gray-300 after:border after:rounded-full after:h-3 after:w-3 after:transition-all peer-checked:bg-indigo-500"></div>
+                        </label>
+                    </div>
+
+                    <div id="panel-roughness" class="hidden">
+                        <div class="flex justify-between items-center mb-1">
+                            <span class="text-xs text-zinc-500">Roughness Level</span>
+                            <span id="roughness-val" class="text-[10px] text-zinc-600 font-mono">1.5</span>
+                        </div>
+                        <input type="range" id="prop-roughness" min="0" max="5" step="0.1" value="1.5" class="w-full accent-zinc-500" oninput="updateProp('roughness', parseFloat(this.value)); document.getElementById('roughness-val').innerText = parseFloat(this.value).toFixed(1);">
+                    </div>
+
+                    <div class="flex items-center justify-between">
+                        <span class="text-xs text-zinc-400">Double Stroke (Concentric)</span>
+                        <label class="relative inline-flex items-center cursor-pointer">
+                            <input type="checkbox" id="prop-variant-double" class="sr-only peer" onchange="updateProp('variant', this.checked ? 'double' : 'single')">
+                            <div class="w-7 h-4 bg-zinc-700 peer-focus:outline-none rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border-gray-300 after:border after:rounded-full after:h-3 after:w-3 after:transition-all peer-checked:bg-indigo-500"></div>
+                        </label>
+                    </div>
+                </div>
+
+                <div class="w-full h-px bg-white/5"></div>
+
+                <!-- Animation Engine -->
+                <div class="space-y-3">
+                    <h4 class="text-[10px] font-bold text-zinc-600 uppercase tracking-widest">Animation</h4>
+                    <div>
+                        <div class="flex justify-between items-center mb-2">
+                            <span class="text-xs text-zinc-400">Draw Duration</span>
+                            <span id="dur-val" class="text-[10px] text-zinc-500 font-mono">0.8s</span>
+                        </div>
+                        <input type="range" id="prop-duration" min="0.2" max="3.0" step="0.1" value="0.8" class="w-full accent-zinc-400" oninput="updateProp('duration', parseFloat(this.value))">
+                    </div>
+                    <div class="flex items-center justify-between">
+                        <span class="text-xs text-zinc-400">Draw Backwards</span>
+                        <label class="relative inline-flex items-center cursor-pointer">
+                            <input type="checkbox" id="prop-reverse" class="sr-only peer" onchange="updateProp('reverseDraw', this.checked)">
+                            <div class="w-7 h-4 bg-zinc-700 peer-focus:outline-none rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border-gray-300 after:border after:rounded-full after:h-3 after:w-3 after:transition-all peer-checked:bg-indigo-500"></div>
+                        </label>
+                    </div>
+                </div>
+
+                <div class="w-full h-px bg-white/5"></div>
+                
+                <button id="btn-delete" onclick="deleteSelected()" class="w-full py-2 bg-red-500/10 hover:bg-red-500/20 text-red-400 rounded-lg text-xs font-semibold transition-colors border border-red-500/20 flex items-center justify-center gap-2">
+                    <i data-lucide="trash-2" class="w-3.5 h-3.5"></i> Delete Element
+                </button>
+            </div>
+        </aside>
+    </div>
+
+    <!-- Export Loading Overlay -->
+    <div id="export-loader" class="fixed inset-0 z-50 bg-black/80 hidden flex flex-col items-center justify-center transition-opacity opacity-0 backdrop-blur-sm">
+        <div class="w-12 h-12 border-4 border-white/10 border-t-indigo-500 rounded-full animate-spin mb-4"></div>
+        <h2 class="text-xl font-bold text-white mb-2" id="export-title">Processing</h2>
+        <p class="text-sm text-zinc-400 font-mono font-medium" id="rec-time">0%</p>
+    </div>
+
+    <!-- Toasts -->
+    <div id="toast-container" class="fixed top-20 left-1/2 transform -translate-x-1/2 z-[60] flex flex-col gap-2 pointer-events-none"></div>
+
+    <script>
+        lucide.createIcons();
+
+        // --- Presets Dictionary ---
+        const PRESETS = {
+            'circle_rough_red': { type: 'ellipse', color: '#f43f5e', width: 4, useRough: true, roughness: 1.5, opacity: 1, variant: 'single', defaultW: 200, defaultH: 140 },
+            'circle_double_blue': { type: 'ellipse', color: '#3b82f6', width: 3, useRough: false, opacity: 1, variant: 'double', defaultW: 200, defaultH: 140 },
+            'circle_single_green': { type: 'ellipse', color: '#10b981', width: 4, useRough: false, opacity: 1, variant: 'single', defaultW: 200, defaultH: 140 },
+            
+            'hl_yellow': { type: 'straight_highlight', color: '#fef08a', width: 28, opacity: 0.7, useRough: false, variant: 'single', defaultW: 300, defaultH: 0 },
+            'hl_pink': { type: 'straight_highlight', color: '#fbcfe8', width: 28, opacity: 0.7, useRough: false, variant: 'single', defaultW: 300, defaultH: 0 },
+            'hl_cyan': { type: 'straight_highlight', color: '#67e8f9', width: 28, opacity: 0.7, useRough: false, variant: 'single', defaultW: 300, defaultH: 0 },
+            'hl_green': { type: 'straight_highlight', color: '#86efac', width: 28, opacity: 0.7, useRough: false, variant: 'single', defaultW: 300, defaultH: 0 },
+            
+            'stroke_thin': { type: 'straight_line', color: '#a1a1aa', width: 2, useRough: false, opacity: 1, variant: 'single', defaultW: 250, defaultH: 0 },
+            'stroke_thick': { type: 'straight_line', color: '#fbbf24', width: 8, useRough: true, roughness: 1.2, opacity: 1, variant: 'single', defaultW: 250, defaultH: 0 }
+        };
+
+        // --- Application State ---
+        const state = {
+            canvasWidth: 1920,
+            canvasHeight: 1080,
+            
+            // Interaction
+            selectedShapeId: null,
+            isDragging: false,
+            lastDragPos: {x: 0, y: 0},
+            shapes: [], 
+            timelineCursor: 0, 
+            
+            // Playback
+            isPlaying: false,
+            isExporting: false,
+            playbackStartTime: 0,
+        };
+
+        const canvas = document.getElementById('draw-canvas');
+        const ctx = canvas.getContext('2d', { willReadFrequently: true });
+        const globalRoughCanvas = rough.canvas(canvas);
+
+        // --- Math & Layout ---
+        function easeInOutCubic(x) { return x < 0.5 ? 4 * x * x * x : 1 - Math.pow(-2 * x + 2, 3) / 2; }
+
+        function updateLayoutScale() {
+            const wrapper = document.getElementById('scale-wrapper');
+            const availW = wrapper.clientWidth - 40;
+            const availH = wrapper.clientHeight - 40;
+            const scale = Math.min(availW / state.canvasWidth, availH / state.canvasHeight, 1.0);
+            canvas.style.transform = `scale(${scale})`;
+        }
+        window.addEventListener('resize', updateLayoutScale);
+        updateLayoutScale();
+
+        // --- Drag and Drop Logic ---
+        const draggables = document.querySelectorAll('.element-card');
+        const dropOverlay = document.getElementById('drop-overlay');
+        const scaleWrapper = document.getElementById('scale-wrapper');
+
+        draggables.forEach(card => {
+            card.addEventListener('dragstart', (e) => {
+                e.dataTransfer.setData('preset', card.dataset.preset);
+                e.dataTransfer.effectAllowed = 'copy';
+                dropOverlay.classList.remove('opacity-0');
+            });
+            card.addEventListener('dragend', () => {
+                dropOverlay.classList.add('opacity-0');
+            });
+        });
+
+        scaleWrapper.addEventListener('dragover', (e) => {
+            e.preventDefault(); // Necessary to allow dropping
+            e.dataTransfer.dropEffect = 'copy';
+        });
+
+        scaleWrapper.addEventListener('dragleave', () => {});
+
+        scaleWrapper.addEventListener('drop', (e) => {
+            e.preventDefault();
+            dropOverlay.classList.add('opacity-0');
+            const presetId = e.dataTransfer.getData('preset');
+            if (!presetId || !PRESETS[presetId]) return;
+
+            // Calculate exact drop position relative to canvas coordinate system
+            const rect = canvas.getBoundingClientRect();
+            const scaleX = canvas.width / rect.width;
+            const scaleY = canvas.height / rect.height;
+            const dropX = (e.clientX - rect.left) * scaleX;
+            const dropY = (e.clientY - rect.top) * scaleY;
+
+            instantiatePreset(presetId, dropX, dropY);
+        });
+
+        function instantiatePreset(presetId, cx, cy) {
+            const data = PRESETS[presetId];
+            
+            // Create shape boundaries centered on drop
+            const hw = data.defaultW / 2;
+            const hh = data.defaultH / 2;
+
+            const shape = {
+                id: Date.now() + Math.random(),
+                type: data.type,
+                color: data.color,
+                width: data.width,
+                opacity: data.opacity,
+                useRough: data.useRough,
+                roughness: data.roughness || 1,
+                variant: data.variant,
+                reverseDraw: false,
+                duration: 0.8,
+                startTime: state.timelineCursor,
+                seed: Math.floor(Math.random() * 2147483648),
+                
+                startX: cx - hw,
+                endX: cx + hw,
+                startY: cy - hh,
+                endY: cy + hh
+            };
+
+            state.shapes.push(shape);
+            state.timelineCursor += shape.duration;
+            state.selectedShapeId = shape.id;
+            
+            syncUI();
+            renderScene();
+            showToast('Element placed', 'success');
+        }
+
+        // --- Properties Updaters ---
+        function updateProp(prop, val) {
+            if (state.selectedShapeId) {
+                const shape = state.shapes.find(s => s.id === state.selectedShapeId);
+                if (shape) shape[prop] = val;
+            }
+            syncUI(); 
+            renderScene();
+        }
+
+        function updateDim(axis, value) {
+            if(!state.selectedShapeId) return;
+            const shape = state.shapes.find(s => s.id === state.selectedShapeId);
+            if(shape) {
+                let v = parseFloat(value);
+                if (isNaN(v)) return;
+                
+                const cx = (shape.startX + shape.endX) / 2;
+                const cy = (shape.startY + shape.endY) / 2;
+
+                if(axis === 'w') {
+                    shape.startX = cx - (v/2);
+                    shape.endX = cx + (v/2);
+                } else {
+                    shape.startY = cy - (v/2);
+                    shape.endY = cy + (v/2);
+                }
+                syncUI();
+                renderScene();
+            }
+        }
+
+        function deleteSelected() {
+            if (state.selectedShapeId) {
+                state.shapes = state.shapes.filter(s => s.id !== state.selectedShapeId);
+                state.selectedShapeId = null;
+                // Rebuild timeline to collapse gaps
+                state.timelineCursor = 0;
+                state.shapes.forEach(s => { s.startTime = state.timelineCursor; state.timelineCursor += s.duration; });
+                syncUI();
+                renderScene();
+                showToast('Element deleted', 'info');
+            }
+        }
+
+        function clearCanvas() {
+            state.shapes = []; state.timelineCursor = 0; state.selectedShapeId = null;
+            syncUI(); renderScene();
+        }
+
+        function undoLast() {
+            if (state.shapes.length > 0) {
+                const removed = state.shapes.pop();
+                state.timelineCursor = Math.max(0, state.timelineCursor - removed.duration);
+                if (state.selectedShapeId === removed.id) { state.selectedShapeId = null; syncUI(); }
+                renderScene();
+            }
+        }
+
+        function syncUI() {
+            const shape = state.selectedShapeId ? state.shapes.find(s => s.id === state.selectedShapeId) : null;
+            
+            const pnlProps = document.getElementById('properties-panel');
+            const pnlEmpty = document.getElementById('empty-state');
+            const badge = document.getElementById('selection-badge');
+
+            if (shape) {
+                pnlProps.classList.remove('hidden');
+                pnlEmpty.classList.add('hidden');
+                badge.classList.remove('hidden');
+
+                const w = Math.abs(shape.endX - shape.startX);
+                const h = Math.abs(shape.endY - shape.startY);
+                if(document.getElementById('prop-dim-w')) document.getElementById('prop-dim-w').value = Math.round(w);
+                if(document.getElementById('prop-dim-h')) document.getElementById('prop-dim-h').value = Math.round(h);
+                if(document.getElementById('dim-w-val')) document.getElementById('dim-w-val').innerText = Math.round(w) + 'px';
+                if(document.getElementById('dim-h-val')) document.getElementById('dim-h-val').innerText = Math.round(h) + 'px';
+
+                if(document.getElementById('prop-color')) document.getElementById('prop-color').value = shape.color;
+                if(document.getElementById('prop-width')) document.getElementById('prop-width').value = shape.width;
+                if(document.getElementById('width-val')) document.getElementById('width-val').innerText = shape.width + 'px';
+                
+                if(document.getElementById('prop-opacity')) document.getElementById('prop-opacity').value = shape.opacity;
+                if(document.getElementById('opacity-val')) document.getElementById('opacity-val').innerText = Math.round(shape.opacity * 100) + '%';
+                
+                if(document.getElementById('prop-duration')) document.getElementById('prop-duration').value = shape.duration;
+                if(document.getElementById('dur-val')) document.getElementById('dur-val').innerText = shape.duration.toFixed(1) + 's';
+                if(document.getElementById('prop-reverse')) document.getElementById('prop-reverse').checked = shape.reverseDraw;
+                
+                if(document.getElementById('prop-rough')) document.getElementById('prop-rough').checked = shape.useRough;
+                const rPnl = document.getElementById('panel-roughness');
+                if(rPnl) {
+                    if(shape.useRough) rPnl.classList.remove('hidden'); else rPnl.classList.add('hidden');
+                }
+                if(document.getElementById('prop-roughness')) document.getElementById('prop-roughness').value = shape.roughness;
+                if(document.getElementById('roughness-val')) document.getElementById('roughness-val').innerText = shape.roughness.toFixed(1);
+
+                if(document.getElementById('prop-variant-double')) document.getElementById('prop-variant-double').checked = (shape.variant === 'double');
+                
+                const isArc = shape.type === 'arc_arrow';
+                const isPen = shape.type === 'pen' || shape.type === 'highlight';
+
+                const bendPnl = document.getElementById('panel-bend');
+                if(bendPnl) bendPnl.style.display = isArc ? 'block' : 'none';
+                if(isArc) {
+                    if(document.getElementById('prop-bend')) document.getElementById('prop-bend').value = shape.bend;
+                    if(document.getElementById('bend-val')) document.getElementById('bend-val').innerText = shape.bend + '%';
+                }
+
+                const smoothPnl = document.getElementById('panel-smooth');
+                if(smoothPnl) smoothPnl.style.display = isPen ? 'block' : 'none';
+                if(isPen) {
+                    if(document.getElementById('prop-smooth')) document.getElementById('prop-smooth').value = shape.smoothness || 0;
+                    let text = (shape.smoothness || 0) > 10 ? 'High' : ((shape.smoothness || 0) > 4 ? 'Med' : ((shape.smoothness || 0) > 0 ? 'Low' : 'None'));
+                    if(document.getElementById('smooth-val')) document.getElementById('smooth-val').innerText = text;
+                }
+                
+            } else {
+                pnlProps.classList.add('hidden');
+                pnlEmpty.classList.remove('hidden');
+                badge.classList.add('hidden');
+            }
+        }
+
+        // --- Rendering Logic ---
+        function getShapeBounds(shape) {
+            const pad = shape.width * 2 + 10;
+            let minX = Math.min(shape.startX, shape.endX); 
+            let maxX = Math.max(shape.startX, shape.endX);
+            let minY = Math.min(shape.startY, shape.endY); 
+            let maxY = Math.max(shape.startY, shape.endY);
+            
+            // Inflate if double variant
+            if(shape.variant === 'double') { minX-=10; maxX+=10; minY-=10; maxY+=10; }
+
+            return { minX: minX-pad, minY: minY-pad, maxX: maxX+pad, maxY: maxY+pad };
+        }
+
+        function drawShape(ctx, shape, progress, passedRc = null) {
+            if (progress <= 0) return;
+            const p = easeInOutCubic(Math.min(1, progress));
+            const rev = shape.reverseDraw;
+
+            ctx.save();
+            ctx.strokeStyle = shape.color;
+            ctx.lineWidth = shape.width;
+            ctx.lineCap = 'round';
+            ctx.lineJoin = 'round';
+            ctx.globalAlpha = shape.opacity;
+
+            if (shape.type === 'straight_highlight') {
+                ctx.globalCompositeOperation = 'source-over'; 
+                ctx.lineCap = 'butt'; 
+            }
+
+            let isRough = shape.useRough;
+            let rcInstance = passedRc ? passedRc : globalRoughCanvas;
+            let rOptions = {
+                stroke: shape.color, strokeWidth: shape.width, roughness: shape.roughness, bowing: 1, seed: shape.seed
+            };
+
+            const cx = (shape.startX + shape.endX) / 2;
+            const cy = (shape.startY + shape.endY) / 2;
+            const w = shape.endX - shape.startX;
+            const h = shape.endY - shape.startY;
+
+            // Internal Draw execution
+            const executeDraw = (offsetScale = 0) => {
+                const ow = w + offsetScale;
+                const oh = h + offsetScale;
+                
+                ctx.beginPath();
+                if (shape.type === 'ellipse') {
+                    const rx = Math.abs(ow) / 2, ry = Math.abs(oh) / 2;
+                    if (isRough) {
+                        if (p >= 1) {
+                            rcInstance.ellipse(cx, cy, rx*2, ry*2, rOptions);
+                        } else {
+                            let sweep = 2 * Math.PI * p;
+                            rcInstance.arc(cx, cy, rx*2, ry*2, 0, sweep, false, {...rOptions, fill:null});
+                        }
+                    } else {
+                        let sweep = 2 * Math.PI * p;
+                        ctx.ellipse(cx, cy, rx, ry, 0, 0, sweep, false);
+                        ctx.stroke();
+                    }
+                } 
+                else if (shape.type === 'straight_line' || shape.type === 'straight_highlight') {
+                    const curX = shape.startX + (shape.endX - shape.startX) * p;
+                    const curY = shape.startY + (shape.endY - shape.startY) * p;
+                    
+                    if (isRough) {
+                        rcInstance.line(shape.startX, shape.startY + offsetScale, curX, curY + offsetScale, {...rOptions, fill:null});
+                    } else {
+                        ctx.moveTo(shape.startX, shape.startY + offsetScale);
+                        ctx.lineTo(curX, curY + offsetScale);
+                        ctx.stroke();
+                    }
+                }
+            };
+
+            // Execute single or double variants
+            executeDraw(0);
+            if (shape.variant === 'double') {
+                if(!isRough) { ctx.beginPath(); } // reset path for pure canvas
+                const offset = shape.type === 'ellipse' ? 14 : 10;
+                executeDraw(offset);
+            }
+
+            // Selection Outline
+            if (state.selectedShapeId === shape.id && !state.isPlaying && !state.isExporting) {
+                ctx.globalAlpha = 1.0;
+                ctx.globalCompositeOperation = 'source-over';
+                const b = getShapeBounds(shape);
+                ctx.strokeStyle = 'rgba(99, 102, 241, 0.8)'; // Indigo 500
+                ctx.lineWidth = 1.5;
+                ctx.setLineDash([6, 6]);
+                ctx.strokeRect(b.minX, b.minY, b.maxX - b.minX, b.maxY - b.minY);
+                ctx.setLineDash([]);
+            }
+            ctx.restore();
+        }
+
+        function renderScene(forcedTime = null) {
+            ctx.clearRect(0, 0, canvas.width, canvas.height);
+            let currentElapsed = forcedTime !== null ? forcedTime : (performance.now() / 1000);
+
+            state.shapes.forEach(shape => {
+                let progress = 1; 
+                if (state.isPlaying && forcedTime !== null) {
+                    progress = (forcedTime - shape.startTime) / shape.duration;
+                }
+                drawShape(ctx, shape, progress);
+            });
+        }
+
+        // --- Interaction ---
+        function getMousePos(e) {
+            const rect = canvas.getBoundingClientRect();
+            const scaleX = canvas.width / rect.width;
+            const scaleY = canvas.height / rect.height;
+            return { x: (e.clientX - rect.left) * scaleX, y: (e.clientY - rect.top) * scaleY };
+        }
+
+        canvas.addEventListener('pointerdown', (e) => {
+            if (state.isPlaying || state.isExporting) return;
+            e.preventDefault();
+            const pos = getMousePos(e);
+            
+            let hitId = null;
+            for (let i = state.shapes.length - 1; i >= 0; i--) {
+                const b = getShapeBounds(state.shapes[i]);
+                if (pos.x >= b.minX && pos.x <= b.maxX && pos.y >= b.minY && pos.y <= b.maxY) { hitId = state.shapes[i].id; break; }
+            }
+            state.selectedShapeId = hitId;
+            syncUI();
+            renderScene();
+            
+            if (hitId) {
+                state.isDragging = true;
+                state.lastDragPos = pos;
+                canvas.setPointerCapture(e.pointerId);
+            }
+        });
+
+        canvas.addEventListener('pointermove', (e) => {
+            if (!state.isDragging || state.isPlaying || !state.selectedShapeId) return;
+            e.preventDefault();
+            const pos = getMousePos(e);
+            const shape = state.shapes.find(s => s.id === state.selectedShapeId);
+            if (shape) {
+                const dx = pos.x - state.lastDragPos.x, dy = pos.y - state.lastDragPos.y;
+                shape.startX += dx; shape.endX += dx; shape.startY += dy; shape.endY += dy;
+                state.lastDragPos = pos;
+                renderScene();
+            }
+        });
+
+        canvas.addEventListener('pointerup', (e) => {
+            if (!state.isDragging || state.isPlaying) return;
+            state.isDragging = false;
+            canvas.releasePointerCapture(e.pointerId);
+            renderScene();
+        });
+
+
+        // --- Playback & Export ---
+        function setPlayUI(playing) {
+            const btnPlay = document.getElementById('btn-play');
+            const ind = document.getElementById('status-indicator');
+            document.querySelectorAll('button:not(#btn-play):not(#btn-export), input, select').forEach(b => b.disabled = playing);
+            
+            if (playing) {
+                ind.classList.remove('opacity-0');
+                btnPlay.innerHTML = `<i data-lucide="square" class="w-4 h-4"></i><span class="hidden sm:inline">Stop</span>`;
+                document.getElementById('status-text').innerText = state.isExporting ? 'Exporting...' : 'Playing';
+            } else {
+                ind.classList.add('opacity-0');
+                btnPlay.innerHTML = `<i data-lucide="play" class="w-4 h-4"></i><span class="hidden sm:inline">Preview</span>`;
+            }
+            lucide.createIcons();
+        }
+
+        function togglePreview() {
+            if (state.isPlaying) { stopPlayback(); return; }
+            if (state.shapes.length === 0) return showToast('Drop elements first!', 'error');
+            
+            state.selectedShapeId = null; syncUI(); 
+            state.isPlaying = true;
+            setPlayUI(true);
+            requestAnimationFrame((timestamp) => { state.playbackStartTime = timestamp; playbackLoop(timestamp); });
+        }
+
+        function playbackLoop(timestamp) {
+            if (!state.isPlaying) return;
+            let elapsed = (timestamp - state.playbackStartTime) / 1000; 
+            let totalTime = state.timelineCursor + 1.0; 
+            renderScene(elapsed);
+
+            if (state.isExporting) {
+                let pct = Math.min(100, Math.round((elapsed / totalTime) * 100));
+                document.getElementById('rec-time').innerText = `${pct}%`;
+            }
+            if (elapsed >= totalTime) {
+                if (state.isExporting) document.getElementById('rec-time').innerText = `Finalizing...`;
+                else stopPlayback(); 
+                return;
+            }
+            requestAnimationFrame(playbackLoop);
+        }
+
+        function stopPlayback() {
+            state.isPlaying = false;
+            if (state.isExporting && state.mediaRecorder) {
+                if (state.mediaRecorder.state !== 'inactive') state.mediaRecorder.stop();
+                state.isExporting = false;
+                document.getElementById('export-loader').classList.add('opacity-0');
+                setTimeout(() => document.getElementById('export-loader').classList.add('hidden'), 300);
+            }
+            setPlayUI(false); renderScene(); 
+        }
+
+        function exportMedia() {
+            if (state.shapes.length === 0) return showToast('Drop elements first!', 'error');
+            if (state.isPlaying || state.isExporting) return;
+            
+            state.selectedShapeId = null; syncUI(); 
+            const format = document.getElementById('export-fmt').value;
+
+            if (format === 'png') {
+                renderScene();
+                const link = document.createElement('a');
+                link.download = `elements-snap-${Date.now()}.png`;
+                link.href = canvas.toDataURL('image/png');
+                link.click();
+                showToast('Snapshot saved!', 'success');
+            } else if (format === 'webm') exportVideo();
+            else if (format === 'gif') exportGif();
+        }
+
+        function exportVideo() {
+            try {
+                const stream = canvas.captureStream(60); 
+                state.recordedChunks = [];
+                state.mediaRecorder = new MediaRecorder(stream, { mimeType: 'video/webm; codecs=vp9', videoBitsPerSecond: 20000000 });
+                state.mediaRecorder.ondataavailable = e => { if (e.data.size > 0) state.recordedChunks.push(e.data); };
+                state.mediaRecorder.onstop = () => {
+                    const blob = new Blob(state.recordedChunks, { type: 'video/webm' });
+                    const url = URL.createObjectURL(blob);
+                    const link = document.createElement('a');
+                    link.href = url; link.download = `elements-anim-${Date.now()}.webm`; link.click();
+                    URL.revokeObjectURL(url);
+                    showToast('Video exported!', 'success');
+                };
+
+                state.mediaRecorder.start();
+                state.isPlaying = true; state.isExporting = true;
+                setPlayUI(true);
+                
+                const loader = document.getElementById('export-loader');
+                document.getElementById('export-title').innerText = "Rendering Video";
+                loader.classList.remove('hidden');
+                requestAnimationFrame(() => loader.classList.remove('opacity-0'));
+
+                const totalTime = state.timelineCursor + 1.0;
+                let exportStartTime = performance.now();
+                
+                function exportRenderLoop(now) {
+                    let elapsed = (now - exportStartTime) / 1000;
+                    renderScene(elapsed);
+                    let pct = Math.min(100, Math.round((elapsed / totalTime) * 100));
+                    document.getElementById('rec-time').innerText = `${pct}%`;
+                    if (elapsed < totalTime) requestAnimationFrame(exportRenderLoop);
+                    else { document.getElementById('rec-time').innerText = `Finalizing...`; setTimeout(stopPlayback, 500); }
+                }
+                requestAnimationFrame(exportRenderLoop);
+            } catch (err) { console.error(err); showToast('Export failed.', 'error'); stopPlayback(); }
+        }
+
+        function exportGif() {
+            try {
+                const scale = Math.min(800 / canvas.width, 1.0);
+                const gW = canvas.width * scale; const gH = canvas.height * scale;
+                const gCnv = document.createElement('canvas'); gCnv.width = gW; gCnv.height = gH;
+                const gCtx = gCnv.getContext('2d');
+                const expRc = rough.canvas(gCnv);
+
+                state.isPlaying = true; state.isExporting = true;
+                setPlayUI(true);
+                
+                const loader = document.getElementById('export-loader');
+                document.getElementById('export-title').innerText = "Capturing Frames";
+                loader.classList.remove('hidden');
+                requestAnimationFrame(() => loader.classList.remove('opacity-0'));
+
+                const totalTime = state.timelineCursor + 1.0;
+                const fps = 15; 
+                const totalFrames = Math.ceil(totalTime * fps);
+                let currentFrame = 0;
+                let framesData = [];
+
+                function captureFrame() {
+                    let elapsed = currentFrame / fps;
+                    
+                    gCtx.fillStyle = '#121212';
+                    gCtx.fillRect(0,0,gW,gH);
+                    
+                    gCtx.save();
+                    gCtx.scale(scale, scale);
+                    state.shapes.forEach(shape => {
+                        let progress = 1;
+                        if (elapsed < shape.startTime + shape.duration) progress = Math.max(0, (elapsed - shape.startTime) / shape.duration);
+                        drawShape(gCtx, shape, progress, expRc);
+                    });
+                    gCtx.restore();
+                    
+                    renderScene(elapsed); // Sync UI
+                    framesData.push(gCnv.toDataURL('image/png', 0.8));
+
+                    currentFrame++;
+                    let pct = Math.min(100, Math.round((currentFrame / totalFrames) * 100));
+                    document.getElementById('rec-time').innerText = `${pct}%`;
+
+                    if (currentFrame < totalFrames) {
+                        setTimeout(captureFrame, 2); 
+                    } else {
+                        document.getElementById('export-title').innerText = "Encoding GIF";
+                        document.getElementById('rec-time').innerText = `Please wait...`;
+                        setTimeout(() => {
+                            gifshot.createGIF({
+                                gifWidth: gW, gifHeight: gH, images: framesData, interval: 1 / fps, numFrames: framesData.length, sampleInterval: 10
+                            }, function (obj) {
+                                if (!obj.error) {
+                                    const link = document.createElement('a'); link.download = `elements-anim-${Date.now()}.gif`; link.href = obj.image; link.click();
+                                    showToast('GIF exported!', 'success');
+                                } else showToast('GIF Encoding failed.', 'error');
+                                
+                                state.isExporting = false;
+                                document.getElementById('export-loader').classList.add('opacity-0');
+                                setTimeout(() => document.getElementById('export-loader').classList.add('hidden'), 300);
+                                stopPlayback();
+                            });
+                        }, 50);
+                    }
+                }
+                captureFrame();
+            } catch (err) { console.error(err); showToast('GIF Export failed.', 'error'); stopPlayback(); }
+        }
+
+        function showToast(msg, type) {
+            const c = document.getElementById('toast-container');
+            const t = document.createElement('div');
+            t.className = `bg-zinc-800/95 backdrop-blur-md text-white px-4 py-3 rounded-xl shadow-2xl ring-1 ring-white/10 flex items-center gap-3 transform transition-all -translate-y-4 opacity-0 z-50`;
+            const icon = type === 'success' ? 'check-circle' : 'info';
+            const color = type === 'success' ? 'text-emerald-400' : 'text-indigo-400';
+            t.innerHTML = `<i data-lucide="${icon}" class="w-4 h-4 ${color}"></i> <span class="text-sm font-medium">${msg}</span>`;
+            c.appendChild(t); lucide.createIcons();
+            requestAnimationFrame(() => t.classList.remove('-translate-y-4', 'opacity-0'));
+            setTimeout(() => { t.classList.add('-translate-y-4', 'opacity-0'); setTimeout(() => t.remove(), 300); }, 3000);
+        }
+
+        syncUI(); renderScene();
+    </script>
+</body>
+</html>

@@ -606,9 +606,10 @@
             const video = await startCapturePipe();
             if (!video) return;
 
-            showOverlay('Rendering...', 'Generating high-res PNG snapshot.');
+            // Hide the overlay immediately so it doesn't appear in the screen capture
+            hideOverlay();
             
-            // Give layout a moment to settle
+            // Wait for the overlay CSS transition to finish and the video stream to catch up
             setTimeout(() => {
                 const { canvas } = getCroppedCanvas(video);
                 
@@ -619,9 +620,8 @@
                 
                 // Cleanup
                 state.stream.getTracks().forEach(t => t.stop());
-                hideOverlay();
                 showToast("Snapshot exported successfully!", "success");
-            }, 500);
+            }, 800); // 800ms delay to ensure clear frame
         }
 
         async function toggleRecording() {
@@ -655,53 +655,55 @@
             document.getElementById('icon-record').setAttribute('data-lucide', 'square');
             lucide.createIcons();
 
-            // Setup continuous canvas drawing & MediaRecorder
-            const fps = parseInt(document.getElementById('export-fps').value);
-            
-            // First frame sets the size
-            const { canvas, ctx, outWidth, outHeight, sx, sy, sw, sh } = getCroppedCanvas(video);
-            
-            const outStream = canvas.captureStream(fps);
-            state.recordedChunks = [];
-            
-            const bitrate = outWidth > 2000 ? 25000000 : 10000000;
-            let options = { mimeType: 'video/webm; codecs=vp9', videoBitsPerSecond: bitrate };
-            if (!MediaRecorder.isTypeSupported(options.mimeType)) {
-                options = { mimeType: 'video/webm', videoBitsPerSecond: bitrate };
-            }
-            
-            state.mediaRecorder = new MediaRecorder(outStream, options);
-            
-            state.mediaRecorder.ondataavailable = e => { if(e.data.size > 0) state.recordedChunks.push(e.data); };
-            state.mediaRecorder.onstop = () => {
-                const blob = new Blob(state.recordedChunks, { type: 'video/webm' });
-                const url = URL.createObjectURL(blob);
-                const link = document.createElement('a');
-                link.download = `macify-record-${state.domain}-${Date.now()}.webm`;
-                link.href = url; 
-                link.click();
-                URL.revokeObjectURL(url);
+            // Wait for overlay to disappear from stream before starting recorder
+            setTimeout(() => {
+                // Setup continuous canvas drawing & MediaRecorder
+                const fps = parseInt(document.getElementById('export-fps').value);
                 
-                state.stream.getTracks().forEach(t => t.stop());
-                hideOverlay();
-                showToast("Video recording saved!", "success");
-            };
+                // First frame sets the size
+                const { canvas, ctx, outWidth, outHeight, sx, sy, sw, sh } = getCroppedCanvas(video);
+                
+                const outStream = canvas.captureStream(fps);
+                state.recordedChunks = [];
+                
+                const bitrate = outWidth > 2000 ? 25000000 : 10000000;
+                let options = { mimeType: 'video/webm; codecs=vp9', videoBitsPerSecond: bitrate };
+                if (!MediaRecorder.isTypeSupported(options.mimeType)) {
+                    options = { mimeType: 'video/webm', videoBitsPerSecond: bitrate };
+                }
+                
+                state.mediaRecorder = new MediaRecorder(outStream, options);
+                
+                state.mediaRecorder.ondataavailable = e => { if(e.data.size > 0) state.recordedChunks.push(e.data); };
+                state.mediaRecorder.onstop = () => {
+                    const blob = new Blob(state.recordedChunks, { type: 'video/webm' });
+                    const url = URL.createObjectURL(blob);
+                    const link = document.createElement('a');
+                    link.download = `macify-record-${state.domain}-${Date.now()}.webm`;
+                    link.href = url; 
+                    link.click();
+                    URL.revokeObjectURL(url);
+                    
+                    state.stream.getTracks().forEach(t => t.stop());
+                    showToast("Video recording saved!", "success");
+                };
 
-            state.mediaRecorder.start();
+                state.mediaRecorder.start();
 
-            // Rendering Loop
-            function recordLoop() {
-                if (!state.isRecording) return;
+                // Rendering Loop
+                function recordLoop() {
+                    if (!state.isRecording) return;
+                    
+                    ctx.fillStyle = state.bgType === 'solid' ? state.solidColor : state.gradStart; 
+                    ctx.fillRect(0, 0, outWidth, outHeight);
+                    ctx.drawImage(video, sx, sy, sw, sh, 0, 0, outWidth, outHeight);
+                    
+                    requestAnimationFrame(recordLoop);
+                }
+                recordLoop();
                 
-                ctx.fillStyle = state.bgType === 'solid' ? state.solidColor : state.gradStart; 
-                ctx.fillRect(0, 0, outWidth, outHeight);
-                ctx.drawImage(video, sx, sy, sw, sh, 0, 0, outWidth, outHeight);
-                
-                requestAnimationFrame(recordLoop);
-            }
-            recordLoop();
-            
-            showToast("Recording started. Interact with the browser window.", "success");
+                showToast("Recording started. Interact with the browser window.", "success");
+            }, 800); // 800ms delay to ensure clear stream
         }
 
         // Initialize App

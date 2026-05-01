@@ -1,0 +1,897 @@
+<!DOCTYPE html>
+<html lang="en" class="dark">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+    <title>Sequence Animator Pro</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
+    <script src="https://unpkg.com/lucide@latest"></script>
+    <style>
+        :root { color-scheme: dark; }
+
+        body {
+            font-family: 'Inter', sans-serif;
+            background-color: #09090b; 
+            color: #ececf1;
+            overflow: hidden;
+            touch-action: none;
+        }
+
+        ::-webkit-scrollbar { width: 6px; height: 6px; }
+        ::-webkit-scrollbar-track { background: transparent; }
+        ::-webkit-scrollbar-thumb { background: rgba(255, 255, 255, 0.15); border-radius: 10px; }
+        ::-webkit-scrollbar-thumb:hover { background: rgba(255, 255, 255, 0.25); }
+
+        .transparent-pattern {
+            background-image: 
+                linear-gradient(45deg, rgba(255,255,255,0.02) 25%, transparent 25%, transparent 75%, rgba(255,255,255,0.02) 75%, rgba(255,255,255,0.02)), 
+                linear-gradient(45deg, rgba(255,255,255,0.02) 25%, transparent 25%, transparent 75%, rgba(255,255,255,0.02) 75%, rgba(255,255,255,0.02));
+            background-size: 20px 20px;
+            background-position: 0 0, 10px 10px;
+        }
+
+        input[type="range"] {
+            -webkit-appearance: none;
+            height: 4px;
+            background: rgba(255, 255, 255, 0.1);
+            border-radius: 2px;
+            outline: none;
+        }
+        input[type="range"]::-webkit-slider-thumb {
+            -webkit-appearance: none;
+            width: 16px;
+            height: 16px;
+            border-radius: 50%;
+            background: #fff;
+            box-shadow: 0 2px 6px rgba(0,0,0,0.4);
+            cursor: pointer;
+            transition: transform 0.1s;
+        }
+        input[type="range"]::-webkit-slider-thumb:hover { transform: scale(1.15); }
+        
+        input[type="color"] {
+            -webkit-appearance: none;
+            border: none;
+            width: 28px;
+            height: 28px;
+            border-radius: 50%;
+            padding: 0;
+            cursor: pointer;
+            background: transparent;
+        }
+        input[type="color"]::-webkit-color-swatch-wrapper { padding: 0; }
+        input[type="color"]::-webkit-color-swatch { border: none; border-radius: 50%; box-shadow: inset 0 0 0 1px rgba(255,255,255,0.2); }
+
+        .segmented-btn { transition: all 0.2s cubic-bezier(0.4, 0, 0.2, 1); }
+        .segmented-btn.active {
+            background: rgba(255, 255, 255, 0.15);
+            color: white;
+            box-shadow: 0 1px 3px rgba(0,0,0,0.2), inset 0 1px 0 rgba(255,255,255,0.1);
+        }
+
+        #scale-wrapper {
+            position: absolute;
+            inset: 0;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            overflow: hidden;
+            padding: 24px;
+        }
+
+        #preview-canvas {
+            box-shadow: 0 25px 50px -12px rgba(0,0,0,0.8), 0 0 0 1px rgba(255,255,255,0.05);
+            border-radius: 8px;
+            background-color: #000;
+            transform-origin: center center;
+            will-change: transform;
+            transition: width 0.3s ease, height 0.3s ease;
+        }
+
+        /* Thumbnails Grid */
+        .thumb-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fill, minmax(60px, 1fr));
+            gap: 8px;
+        }
+        .thumb-item {
+            aspect-ratio: 1;
+            border-radius: 6px;
+            overflow: hidden;
+            border: 1px solid rgba(255,255,255,0.1);
+            position: relative;
+        }
+        .thumb-item img {
+            width: 100%;
+            height: 100%;
+            object-fit: cover;
+        }
+        .thumb-index {
+            position: absolute;
+            top: 2px; left: 2px;
+            background: rgba(0,0,0,0.7);
+            color: white;
+            font-size: 10px;
+            padding: 2px 4px;
+            border-radius: 4px;
+            font-weight: bold;
+        }
+    </style>
+</head>
+<body class="flex flex-col h-screen text-sm">
+
+    <!-- Header -->
+    <header class="absolute top-0 w-full h-14 bg-zinc-900/80 backdrop-blur-2xl border-b border-white/5 flex items-center justify-between px-4 sm:px-6 z-40">
+        <div class="flex items-center gap-3">
+            <div class="w-7 h-7 rounded-lg bg-gradient-to-br from-amber-500 to-orange-600 flex items-center justify-center shadow-inner shadow-white/20">
+                <i data-lucide="layers" class="w-4 h-4 text-white"></i>
+            </div>
+            <h1 class="font-semibold tracking-tight whitespace-nowrap hidden sm:block text-zinc-100">Sequence <span class="text-zinc-500 font-normal">Animator Pro</span></h1>
+        </div>
+
+        <div class="flex-1 flex justify-center mx-4">
+            <button onclick="document.getElementById('multi-upload').click()" class="flex items-center gap-2 px-4 py-1.5 bg-amber-500/10 hover:bg-amber-500/20 border border-amber-500/20 rounded-lg text-amber-400 transition-all shadow-inner text-xs font-bold uppercase tracking-wider">
+                <i data-lucide="image-plus" class="w-4 h-4"></i>
+                <span id="upload-text" class="hidden sm:inline">Upload Sequence</span>
+            </button>
+            <input type="file" id="multi-upload" accept="image/*" multiple class="hidden" onchange="handleMultipleUploads(event)">
+        </div>
+
+        <div class="flex items-center justify-end gap-2 shrink-0">
+            <button onclick="togglePreview()" id="btn-play" class="flex items-center gap-2 px-3 py-1.5 bg-white/5 hover:bg-white/10 text-white rounded-lg font-medium transition-colors ring-1 ring-white/5 text-xs sm:text-sm shadow-sm">
+                <i data-lucide="play" class="w-4 h-4" id="icon-play"></i>
+                <span id="text-play" class="hidden sm:inline">Play Sequence</span>
+            </button>
+            
+            <div class="flex bg-orange-600 rounded-lg shadow-lg shadow-orange-600/20 ring-1 ring-inset ring-white/20 transition-all hover:bg-orange-500">
+                <select id="export-res" class="bg-transparent text-white font-medium pl-2 pr-1 py-1.5 outline-none cursor-pointer appearance-none text-xs border-r border-orange-400/30 hidden sm:block">
+                    <option value="1080" selected>HD 1080p</option>
+                    <option value="1440">2K 1440p</option>
+                </select>
+                <button onclick="exportVideo()" id="btn-export" class="flex items-center gap-2 px-3 py-1.5 text-white font-medium transition-all rounded-r-lg text-xs sm:text-sm">
+                    <i data-lucide="download" class="w-4 h-4" id="icon-export"></i>
+                    <span class="hidden sm:inline" id="text-export">Export</span>
+                </button>
+            </div>
+        </div>
+    </header>
+
+    <!-- Main Layout -->
+    <div class="flex flex-1 pt-14 relative overflow-hidden flex-col md:flex-row">
+        
+        <!-- Left Sidebar -->
+        <aside class="w-full md:w-80 flex-shrink-0 bg-zinc-900/60 backdrop-blur-3xl border-r border-white/5 z-30 h-[45%] md:h-full flex flex-col shadow-[0_-10px_40px_rgba(0,0,0,0.5)] md:shadow-none order-2 md:order-1">
+            
+            <div class="p-5 overflow-y-auto space-y-6">
+                
+                <!-- Sequence Management -->
+                <div>
+                    <div class="flex items-center justify-between mb-3">
+                        <label class="text-[11px] font-bold text-zinc-500 uppercase tracking-widest flex items-center gap-1.5">
+                            <i data-lucide="film" class="w-3 h-3"></i> Sequence (<span id="seq-count">0</span>)
+                        </label>
+                        <button onclick="clearSequence()" class="text-[10px] text-red-400 hover:text-red-300 font-medium bg-red-400/10 px-2 py-0.5 rounded">Clear All</button>
+                    </div>
+                    
+                    <div class="bg-black/40 border border-white/5 rounded-xl p-2 min-h-[80px] max-h-[160px] overflow-y-auto thumb-grid" id="thumbnail-container">
+                        <div class="w-full h-full flex items-center justify-center text-zinc-600 text-[10px] col-span-full py-4">
+                            Upload images to build sequence
+                        </div>
+                    </div>
+                </div>
+
+                <div class="w-full h-px bg-white/5"></div>
+
+                <!-- Canvas & Format -->
+                <div>
+                    <div class="flex items-center justify-between mb-3">
+                        <label class="text-[11px] font-bold text-zinc-500 uppercase tracking-widest flex items-center gap-1.5">
+                            <i data-lucide="monitor" class="w-3 h-3"></i> Canvas Setup
+                        </label>
+                        <div class="flex items-center gap-2 bg-black/40 px-2 py-1 rounded-lg border border-white/5">
+                            <span class="text-[10px] text-zinc-400">BG</span>
+                            <div class="relative w-4 h-4 rounded-full border border-white/20 overflow-hidden cursor-pointer">
+                                <input type="color" class="absolute w-full h-full opacity-0 inset-0 cursor-pointer" value="#18181b" id="prop-bgcolor" onchange="state.bgColor = this.value; if(!state.isPlaying) renderFrame(0,0);" oninput="state.bgColor = this.value; if(!state.isPlaying) renderFrame(0,0);">
+                            </div>
+                        </div>
+                    </div>
+                    
+                    <div class="flex p-1 bg-black/40 rounded-xl ring-1 ring-white/5">
+                        <button class="segmented-btn active flex-1 py-2 rounded-lg text-[11px] font-medium text-zinc-400 flex flex-col justify-center items-center gap-1" data-ar="16:9" onclick="setAspectRatio('16:9')">
+                            <div class="w-5 h-3 border-2 border-current rounded-sm"></div>
+                            16:9
+                        </button>
+                        <button class="segmented-btn flex-1 py-2 rounded-lg text-[11px] font-medium text-zinc-400 flex flex-col justify-center items-center gap-1" data-ar="9:16" onclick="setAspectRatio('9:16')">
+                            <div class="w-3 h-5 border-2 border-current rounded-sm"></div>
+                            9:16
+                        </button>
+                        <button class="segmented-btn flex-1 py-2 rounded-lg text-[11px] font-medium text-zinc-400 flex flex-col justify-center items-center gap-1" data-ar="1:1" onclick="setAspectRatio('1:1')">
+                            <div class="w-4 h-4 border-2 border-current rounded-sm"></div>
+                            1:1
+                        </button>
+                    </div>
+                </div>
+
+                <div class="w-full h-px bg-white/5"></div>
+
+                <!-- Transition Style Engine -->
+                <div class="space-y-4">
+                    <label class="text-[11px] font-bold text-amber-500 uppercase tracking-widest block flex items-center gap-1.5">
+                        <i data-lucide="wand-2" class="w-3 h-3"></i> Physical Transition
+                    </label>
+                    
+                    <div>
+                        <select class="w-full bg-black/40 border border-white/10 rounded-lg text-xs text-zinc-200 px-3 py-2.5 outline-none focus:ring-1 focus:ring-amber-500 appearance-none cursor-pointer" onchange="state.animStyle = this.value; if(!state.isPlaying) renderFrame(0,0);">
+                            <option value="projector" selected>Slide Projector (Horizontal)</option>
+                            <option value="calendar">Calendar Tear (Peel & Drop)</option>
+                            <option value="sticky">Sticky Notes (Stack & Toss)</option>
+                            <option value="flipbook">Stop-Motion Flipbook</option>
+                        </select>
+                    </div>
+
+                    <div class="grid grid-cols-2 gap-4 pt-2">
+                        <div>
+                            <div class="flex justify-between items-center mb-1.5">
+                                <span class="text-[10px] text-zinc-300">Hold Duration</span>
+                            </div>
+                            <div class="flex items-center gap-2">
+                                <input type="number" min="0.1" max="10" step="0.1" value="1.5" class="w-full bg-black/40 border border-white/10 rounded px-2 py-1 text-xs text-white outline-none focus:border-amber-500" onchange="state.holdTime = parseFloat(this.value); updateDurationUI();">
+                                <span class="text-[10px] text-zinc-500">sec</span>
+                            </div>
+                        </div>
+                        <div>
+                            <div class="flex justify-between items-center mb-1.5">
+                                <span class="text-[10px] text-zinc-300">Transition Speed</span>
+                            </div>
+                            <div class="flex items-center gap-2">
+                                <input type="number" min="0.1" max="5" step="0.1" value="0.5" class="w-full bg-black/40 border border-white/10 rounded px-2 py-1 text-xs text-white outline-none focus:border-amber-500" onchange="state.transTime = parseFloat(this.value); updateDurationUI();">
+                                <span class="text-[10px] text-zinc-500">sec</span>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Aesthetics -->
+                <div class="space-y-4 pt-4 border-t border-white/5">
+                    <label class="text-[11px] font-bold text-zinc-500 uppercase tracking-widest block flex items-center gap-1.5">
+                        <i data-lucide="palette" class="w-3 h-3"></i> Media Aesthetics
+                    </label>
+
+                    <div>
+                        <div class="flex justify-between items-center mb-1.5">
+                            <span class="text-[10px] text-zinc-300">Image Scale (Zoom)</span>
+                            <span id="scale-val" class="text-[10px] text-zinc-400 font-mono">85%</span>
+                        </div>
+                        <input type="range" id="slide-scale" min="30" max="120" value="85" class="w-full accent-amber-500" oninput="state.mediaScale = parseInt(this.value)/100; document.getElementById('scale-val').innerText = this.value + '%'; if(!state.isPlaying) renderFrame(0,0);">
+                    </div>
+
+                    <div class="flex items-center justify-between">
+                        <span class="text-[10px] text-zinc-400">Card Frame (White Border)</span>
+                        <label class="relative inline-flex items-center cursor-pointer">
+                            <input type="checkbox" class="sr-only peer" checked onchange="state.showBorder = this.checked; if(!state.isPlaying) renderFrame(0,0);">
+                            <div class="w-7 h-4 bg-zinc-700 peer-focus:outline-none rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border-gray-300 after:border after:rounded-full after:h-3 after:w-3 after:transition-all peer-checked:bg-amber-500"></div>
+                        </label>
+                    </div>
+
+                    <div class="flex items-center justify-between">
+                        <span class="text-[10px] text-zinc-400">Drop Shadow Depth</span>
+                        <label class="relative inline-flex items-center cursor-pointer">
+                            <input type="checkbox" class="sr-only peer" checked onchange="state.showShadow = this.checked; if(!state.isPlaying) renderFrame(0,0);">
+                            <div class="w-7 h-4 bg-zinc-700 peer-focus:outline-none rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border-gray-300 after:border after:rounded-full after:h-3 after:w-3 after:transition-all peer-checked:bg-amber-500"></div>
+                        </label>
+                    </div>
+                </div>
+
+                <div class="pt-4 border-t border-white/5">
+                    <div class="flex justify-between items-center bg-black/20 p-3 rounded-lg border border-white/5">
+                        <span class="text-xs text-zinc-400 font-medium">Total Duration</span>
+                        <span id="dur-val" class="text-sm text-amber-500 font-bold">0.0s</span>
+                    </div>
+                    
+                    <div class="flex items-center justify-end mt-3">
+                        <label class="flex items-center gap-1.5 cursor-pointer text-[10px] text-zinc-400 hover:text-white transition-colors" title="Loop playback during preview">
+                            <input type="checkbox" checked onchange="state.loopPreview = this.checked;" class="accent-amber-500 w-3 h-3 rounded"> Loop Playback
+                        </label>
+                    </div>
+                </div>
+
+            </div>
+        </aside>
+
+        <!-- Main Canvas -->
+        <main class="flex-1 relative bg-zinc-950 transparent-pattern overflow-hidden order-1 md:order-2 flex items-center justify-center">
+            <div id="scale-wrapper">
+                <canvas id="preview-canvas" width="1920" height="1080"></canvas>
+            </div>
+            
+            <div id="status-indicator" class="absolute top-6 right-6 flex items-center gap-2 bg-amber-500/10 border border-amber-500/50 text-amber-400 px-4 py-2.5 rounded-full shadow-lg opacity-0 transition-opacity duration-300 pointer-events-none backdrop-blur-md z-50">
+                <div class="w-2 h-2 rounded-full bg-amber-400 animate-pulse" id="status-dot"></div>
+                <span class="text-xs font-bold tracking-wide uppercase" id="status-text">Playing</span>
+            </div>
+        </main>
+    </div>
+
+    <!-- Loading Overlay -->
+    <div id="export-loader" class="fixed inset-0 z-50 bg-black/80 hidden flex flex-col items-center justify-center transition-opacity opacity-0 backdrop-blur-sm">
+        <div class="w-12 h-12 border-4 border-white/10 border-t-amber-500 rounded-full animate-spin mb-4"></div>
+        <h2 class="text-xl font-bold text-white mb-2" id="loader-title">Processing</h2>
+        <p class="text-sm text-zinc-400 font-mono font-medium" id="rec-time">Please wait...</p>
+    </div>
+
+    <div id="toast-container" class="fixed top-20 right-6 z-[60] flex flex-col gap-2 pointer-events-none"></div>
+
+    <script>
+        lucide.createIcons();
+
+        // --- State ---
+        const state = {
+            images: [], // Array of preloaded Image objects
+            aspectRatio: '16:9', 
+            bgColor: '#18181b',
+            
+            animStyle: 'projector', // projector, calendar, sticky, flipbook
+            holdTime: 1.5, 
+            transTime: 0.5,
+            
+            mediaScale: 0.85,
+            showBorder: true,
+            showShadow: true,
+            
+            loopPreview: true,
+            isPlaying: false,
+            isExporting: false,
+            animStartTime: 0,
+            reqId: null,
+            
+            // Random seeded rotations for sticky notes
+            randomSeeds: [],
+            
+            mediaRecorder: null,
+            recordedChunks: []
+        };
+
+        const canvas = document.getElementById('preview-canvas');
+        const ctx = canvas.getContext('2d', { alpha: false }); 
+
+        // Easing Functions
+        const Ease = {
+            inOutQuint: t => t < .5 ? 16 * t * t * t * t * t : 1 - Math.pow(-2 * t + 2, 5) / 2,
+            inQuad: t => t * t,
+            outBack: t => { const c1 = 1.70158; const c3 = c1 + 1; return 1 + c3 * Math.pow(t - 1, 3) + c1 * Math.pow(t - 1, 2); }
+        };
+
+        // --- Math Helpers ---
+        // Simple seeded random to keep stack rotations consistent
+        function seededRandom(seed) {
+            let x = Math.sin(seed++) * 10000;
+            return x - Math.floor(x);
+        }
+
+        function updateDurationUI() {
+            const totalImages = Math.max(state.images.length, 1);
+            const totalDur = totalImages * (state.holdTime + state.transTime);
+            document.getElementById('dur-val').innerText = totalDur.toFixed(1) + 's';
+        }
+
+        // --- UI Updaters ---
+        function setAspectRatio(ar) {
+            state.aspectRatio = ar;
+            document.querySelectorAll('[data-ar]').forEach(btn => {
+                btn.classList.remove('active');
+                if(btn.dataset.ar === ar) btn.classList.add('active');
+            });
+            
+            if (ar === '16:9') { canvas.width = 1920; canvas.height = 1080; } 
+            else if (ar === '9:16') { canvas.width = 1080; canvas.height = 1920; } 
+            else if (ar === '1:1') { canvas.width = 1080; canvas.height = 1080; }
+            
+            updateLayoutScale();
+            if (!state.isPlaying) renderFrame(0, 0); 
+        }
+
+        function updateLayoutScale() {
+            const wrapper = document.getElementById('scale-wrapper');
+            const padding = 40; 
+            const availW = wrapper.clientWidth - padding;
+            const availH = wrapper.clientHeight - padding;
+            const scale = Math.min(availW / canvas.width, availH / canvas.height);
+            canvas.style.transform = `scale(${scale})`;
+        }
+        window.addEventListener('resize', updateLayoutScale);
+
+        function showToast(message, type = 'info') {
+            const container = document.getElementById('toast-container');
+            const toast = document.createElement('div');
+            toast.className = `bg-zinc-800/95 backdrop-blur-md text-white px-4 py-3 rounded-xl shadow-2xl ring-1 ring-white/10 flex items-center gap-3 transform transition-all -translate-y-4 opacity-0 z-50`;
+            let icon = type === 'success' ? 'check-circle' : (type === 'error' ? 'alert-triangle' : 'info');
+            let color = type === 'success' ? 'text-emerald-400' : (type === 'error' ? 'text-rose-400' : 'text-amber-400');
+            toast.innerHTML = `<i data-lucide="${icon}" class="w-4 h-4 ${color}"></i> <span class="text-sm font-medium">${message}</span>`;
+            container.appendChild(toast); lucide.createIcons();
+            requestAnimationFrame(() => toast.classList.remove('-translate-y-4', 'opacity-0'));
+            setTimeout(() => { toast.classList.add('-translate-y-4', 'opacity-0'); setTimeout(() => toast.remove(), 300); }, 3000);
+        }
+
+        // --- Sequence Management ---
+        async function handleMultipleUploads(e) {
+            const files = Array.from(e.target.files).filter(f => f.type.startsWith('image/'));
+            if (!files.length) return;
+
+            showLoader('Loading Images', `0 / ${files.length}`);
+            
+            const loadPromises = files.map(file => {
+                return new Promise((resolve) => {
+                    const reader = new FileReader();
+                    reader.onload = (ev) => {
+                        const img = new Image();
+                        img.onload = () => resolve(img);
+                        img.src = ev.target.result;
+                    };
+                    reader.readAsDataURL(file);
+                });
+            });
+
+            try {
+                const loadedImages = await Promise.all(loadPromises);
+                state.images.push(...loadedImages);
+                // Assign seeds for new images
+                for(let i=state.randomSeeds.length; i<state.images.length; i++) {
+                    state.randomSeeds.push((seededRandom(i * 13.37) - 0.5) * 2); // -1 to 1
+                }
+                updateThumbnailUI();
+                updateDurationUI();
+                hideLoader();
+                showToast(`Added ${loadedImages.length} images to sequence.`, 'success');
+                if (!state.isPlaying) renderFrame(0, 0);
+            } catch (err) {
+                hideLoader();
+                showToast('Error loading some images.', 'error');
+            }
+        }
+
+        function updateThumbnailUI() {
+            const container = document.getElementById('thumbnail-container');
+            document.getElementById('seq-count').innerText = state.images.length;
+            
+            if (state.images.length === 0) {
+                container.innerHTML = `<div class="w-full h-full flex items-center justify-center text-zinc-600 text-[10px] col-span-full py-4">Upload images to build sequence</div>`;
+                return;
+            }
+
+            container.innerHTML = '';
+            state.images.forEach((img, i) => {
+                const div = document.createElement('div');
+                div.className = 'thumb-item shadow-md';
+                div.innerHTML = `
+                    <div class="thumb-index">${i+1}</div>
+                    <img src="${img.src}" alt="Seq ${i}">
+                `;
+                container.appendChild(div);
+            });
+        }
+
+        function clearSequence() {
+            if(state.isPlaying) stopPlayback();
+            state.images = [];
+            state.randomSeeds = [];
+            updateThumbnailUI();
+            updateDurationUI();
+            generatePlaceholderImage(); // Fallback
+        }
+
+        function showLoader(title, sub) {
+            document.getElementById('loader-title').innerText = title;
+            document.getElementById('rec-time').innerText = sub;
+            const loader = document.getElementById('export-loader');
+            loader.classList.remove('hidden');
+            requestAnimationFrame(() => loader.classList.remove('opacity-0'));
+        }
+        function hideLoader() {
+            document.getElementById('export-loader').classList.add('opacity-0');
+            setTimeout(() => document.getElementById('export-loader').classList.add('hidden'), 300);
+        }
+
+        function generatePlaceholderImage() {
+            if(state.images.length > 0) return;
+            const tempCanvas = document.createElement('canvas');
+            tempCanvas.width = 1080; tempCanvas.height = 1080;
+            const tCtx = tempCanvas.getContext('2d');
+            
+            // Create a pseudo sequence of 3 solid colors with numbers
+            const colors = ['#2563eb', '#16a34a', '#dc2626'];
+            
+            colors.forEach((col, i) => {
+                tCtx.fillStyle = col; 
+                tCtx.fillRect(0, 0, 1080, 1080);
+                tCtx.fillStyle = 'rgba(255,255,255,0.1)';
+                for(let j=0; j<5; j++) tCtx.fillRect(0, j*250, 1080, 50);
+                
+                tCtx.fillStyle = 'white';
+                tCtx.font = 'bold 500px sans-serif';
+                tCtx.textAlign = 'center';
+                tCtx.textBaseline = 'middle';
+                tCtx.fillText((i+1).toString(), 540, 540);
+                
+                const img = new Image();
+                img.onload = () => { 
+                    state.images.push(img);
+                    state.randomSeeds.push((seededRandom(i * 13.37) - 0.5) * 2);
+                    if(i === colors.length-1) {
+                        updateThumbnailUI(); updateDurationUI();
+                        if (!state.isPlaying) renderFrame(0, 0); 
+                    }
+                };
+                img.src = tempCanvas.toDataURL('image/jpeg', 0.8);
+            });
+        }
+
+        // --- Core Render Engine ---
+        // Draws an image formatted as a "Physical Card"
+        function drawCard(img, x, y, rotAngle, scale, alpha=1) {
+            if(!img) return;
+            ctx.save();
+            ctx.translate(x, y);
+            ctx.rotate(rotAngle);
+            ctx.scale(scale, scale);
+            ctx.globalAlpha = alpha;
+
+            // Fit logic (contain within a safe box)
+            const safeW = canvas.width * state.mediaScale;
+            const safeH = canvas.height * state.mediaScale;
+            
+            let drawW = safeW;
+            let drawH = safeH;
+            
+            const imgAspect = img.width / img.height;
+            const safeAspect = safeW / safeH;
+
+            if (imgAspect > safeAspect) {
+                drawH = safeW / imgAspect;
+            } else {
+                drawW = safeH * imgAspect;
+            }
+
+            const borderPad = state.showBorder ? Math.max(20, drawW * 0.04) : 0;
+            const cardW = drawW + borderPad*2;
+            const cardH = drawH + borderPad*2;
+
+            // Shadow
+            if (state.showShadow) {
+                ctx.shadowColor = 'rgba(0,0,0,0.5)';
+                ctx.shadowBlur = 40;
+                ctx.shadowOffsetY = 20;
+                ctx.shadowOffsetX = 10;
+            }
+
+            // Card Background (Border)
+            if (state.showBorder) {
+                ctx.fillStyle = '#f8fafc'; // White card
+                ctx.beginPath();
+                if(ctx.roundRect) {
+                    ctx.roundRect(-cardW/2, -cardH/2, cardW, cardH, 8);
+                    ctx.fill();
+                } else {
+                    ctx.fillRect(-cardW/2, -cardH/2, cardW, cardH);
+                }
+            }
+            
+            // Turn off shadow for image drawing to prevent double shadow
+            ctx.shadowColor = 'transparent';
+
+            // Draw Image
+            ctx.drawImage(img, -drawW/2, -drawH/2, drawW, drawH);
+            
+            ctx.restore();
+        }
+
+        // Main Draw Loop
+        function renderFrame(globalProgress, timeSec) {
+            const w = canvas.width;
+            const h = canvas.height;
+            
+            ctx.fillStyle = state.bgColor;
+            ctx.fillRect(0, 0, w, h);
+
+            if (state.images.length === 0) return;
+
+            const seqLen = state.images.length;
+            const segmentTime = state.holdTime + state.transTime;
+            const totalDur = seqLen * segmentTime;
+            
+            // Wrap time for loop preview, cap for export
+            let effTime = timeSec;
+            if (state.isPlaying && !state.isExporting && state.loopPreview) {
+                effTime = timeSec % totalDur;
+            } else if (effTime >= totalDur) {
+                effTime = totalDur - 0.001; // Clamp to end
+            }
+
+            const currIndex = Math.floor(effTime / segmentTime);
+            const nextIndex = (currIndex + 1) % seqLen;
+            const localTime = effTime % segmentTime;
+
+            // Are we in the hold phase or transition phase?
+            let isTransitioning = localTime > state.holdTime;
+            let transProgress = 0;
+            if (isTransitioning) {
+                transProgress = (localTime - state.holdTime) / state.transTime;
+            }
+
+            const imgCurr = state.images[currIndex];
+            const imgNext = state.images[nextIndex];
+            
+            const cx = w/2;
+            const cy = h/2;
+
+            // Execute specific physical transition styles
+            switch(state.animStyle) {
+                
+                case 'projector': {
+                    // Slide left. Very fast easeInOut
+                    let eased = Ease.inOutQuint(transProgress);
+                    let offsetCurr = isTransitioning ? -(w * eased) : 0;
+                    let offsetNext = isTransitioning ? (w * (1 - eased)) : w; // Offscreen right
+                    
+                    if (isTransitioning) drawCard(imgNext, cx + offsetNext, cy, 0, 1);
+                    drawCard(imgCurr, cx + offsetCurr, cy, 0, 1);
+                    break;
+                }
+
+                case 'calendar': {
+                    // Current drops and rotates, next is underneath
+                    if (isTransitioning) {
+                        let eased = Ease.inQuad(transProgress);
+                        // Draw next card fixed beneath
+                        drawCard(imgNext, cx, cy, 0, 1);
+                        
+                        // Current card rips from top left
+                        let rot = -(Math.PI / 3) * eased; // rotate CCW
+                        let dropY = h * 1.5 * eased;
+                        let swingX = -w * 0.2 * eased;
+                        
+                        ctx.save();
+                        // Pivot at top left corner of the card roughly
+                        ctx.translate(cx - w*0.3 + swingX, cy - h*0.4 + dropY);
+                        ctx.rotate(rot);
+                        ctx.translate(-(cx - w*0.3), -(cy - h*0.4));
+                        drawCard(imgCurr, cx, cy, 0, 1);
+                        ctx.restore();
+                    } else {
+                        drawCard(imgCurr, cx, cy, 0, 1);
+                    }
+                    break;
+                }
+
+                case 'sticky': {
+                    // Draw a stack of the last 3 notes, then peel current
+                    const stackDepth = 3;
+                    
+                    // Background stack
+                    for(let i = stackDepth; i >= 1; i--) {
+                        let stackIdx = (currIndex + i) % seqLen;
+                        // For sticky stack, we pre-draw future notes
+                        let seed = state.randomSeeds[stackIdx];
+                        let rot = seed * (Math.PI / 12); // -15 to 15 deg
+                        // Slight scale down for depth illusion
+                        drawCard(state.images[stackIdx], cx, cy, rot, 1.0 - (i*0.02)); 
+                    }
+
+                    // Current Note
+                    let currSeed = state.randomSeeds[currIndex];
+                    let baseRot = currSeed * (Math.PI / 12);
+                    
+                    if (isTransitioning) {
+                        let eased = Ease.inQuad(transProgress);
+                        // Peel up and right
+                        let peelRot = baseRot + (Math.PI / 6) * eased;
+                        let peelX = (w * 0.8) * eased;
+                        let peelY = -(h * 0.8) * eased;
+                        let peelScale = 1.0 + (0.2 * eased); // pops toward camera
+                        
+                        drawCard(imgCurr, cx + peelX, cy + peelY, peelRot, peelScale, 1 - (eased*0.5));
+                    } else {
+                        drawCard(imgCurr, cx, cy, baseRot, 1.0);
+                    }
+                    break;
+                }
+
+                case 'flipbook': {
+                    // Stop motion. Jitter rotation slightly every frame during hold, fast cut on transition
+                    
+                    // Calculate "stop motion frames" (e.g., 12 fps look)
+                    const fps = 12;
+                    const frameDur = 1.0 / fps;
+                    const discreteTime = Math.floor(effTime / frameDur) * frameDur;
+                    
+                    // Use discrete time to generate a jitter seed
+                    let jitterRot = (seededRandom(discreteTime * 100) - 0.5) * (Math.PI / 60); // Tiny jitter
+                    let jitterScale = 1.0 + (seededRandom(discreteTime * 200) - 0.5) * 0.02;
+
+                    if (isTransitioning) {
+                        // In flipbook, transition is just a very rapid page flip or blank frame
+                        if (transProgress < 0.5) {
+                            // Shrink/squash current
+                            drawCard(imgCurr, cx, cy, jitterRot, jitterScale * (1 - transProgress*2));
+                        } else {
+                            // Grow/pop next
+                            drawCard(imgNext, cx, cy, jitterRot, jitterScale * (transProgress - 0.5)*2);
+                        }
+                    } else {
+                        drawCard(imgCurr, cx, cy, jitterRot, jitterScale);
+                    }
+                    break;
+                }
+            }
+        }
+
+        // --- Playback Engine ---
+        function setPlayUI(playing) {
+            const btnPlay = document.getElementById('btn-play');
+            const iconPlay = document.getElementById('icon-play');
+            const textPlay = document.getElementById('text-play');
+            const ind = document.getElementById('status-indicator');
+
+            document.querySelectorAll('button:not(#btn-play):not(#btn-export), input, select').forEach(b => b.disabled = playing);
+
+            if (playing) {
+                ind.classList.remove('opacity-0');
+                if (state.isExporting) {
+                    btnPlay.disabled = true;
+                    ind.classList.replace('bg-amber-500/10', 'bg-red-500/10');
+                    ind.classList.replace('border-amber-500/50', 'border-red-500/50');
+                    ind.classList.replace('text-amber-400', 'text-red-400');
+                    document.getElementById('status-dot').classList.replace('bg-amber-400', 'bg-red-400');
+                    document.getElementById('status-text').innerText = 'Rendering Video...';
+                } else {
+                    btnPlay.classList.add('bg-white/5', 'text-zinc-400');
+                    btnPlay.classList.remove('bg-white/5', 'text-white');
+                    iconPlay.setAttribute('data-lucide', 'square');
+                    textPlay.innerText = 'Stop';
+                }
+            } else {
+                btnPlay.disabled = false;
+                btnPlay.classList.remove('bg-white/5', 'text-zinc-400');
+                btnPlay.classList.add('bg-white/5', 'text-white');
+                iconPlay.setAttribute('data-lucide', 'play');
+                textPlay.innerText = 'Play Sequence';
+                
+                ind.classList.add('opacity-0');
+                ind.classList.replace('bg-red-500/10', 'bg-amber-500/10');
+                ind.classList.replace('border-red-500/50', 'border-amber-500/50');
+                ind.classList.replace('text-red-400', 'text-amber-400');
+                document.getElementById('status-dot').classList.replace('bg-red-400', 'bg-amber-400');
+                document.getElementById('status-text').innerText = 'Playing';
+            }
+            lucide.createIcons();
+        }
+
+        function togglePreview() {
+            if (state.isPlaying) {
+                stopPlayback();
+                return;
+            }
+            if (state.images.length === 0) return showToast('Add images to the sequence first.', 'error');
+
+            state.isPlaying = true;
+            setPlayUI(true);
+            
+            state.animStartTime = performance.now();
+            requestAnimationFrame(playbackLoop);
+        }
+
+        function playbackLoop(timestamp) {
+            if (!state.isPlaying) return;
+            
+            const elapsedSec = (timestamp - state.animStartTime) / 1000;
+            const seqLen = state.images.length;
+            const segmentTime = state.holdTime + state.transTime;
+            const totalDur = seqLen * segmentTime;
+
+            if (elapsedSec >= totalDur) {
+                if (state.isExporting) {
+                    renderFrame(1.0, totalDur);
+                    document.getElementById('rec-time').innerText = `Finalizing WebM...`;
+                    setTimeout(stopPlayback, 500); 
+                    return;
+                } else if (state.loopPreview) {
+                    state.animStartTime = timestamp; // Loop
+                } else {
+                    renderFrame(1.0, totalDur);
+                    stopPlayback();
+                    return;
+                }
+            }
+
+            renderFrame(0, elapsedSec); // progress arg is unused in global time mode
+
+            if (state.isExporting) {
+                let pct = Math.min(100, Math.round((elapsedSec / totalDur) * 100));
+                document.getElementById('rec-time').innerText = `Encoding ${pct}%`;
+            }
+
+            state.reqId = requestAnimationFrame(playbackLoop);
+        }
+
+        function stopPlayback() {
+            state.isPlaying = false;
+            cancelAnimationFrame(state.reqId);
+            
+            if (state.isExporting && state.mediaRecorder) {
+                if (state.mediaRecorder.state !== 'inactive') state.mediaRecorder.stop();
+                state.isExporting = false;
+                hideLoader();
+            }
+            setPlayUI(false);
+            renderFrame(0, 0); 
+        }
+
+        // --- WebM Export Engine ---
+        function exportVideo() {
+            if (state.images.length === 0) return showToast('No sequence to export.', 'error');
+            if (state.isPlaying || state.isExporting) return;
+
+            try {
+                const targetHeight = parseInt(document.getElementById('export-res').value);
+                const isVertical = state.aspectRatio === '9:16';
+                const isSquare = state.aspectRatio === '1:1';
+                
+                let targetWidth = targetHeight;
+                if (!isSquare) {
+                    targetWidth = isVertical ? Math.round(targetHeight * (9/16)) : Math.round(targetHeight * (16/9));
+                }
+
+                canvas.width = targetWidth;
+                canvas.height = targetHeight;
+
+                const stream = canvas.captureStream(60); 
+                state.recordedChunks = [];
+                
+                const bitrate = targetHeight >= 1440 ? 20000000 : 10000000;
+                
+                state.mediaRecorder = new MediaRecorder(stream, { 
+                    mimeType: 'video/webm; codecs=vp9',
+                    videoBitsPerSecond: bitrate 
+                });
+                
+                state.mediaRecorder.ondataavailable = (e) => {
+                    if (e.data.size > 0) state.recordedChunks.push(e.data);
+                };
+
+                state.mediaRecorder.onstop = () => {
+                    const blob = new Blob(state.recordedChunks, { type: 'video/webm' });
+                    const url = URL.createObjectURL(blob);
+                    const link = document.createElement('a');
+                    link.href = url;
+                    link.download = `sequence-pro-${targetHeight}p-${Date.now()}.webm`;
+                    link.click();
+                    URL.revokeObjectURL(url);
+                    showToast('Video exported successfully!', 'success');
+                    
+                    setAspectRatio(state.aspectRatio); 
+                };
+
+                state.mediaRecorder.start();
+                state.isPlaying = true;
+                state.isExporting = true;
+                setPlayUI(true);
+                
+                showLoader('Rendering Sequence', 'Starting encoder...');
+
+                state.animStartTime = performance.now();
+                requestAnimationFrame(playbackLoop);
+
+            } catch (err) {
+                console.error(err);
+                showToast('Export failed. Browser might not support VP9.', 'error');
+                setAspectRatio(state.aspectRatio); 
+                stopPlayback();
+            }
+        }
+
+        // Init
+        setAspectRatio('16:9');
+        generatePlaceholderImage(); 
+
+    </script>
+</body>
+</html>

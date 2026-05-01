@@ -1,0 +1,1486 @@
+<!DOCTYPE html>
+<html lang="en" class="dark">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+    <title>Editorial Chart Animator</title>
+    
+    <!-- Google Fonts -->
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Carrois+Gothic&family=Caveat:wght@600;700&family=Inter:wght@400;500;600;700;800;900&family=JetBrains+Mono:wght@400;500;700&family=Playfair+Display:wght@600;700&family=Roboto:wght@400;500;700;900&display=swap" rel="stylesheet">
+
+    <!-- Tailwind CSS -->
+    <script src="https://cdn.tailwindcss.com"></script>
+    <script>
+        tailwind.config = {
+            darkMode: 'class',
+            theme: {
+                extend: {
+                    fontFamily: {
+                        sans: ['Inter', 'sans-serif'],
+                        mono: ['JetBrains Mono', 'monospace'],
+                    },
+                    colors: {
+                        brand: {
+                            500: '#0ea5e9', // Cyan
+                            600: '#0891b2',
+                        }
+                    }
+                }
+            }
+        }
+    </script>
+
+    <!-- Phosphor Icons -->
+    <script src="https://unpkg.com/@phosphor-icons/web"></script>
+    <!-- GIF.js for GIF Export capabilities -->
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/gif.js/0.2.0/gif.js"></script>
+
+    <style>
+        body {
+            transition: background-color 0.2s ease, color 0.2s ease;
+            overscroll-behavior-y: none;
+        }
+        
+        /* Custom ranges for toolbar */
+        input[type=range] {
+            -webkit-appearance: none;
+            width: 100%;
+            background: transparent;
+        }
+        input[type=range]::-webkit-slider-thumb {
+            -webkit-appearance: none;
+            height: 16px;
+            width: 16px;
+            border-radius: 50%;
+            background: #0ea5e9;
+            cursor: pointer;
+            margin-top: -6px;
+            box-shadow: 0 2px 6px rgba(0,0,0,0.4);
+        }
+        input[type=range]::-webkit-slider-runnable-track {
+            width: 100%;
+            height: 4px;
+            cursor: pointer;
+            background: rgba(255, 255, 255, 0.1);
+            border-radius: 2px;
+        }
+
+        /* Custom scrollbars */
+        ::-webkit-scrollbar { width: 6px; height: 6px; }
+        ::-webkit-scrollbar-track { background: transparent; }
+        ::-webkit-scrollbar-thumb { background: rgba(255, 255, 255, 0.15); border-radius: 10px; }
+        ::-webkit-scrollbar-thumb:hover { background: rgba(255, 255, 255, 0.25); }
+
+        /* Color inputs */
+        input[type="color"] {
+            -webkit-appearance: none;
+            border: none;
+            width: 100%;
+            height: 100%;
+            padding: 0;
+            cursor: pointer;
+            background: transparent;
+        }
+        input[type="color"]::-webkit-color-swatch-wrapper { padding: 0; }
+        input[type="color"]::-webkit-color-swatch { border: none; border-radius: 6px; box-shadow: inset 0 0 0 1px rgba(255,255,255,0.2); }
+
+        /* Canvas container background for depth */
+        .checker-bg {
+            background-color: #09090b; /* Very dark zinc base */
+            background-image: 
+                linear-gradient(45deg, #18181b 25%, transparent 25%), 
+                linear-gradient(-45deg, #18181b 25%, transparent 25%), 
+                linear-gradient(45deg, transparent 75%, #18181b 75%), 
+                linear-gradient(-45deg, transparent 75%, #18181b 75%);
+            background-size: 24px 24px;
+            background-position: 0 0, 0 12px, 12px -12px, -12px 0px;
+        }
+        
+        #export-canvas {
+            box-shadow: 0 0 0 1px rgba(255,255,255,0.05), 0 30px 60px -12px rgba(0,0,0,0.8);
+        }
+    </style>
+</head>
+<body class="bg-zinc-950 text-gray-100 h-screen flex flex-col overflow-hidden">
+
+    <!-- HEADER (macOS Glass) -->
+    <header class="h-14 bg-zinc-900/80 backdrop-blur-2xl border-b border-white/5 flex items-center justify-between px-4 sm:px-6 flex-shrink-0 z-20">
+        <div class="flex items-center gap-3">
+            <div class="bg-gradient-to-br from-brand-400 to-brand-600 text-white p-1 rounded-md shadow-inner shadow-white/20">
+                <i class="ph-bold ph-chart-line-up text-lg"></i>
+            </div>
+            <h1 class="text-sm font-semibold tracking-tight text-zinc-100 hidden sm:block">Editorial Chart Animator <span class="text-zinc-500 font-normal">Pro</span></h1>
+        </div>
+
+        <div class="flex items-center justify-end gap-3 shrink-0">
+            <!-- Transparent Toggle -->
+            <label class="hidden md:flex items-center gap-1.5 cursor-pointer bg-white/5 hover:bg-white/10 px-2 py-1.5 rounded border border-white/5 transition" title="Export as transparent PNG or GIF">
+                <input type="checkbox" id="header-transparent" class="w-3.5 h-3.5 accent-brand-500 rounded cursor-pointer">
+                <span class="text-[11px] font-medium text-zinc-300">Transparent</span>
+            </label>
+
+            <button id="btn-header-preview" class="flex items-center gap-2 px-3 py-1.5 bg-white/5 hover:bg-white/10 text-white rounded-lg font-medium transition-colors border border-white/10 text-xs shadow-sm">
+                <i class="ph-fill ph-play-circle text-lg" id="icon-play"></i>
+                <span id="text-play" class="hidden sm:inline">Preview</span>
+            </button>
+            
+            <div class="flex bg-brand-600 rounded-lg shadow-lg shadow-brand-600/20 ring-1 ring-inset ring-white/20 transition-all hover:bg-brand-500">
+                <select id="export-res" class="bg-transparent text-white font-semibold pl-2 pr-1 py-1.5 outline-none cursor-pointer appearance-none text-xs border-r border-brand-400/30 hidden sm:block">
+                    <option value="640" class="bg-zinc-800">360p (GIF)</option>
+                    <option value="854" class="bg-zinc-800">480p (GIF)</option>
+                    <option value="1920" class="bg-zinc-800" selected>HD 1080p</option>
+                    <option value="2560" class="bg-zinc-800">2K 1440p</option>
+                    <option value="3840" class="bg-zinc-800">4K 2160p</option>
+                </select>
+                <select id="export-fmt" class="bg-transparent text-white font-semibold pl-2 pr-1 py-1.5 outline-none cursor-pointer appearance-none text-xs border-r border-brand-400/30" onchange="document.getElementById('text-export').innerText = this.value.toUpperCase()">
+                    <option value="webm" class="bg-zinc-800" selected>WebM</option>
+                    <option value="gif" class="bg-zinc-800">GIF</option>
+                    <option value="png" class="bg-zinc-800">PNG</option>
+                </select>
+                <button id="btn-header-export" class="flex items-center gap-2 px-3 py-1.5 text-white font-bold transition-all rounded-r-lg text-xs">
+                    <i class="ph-bold ph-download text-sm"></i>
+                    <span class="hidden sm:inline" id="text-export">WEBM</span>
+                </button>
+            </div>
+        </div>
+    </header>
+
+    <!-- MAIN APP AREA -->
+    <main class="flex-1 flex flex-col md:flex-row overflow-hidden relative">
+        
+        <!-- Recording Overlay -->
+        <div id="recording-overlay" class="absolute top-4 left-1/2 -translate-x-1/2 bg-red-500/90 backdrop-blur-md border border-red-500/50 text-white px-5 py-2.5 rounded-full font-medium text-sm flex items-center gap-2 shadow-[0_10px_30px_rgba(239,68,68,0.3)] z-50 transition-transform duration-300 transform -translate-y-20">
+            <div class="w-2 h-2 bg-white rounded-full animate-pulse"></div>
+            <span id="recording-text">Rendering Video...</span>
+        </div>
+
+        <!-- TOOLBAR / SIDEBAR (macOS Glass) -->
+        <aside class="w-full md:w-[380px] bg-zinc-900/60 backdrop-blur-3xl border-b md:border-b-0 md:border-r border-white/5 p-5 flex flex-col gap-6 overflow-y-auto z-10 flex-shrink-0 h-[45vh] md:h-full order-2 md:order-1 shadow-[0_-10px_40px_rgba(0,0,0,0.5)] md:shadow-none">
+            
+            <!-- Quick Templates -->
+            <div class="flex flex-col gap-2 flex-shrink-0">
+                <h2 class="text-[10px] font-bold uppercase tracking-widest text-zinc-500">Quick Templates</h2>
+                <div class="grid grid-cols-2 gap-2">
+                    <button class="template-btn py-2 bg-white/5 hover:bg-white/10 border border-white/5 rounded-lg text-xs font-medium text-zinc-300 transition truncate px-2 text-left" data-template="tech">捗 Tech Giants</button>
+                    <button class="template-btn py-2 bg-white/5 hover:bg-white/10 border border-white/5 rounded-lg text-xs font-medium text-zinc-300 transition truncate px-2 text-left" data-template="crypto">ｪCrypto Run</button>
+                    <button class="template-btn py-2 bg-white/5 hover:bg-white/10 border border-white/5 rounded-lg text-xs font-medium text-zinc-300 transition truncate px-2 text-left" data-template="social">導 Social Media</button>
+                    <button class="template-btn py-2 bg-white/5 hover:bg-white/10 border border-white/5 rounded-lg text-xs font-medium text-zinc-300 transition truncate px-2 text-left" data-template="climate">訣 Global Temps</button>
+                </div>
+            </div>
+
+            <div class="w-full h-px bg-white/5"></div>
+
+            <!-- Content Editor -->
+            <div class="flex flex-col gap-3 flex-shrink-0">
+                <h2 class="text-[10px] font-bold uppercase tracking-widest text-zinc-500">Chart Metadata</h2>
+                <div class="flex items-center gap-3">
+                    <input type="checkbox" id="show-title" checked class="w-4 h-4 accent-brand-500 cursor-pointer" title="Toggle Title">
+                    <input type="text" id="chart-title" value="Global EV Market Share (2025)" class="flex-1 px-3 py-2 rounded-lg border border-white/10 bg-black/20 text-sm text-zinc-100 font-semibold outline-none focus:ring-1 focus:ring-brand-500 transition-shadow" placeholder="Chart Title">
+                </div>
+                <div class="flex items-center gap-3">
+                    <input type="checkbox" id="show-subtitle" checked class="w-4 h-4 accent-brand-500 cursor-pointer" title="Toggle Subtitle">
+                    <input type="text" id="chart-subtitle" value="The rapid rise of Chinese manufacturers continues to reshape the landscape." class="flex-1 px-3 py-2 rounded-lg border border-white/10 bg-black/20 text-sm text-zinc-200 outline-none focus:ring-1 focus:ring-brand-500 transition-shadow" placeholder="Chart Subtitle">
+                </div>
+                <div class="flex items-center gap-3">
+                    <input type="checkbox" id="show-source" checked class="w-4 h-4 accent-brand-500 cursor-pointer" title="Toggle Source">
+                    <input type="text" id="chart-source" value="SOURCE: INTERNATIONAL ENERGY AGENCY (IEA)" class="flex-1 px-3 py-2 rounded-lg border border-white/10 bg-black/20 text-xs text-zinc-400 uppercase outline-none focus:ring-1 focus:ring-brand-500 transition-shadow" placeholder="Source Attribution">
+                </div>
+            </div>
+
+            <div class="w-full h-px bg-white/5"></div>
+
+            <!-- Enhanced Data Editor -->
+            <div class="flex flex-col gap-2 flex-1 min-h-[220px]">
+                <div class="flex items-center justify-between">
+                    <h2 class="text-[10px] font-bold uppercase tracking-widest text-zinc-500">Chart Data</h2>
+                    <!-- View Toggle -->
+                    <div class="flex bg-black/40 rounded p-0.5 border border-white/5">
+                        <button id="tab-grid" class="px-3 py-1 text-[10px] font-bold rounded bg-white/10 text-white shadow-sm transition">Grid View</button>
+                        <button id="tab-csv" class="px-3 py-1 text-[10px] font-bold rounded text-zinc-500 hover:text-zinc-300 transition">Raw CSV</button>
+                    </div>
+                </div>
+
+                <!-- Grid View -->
+                <div id="view-grid" class="flex flex-col gap-2 flex-1 overflow-hidden mt-1">
+                    <div class="flex text-[10px] font-medium text-zinc-500 px-1 uppercase tracking-wider">
+                        <div class="flex-[2]">Label</div>
+                        <div class="flex-[1]">Value</div>
+                        <div class="w-8 text-center">Color</div>
+                        <div class="w-6"></div>
+                    </div>
+                    <div id="data-grid-rows" class="flex flex-col gap-1.5 overflow-y-auto flex-1 pr-1 pb-1">
+                        <!-- Rows injected via JS -->
+                    </div>
+                    <button id="btn-add-row" class="w-full py-2 border border-white/10 rounded-lg border-dashed text-xs text-zinc-400 hover:text-zinc-200 hover:bg-white/5 transition flex items-center justify-center gap-1 mt-1">
+                        <i class="ph-bold ph-plus"></i> Add Row
+                    </button>
+                </div>
+
+                <!-- CSV View -->
+                <div id="view-csv" class="hidden flex-col gap-1 flex-1 mt-1">
+                    <p class="text-[10px] text-zinc-500 mb-1">Format: Label, Value, #Color (optional). Perfect for pasting from Excel.</p>
+                    <textarea id="data-input" class="w-full flex-1 p-3 rounded-lg border border-white/10 bg-black/20 text-[12px] text-zinc-200 font-mono outline-none focus:ring-1 focus:ring-brand-500 resize-none whitespace-pre transition-shadow" spellcheck="false">
+Label,Value,Color
+BYD,35,#3b82f6
+Tesla,18,#10b981
+VW Group,12,#f59e0b
+SAIC,8,#f43f5e
+Geely,6,#a855f7
+Others,21,#94a3b8</textarea>
+                </div>
+            </div>
+
+            <div class="w-full h-px bg-white/5"></div>
+
+            <!-- Appearance Settings -->
+            <div class="flex flex-col gap-4 flex-shrink-0">
+                <h2 class="text-[10px] font-bold uppercase tracking-widest text-zinc-500">Layout & Style</h2>
+                
+                <!-- Chart Type & Palette -->
+                <div class="grid grid-cols-2 gap-3">
+                    <div>
+                        <label class="block text-[10px] font-medium mb-1.5 text-zinc-400">Chart Type</label>
+                        <select id="chart-type" class="w-full px-3 py-2 rounded-lg border border-white/10 bg-black/20 text-xs text-zinc-200 outline-none focus:ring-1 focus:ring-brand-500 appearance-none cursor-pointer">
+                            <option value="vertical">Vertical Bar</option>
+                            <option value="horizontal">Horizontal Bar</option>
+                            <option value="pie">Pie Chart</option>
+                        </select>
+                    </div>
+                    <div>
+                        <label class="block text-[10px] font-medium mb-1.5 text-zinc-400">Line Palette</label>
+                        <select id="color-palette" class="w-full px-3 py-2 rounded-lg border border-white/10 bg-black/20 text-xs text-zinc-200 outline-none focus:ring-1 focus:ring-brand-500 appearance-none cursor-pointer">
+                            <option value="vibrant">Vibrant</option>
+                            <option value="pastel">Pastel Colors</option>
+                            <option value="neon">Cyberpunk Neon</option>
+                            <option value="sunset">Sunset Glow</option>
+                            <option value="ocean">Deep Ocean</option>
+                        </select>
+                    </div>
+                </div>
+
+                <!-- Custom Colors -->
+                <div class="grid grid-cols-3 gap-3">
+                    <div>
+                        <label class="block text-[10px] font-medium mb-1.5 text-zinc-400">Canvas BG</label>
+                        <div class="relative w-full h-8 rounded-lg overflow-hidden border border-white/20">
+                            <input type="color" id="bg-color" value="#ffffff">
+                        </div>
+                    </div>
+                    <div>
+                        <label class="block text-[10px] font-medium mb-1.5 text-zinc-400">Title Color</label>
+                        <div class="relative w-full h-8 rounded-lg overflow-hidden border border-white/20">
+                            <input type="color" id="title-color" value="#18181b">
+                        </div>
+                    </div>
+                    <div>
+                        <label class="block text-[10px] font-medium mb-1.5 text-zinc-400">Text Color</label>
+                        <div class="relative w-full h-8 rounded-lg overflow-hidden border border-white/20">
+                            <input type="color" id="text-color" value="#71717a">
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Font Select & Value Format -->
+                <div class="grid grid-cols-2 gap-3">
+                    <div>
+                        <label class="block text-[10px] font-medium mb-1.5 text-zinc-400">Font Family</label>
+                        <select id="font-family" class="w-full px-3 py-2 rounded-lg border border-white/10 bg-black/20 text-xs text-zinc-200 outline-none focus:ring-1 focus:ring-brand-500 appearance-none cursor-pointer">
+                            <option value="Inter">Inter (Modern)</option>
+                            <option value="Carrois Gothic">Carrois Gothic (Editorial)</option>
+                            <option value="Roboto">Roboto (Clean)</option>
+                            <option value="JetBrains Mono">JetBrains (Code)</option>
+                            <option value="Playfair Display">Playfair (Serif)</option>
+                            <option value="Caveat">Caveat (Handdrawn)</option>
+                        </select>
+                    </div>
+                    <div>
+                        <label class="block text-[10px] font-medium mb-1.5 text-zinc-400">Value Format</label>
+                        <select id="value-format" class="w-full px-3 py-2 rounded-lg border border-white/10 bg-black/20 text-xs text-zinc-200 outline-none focus:ring-1 focus:ring-brand-500 appearance-none cursor-pointer">
+                            <option value="number">Plain Number</option>
+                            <option value="currency">$ Currency</option>
+                            <option value="percent">% Percentage</option>
+                        </select>
+                    </div>
+                </div>
+
+                <!-- Font Sizes -->
+                <div class="grid grid-cols-3 gap-3 mt-1">
+                    <div>
+                        <div class="flex justify-between items-center mb-2">
+                            <label class="block text-[10px] font-medium text-zinc-400">Title Size</label>
+                        </div>
+                        <input type="range" id="title-size" min="30" max="100" step="2" value="64">
+                    </div>
+                    <div>
+                        <div class="flex justify-between items-center mb-2">
+                            <label class="block text-[10px] font-medium text-zinc-400">Sub Size</label>
+                        </div>
+                        <input type="range" id="subtitle-size" min="16" max="60" step="2" value="38">
+                    </div>
+                    <div>
+                        <div class="flex justify-between items-center mb-2">
+                            <label class="block text-[10px] font-medium text-zinc-400">Src Size</label>
+                        </div>
+                        <input type="range" id="source-size" min="10" max="40" step="2" value="20">
+                    </div>
+                </div>
+
+                <!-- Duration & Glow -->
+                <div class="grid grid-cols-2 gap-4 mt-2">
+                    <div>
+                        <div class="flex justify-between items-center mb-2">
+                            <label class="block text-[10px] font-medium text-zinc-400">Duration</label>
+                            <span id="duration-val" class="text-[10px] text-zinc-500 font-mono">2.0s</span>
+                        </div>
+                        <input type="range" id="anim-duration" min="0.5" max="5" step="0.5" value="2.0">
+                    </div>
+                    <div>
+                        <div class="flex justify-between items-center mb-2">
+                            <label class="block text-[10px] font-medium text-zinc-400">Line Glow</label>
+                            <span id="glow-val" class="text-[10px] text-zinc-500 font-mono">High</span>
+                        </div>
+                        <input type="range" id="line-glow" min="0" max="30" step="5" value="15">
+                    </div>
+                </div>
+
+                <!-- Zoom & Pan -->
+                <div class="flex flex-col mt-2">
+                    <div class="flex justify-between items-center mb-3">
+                        <label class="block text-[10px] font-bold uppercase tracking-widest text-zinc-500">Zoom & Pan View</label>
+                        <button id="btn-reset-view" class="text-[10px] text-brand-500 hover:text-brand-400 flex items-center gap-1 transition"><i class="ph-bold ph-arrows-in"></i> Reset</button>
+                    </div>
+                    <div class="grid grid-cols-3 gap-3">
+                        <div>
+                            <div class="flex justify-between items-center mb-2">
+                                <label class="block text-[10px] font-medium text-zinc-400">Zoom</label>
+                                <span id="zoom-val" class="text-[10px] text-zinc-500 font-mono">1.0x</span>
+                            </div>
+                            <input type="range" id="chart-zoom" min="0.5" max="3" step="0.1" value="1.0">
+                        </div>
+                        <div>
+                            <div class="flex justify-between items-center mb-2">
+                                <label class="block text-[10px] font-medium text-zinc-400">Pan X</label>
+                                <span id="pan-x-val" class="text-[10px] text-zinc-500 font-mono">0</span>
+                            </div>
+                            <input type="range" id="chart-pan-x" min="-1000" max="1000" step="10" value="0">
+                        </div>
+                        <div>
+                            <div class="flex justify-between items-center mb-2">
+                                <label class="block text-[10px] font-medium text-zinc-400">Pan Y</label>
+                                <span id="pan-y-val" class="text-[10px] text-zinc-500 font-mono">0</span>
+                            </div>
+                            <input type="range" id="chart-pan-y" min="-1000" max="1000" step="10" value="0">
+                        </div>
+                    </div>
+                </div>
+                
+                <div class="flex items-center gap-5 mt-2">
+                    <label class="flex items-center gap-2 cursor-pointer">
+                        <input type="checkbox" id="show-grid" checked class="w-4 h-4 accent-brand-500">
+                        <span class="text-[11px] font-medium text-zinc-300">Grid Lines</span>
+                    </label>
+                    <label class="flex items-center gap-2 cursor-pointer">
+                        <input type="checkbox" id="show-legend" checked class="w-4 h-4 accent-brand-500">
+                        <span class="text-[11px] font-medium text-zinc-300">Show Legend</span>
+                    </label>
+                </div>
+            </div>
+        </aside>
+
+        <!-- CANVAS AREA -->
+        <section id="canvas-container" class="flex-1 relative overflow-hidden flex items-center justify-center p-4 sm:p-8 checker-bg order-1 md:order-2">
+            <!-- Fixed Base Layout Canvas (scales visually via CSS) -->
+            <canvas id="export-canvas" class="w-full max-w-[1200px] aspect-video rounded-lg"></canvas>
+        </section>
+
+    </main>
+
+    <script>
+        // --- Fetch GIF.js Worker to guarantee CORS safety ---
+        let gifWorkerUrl = null;
+        fetch('https://cdnjs.cloudflare.com/ajax/libs/gif.js/0.2.0/gif.worker.js')
+            .then(res => res.text())
+            .then(text => {
+                const blob = new Blob([text], { type: 'application/javascript' });
+                gifWorkerUrl = URL.createObjectURL(blob);
+            })
+            .catch(err => console.error('Failed to load GIF worker:', err));
+
+        // --- Template Data ---
+        const templates = {
+            'tech': {
+                title: 'Tech Giants Revenue ($B)',
+                subtitle: 'Annual revenue over the past decade.',
+                source: 'SOURCE: COMPANY EARNINGS REPORTS',
+                type: 'horizontal',
+                theme: 'light', 
+                csv: `Label,Value,Color\nApple,383,#94a3b8\nAmazon,574,#f59e0b\nGoogle,305,#3b82f6\nMicrosoft,211,#10b981`
+            },
+            'crypto': {
+                title: 'Cryptocurrency Market Cap ($B)',
+                subtitle: 'The meteoric rise of digital assets.',
+                source: 'SOURCE: COINMARKETCAP',
+                type: 'vertical',
+                theme: 'light',
+                csv: `Label,Value,Color\nBitcoin,1200,#f59e0b\nEthereum,400,#a855f7\nTether,100,#10b981\nBNB,95,#eab308\nSolana,60,#8b5cf6`
+            },
+            'social': {
+                title: 'Social Media MAUs (Millions)',
+                subtitle: 'Monthly Active Users across platforms.',
+                source: 'SOURCE: STATISTA',
+                type: 'vertical',
+                theme: 'light',
+                csv: `Label,Value,Color\nFacebook,3030,#3b82f6\nYouTube,2500,#ef4444\nWhatsApp,2000,#22c55e\nInstagram,2000,#ec4899\nTikTok,1500,#0f172a`
+            },
+            'climate': {
+                title: 'Global Temperature Anomaly (°C)',
+                subtitle: 'Deviation from the 20th-century average.',
+                source: 'SOURCE: NOAA CLIMATE AT A GLANCE',
+                type: 'horizontal',
+                theme: 'dark', 
+                csv: `Label,Value,Color\n2019,0.95,#f43f5e\n2020,1.02,#e11d48\n2021,0.85,#fb923c\n2022,0.86,#f97316\n2023,1.18,#9f1239`
+            }
+        };
+
+        // --- App State & Data ---
+        const state = {
+            data: [], 
+            maxVal: 0,
+            minVal: 0,
+            progress: 1.0,
+            isAnimating: false,
+            isRecording: false,
+            
+            title: '',
+            subtitle: '',
+            source: '',
+            
+            showTitle: true,
+            showSubtitle: true,
+            showSource: true,
+            
+            fontFamily: 'Inter',
+            titleSize: 64,
+            subtitleSize: 38,
+            sourceSize: 20,
+            titleColor: '#18181b',
+            textColor: '#71717a',
+            bgColor: '#ffffff',
+            colorPalette: 'vibrant',
+            zoom: 1.0,
+            panX: 0,
+            panY: 0,
+            
+            type: 'vertical',
+            format: 'number',
+            duration: 2000,
+            glow: 15,
+            showLegend: true,
+            showGrid: true
+        };
+
+        // Color Palettes
+        const palettes = {
+            vibrant: ['#ef4444', '#3b82f6', '#10b981', '#f59e0b', '#a855f7', '#ec4899', '#06b6d4', '#eab308'],
+            pastel: ['#fca5a5', '#93c5fd', '#6ee7b7', '#fcd34d', '#d8b4fe', '#f9a8d4', '#67e8f9', '#fde047'],
+            neon: ['#ff00ff', '#00ffff', '#00ff00', '#ffff00', '#ff0000', '#0000ff'],
+            sunset: ['#f43f5e', '#f97316', '#eab308', '#8b5cf6', '#d946ef'],
+            ocean: ['#0369a1', '#0ea5e9', '#38bdf8', '#7dd3fc', '#0284c7']
+        };
+
+        // Visual Canvas Setup
+        const canvas = document.getElementById('export-canvas');
+        canvas.width = 1920;
+        canvas.height = 1080;
+
+        // DOM Elements
+        const uiTitle = document.getElementById('chart-title');
+        const uiSubtitle = document.getElementById('chart-subtitle');
+        const uiSource = document.getElementById('chart-source');
+        
+        const uiShowTitle = document.getElementById('show-title');
+        const uiShowSubtitle = document.getElementById('show-subtitle');
+        const uiShowSource = document.getElementById('show-source');
+        
+        const uiTitleSize = document.getElementById('title-size');
+        const uiSubtitleSize = document.getElementById('subtitle-size');
+        const uiSourceSize = document.getElementById('source-size');
+        
+        const uiTitleColor = document.getElementById('title-color');
+        const uiTextColor = document.getElementById('text-color');
+        const uiBgColor = document.getElementById('bg-color');
+
+        const dataInput = document.getElementById('data-input');
+        const formatSelect = document.getElementById('value-format');
+        const fontSelect = document.getElementById('font-family');
+        const paletteSelect = document.getElementById('color-palette');
+        const typeSelect = document.getElementById('chart-type');
+        
+        const durationSlider = document.getElementById('anim-duration');
+        const glowSlider = document.getElementById('line-glow');
+        const zoomSlider = document.getElementById('chart-zoom');
+        const panXSlider = document.getElementById('chart-pan-x');
+        const panYSlider = document.getElementById('chart-pan-y');
+        const btnResetView = document.getElementById('btn-reset-view');
+        const legendCheck = document.getElementById('show-legend');
+        const showGridCheck = document.getElementById('show-grid');
+
+        // Editor Tabs
+        let currentDataMode = 'grid';
+        const tabGrid = document.getElementById('tab-grid');
+        const tabCsv = document.getElementById('tab-csv');
+        const viewGrid = document.getElementById('view-grid');
+        const viewCsv = document.getElementById('view-csv');
+        const gridRowsContainer = document.getElementById('data-grid-rows');
+        const btnAddRow = document.getElementById('btn-add-row');
+
+        // --- Custom Toast System ---
+        function showToast(message, type = 'info') {
+            let container = document.getElementById('toast-container');
+            if (!container) {
+                container = document.createElement('div');
+                container.id = 'toast-container';
+                container.className = 'fixed top-20 right-6 z-[60] flex flex-col gap-2 pointer-events-none';
+                document.body.appendChild(container);
+            }
+            const toast = document.createElement('div');
+            toast.className = `bg-zinc-800/95 backdrop-blur-md text-white px-4 py-3 rounded-xl shadow-2xl ring-1 ring-white/10 flex items-center gap-3 transform transition-all -translate-y-4 opacity-0 z-50`;
+            let icon = type === 'success' ? 'check-circle' : (type === 'error' ? 'warning' : 'info');
+            let color = type === 'success' ? 'text-brand-400' : (type === 'error' ? 'text-red-400' : 'text-sky-400');
+            toast.innerHTML = `<i class="ph-fill ph-${icon} text-lg ${color}"></i> <span class="text-sm font-medium">${message}</span>`;
+            container.appendChild(toast); 
+            requestAnimationFrame(() => toast.classList.remove('-translate-y-4', 'opacity-0'));
+            setTimeout(() => { toast.classList.add('-translate-y-4', 'opacity-0'); setTimeout(() => toast.remove(), 300); }, 3000);
+        }
+
+        // --- Utility Functions ---
+        function isDarkColor(hexColor) {
+            const hex = hexColor.replace('#', '');
+            if(hex.length === 6) {
+                const r = parseInt(hex.substr(0, 2), 16);
+                const g = parseInt(hex.substr(2, 2), 16);
+                const b = parseInt(hex.substr(4, 2), 16);
+                return (r * 0.299 + g * 0.587 + b * 0.114) < 128;
+            }
+            return false;
+        }
+
+        // --- Data Parsing & Management ---
+
+        function parseCSVtoState(csvString) {
+            const lines = csvString.split('\n');
+            state.data = [];
+            state.maxVal = 0;
+            state.minVal = 0;
+            
+            let startIdx = 0;
+            if (lines.length > 0) {
+                const firstRow = lines[0].split(',');
+                if (firstRow.length >= 2 && isNaN(parseFloat(firstRow[1]))) {
+                    startIdx = 1;
+                }
+            }
+
+            for (let i = startIdx; i < lines.length; i++) {
+                const row = lines[i].split(',').map(c => c.trim());
+                if (row.length < 2) continue;
+                
+                const label = row[0];
+                const value = parseFloat(row[1]) || 0;
+                let color = row.length >= 3 && row[2].startsWith('#') ? row[2] : null;
+                
+                state.data.push({ label, value, color }); 
+                if (value > state.maxVal) state.maxVal = value;
+                if (value < state.minVal) state.minVal = value;
+            }
+
+            if (state.maxVal > 0 && state.type !== 'pie') {
+                const magnitude = Math.pow(10, Math.floor(Math.log10(Math.max(0.1, state.maxVal))));
+                let norm = state.maxVal / magnitude;
+                if (norm <= 1.5) norm = 1.5;
+                else if (norm <= 2) norm = 2;
+                else if (norm <= 5) norm = 5;
+                else norm = 10;
+                state.maxVal = norm * magnitude;
+            }
+
+            if (state.minVal < 0) {
+                 const magnitude = Math.pow(10, Math.floor(Math.log10(Math.abs(state.minVal))));
+                 state.minVal = Math.floor(state.minVal / magnitude) * magnitude;
+            }
+        }
+
+        function generateCSVFromState() {
+            let csv = 'Label,Value,Color\n';
+            csv += state.data.map(d => `${d.label},${d.value},${d.color || ''}`).join('\n');
+            return csv;
+        }
+
+        function buildGridFromState() {
+            gridRowsContainer.innerHTML = '';
+            state.data.forEach((item, index) => {
+                const row = document.createElement('div');
+                row.className = 'flex items-center gap-1.5';
+                
+                // Label Input
+                const lblInput = document.createElement('input');
+                lblInput.type = 'text';
+                lblInput.value = item.label;
+                lblInput.className = 'flex-[2] min-w-0 px-2 py-1.5 rounded-md bg-black/20 border border-white/10 text-xs text-white focus:border-brand-500 outline-none transition-shadow';
+                lblInput.oninput = (e) => {
+                    state.data[index].label = e.target.value;
+                    syncFromGrid();
+                };
+
+                // Value Input
+                const valInput = document.createElement('input');
+                valInput.type = 'number';
+                valInput.value = item.value;
+                valInput.className = 'flex-[1] min-w-0 px-2 py-1.5 rounded-md bg-black/20 border border-white/10 text-xs text-white focus:border-brand-500 outline-none transition-shadow';
+                valInput.oninput = (e) => {
+                    state.data[index].value = parseFloat(e.target.value) || 0;
+                    syncFromGrid();
+                };
+
+                // Color Picker
+                const colWrapper = document.createElement('div');
+                colWrapper.className = 'relative w-8 h-8 rounded-md overflow-hidden border border-white/20 shrink-0';
+                const colInput = document.createElement('input');
+                colInput.type = 'color';
+                colInput.value = item.color || palettes[state.colorPalette][index % palettes[state.colorPalette].length];
+                colInput.className = 'absolute -top-2 -left-2 w-12 h-12 cursor-pointer';
+                colInput.oninput = (e) => {
+                    state.data[index].color = e.target.value;
+                    syncFromGrid();
+                };
+                colWrapper.appendChild(colInput);
+
+                // Delete Button
+                const delBtn = document.createElement('button');
+                delBtn.className = 'w-6 h-8 flex items-center justify-center text-zinc-500 hover:text-red-400 transition shrink-0';
+                delBtn.innerHTML = '<i class="ph-bold ph-x"></i>';
+                delBtn.onclick = () => {
+                    state.data.splice(index, 1);
+                    buildGridFromState();
+                    syncFromGrid();
+                };
+
+                row.appendChild(lblInput);
+                row.appendChild(valInput);
+                row.appendChild(colWrapper);
+                row.appendChild(delBtn);
+                
+                gridRowsContainer.appendChild(row);
+            });
+        }
+
+        // Add Row Handler
+        btnAddRow.addEventListener('click', () => {
+            state.data.push({ label: 'New Item', value: 10, color: null });
+            buildGridFromState();
+            syncFromGrid();
+            gridRowsContainer.scrollTop = gridRowsContainer.scrollHeight;
+        });
+
+        // Triggered when editing via Grid UI (prevents rebuilding grid & losing focus)
+        function syncFromGrid() {
+            dataInput.value = generateCSVFromState();
+            updateAndRender(false);
+        }
+
+        // Tab Handling
+        tabGrid.addEventListener('click', () => {
+            currentDataMode = 'grid';
+            tabGrid.classList.replace('text-zinc-500', 'text-white');
+            tabGrid.classList.add('bg-white/10', 'shadow-sm');
+            tabCsv.classList.remove('bg-white/10', 'shadow-sm', 'text-white');
+            tabCsv.classList.add('text-zinc-500');
+            viewGrid.classList.remove('hidden');
+            viewGrid.classList.add('flex');
+            viewCsv.classList.add('hidden');
+            viewCsv.classList.remove('flex');
+            buildGridFromState();
+        });
+
+        tabCsv.addEventListener('click', () => {
+            currentDataMode = 'csv';
+            tabCsv.classList.replace('text-zinc-500', 'text-white');
+            tabCsv.classList.add('bg-white/10', 'shadow-sm');
+            tabGrid.classList.remove('bg-white/10', 'shadow-sm', 'text-white');
+            tabGrid.classList.add('text-zinc-500');
+            viewCsv.classList.remove('hidden');
+            viewCsv.classList.add('flex');
+            viewGrid.classList.add('hidden');
+            viewGrid.classList.remove('flex');
+            dataInput.value = generateCSVFromState();
+        });
+
+        function updateStateFromUI(rebuildGrid = true) {
+            state.title = uiTitle.value;
+            state.subtitle = uiSubtitle.value;
+            state.source = uiSource.value;
+            
+            state.showTitle = uiShowTitle.checked;
+            state.showSubtitle = uiShowSubtitle.checked;
+            state.showSource = uiShowSource.checked;
+            
+            state.titleSize = parseInt(uiTitleSize.value);
+            state.subtitleSize = parseInt(uiSubtitleSize.value);
+            state.sourceSize = parseInt(uiSourceSize.value);
+            
+            state.titleColor = uiTitleColor.value;
+            state.textColor = uiTextColor.value;
+            state.bgColor = uiBgColor.value;
+            state.zoom = parseFloat(zoomSlider.value);
+            state.panX = parseInt(panXSlider.value);
+            state.panY = parseInt(panYSlider.value);
+            
+            state.fontFamily = fontSelect.value;
+            state.colorPalette = paletteSelect.value;
+            state.type = typeSelect.value;
+            state.format = formatSelect.value;
+            state.showLegend = legendCheck.checked;
+            state.showGrid = showGridCheck.checked;
+            
+            // Textarea is the source of truth for updates going into State
+            const raw = dataInput.value.trim();
+            if (raw) parseCSVtoState(raw);
+
+            // Rebuild visual grid if applicable
+            if (rebuildGrid && currentDataMode === 'grid') {
+                buildGridFromState();
+            }
+        }
+
+        function formatValue(val) {
+            const rounded = Math.abs(state.maxVal - state.minVal) < 5 ? val.toFixed(2) : Math.round(val);
+            if (state.format === 'currency') return '$' + Number(rounded).toLocaleString();
+            if (state.format === 'percent') return Number(rounded).toLocaleString() + '%';
+            return Number(rounded).toLocaleString();
+        }
+
+        function easeOutQuint(x) {
+            return 1 - Math.pow(1 - x, 5);
+        }
+
+        // --- Core Scaling Rendering Engine ---
+        function renderFrame(progress, targetCanvas = canvas, exportScale = 1.0, isTransparent = false) {
+            const tCtx = targetCanvas.getContext('2d', { alpha: isTransparent });
+            const easeP = easeOutQuint(progress);
+
+            const isDarkBg = isDarkColor(state.bgColor);
+            const gridColor = isDarkBg ? 'rgba(255,255,255,0.15)' : 'rgba(0,0,0,0.15)';
+            const fontBase = state.fontFamily;
+            const activePalette = palettes[state.colorPalette];
+
+            const W = 1920;
+            const H = 1080;
+
+            tCtx.save();
+            tCtx.scale(exportScale, exportScale);
+
+            if (isTransparent) {
+                tCtx.clearRect(0, 0, W, H);
+            } else {
+                tCtx.fillStyle = state.bgColor;
+                tCtx.fillRect(0, 0, W, H);
+            }
+
+            // Apply global zoom & pan
+            tCtx.translate(W / 2 + state.panX, H / 2 + state.panY);
+            tCtx.scale(state.zoom, state.zoom);
+            tCtx.translate(-W / 2, -H / 2);
+
+            tCtx.textAlign = 'left';
+            let currentY = 70;
+            
+            if (state.showTitle) {
+                tCtx.textBaseline = 'top';
+                tCtx.font = `800 ${state.titleSize}px "${fontBase}"`;
+                tCtx.fillStyle = state.titleColor;
+                tCtx.fillText(state.title, 80, currentY);
+                currentY += state.titleSize + 16;
+            } else {
+                currentY = 70;
+            }
+
+            if (state.showSubtitle) {
+                tCtx.textBaseline = 'top';
+                tCtx.font = `400 ${state.subtitleSize}px "${fontBase}"`;
+                tCtx.fillStyle = state.textColor;
+                tCtx.fillText(state.subtitle, 80, currentY);
+            }
+
+            if (state.showSource) {
+                tCtx.textBaseline = 'bottom';
+                tCtx.font = `600 ${state.sourceSize}px "${fontBase}"`;
+                tCtx.fillStyle = state.textColor;
+                tCtx.fillText(state.source, 80, H - 40);
+            }
+
+            tCtx.beginPath();
+            tCtx.moveTo(80, 220);
+            tCtx.lineTo(W - 80, 220);
+            tCtx.strokeStyle = gridColor;
+            tCtx.lineWidth = 2;
+            tCtx.stroke();
+
+            tCtx.beginPath();
+            tCtx.moveTo(80, H - 80);
+            tCtx.lineTo(W - 80, H - 80);
+            tCtx.stroke();
+
+            if (state.data.length === 0) {
+                tCtx.restore();
+                return;
+            }
+
+            if (state.showLegend) {
+                drawLegend(tCtx, W, H, state.textColor, activePalette, fontBase);
+            }
+
+            const chartArea = {
+                x: 120,
+                y: 280,
+                w: W - 240,
+                h: H - (state.showLegend ? 480 : 400)
+            };
+
+            if (state.type === 'vertical') {
+                drawVerticalChart(tCtx, chartArea, easeP, state.textColor, gridColor, activePalette, fontBase);
+            } else if (state.type === 'horizontal') {
+                drawHorizontalChart(tCtx, chartArea, easeP, state.textColor, gridColor, activePalette, fontBase);
+            } else if (state.type === 'pie') {
+                drawPieChart(tCtx, chartArea, easeP, state.textColor, activePalette, fontBase);
+            }
+
+            tCtx.restore();
+        }
+
+        function drawLegend(tCtx, W, H, textColor, palette, fontBase) {
+            tCtx.textAlign = 'left';
+            tCtx.textBaseline = 'middle';
+            tCtx.font = `700 24px "${fontBase}"`;
+            
+            const legendY = H - 140;
+            let totalWidth = 0;
+            const itemPadding = 40;
+            const boxSize = 20;
+
+            state.data.forEach(item => {
+                totalWidth += boxSize + 10 + tCtx.measureText(item.label).width + itemPadding;
+            });
+            totalWidth -= itemPadding; 
+
+            let currentX = (W - totalWidth) / 2;
+
+            state.data.forEach((item, idx) => {
+                const color = item.color || palette[idx % palette.length];
+                
+                tCtx.fillStyle = color;
+                tCtx.beginPath();
+                tCtx.roundRect(currentX, legendY - boxSize/2, boxSize, boxSize, 4);
+                tCtx.fill();
+
+                tCtx.fillStyle = textColor;
+                tCtx.fillText(item.label, currentX + boxSize + 10, legendY + 2);
+
+                currentX += boxSize + 10 + tCtx.measureText(item.label).width + itemPadding;
+            });
+        }
+
+        function drawVerticalChart(tCtx, area, progress, textColor, gridColor, palette, fontBase) {
+            const steps = 4;
+            const valueRange = state.maxVal - state.minVal;
+            
+            tCtx.textAlign = 'right';
+            tCtx.textBaseline = 'middle';
+            tCtx.font = `600 20px "${fontBase}"`;
+            tCtx.fillStyle = textColor;
+
+            for (let i = 0; i <= steps; i++) {
+                const val = state.minVal + (valueRange / steps) * i;
+                const y = area.y + area.h - ((val - state.minVal) / valueRange) * area.h;
+
+                if (state.showGrid) {
+                    tCtx.beginPath();
+                    tCtx.setLineDash([8, 8]);
+                    tCtx.moveTo(area.x + 80, y);
+                    tCtx.lineTo(area.x + area.w, y);
+                    tCtx.strokeStyle = gridColor;
+                    tCtx.lineWidth = 2;
+                    tCtx.stroke();
+                    tCtx.setLineDash([]);
+                }
+                
+                if (i > 0 || state.minVal < 0) { 
+                    tCtx.fillText(formatValue(val), area.x + 60, y);
+                } else {
+                    tCtx.fillText("0", area.x + 60, y);
+                }
+            }
+
+            const zeroY = state.minVal < 0 ? area.y + area.h - ((0 - state.minVal) / valueRange) * area.h : area.y + area.h;
+            tCtx.beginPath();
+            tCtx.moveTo(area.x + 80, zeroY);
+            tCtx.lineTo(area.x + area.w, zeroY);
+            tCtx.strokeStyle = gridColor;
+            tCtx.lineWidth = 3;
+            tCtx.stroke();
+
+            const numBars = state.data.length;
+            const slotWidth = (area.w - 100) / numBars;
+            const barWidth = slotWidth * 0.8;
+            
+            tCtx.textAlign = 'center';
+
+            state.data.forEach((item, index) => {
+                const x = area.x + 100 + (index * slotWidth) + (slotWidth - barWidth)/2;
+                
+                const startY = zeroY;
+                const targetPixelHeight = ((item.value) / valueRange) * area.h;
+                const currentPixelHeight = targetPixelHeight * progress;
+                const y = startY - currentPixelHeight;
+                const color = item.color || palette[index % palette.length];
+
+                tCtx.fillStyle = color;
+                tCtx.fillRect(x, y, barWidth, currentPixelHeight);
+
+                tCtx.textBaseline = 'top';
+                tCtx.font = `700 24px "${fontBase}"`;
+                tCtx.fillStyle = textColor;
+                tCtx.globalAlpha = Math.min(1, progress * 2); 
+                const lblY = state.minVal < 0 ? area.y + area.h + 15 : zeroY + 15;
+                tCtx.fillText(item.label, x + barWidth/2, lblY);
+
+                if (progress > 0.1) {
+                    tCtx.textBaseline = item.value >= 0 ? 'bottom' : 'top';
+                    tCtx.font = `800 28px "${fontBase === 'Caveat' || fontBase === 'Playfair Display' ? fontBase : 'JetBrains Mono'}"`;
+                    const valYOffset = item.value >= 0 ? -10 : 10;
+                    tCtx.fillText(formatValue(item.value * progress), x + barWidth/2, y + valYOffset);
+                }
+                tCtx.globalAlpha = 1.0;
+            });
+        }
+
+        function drawHorizontalChart(tCtx, area, progress, textColor, gridColor, palette, fontBase) {
+            const labelSpace = 250;
+            const actualAreaW = area.w - labelSpace;
+            const valueRange = state.maxVal - state.minVal;
+
+            const steps = 4;
+            tCtx.textAlign = 'center';
+            tCtx.textBaseline = 'top';
+            tCtx.font = `600 20px "${fontBase}"`;
+            tCtx.fillStyle = textColor;
+
+            for (let i = 0; i <= steps; i++) {
+                const val = state.minVal + (valueRange / steps) * i;
+                const x = area.x + labelSpace + ((val - state.minVal) / valueRange) * actualAreaW;
+
+                if (state.showGrid) {
+                    tCtx.beginPath();
+                    tCtx.setLineDash([8, 8]);
+                    tCtx.moveTo(x, area.y);
+                    tCtx.lineTo(x, area.y + area.h);
+                    tCtx.strokeStyle = gridColor;
+                    tCtx.lineWidth = 2;
+                    tCtx.stroke();
+                    tCtx.setLineDash([]);
+                }
+
+                tCtx.fillText(formatValue(val), x, area.y + area.h + 15);
+            }
+
+            const zeroX = state.minVal < 0 ? area.x + labelSpace + ((0 - state.minVal) / valueRange) * actualAreaW : area.x + labelSpace;
+
+            const numBars = state.data.length;
+            const slotHeight = area.h / numBars;
+            const barHeight = slotHeight * 0.75;
+            
+            tCtx.textBaseline = 'middle';
+
+            state.data.forEach((item, index) => {
+                const targetPixelWidth = (item.value / valueRange) * actualAreaW;
+                const currentPixelWidth = targetPixelWidth * progress;
+                const y = area.y + (index * slotHeight) + (slotHeight - barHeight)/2;
+                const color = item.color || palette[index % palette.length];
+
+                tCtx.textAlign = 'right';
+                tCtx.font = `800 24px "${fontBase}"`;
+                tCtx.fillStyle = textColor;
+                tCtx.globalAlpha = Math.min(1, progress * 2);
+                tCtx.fillText(item.label, area.x + labelSpace - 20, y + barHeight/2);
+
+                tCtx.fillStyle = color;
+                tCtx.globalAlpha = 1.0;
+                tCtx.fillRect(zeroX, y, currentPixelWidth, barHeight);
+
+                if (progress > 0.1) {
+                    tCtx.textAlign = item.value >= 0 ? 'left' : 'right';
+                    tCtx.font = `800 28px "${fontBase === 'Caveat' || fontBase === 'Playfair Display' ? fontBase : 'JetBrains Mono'}"`;
+                    tCtx.fillStyle = textColor;
+                    
+                    const valXOffset = item.value >= 0 ? 15 : -15;
+                    tCtx.fillText(formatValue(item.value * progress), zeroX + currentPixelWidth + valXOffset, y + barHeight/2);
+                }
+            });
+        }
+
+        function drawPieChart(tCtx, area, progress, textColor, palette, fontBase) {
+            const total = state.data.reduce((sum, item) => sum + item.value, 0);
+            if (total === 0) return;
+            
+            const centerX = area.x + area.w * 0.35; 
+            const centerY = area.y + area.h / 2;
+            const radius = Math.min(area.w, area.h) * 0.45;
+
+            const targetTotalRadian = Math.PI * 2 * progress;
+            let currentRadian = -Math.PI / 2; 
+
+            const legendStartX = area.x + area.w * 0.7;
+            const legendStartY = area.y + area.h * 0.2;
+            const legendSpacing = 80;
+
+            state.data.forEach((item, index) => {
+                const sliceAngle = (item.value / total) * targetTotalRadian;
+                const color = item.color || palette[index % palette.length];
+                
+                tCtx.beginPath();
+                tCtx.moveTo(centerX, centerY);
+                tCtx.arc(centerX, centerY, radius, currentRadian, currentRadian + sliceAngle);
+                tCtx.closePath();
+                
+                tCtx.fillStyle = color;
+                tCtx.fill();
+                
+                tCtx.lineWidth = 3;
+                tCtx.strokeStyle = state.bgColor;
+                tCtx.stroke();
+
+                currentRadian += sliceAngle;
+
+                if (progress > 0.5) {
+                    const row = Math.floor(index / 2);
+                    const col = index % 2;
+                    const lx = legendStartX + (col * 200);
+                    const ly = legendStartY + (row * legendSpacing);
+
+                    tCtx.globalAlpha = (progress - 0.5) * 2;
+                    
+                    tCtx.fillStyle = color;
+                    tCtx.beginPath();
+                    tCtx.roundRect(lx, ly, 24, 24, 6);
+                    tCtx.fill();
+
+                    tCtx.textAlign = 'left';
+                    tCtx.textBaseline = 'top';
+                    tCtx.font = `800 24px "${fontBase}"`;
+                    tCtx.fillStyle = textColor;
+                    tCtx.fillText(item.label.toUpperCase(), lx + 40, ly - 2);
+
+                    tCtx.font = `700 22px "${fontBase === 'Caveat' || fontBase === 'Playfair Display' ? fontBase : 'JetBrains Mono'}"`;
+                    const pct = ((item.value / total) * 100).toFixed(1);
+                    tCtx.fillText(`${pct}%`, lx + 40, ly + 28);
+                    
+                    tCtx.globalAlpha = 1.0;
+                }
+            });
+        }
+
+        // --- Interaction & Update Loops ---
+        function updateAndRender(rebuildGrid = true) {
+            updateStateFromUI(rebuildGrid);
+            renderFrame(1.0, canvas, 1.0, false); // Show final state
+        }
+
+        // Apply templates and switch colors logically
+        document.querySelectorAll('.template-btn').forEach(btn => {
+            btn.addEventListener('click', () => {
+                const template = btn.getAttribute('data-template');
+                if (templates[template]) {
+                    uiTitle.value = templates[template].title;
+                    uiSubtitle.value = templates[template].subtitle;
+                    uiSource.value = templates[template].source;
+                    typeSelect.value = templates[template].type;
+                    dataInput.value = templates[template].csv;
+                    
+                    if (templates[template].theme === 'light') {
+                        uiBgColor.value = '#ffffff';
+                        uiTitleColor.value = '#18181b';
+                        uiTextColor.value = '#71717a';
+                    } else {
+                        uiBgColor.value = '#18181b';
+                        uiTitleColor.value = '#ffffff';
+                        uiTextColor.value = '#a1a1aa';
+                    }
+                    
+                    updateAndRender(true);
+                }
+            });
+        });
+
+        // Listeners for all dynamic inputs
+        const inputs = [uiTitle, uiSubtitle, uiSource, uiBgColor, uiTitleColor, uiTextColor];
+        inputs.forEach(el => el.addEventListener('input', () => updateAndRender(false)));
+        
+        dataInput.addEventListener('input', () => updateAndRender(true));
+
+        [uiShowTitle, uiShowSubtitle, uiShowSource, legendCheck, showGridCheck].forEach(el => el.addEventListener('change', () => updateAndRender(false)));
+        [uiTitleSize, uiSubtitleSize, uiSourceSize].forEach(el => el.addEventListener('input', () => updateAndRender(false)));
+        
+        [typeSelect, fontSelect, paletteSelect, formatSelect].forEach(el => el.addEventListener('change', () => updateAndRender(true))); // Rebuild grid for color palette change
+        
+        durationSlider.addEventListener('input', (e) => { 
+            state.duration = parseFloat(e.target.value) * 1000;
+            document.getElementById('duration-val').textContent = e.target.value + 's';
+        });
+        
+        glowSlider.addEventListener('input', (e) => { 
+            state.glow = parseInt(e.target.value);
+            const valLabel = state.glow === 0 ? 'None' : (state.glow > 20 ? 'High' : 'Med');
+            document.getElementById('glow-val').textContent = valLabel;
+            renderFrame(state.progress);
+        });
+
+        zoomSlider.addEventListener('input', (e) => { 
+            state.zoom = parseFloat(e.target.value);
+            document.getElementById('zoom-val').textContent = state.zoom.toFixed(1) + 'x';
+            renderFrame(state.progress);
+        });
+
+        panXSlider.addEventListener('input', (e) => { 
+            state.panX = parseInt(e.target.value);
+            document.getElementById('pan-x-val').textContent = state.panX;
+            renderFrame(state.progress);
+        });
+
+        panYSlider.addEventListener('input', (e) => { 
+            state.panY = parseInt(e.target.value);
+            document.getElementById('pan-y-val').textContent = state.panY;
+            renderFrame(state.progress);
+        });
+
+        // Reset View Controls
+        btnResetView.addEventListener('click', () => {
+            zoomSlider.value = 1.0;
+            panXSlider.value = 0;
+            panYSlider.value = 0;
+            state.zoom = 1.0;
+            state.panX = 0;
+            state.panY = 0;
+            document.getElementById('zoom-val').textContent = '1.0x';
+            document.getElementById('pan-x-val').textContent = '0';
+            document.getElementById('pan-y-val').textContent = '0';
+            renderFrame(state.progress);
+        });
+
+        // Initialize
+        updateAndRender(true);
+
+        // --- Header Actions & Export Logic ---
+        const btnPreview = document.getElementById('btn-header-preview');
+        const btnExport = document.getElementById('btn-header-export');
+        const exportFmt = document.getElementById('export-fmt');
+        const exportRes = document.getElementById('export-res');
+        const transparentToggle = document.getElementById('header-transparent');
+        const overlay = document.getElementById('recording-overlay');
+        const recordingText = document.getElementById('recording-text');
+        const iconPlay = document.getElementById('icon-play');
+        const textPlay = document.getElementById('text-play');
+
+        btnPreview.addEventListener('click', () => {
+            if (state.isRecording) return;
+            if (state.isAnimating) {
+                state.isAnimating = false; // Graceful stop in loop
+            } else {
+                runAnimation();
+            }
+        });
+
+        btnExport.addEventListener('click', async () => {
+            if (state.isAnimating || state.isRecording) return;
+            
+            const fmt = exportFmt.value;
+            const targetWidth = parseInt(exportRes.value);
+            const exportScale = targetWidth / 1920;
+            const isTransparent = transparentToggle.checked && (fmt === 'png' || fmt === 'gif'); 
+
+            if (fmt === 'png') {
+                exportSnapshot(targetWidth, exportScale, isTransparent);
+            } else if (fmt === 'gif') {
+                exportGIF(targetWidth, exportScale, isTransparent);
+            } else {
+                exportVideo(targetWidth, exportScale);
+            }
+        });
+
+        function runAnimation() {
+            state.isAnimating = true;
+            btnPreview.classList.add('bg-rose-500/20', 'text-rose-400', 'border-rose-500/50');
+            btnPreview.classList.remove('bg-white/5', 'text-white', 'border-white/10');
+            iconPlay.classList.replace('ph-play-circle', 'ph-stop-circle');
+            textPlay.innerText = 'Stop';
+            btnExport.disabled = true;
+
+            updateStateFromUI(false); 
+
+            const startTime = performance.now();
+            const durationMs = state.duration;
+
+            function animLoop(currentTime) {
+                if (!state.isAnimating) {
+                    resetPreviewBtn();
+                    return;
+                }
+
+                const elapsed = Math.max(0, currentTime - startTime);
+                let p = durationMs > 0 ? elapsed / durationMs : 1.0;
+                p = Math.max(0, Math.min(1, p));
+                
+                state.progress = p;
+                renderFrame(p, canvas, 1.0, false);
+
+                if (p < 1.0) {
+                    requestAnimationFrame(animLoop);
+                } else {
+                    state.isAnimating = false;
+                    resetPreviewBtn();
+                }
+            }
+            requestAnimationFrame(animLoop);
+        }
+
+        function resetPreviewBtn() {
+            btnPreview.classList.remove('bg-rose-500/20', 'text-rose-400', 'border-rose-500/50');
+            btnPreview.classList.add('bg-white/5', 'text-white', 'border-white/10');
+            iconPlay.classList.replace('ph-stop-circle', 'ph-play-circle');
+            textPlay.innerText = 'Preview';
+            btnExport.disabled = false;
+        }
+
+        function exportSnapshot(targetWidth, exportScale, isTransparent) {
+            const targetHeight = targetWidth * (1080/1920);
+            const expCanvas = document.createElement('canvas');
+            expCanvas.width = targetWidth;
+            expCanvas.height = targetHeight;
+            
+            updateStateFromUI(false);
+            renderFrame(1.0, expCanvas, exportScale, isTransparent);
+
+            const url = expCanvas.toDataURL("image/png");
+            const a = document.createElement('a');
+            a.href = url;
+            const bgStatus = isTransparent ? 'transparent' : 'solid';
+            a.download = `editorial-chart-snap-${targetWidth}w-${bgStatus}-${Date.now()}.png`;
+            a.click();
+            showToast('Snapshot exported successfully!', 'success');
+        }
+
+        function exportGIF(targetWidth, exportScale, isTransparent) {
+            if (!gifWorkerUrl) return showToast('GIF encoder initializing. Try again in a moment.', 'info');
+            
+            const targetHeight = targetWidth * (1080/1920);
+            const expCanvas = document.createElement('canvas');
+            expCanvas.width = targetWidth;
+            expCanvas.height = targetHeight;
+            const eCtx = expCanvas.getContext('2d', { willReadFrequently: true });
+
+            const gif = new GIF({
+                workers: 2,
+                quality: 10,
+                width: targetWidth,
+                height: targetHeight,
+                workerScript: gifWorkerUrl,
+                transparent: isTransparent ? 'rgba(0,0,0,0)' : null
+            });
+
+            state.isRecording = true;
+            btnPreview.disabled = true;
+            btnExport.disabled = true;
+            
+            overlay.classList.remove('-translate-y-20');
+            overlay.classList.add('translate-y-4');
+            recordingText.innerText = 'Preparing GIF...';
+
+            updateStateFromUI(false);
+            
+            const fps = 15; // Optimal balance for web GIFs
+            const totalTimeSec = state.duration / 1000;
+            const totalFrames = Math.ceil(totalTimeSec * fps);
+            let currentFrame = 0;
+
+            function renderNextFrame() {
+                if (!state.isRecording) return; // aborted
+
+                let p = currentFrame / totalFrames;
+                p = Math.max(0, Math.min(1, p));
+                
+                state.progress = p;
+                
+                // Render to offscreen canvas
+                renderFrame(p, expCanvas, exportScale, isTransparent);
+                
+                // Add to GIF
+                if (isTransparent) {
+                    gif.addFrame(eCtx, {copy: true, delay: 1000 / fps, dispose: 2});
+                } else {
+                    gif.addFrame(eCtx, {copy: true, delay: 1000 / fps});
+                }
+                
+                // Sync UI preview
+                renderFrame(p, canvas, 1.0, false);
+
+                let pct = Math.round((currentFrame / totalFrames) * 50); 
+                recordingText.innerText = `Rendering Frames ${pct}%`;
+
+                currentFrame++;
+                if (currentFrame <= totalFrames) {
+                    requestAnimationFrame(renderNextFrame);
+                } else {
+                    recordingText.innerText = `Encoding GIF... (This takes a while)`;
+                    gif.render();
+                }
+            }
+
+            gif.on('finished', function(blob) {
+                const url = URL.createObjectURL(blob);
+                const a = document.createElement('a');
+                a.style.display = 'none';
+                a.href = url;
+                const bgStatus = isTransparent ? 'transparent' : 'solid';
+                a.download = `editorial-chart-anim-${targetWidth}w-${bgStatus}-${Date.now()}.gif`;
+                document.body.appendChild(a);
+                a.click();
+                
+                setTimeout(() => {
+                    document.body.removeChild(a);
+                    URL.revokeObjectURL(url);
+                }, 100);
+
+                overlay.classList.remove('translate-y-4');
+                overlay.classList.add('-translate-y-20');
+                state.isRecording = false;
+                state.progress = 1.0;
+                renderFrame(1.0, canvas, 1.0, false); 
+                btnPreview.disabled = false;
+                btnExport.disabled = false;
+                recordingText.innerText = 'Recording Animation...';
+                showToast('GIF exported successfully!', 'success');
+            });
+
+            renderNextFrame();
+        }
+
+        async function exportVideo(targetWidth, exportScale) {
+            const targetHeight = targetWidth * (1080/1920);
+            const expCanvas = document.createElement('canvas');
+            expCanvas.width = targetWidth;
+            expCanvas.height = targetHeight;
+
+            let mediaRecorder;
+            let recordedChunks = [];
+            state.isRecording = true;
+            
+            try {
+                const stream = expCanvas.captureStream(60);
+                
+                let options = { mimeType: 'video/webm;codecs=vp9' };
+                if (!MediaRecorder.isTypeSupported(options.mimeType)) {
+                    options = { mimeType: 'video/webm;codecs=vp8' };
+                    if (!MediaRecorder.isTypeSupported(options.mimeType)) {
+                        options = { mimeType: 'video/webm' };
+                    }
+                }
+
+                options.videoBitsPerSecond = 20000000;
+
+                mediaRecorder = new MediaRecorder(stream, options);
+
+                mediaRecorder.ondataavailable = (e) => {
+                    if (e.data.size > 0) recordedChunks.push(e.data);
+                };
+
+                mediaRecorder.onstop = () => {
+                    const blob = new Blob(recordedChunks, { type: options.mimeType.split(';')[0] });
+                    const url = URL.createObjectURL(blob);
+                    
+                    const a = document.createElement('a');
+                    a.style.display = 'none';
+                    a.href = url;
+                    a.download = `editorial-chart-anim-${targetWidth}w-${Date.now()}.webm`;
+                    document.body.appendChild(a);
+                    a.click();
+                    
+                    setTimeout(() => {
+                        document.body.removeChild(a);
+                        window.URL.revokeObjectURL(url);
+                    }, 100);
+
+                    overlay.classList.remove('translate-y-4');
+                    overlay.classList.add('-translate-y-20');
+                    state.isRecording = false;
+                    state.progress = 1.0;
+                    renderFrame(1.0, canvas, 1.0, false); 
+                    btnPreview.disabled = false;
+                    btnExport.disabled = false;
+                    recordingText.innerText = 'Recording Animation...';
+                    showToast('Video exported successfully!', 'success');
+                };
+
+                overlay.classList.remove('-translate-y-20');
+                overlay.classList.add('translate-y-4');
+                recordingText.innerText = 'Rendering Video...';
+
+                mediaRecorder.start();
+
+                btnPreview.disabled = true;
+                btnExport.disabled = true;
+                updateStateFromUI(false);
+                
+                const startTime = performance.now();
+                const durationMs = state.duration;
+
+                function animLoop(currentTime) {
+                    if (!state.isRecording) return;
+                    
+                    const elapsed = Math.max(0, currentTime - startTime);
+                    let p = durationMs > 0 ? elapsed / durationMs : 1.0;
+                    p = Math.max(0, Math.min(1, p));
+                    
+                    state.progress = p;
+                    
+                    // Render to export canvas (high res)
+                    renderFrame(p, expCanvas, exportScale, false);
+                    
+                    // Sync main preview canvas (standard res)
+                    renderFrame(p, canvas, 1.0, false);
+
+                    if (p < 1.0) {
+                        requestAnimationFrame(animLoop);
+                    } else {
+                        recordingText.innerText = 'Finalizing...';
+                        setTimeout(() => {
+                            if(mediaRecorder.state !== 'inactive') mediaRecorder.stop();
+                        }, 500);
+                    }
+                }
+                requestAnimationFrame(animLoop);
+
+            } catch (err) {
+                console.error("Recording failed:", err);
+                showToast('Recording failed. Browser might not support it.', 'error');
+                overlay.classList.remove('translate-y-4');
+                overlay.classList.add('-translate-y-20');
+                state.isRecording = false;
+                btnPreview.disabled = false;
+                btnExport.disabled = false;
+                renderFrame(1.0, canvas, 1.0, false);
+            }
+        }
+
+    </script>
+</body>
+</html>

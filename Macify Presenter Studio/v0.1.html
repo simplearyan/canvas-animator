@@ -1,0 +1,324 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+    <title>Macify Presenter</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
+    <script src="https://unpkg.com/lucide@latest"></script>
+    <style>
+        body {
+            font-family: 'Inter', sans-serif;
+            background-color: #09090b; 
+            color: #ececf1;
+            overflow: hidden;
+            -webkit-font-smoothing: antialiased;
+        }
+
+        .transparent-pattern {
+            background-image: 
+                linear-gradient(45deg, #18181b 25%, transparent 25%, transparent 75%, #18181b 75%, #18181b), 
+                linear-gradient(45deg, #18181b 25%, transparent 25%, transparent 75%, #18181b 75%, #18181b);
+            background-size: 20px 20px;
+            background-position: 0 0, 10px 10px;
+        }
+
+        .segmented-btn { transition: all 0.2s cubic-bezier(0.4, 0, 0.2, 1); }
+        .segmented-btn.active {
+            background: rgba(255, 255, 255, 0.1);
+            color: white;
+            box-shadow: 0 1px 3px rgba(0,0,0,0.2), inset 0 1px 0 rgba(255,255,255,0.1);
+        }
+
+        input[type="color"]::-webkit-color-swatch-wrapper { padding: 0; }
+        input[type="color"]::-webkit-color-swatch { border: none; border-radius: 50%; }
+
+        /* The Mac Window */
+        #mac-window {
+            display: flex;
+            flex-direction: column;
+            border-radius: 12px;
+            box-shadow: 0 30px 60px -12px rgba(0,0,0,0.8), 0 0 0 1px rgba(255,255,255,0.05);
+            overflow: hidden;
+            width: 1280px;
+            height: 800px;
+            max-width: 95vw;
+            max-height: 90vh;
+            transition: all 0.3s ease;
+        }
+
+        iframe { flex: 1; width: 100%; height: 100%; border: none; background-color: white; }
+        
+        /* Focus Mode Transitions */
+        .ui-element { transition: opacity 0.4s ease, transform 0.4s ease; }
+        .focus-active .ui-element { opacity: 0; pointer-events: none; transform: translateY(-10px); }
+        
+        #exit-focus {
+            transition: opacity 0.3s ease;
+            opacity: 0;
+            pointer-events: none;
+        }
+        #exit-focus.visible {
+            opacity: 1;
+            pointer-events: auto;
+        }
+        /* Show exit button only when mouse moves to the top edge in focus mode */
+        body.focus-active:hover #exit-focus {
+            opacity: 1;
+        }
+    </style>
+</head>
+<body class="flex flex-col h-screen text-sm">
+
+    <!-- Header (Hides in Focus Mode) -->
+    <header class="ui-element w-full h-16 bg-zinc-900/90 backdrop-blur-2xl border-b border-white/5 flex items-center justify-between px-4 sm:px-6 z-40 shrink-0">
+        
+        <div class="flex items-center gap-3">
+            <div class="w-8 h-8 rounded-lg bg-gradient-to-br from-indigo-500 to-blue-600 flex items-center justify-center shadow-inner shadow-white/20">
+                <i data-lucide="presentation" class="w-4 h-4 text-white"></i>
+            </div>
+            <h1 class="font-semibold text-zinc-100 tracking-tight whitespace-nowrap">Macify <span class="text-zinc-500 font-normal">Presenter</span></h1>
+        </div>
+
+        <div class="flex-1 max-w-2xl mx-4">
+            <div class="relative flex items-center">
+                <i data-lucide="globe" class="absolute left-3 w-4 h-4 text-zinc-400"></i>
+                <input type="url" id="url-input" value="https://simplearyan.github.io/canvas-animator/Paint%20Studio%20Pro/v0.3-japnese-brush.html" class="w-full bg-black/40 border border-white/10 focus:border-indigo-500 rounded-xl py-2 pl-9 pr-4 text-sm text-zinc-200 outline-none transition-all shadow-inner" onchange="loadUrl(this.value)">
+            </div>
+        </div>
+
+        <div class="flex items-center gap-3">
+            <button onclick="toggleFocus()" class="flex items-center gap-2 px-4 py-2 bg-indigo-600 hover:bg-indigo-500 text-white font-medium rounded-xl shadow-lg shadow-indigo-600/20 ring-1 ring-inset ring-white/20 transition-all">
+                <i data-lucide="focus" class="w-4 h-4"></i>
+                <span>Enter Focus Mode</span>
+            </button>
+        </div>
+    </header>
+
+    <!-- Main Layout -->
+    <div class="flex flex-1 relative overflow-hidden">
+        
+        <!-- Sidebar (Hides in Focus Mode) -->
+        <aside class="ui-element w-72 flex-shrink-0 bg-zinc-900/60 backdrop-blur-3xl border-r border-white/5 z-30 flex flex-col h-full absolute md:relative transform -translate-x-full md:translate-x-0 transition-transform">
+            <div class="p-5 space-y-6 overflow-y-auto flex-1">
+                
+                <div>
+                    <label class="text-[11px] font-bold text-zinc-500 uppercase tracking-widest block mb-2">Browser Theme</label>
+                    <div class="flex p-1 bg-black/20 rounded-xl ring-1 ring-white/5">
+                        <button class="segmented-btn active flex-1 py-1.5 rounded-lg text-xs text-zinc-400 flex justify-center items-center gap-2" data-theme="dark" onclick="setTheme('dark')">
+                            <i data-lucide="moon" class="w-3.5 h-3.5"></i> Dark
+                        </button>
+                        <button class="segmented-btn flex-1 py-1.5 rounded-lg text-xs text-zinc-400 flex justify-center items-center gap-2" data-theme="light" onclick="setTheme('light')">
+                            <i data-lucide="sun" class="w-3.5 h-3.5"></i> Light
+                        </button>
+                    </div>
+                </div>
+
+                <div>
+                    <label class="text-[11px] font-bold text-zinc-500 uppercase tracking-widest block mb-2">Device Viewport</label>
+                    <div class="flex p-1 bg-black/20 rounded-xl ring-1 ring-white/5">
+                        <button class="segmented-btn active flex-1 py-1.5 rounded-lg text-xs text-zinc-400 flex justify-center items-center gap-2" data-vp="desktop" onclick="setViewport('desktop')">
+                            <i data-lucide="monitor" class="w-3.5 h-3.5"></i> Mac
+                        </button>
+                        <button class="segmented-btn flex-1 py-1.5 rounded-lg text-xs text-zinc-400 flex justify-center items-center gap-2" data-vp="mobile" onclick="setViewport('mobile')">
+                            <i data-lucide="smartphone" class="w-3.5 h-3.5"></i> iPhone
+                        </button>
+                    </div>
+                </div>
+
+                <div class="space-y-3 pt-4 border-t border-white/5">
+                    <label class="text-[11px] font-bold text-zinc-500 uppercase tracking-widest block mb-2">Cinematic Background</label>
+                    
+                    <div class="grid grid-cols-4 gap-2">
+                        <button class="w-full aspect-square rounded-lg shadow-sm border border-white/10" style="background: linear-gradient(135deg, #ec4899, #8b5cf6);" onclick="setBg('gradient', '#ec4899', '#8b5cf6')"></button>
+                        <button class="w-full aspect-square rounded-lg shadow-sm border border-white/10" style="background: linear-gradient(135deg, #3b82f6, #2dd4bf);" onclick="setBg('gradient', '#3b82f6', '#2dd4bf')"></button>
+                        <button class="w-full aspect-square rounded-lg shadow-sm border border-white/10" style="background: linear-gradient(135deg, #f59e0b, #ef4444);" onclick="setBg('gradient', '#f59e0b', '#ef4444')"></button>
+                        <button class="w-full aspect-square rounded-lg shadow-sm border border-white/10" style="background: #18181b;" onclick="setBg('solid', '#18181b')"></button>
+                    </div>
+                    
+                    <div class="flex items-center gap-2 mt-2">
+                        <input type="color" value="#09090b" class="w-8 h-8 rounded-lg bg-transparent cursor-pointer" oninput="setBg('solid', this.value)">
+                        <span class="text-xs text-zinc-400">Custom Color</span>
+                    </div>
+                </div>
+                
+                <div class="p-4 bg-indigo-500/10 border border-indigo-500/20 rounded-xl mt-4">
+                    <h3 class="text-indigo-400 font-bold text-xs mb-1 flex items-center gap-1.5"><i data-lucide="video" class="w-3.5 h-3.5"></i> How to Record</h3>
+                    <p class="text-[10px] text-zinc-400 leading-relaxed">
+                        1. Load your website.<br>
+                        2. Click <b>Enter Focus Mode</b>.<br>
+                        3. Open a desktop screen recorder like <b>ShareX</b> or <b>OBS</b>.<br>
+                        4. Record the screen while you interact!
+                    </p>
+                </div>
+
+            </div>
+        </aside>
+
+        <!-- Main Workspace -->
+        <main id="workspace" class="flex-1 relative bg-zinc-950 transparent-pattern flex items-center justify-center p-4 sm:p-12 transition-all duration-500">
+            
+            <!-- Exit Focus Button (Floats at top) -->
+            <button id="exit-focus" onclick="toggleFocus()" class="absolute top-6 px-4 py-2 bg-zinc-800/90 backdrop-blur border border-white/10 hover:bg-zinc-700 text-white rounded-full font-medium shadow-2xl flex items-center gap-2 z-50">
+                <i data-lucide="minimize" class="w-4 h-4"></i> Exit Focus Mode
+            </button>
+
+            <!-- The Mac Window -->
+            <div id="mac-window">
+                
+                <div class="flex-col p-0 w-full shrink-0 flex transition-colors" id="mac-header" style="height: 76px; background-color: #202124;">
+                    <div id="mac-tabs-row" class="w-full h-[36px] flex items-end px-4 relative">
+                        <div class="absolute left-4 bottom-[12px] flex gap-2 items-center">
+                            <div class="w-3 h-3 rounded-full bg-[#ff5f56] border border-[#e0443e]"></div>
+                            <div class="w-3 h-3 rounded-full bg-[#ffbd2e] border border-[#dea123]"></div>
+                            <div class="w-3 h-3 rounded-full bg-[#27c93f] border border-[#1aab29]"></div>
+                        </div>
+                        
+                        <div class="ml-[72px] h-[32px] rounded-t-lg flex items-center px-3 gap-2 w-60 justify-between transition-colors" id="mac-tab" style="background-color: #35363a; color: #e8eaed;">
+                            <div class="flex items-center gap-2 overflow-hidden w-full">
+                                <img id="mac-favicon" src="https://www.google.com/s2/favicons?domain=github.io&sz=64" class="w-3.5 h-3.5 rounded-sm object-contain">
+                                <span id="mac-title" class="truncate text-[12px] font-normal">Animator Studio</span>
+                            </div>
+                            <i data-lucide="x" class="w-3 h-3 opacity-50 shrink-0"></i>
+                        </div>
+                    </div>
+
+                    <div id="mac-toolbar-row" class="w-full h-[40px] flex items-center px-4 gap-4 transition-colors" style="background-color: #35363a; color: #e8eaed;">
+                        <div class="flex items-center gap-4 opacity-70">
+                            <i data-lucide="arrow-left" class="w-4 h-4 cursor-pointer hover:opacity-100"></i>
+                            <i data-lucide="arrow-right" class="w-4 h-4 opacity-30"></i>
+                            <i data-lucide="rotate-cw" class="w-4 h-4 cursor-pointer hover:opacity-100" onclick="reloadIframe()"></i>
+                        </div>
+                        
+                        <div id="mac-address-bar" class="flex-1 h-[28px] rounded-full flex items-center px-3 gap-2 transition-colors max-w-[600px] mx-auto" style="background-color: #202124;">
+                            <i data-lucide="lock" class="w-3 h-3 opacity-70" id="mac-lock"></i>
+                            <span id="mac-url-text" class="truncate text-[13px] opacity-90 tracking-wide">simplearyan.github.io</span>
+                        </div>
+                    </div>
+                </div>
+                
+                <iframe id="live-iframe" src="https://simplearyan.github.io/canvas-animator/Paint%20Studio%20Pro/v0.3-japnese-brush.html" sandbox="allow-same-origin allow-scripts allow-popups allow-forms"></iframe>
+                
+            </div>
+        </main>
+    </div>
+
+    <!-- Mobile Sidebar Toggle -->
+    <button onclick="document.querySelector('aside').classList.toggle('-translate-x-full')" class="md:hidden fixed bottom-6 right-6 w-12 h-12 bg-indigo-600 rounded-full shadow-lg flex items-center justify-center text-white z-50">
+        <i data-lucide="settings" class="w-5 h-5"></i>
+    </button>
+
+    <script>
+        lucide.createIcons();
+
+        let isFocusMode = false;
+        let currentTheme = 'dark';
+
+        function toggleFocus() {
+            isFocusMode = !isFocusMode;
+            if (isFocusMode) {
+                document.body.classList.add('focus-active');
+            } else {
+                document.body.classList.remove('focus-active');
+            }
+        }
+
+        // Hit ESC to exit focus mode
+        document.addEventListener('keydown', (e) => {
+            if (e.key === 'Escape' && isFocusMode) {
+                toggleFocus();
+            }
+        });
+
+        function loadUrl(rawUrl) {
+            if (!rawUrl.startsWith('http://') && !rawUrl.startsWith('https://')) {
+                rawUrl = 'https://' + rawUrl;
+            }
+            
+            try {
+                const urlObj = new URL(rawUrl);
+                const domain = urlObj.hostname.replace('www.', '');
+                
+                document.getElementById('mac-url-text').innerText = domain;
+                document.getElementById('mac-title').innerText = domain;
+                document.getElementById('mac-favicon').src = `https://www.google.com/s2/favicons?domain=${domain}&sz=64`;
+                document.getElementById('live-iframe').src = rawUrl;
+
+            } catch (err) {
+                alert('Invalid URL');
+            }
+        }
+
+        function reloadIframe() {
+            const iframe = document.getElementById('live-iframe');
+            iframe.src = iframe.src;
+        }
+
+        function setViewport(vp) {
+            document.querySelectorAll('[data-vp]').forEach(btn => {
+                btn.classList.remove('active', 'bg-white/10', 'text-white');
+                if(btn.dataset.vp === vp) btn.classList.add('active', 'bg-white/10', 'text-white');
+            });
+
+            const win = document.getElementById('mac-window');
+            if (vp === 'mobile') {
+                win.style.width = '375px';
+                win.style.height = '812px';
+            } else {
+                win.style.width = '1280px';
+                win.style.height = '800px';
+            }
+        }
+
+        function setTheme(theme) {
+            currentTheme = theme;
+            document.querySelectorAll('[data-theme]').forEach(btn => {
+                btn.classList.remove('active', 'bg-white/10', 'text-white');
+                if(btn.dataset.theme === theme) btn.classList.add('active', 'bg-white/10', 'text-white');
+            });
+
+            const header = document.getElementById('mac-header');
+            const tabsRow = document.getElementById('mac-tabs-row');
+            const tab = document.getElementById('mac-tab');
+            const toolbar = document.getElementById('mac-toolbar-row');
+            const addr = document.getElementById('mac-address-bar');
+            const lock = document.getElementById('mac-lock');
+            const title = document.getElementById('mac-title');
+            const urlTxt = document.getElementById('mac-url-text');
+
+            if (theme === 'dark') {
+                tabsRow.style.backgroundColor = '#202124';
+                toolbar.style.backgroundColor = '#35363a';
+                tab.style.backgroundColor = '#35363a';
+                tab.style.color = '#e8eaed';
+                toolbar.style.color = '#e8eaed';
+                addr.style.backgroundColor = '#202124';
+                addr.style.boxShadow = 'none';
+                lock.classList.replace('text-zinc-500', 'text-zinc-400');
+            } else {
+                tabsRow.style.backgroundColor = '#dfe1e5';
+                toolbar.style.backgroundColor = '#ffffff';
+                tab.style.backgroundColor = '#ffffff';
+                tab.style.color = '#3c4043';
+                toolbar.style.color = '#3c4043';
+                addr.style.backgroundColor = '#f1f3f4';
+                addr.style.boxShadow = '0 1px 3px rgba(0,0,0,0.1)';
+                lock.classList.replace('text-zinc-400', 'text-zinc-500');
+            }
+        }
+
+        function setBg(type, val1, val2) {
+            const ws = document.getElementById('workspace');
+            ws.classList.remove('transparent-pattern');
+            
+            if (type === 'solid') {
+                ws.style.background = val1;
+            } else {
+                ws.style.background = `linear-gradient(135deg, ${val1}, ${val2})`;
+            }
+        }
+
+    </script>
+</body>
+</html>

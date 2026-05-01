@@ -1,0 +1,1155 @@
+<!DOCTYPE html>
+<html lang="en" class="dark">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+    <title>Vox Annotator Studio</title>
+    
+    <!-- Tailwind CSS -->
+    <script src="https://cdn.tailwindcss.com"></script>
+    <script>
+        tailwind.config = {
+            darkMode: 'class',
+            theme: { 
+                extend: { 
+                    fontFamily: { sans: ['Inter', 'sans-serif'] },
+                    colors: {
+                        vox: { yellow: '#ffcc00', dark: '#121212', red: '#f43f5e', blue: '#3b82f6' }
+                    }
+                } 
+            }
+        }
+    </script>
+    
+    <!-- Google Fonts -->
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
+    
+    <!-- Lucide Icons -->
+    <script src="https://unpkg.com/lucide@latest"></script>
+
+    <!-- Gifshot for GIF Export -->
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/gifshot/0.3.2/gifshot.min.js"></script>
+
+    <style>
+        :root { color-scheme: dark; }
+        
+        body {
+            font-family: 'Inter', sans-serif;
+            background-color: #09090b;
+            color: #ececf1;
+            overflow: hidden;
+            touch-action: none;
+            -webkit-font-smoothing: antialiased;
+        }
+
+        /* macOS style scrollbars */
+        ::-webkit-scrollbar { width: 5px; height: 5px; }
+        ::-webkit-scrollbar-track { background: transparent; }
+        ::-webkit-scrollbar-thumb { background: rgba(255, 255, 255, 0.15); border-radius: 10px; }
+        ::-webkit-scrollbar-thumb:hover { background: rgba(255, 255, 255, 0.3); }
+
+        .checker-bg {
+            background-color: #121212;
+            background-image: 
+                linear-gradient(45deg, #1e1e1e 25%, transparent 25%), 
+                linear-gradient(-45deg, #1e1e1e 25%, transparent 25%), 
+                linear-gradient(45deg, transparent 75%, #1e1e1e 75%), 
+                linear-gradient(-45deg, transparent 75%, #1e1e1e 75%);
+            background-size: 24px 24px;
+            background-position: 0 0, 0 12px, 12px -12px, -12px 0px;
+        }
+
+        /* Sleek macOS UI Elements */
+        input[type="range"] {
+            -webkit-appearance: none;
+            height: 4px;
+            background: rgba(255, 255, 255, 0.1);
+            border-radius: 2px;
+            outline: none;
+        }
+        input[type="range"]::-webkit-slider-thumb {
+            -webkit-appearance: none;
+            width: 14px;
+            height: 14px;
+            border-radius: 50%;
+            background: #fff;
+            border: 1px solid rgba(0,0,0,0.1);
+            box-shadow: 0 1px 4px rgba(0,0,0,0.5);
+            cursor: pointer;
+            transition: transform 0.1s;
+        }
+        input[type="range"]::-webkit-slider-thumb:hover { transform: scale(1.15); }
+
+        input[type="color"] {
+            -webkit-appearance: none;
+            border: none;
+            width: 100%;
+            height: 100%;
+            padding: 0;
+            cursor: pointer;
+            background: transparent;
+        }
+        input[type="color"]::-webkit-color-swatch-wrapper { padding: 0; }
+        input[type="color"]::-webkit-color-swatch { border: none; border-radius: 4px; box-shadow: inset 0 0 0 1px rgba(255,255,255,0.15); }
+
+        .mac-btn { transition: all 0.2s ease; }
+        .mac-btn:hover { transform: scale(1.02); }
+        .mac-btn:active { transform: scale(0.98); }
+
+        .tool-btn { transition: all 0.2s ease; border: 1px solid transparent; }
+        .tool-btn.active {
+            background-color: rgba(255, 204, 0, 0.15);
+            border-color: rgba(255, 204, 0, 0.4);
+            color: #ffcc00;
+        }
+        .tool-btn:hover:not(.active) { background-color: rgba(255, 255, 255, 0.05); }
+
+        #scale-wrapper {
+            position: absolute;
+            inset: 0;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            overflow: hidden;
+            padding: 0px; 
+        }
+
+        #draw-canvas {
+            box-shadow: 0 0 0 1px rgba(255,255,255,0.05), 0 30px 60px -12px rgba(0,0,0,0.8);
+            transform-origin: center center;
+            will-change: transform;
+            border-radius: 4px;
+        }
+        .cursor-draw { cursor: crosshair; }
+        .cursor-select { cursor: default; }
+        
+        details > summary { list-style: none; }
+        details > summary::-webkit-details-marker { display: none; }
+    </style>
+</head>
+<body class="flex flex-col h-screen text-sm">
+
+    <!-- Header -->
+    <header class="absolute top-0 w-full h-14 bg-zinc-900/80 backdrop-blur-2xl border-b border-white/5 flex items-center justify-between px-3 sm:px-6 z-40">
+        <div class="flex items-center gap-3">
+            <div class="w-7 h-7 rounded-lg bg-yellow-500 flex items-center justify-center shadow-inner shadow-white/30">
+                <i data-lucide="highlighter" class="w-4 h-4 text-yellow-950"></i>
+            </div>
+            <h1 class="font-semibold tracking-tight whitespace-nowrap hidden sm:block text-zinc-100">Vox <span class="text-zinc-500 font-normal">Annotator Studio</span></h1>
+        </div>
+
+        <!-- Canvas Actions -->
+        <div class="flex items-center gap-1.5 bg-black/40 p-1 rounded-xl ring-1 ring-white/10 shrink-0">
+            <button onclick="undoLast()" class="px-2.5 py-1.5 rounded-lg text-zinc-400 hover:text-white hover:bg-white/10 transition-colors flex items-center gap-2 text-xs font-medium" title="Undo">
+                <i data-lucide="undo" class="w-3.5 h-3.5"></i> <span class="hidden md:inline">Undo</span>
+            </button>
+            <div class="w-px h-4 bg-white/10 mx-0.5"></div>
+            <button onclick="clearCanvas()" class="px-2.5 py-1.5 rounded-lg text-rose-400 hover:text-rose-300 hover:bg-rose-500/10 transition-colors flex items-center gap-2 text-xs font-medium" title="Clear All">
+                <i data-lucide="trash-2" class="w-3.5 h-3.5"></i> <span class="hidden md:inline">Clear</span>
+            </button>
+        </div>
+
+        <!-- Play & Export -->
+        <div class="flex items-center justify-end gap-2 shrink-0">
+            <button onclick="togglePreview()" id="btn-play" class="mac-btn flex items-center gap-2 px-3 py-1.5 bg-white/5 hover:bg-white/10 text-white rounded-lg font-medium transition-colors ring-1 ring-white/10 text-xs sm:text-sm">
+                <i data-lucide="play" class="w-4 h-4" id="icon-play"></i>
+                <span id="text-play" class="hidden sm:inline">Preview</span>
+            </button>
+            
+            <div class="flex bg-yellow-500 rounded-lg shadow-lg shadow-yellow-500/10 ring-1 ring-inset ring-white/20 transition-all hover:bg-yellow-400">
+                <select id="export-fmt" class="bg-transparent text-yellow-950 font-bold pl-2 pr-1 py-1.5 outline-none cursor-pointer appearance-none text-xs border-r border-yellow-600/30 hidden sm:block">
+                    <option value="webm">WebM Video</option>
+                    <option value="gif">GIF Anim</option>
+                    <option value="png">PNG Snap</option>
+                </select>
+                <button onclick="exportMedia()" id="btn-export" class="flex items-center gap-2 px-3 py-1.5 text-yellow-950 font-bold transition-all rounded-r-lg text-xs sm:text-sm">
+                    <i data-lucide="download" class="w-4 h-4"></i>
+                    <span class="hidden sm:inline">Export</span>
+                </button>
+            </div>
+        </div>
+    </header>
+
+    <!-- Main Layout -->
+    <div class="flex flex-1 pt-14 relative overflow-hidden flex-col md:flex-row">
+        
+        <!-- Left Sidebar: Tools -->
+        <aside class="w-full md:w-[320px] flex-shrink-0 bg-zinc-900/60 backdrop-blur-3xl border-r border-white/5 z-30 h-[45%] md:h-full flex flex-col shadow-2xl order-2 md:order-1">
+            <div class="p-4 overflow-y-auto space-y-4 h-full custom-scrollbar">
+                
+                <!-- Drawing Tools -->
+                <div class="space-y-2">
+                    <label class="text-[10px] font-semibold text-zinc-500 uppercase tracking-wider block flex items-center gap-1.5 px-1">
+                        <i data-lucide="pen-tool" class="w-3 h-3"></i> Instruments
+                    </label>
+                    <div class="grid grid-cols-3 gap-1.5 p-1.5 bg-white/[0.02] border border-white/5 rounded-xl">
+                        <button class="tool-btn py-2 rounded-lg text-xs font-medium text-zinc-300 bg-black/20 flex justify-center items-center gap-1.5 col-span-3 mb-1" data-tool="select" onclick="setTool('select')">
+                            <i data-lucide="mouse-pointer-2" class="w-4 h-4"></i> <span class="text-[10px] sm:text-xs">Select & Edit</span>
+                        </button>
+                        
+                        <button class="tool-btn active py-2 rounded-lg text-zinc-300 flex flex-col justify-center items-center gap-1.5 h-14" data-tool="pen" onclick="setTool('pen')">
+                            <i data-lucide="pen" class="w-4 h-4"></i>
+                            <span class="text-[10px]">Free Pen</span>
+                        </button>
+                        <button class="tool-btn py-2 rounded-lg text-zinc-300 flex flex-col justify-center items-center gap-1.5 h-14" data-tool="highlight" onclick="setTool('highlight')">
+                            <i data-lucide="highlighter" class="w-4 h-4"></i>
+                            <span class="text-[10px]">Marker</span>
+                        </button>
+                        <button class="tool-btn py-2 rounded-lg text-zinc-300 flex flex-col justify-center items-center gap-1.5 h-14" data-tool="straight_highlight" onclick="setTool('straight_highlight')">
+                            <i data-lucide="paint-roller" class="w-4 h-4"></i>
+                            <span class="text-[10px]">St. Marker</span>
+                        </button>
+
+                        <button class="tool-btn py-2 rounded-lg text-zinc-300 flex flex-col justify-center items-center gap-1.5 h-14" data-tool="straight_line" onclick="setTool('straight_line')">
+                            <i data-lucide="minus" class="w-4 h-4"></i>
+                            <span class="text-[10px]">Line</span>
+                        </button>
+                        <button class="tool-btn py-2 rounded-lg text-zinc-300 flex flex-col justify-center items-center gap-1.5 h-14" data-tool="arrow" onclick="setTool('arrow')">
+                            <i data-lucide="arrow-up-right" class="w-4 h-4"></i>
+                            <span class="text-[10px]">Arrow</span>
+                        </button>
+                        <button class="tool-btn py-2 rounded-lg text-zinc-300 flex flex-col justify-center items-center gap-1.5 h-14" data-tool="arc_arrow" onclick="setTool('arc_arrow')">
+                            <i data-lucide="redo-2" class="w-4 h-4"></i>
+                            <span class="text-[10px]">Arc Arrow</span>
+                        </button>
+
+                        <button class="tool-btn py-2 rounded-lg text-zinc-300 flex flex-col justify-center items-center gap-1.5 h-14" data-tool="circle" onclick="setTool('circle')">
+                            <i data-lucide="circle" class="w-4 h-4"></i>
+                            <span class="text-[10px]">Circle</span>
+                        </button>
+                        <button class="tool-btn py-2 rounded-lg text-zinc-300 flex flex-col justify-center items-center gap-1.5 h-14" data-tool="rect" onclick="setTool('rect')">
+                            <i data-lucide="square" class="w-4 h-4"></i>
+                            <span class="text-[10px]">Rectangle</span>
+                        </button>
+                        <!-- Filler to balance grid -->
+                        <div class="col-span-1"></div>
+                    </div>
+                </div>
+
+                <div class="w-full h-px bg-white/5 my-1"></div>
+
+                <!-- Properties -->
+                <div class="flex items-center justify-between px-1 mb-2">
+                    <label class="text-[10px] font-semibold text-zinc-500 uppercase tracking-wider flex items-center gap-1.5">
+                        <i data-lucide="sliders" class="w-3 h-3"></i> Stroke Properties
+                    </label>
+                    <span id="selection-badge" class="text-[8px] font-bold uppercase tracking-widest text-yellow-500 bg-yellow-500/10 border border-yellow-500/20 px-2 py-0.5 rounded-full hidden">Selected</span>
+                </div>
+
+                <div class="bg-white/[0.02] border border-white/5 rounded-xl p-3 space-y-4">
+                    <!-- Color Palette -->
+                    <div class="flex items-center justify-between">
+                        <span class="text-xs text-zinc-400 font-medium hidden md:inline">Color</span>
+                        <div class="flex-1 md:flex-none flex justify-between md:justify-end gap-2">
+                            <button class="w-5 h-5 rounded-full bg-[#ffcc00] ring-1 ring-white/10 ring-offset-1 ring-offset-transparent hover:scale-110 transition-transform" onclick="updateProp('color', '#ffcc00')"></button>
+                            <button class="w-5 h-5 rounded-full bg-[#f43f5e] ring-1 ring-white/10 ring-offset-1 ring-offset-transparent hover:scale-110 transition-transform" onclick="updateProp('color', '#f43f5e')"></button>
+                            <button class="w-5 h-5 rounded-full bg-[#3b82f6] ring-1 ring-white/10 ring-offset-1 ring-offset-transparent hover:scale-110 transition-transform" onclick="updateProp('color', '#3b82f6')"></button>
+                            <button class="w-5 h-5 rounded-full bg-[#10b981] ring-1 ring-white/10 ring-offset-1 ring-offset-transparent hover:scale-110 transition-transform" onclick="updateProp('color', '#10b981')"></button>
+                            <button class="w-5 h-5 rounded-full bg-[#ffffff] ring-1 ring-white/10 ring-offset-1 ring-offset-transparent hover:scale-110 transition-transform" onclick="updateProp('color', '#ffffff')"></button>
+                            <div class="relative w-5 h-5 rounded-full ring-1 ring-white/10 ring-offset-1 ring-offset-transparent overflow-hidden cursor-pointer hover:scale-110 transition-transform bg-zinc-800">
+                                <input type="color" value="#ffcc00" id="prop-color" onchange="updateProp('color', this.value)" oninput="updateProp('color', this.value)">
+                            </div>
+                        </div>
+                    </div>
+
+                    <!-- Thickness -->
+                    <div>
+                        <div class="flex justify-between items-center mb-2">
+                            <span class="text-xs text-zinc-400 font-medium">Thickness</span>
+                            <span id="width-val" class="text-xs text-zinc-500 font-mono">6px</span>
+                        </div>
+                        <!-- Increased Max value up to 120 -->
+                        <input type="range" id="prop-width" min="2" max="120" value="6" class="w-full accent-zinc-300" oninput="updateProp('width', parseInt(this.value))">
+                    </div>
+
+                    <!-- Opacity -->
+                    <div>
+                        <div class="flex justify-between items-center mb-2">
+                            <span class="text-xs text-zinc-400 font-medium">Opacity</span>
+                            <span id="opacity-val" class="text-xs text-zinc-500 font-mono">100%</span>
+                        </div>
+                        <input type="range" id="prop-opacity" min="0.1" max="1.0" step="0.05" value="1.0" class="w-full accent-zinc-300" oninput="updateProp('opacity', parseFloat(this.value))">
+                    </div>
+
+                    <!-- Arc Bend -->
+                    <div id="panel-bend" class="hidden pt-3 border-t border-white/5">
+                        <div class="flex justify-between items-center mb-2">
+                            <span class="text-xs text-yellow-500 font-medium">Curve Arc</span>
+                            <span id="bend-val" class="text-xs text-zinc-500 font-mono">25%</span>
+                        </div>
+                        <input type="range" id="prop-bend" min="-100" max="100" value="25" class="w-full accent-yellow-500" oninput="updateProp('bend', parseInt(this.value))">
+                    </div>
+
+                    <!-- Smoothing (Pen only) -->
+                    <div id="panel-smooth" class="hidden pt-3 border-t border-white/5">
+                        <div class="flex justify-between items-center mb-2">
+                            <span class="text-xs text-yellow-500 font-medium">Auto-Smoothing</span>
+                            <span id="smooth-val" class="text-xs text-zinc-500 font-mono">High</span>
+                        </div>
+                        <input type="range" id="prop-smooth" min="0" max="15" value="8" class="w-full accent-yellow-500" oninput="updateProp('smoothness', parseInt(this.value))">
+                    </div>
+                </div>
+
+                <!-- Animation Config -->
+                <details class="group bg-white/[0.02] border border-white/5 rounded-xl overflow-hidden" open>
+                    <summary class="px-3 py-2.5 flex items-center justify-between cursor-pointer hover:bg-white/[0.04] transition-colors list-none [&::-webkit-details-marker]:hidden select-none">
+                        <div class="flex items-center gap-2">
+                            <i data-lucide="chevron-right" class="w-3.5 h-3.5 text-zinc-500 group-open:rotate-90 transition-transform"></i>
+                            <span class="text-[10px] font-semibold text-zinc-300 uppercase tracking-wider">Animation</span>
+                        </div>
+                    </summary>
+                    <div class="p-3 space-y-3 bg-black/20 border-t border-white/5">
+                        <div>
+                            <div class="flex justify-between items-center mb-2">
+                                <span class="text-xs text-zinc-400 font-medium">Draw Duration</span>
+                                <span id="dur-val" class="text-xs text-zinc-500 font-mono">0.8s</span>
+                            </div>
+                            <input type="range" id="prop-duration" min="0.2" max="3.0" step="0.1" value="0.8" class="w-full accent-zinc-300" oninput="updateProp('duration', parseFloat(this.value))">
+                        </div>
+                        <div class="flex items-center justify-between">
+                            <span class="text-xs text-zinc-400 font-medium">Draw Backwards</span>
+                            <label class="relative inline-flex items-center cursor-pointer">
+                                <input type="checkbox" id="prop-reverse" class="sr-only peer" onchange="updateProp('reverseDraw', this.checked)">
+                                <div class="w-7 h-4 bg-zinc-700 peer-focus:outline-none rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border-gray-300 after:border after:rounded-full after:h-3 after:w-3 after:transition-all peer-checked:bg-yellow-500"></div>
+                            </label>
+                        </div>
+                    </div>
+                </details>
+
+                <button id="btn-delete" onclick="deleteSelected()" class="w-full mt-2 py-2 bg-red-500/10 hover:bg-red-500/20 text-red-400 rounded-lg text-xs font-semibold transition-colors hidden border border-red-500/20 flex items-center justify-center gap-2">
+                    <i data-lucide="trash-2" class="w-3.5 h-3.5"></i> Delete Selected
+                </button>
+
+                <!-- Document/Canvas -->
+                <div class="pt-2">
+                    <div class="flex items-center justify-between px-1 mb-2">
+                        <label class="text-[10px] font-semibold text-zinc-500 uppercase tracking-wider flex items-center gap-1.5">
+                            <i data-lucide="image" class="w-3 h-3"></i> Document
+                        </label>
+                    </div>
+                    <div class="bg-white/[0.02] border border-white/5 rounded-xl p-3 space-y-3">
+                        <div class="flex items-center justify-between border-b border-white/5 pb-3">
+                            <span class="text-xs text-zinc-400 font-medium">Canvas Size</span>
+                            <select class="bg-black/40 border border-white/10 rounded px-2 py-1 text-xs text-zinc-300 outline-none w-24" onchange="setCanvasRatio(this.value)">
+                                <option value="1920x1080" selected>16:9 (HD)</option>
+                                <option value="1080x1920">9:16 (Shorts)</option>
+                                <option value="1080x1080">1:1 (Square)</option>
+                            </select>
+                        </div>
+
+                        <!-- Add BG Color Selectors -->
+                        <div class="flex items-center justify-between border-b border-white/5 pb-3">
+                            <span class="text-xs text-zinc-400 font-medium">BG Color</span>
+                            <div class="flex gap-1.5 items-center">
+                                <button class="w-5 h-5 rounded-full border border-white/20 bg-[url('data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAAAoAAAAKCAYAAACNMs+9AAAAAXNSR0IArs4c6QAAACVJREFUKFNjZCASMDKgAnv37v3/n0QciwZkR+BThM8wUshwQxgAYeAU/6+E4wYAAAAASUVORK5CYII=')] hover:scale-110 transition-transform" onclick="updateBgColor('transparent')" title="Transparent"></button>
+                                <button class="w-5 h-5 rounded-full border border-white/20 bg-[#121212] hover:scale-110 transition-transform" onclick="updateBgColor('#121212')" title="Dark"></button>
+                                <button class="w-5 h-5 rounded-full border border-white/20 bg-[#ffffff] hover:scale-110 transition-transform" onclick="updateBgColor('#ffffff')" title="Light"></button>
+                                <div class="relative w-5 h-5 rounded-full ring-1 ring-white/10 overflow-hidden cursor-pointer bg-zinc-800 hover:scale-110 transition-transform" title="Custom BG Color">
+                                    <input type="color" value="#09090b" onchange="updateBgColor(this.value)" oninput="updateBgColor(this.value)">
+                                </div>
+                            </div>
+                        </div>
+                        
+                        <button onclick="document.getElementById('bg-upload').click()" class="w-full py-1.5 bg-white/5 hover:bg-white/10 text-zinc-300 rounded-lg text-xs font-medium transition-colors ring-1 ring-white/10 flex items-center justify-center gap-2">
+                            <i data-lucide="upload-cloud" class="w-3.5 h-3.5"></i> Upload Image
+                        </button>
+                        <input type="file" id="bg-upload" accept="image/*" class="hidden" onchange="handleBgUpload(event)">
+                        <button onclick="clearBg()" class="w-full py-1.5 bg-transparent hover:bg-white/5 text-zinc-500 rounded-lg text-[10px] font-medium transition-colors border border-dashed border-white/10">Remove Image</button>
+                    </div>
+                </div>
+
+            </div>
+        </aside>
+
+        <!-- Main Canvas Area -->
+        <main class="flex-1 relative bg-zinc-950 overflow-hidden order-1 md:order-2 flex items-center justify-center">
+            <div id="scale-wrapper" class="checker-bg w-full h-full">
+                <canvas id="draw-canvas" width="1920" height="1080" class="cursor-draw relative z-10"></canvas>
+            </div>
+            
+            <div id="status-indicator" class="absolute top-6 right-6 flex items-center gap-2 bg-yellow-500/10 border border-yellow-500/50 text-yellow-500 px-4 py-2 rounded-full shadow-lg opacity-0 transition-opacity duration-300 pointer-events-none backdrop-blur-md z-50">
+                <div class="w-2 h-2 rounded-full bg-yellow-400 animate-pulse" id="status-dot"></div>
+                <span class="text-xs font-bold tracking-wide uppercase" id="status-text">Animating</span>
+            </div>
+        </main>
+    </div>
+
+    <!-- Export Loading Overlay -->
+    <div id="export-loader" class="fixed inset-0 z-50 bg-black/80 hidden flex flex-col items-center justify-center transition-opacity opacity-0 backdrop-blur-sm">
+        <div class="w-12 h-12 border-4 border-white/10 border-t-yellow-500 rounded-full animate-spin mb-4"></div>
+        <h2 class="text-xl font-bold text-white mb-2" id="export-title">Processing</h2>
+        <p class="text-sm text-zinc-400 font-mono font-medium" id="rec-time">0%</p>
+    </div>
+
+    <!-- Toasts -->
+    <div id="toast-container" class="fixed top-20 right-6 z-[60] flex flex-col gap-2 pointer-events-none"></div>
+
+    <script>
+        lucide.createIcons();
+
+        // --- Application State ---
+        const state = {
+            tool: 'pen', // 'select', 'pen', 'highlight', 'straight_highlight', 'straight_line', 'arrow', 'arc_arrow', 'circle', 'rect'
+            
+            canvasWidth: 1920,
+            canvasHeight: 1080,
+            bgImage: null,
+            bgColor: 'transparent',
+            
+            // Global Properties
+            color: '#ffcc00',
+            width: 6,
+            opacity: 1.0,
+            duration: 0.8,
+            bend: 25, // Stored as integer -100 to 100 to prevent slider glitches
+            smoothness: 8,
+            reverseDraw: false,
+            
+            // Interaction
+            selectedShapeId: null,
+            isDragging: false,
+            currentShape: null,
+            shapes: [], 
+            timelineCursor: 0, 
+            
+            // Playback
+            isPlaying: false,
+            isExporting: false,
+            playbackStartTime: 0,
+            
+            mediaRecorder: null,
+            recordedChunks: []
+        };
+
+        const canvas = document.getElementById('draw-canvas');
+        const ctx = canvas.getContext('2d', { willReadFrequently: true });
+
+        // --- Math & Smoothing Utilities ---
+        function easeOutQuart(x) { return 1 - Math.pow(1 - x, 4); }
+        function easeInOutCubic(x) { return x < 0.5 ? 4 * x * x * x : 1 - Math.pow(-2 * x + 2, 3) / 2; }
+
+        // Chaikin's algorithm approximation for drawing smooth freehand lines
+        function smoothPolyline(points, iterations) {
+            if (points.length < 3 || iterations === 0) return points;
+            let smoothed = [...points];
+            for (let it = 0; it < iterations; it++) {
+                let newPts = [smoothed[0]];
+                for (let i = 0; i < smoothed.length - 1; i++) {
+                    let p0 = smoothed[i], p1 = smoothed[i + 1];
+                    newPts.push({ x: 0.75 * p0.x + 0.25 * p1.x, y: 0.75 * p0.y + 0.25 * p1.y });
+                    newPts.push({ x: 0.25 * p0.x + 0.75 * p1.x, y: 0.25 * p0.y + 0.75 * p1.y });
+                }
+                newPts.push(smoothed[smoothed.length - 1]);
+                smoothed = newPts;
+            }
+            return smoothed;
+        }
+
+        // Calculate total length of polyline and lengths of individual segments
+        function calculatePathMetrics(points) {
+            let total = 0;
+            let segments = [];
+            for (let i = 0; i < points.length - 1; i++) {
+                let dist = Math.hypot(points[i+1].x - points[i].x, points[i+1].y - points[i].y);
+                total += dist;
+                segments.push(dist);
+            }
+            return { total, segments };
+        }
+
+        // --- Canvas & Layout ---
+        function updateLayoutScale() {
+            const wrapper = document.getElementById('scale-wrapper');
+            const padding = 20; 
+            const availW = wrapper.clientWidth - padding;
+            const availH = wrapper.clientHeight - padding;
+            const scale = Math.min(availW / state.canvasWidth, availH / state.canvasHeight, 1.0);
+            canvas.style.transform = `scale(${scale})`;
+        }
+        window.addEventListener('resize', updateLayoutScale);
+        updateLayoutScale();
+
+        function setCanvasRatio(val) {
+            const [w, h] = val.split('x').map(Number);
+            state.canvasWidth = w;
+            state.canvasHeight = h;
+            canvas.width = w;
+            canvas.height = h;
+            updateLayoutScale();
+            renderScene();
+        }
+
+        function updateBgColor(color) {
+            state.bgColor = color;
+            renderScene();
+        }
+
+        function handleBgUpload(e) {
+            const file = e.target.files[0];
+            if (!file) return;
+            const reader = new FileReader();
+            reader.onload = (event) => {
+                const img = new Image();
+                img.onload = () => {
+                    state.bgImage = img;
+                    renderScene();
+                };
+                img.src = event.target.result;
+            };
+            reader.readAsDataURL(file);
+        }
+        function clearBg() { state.bgImage = null; renderScene(); }
+
+        // --- UI Updaters ---
+        function setTool(tool) {
+            state.tool = tool;
+            state.selectedShapeId = null;
+            syncUI();
+            
+            document.querySelectorAll('.tool-btn').forEach(btn => {
+                btn.classList.remove('active');
+                if(btn.dataset.tool === tool) btn.classList.add('active');
+            });
+            
+            canvas.className = tool === 'select' ? 'cursor-select relative z-10' : 'cursor-draw relative z-10';
+            
+            // Adjust defaults based on tool type to make sense immediately
+            if (tool === 'highlight' || tool === 'straight_highlight') {
+                if(state.opacity === 1.0) updateProp('opacity', 0.5);
+                if(state.width < 15) updateProp('width', 40);
+            } else {
+                if(state.opacity < 1.0) updateProp('opacity', 1.0);
+                if(state.width > 20) updateProp('width', 6);
+            }
+            renderScene();
+        }
+
+        function updateProp(prop, val) {
+            if (state.selectedShapeId) {
+                const shape = state.shapes.find(s => s.id === state.selectedShapeId);
+                if (shape) {
+                    shape[prop] = val;
+                    if(prop === 'smoothness' && shape.rawPoints) {
+                        shape.points = smoothPolyline(shape.rawPoints, val);
+                        shape.metrics = calculatePathMetrics(shape.points);
+                    }
+                }
+            } else {
+                state[prop] = val;
+            }
+            syncUI(); 
+            renderScene();
+        }
+
+        function deleteSelected() {
+            if (state.selectedShapeId) {
+                state.shapes = state.shapes.filter(s => s.id !== state.selectedShapeId);
+                state.selectedShapeId = null;
+                // Rebuild timeline
+                state.timelineCursor = 0;
+                state.shapes.forEach(s => { s.startTime = state.timelineCursor; state.timelineCursor += s.duration; });
+                syncUI();
+                renderScene();
+            }
+        }
+
+        function syncUI() {
+            const getVal = (s, p, def) => (s && s[p] !== undefined) ? s[p] : def;
+            const shape = state.selectedShapeId ? state.shapes.find(s => s.id === state.selectedShapeId) : null;
+            
+            const isArc = shape ? shape.type === 'arc_arrow' : state.tool === 'arc_arrow';
+            const isPen = shape ? (shape.type === 'pen' || shape.type === 'highlight') : (state.tool === 'pen' || state.tool === 'highlight');
+
+            document.getElementById('selection-badge').style.display = shape ? 'block' : 'none';
+            document.getElementById('btn-delete').style.display = shape ? 'flex' : 'none';
+            
+            document.getElementById('panel-bend').style.display = isArc ? 'block' : 'none';
+            document.getElementById('panel-smooth').style.display = isPen ? 'block' : 'none';
+
+            let c = getVal(shape, 'color', state.color);
+            document.getElementById('prop-color').value = c;
+            
+            let w = getVal(shape, 'width', state.width);
+            document.getElementById('prop-width').value = w;
+            document.getElementById('width-val').innerText = w + 'px';
+            
+            let o = getVal(shape, 'opacity', state.opacity);
+            document.getElementById('prop-opacity').value = o;
+            document.getElementById('opacity-val').innerText = Math.round(o * 100) + '%';
+            
+            let d = getVal(shape, 'duration', state.duration);
+            document.getElementById('prop-duration').value = d;
+            document.getElementById('dur-val').innerText = d.toFixed(1) + 's';
+            
+            let rev = getVal(shape, 'reverseDraw', state.reverseDraw);
+            document.getElementById('prop-reverse').checked = rev;
+
+            if (isArc) {
+                // b is an integer percentage (-100 to 100)
+                let b = getVal(shape, 'bend', state.bend);
+                document.getElementById('prop-bend').value = b;
+                document.getElementById('bend-val').innerText = b + '%';
+            }
+            if (isPen) {
+                let sm = getVal(shape, 'smoothness', state.smoothness);
+                let text = sm > 10 ? 'High' : (sm > 4 ? 'Med' : (sm > 0 ? 'Low' : 'None'));
+                document.getElementById('prop-smooth').value = sm;
+                document.getElementById('smooth-val').innerText = text;
+            }
+        }
+
+        // --- Rendering Logic ---
+        function drawArrowHead(ctx, x, y, angle, size) {
+            ctx.save();
+            ctx.translate(x, y);
+            ctx.rotate(angle);
+            ctx.beginPath();
+            ctx.moveTo(-size, -size * 0.6);
+            ctx.lineTo(0, 0);
+            ctx.lineTo(-size, size * 0.6);
+            ctx.stroke();
+            ctx.restore();
+        }
+
+        function getArcPoint(start, end, bendPct, t) {
+            const bend = bendPct / 100; // Divide by 100 to apply scale
+            const dx = end.x - start.x, dy = end.y - start.y;
+            const len = Math.hypot(dx, dy);
+            let nx = -dy / len, ny = dx / len;
+            const cpX = (start.x + end.x) / 2 + nx * (len * bend);
+            const cpY = (start.y + end.y) / 2 + ny * (len * bend);
+            const u = 1 - t;
+            const x = u*u*start.x + 2*u*t*cpX + t*t*end.x;
+            const y = u*u*start.y + 2*u*t*cpY + t*t*end.y;
+            const dX = 2*u*(cpX - start.x) + 2*t*(end.x - cpX);
+            const dY = 2*u*(cpY - start.y) + 2*t*(end.y - cpY);
+            return { x, y, angle: Math.atan2(dY, dX) };
+        }
+
+        function getShapeBounds(shape) {
+            let minX=99999, minY=99999, maxX=-99999, maxY=-99999;
+            const pad = shape.width * 2 + 10;
+            
+            if (shape.type === 'pen' || shape.type === 'highlight') {
+                shape.points.forEach(p => {
+                    if(p.x < minX) minX = p.x; if(p.x > maxX) maxX = p.x;
+                    if(p.y < minY) minY = p.y; if(p.y > maxY) maxY = p.y;
+                });
+            } else {
+                minX = Math.min(shape.startX, shape.endX); maxX = Math.max(shape.startX, shape.endX);
+                minY = Math.min(shape.startY, shape.endY); maxY = Math.max(shape.startY, shape.endY);
+                if (shape.type === 'arc_arrow') {
+                    const ext = Math.abs(shape.bend / 100) * Math.hypot(shape.endX-shape.startX, shape.endY-shape.startY);
+                    minX -= ext; maxX += ext; minY -= ext; maxY += ext;
+                }
+            }
+            return { minX: minX-pad, minY: minY-pad, maxX: maxX+pad, maxY: maxY+pad };
+        }
+
+        function drawShape(ctx, shape, progress) {
+            if (progress <= 0) return;
+            const p = easeInOutCubic(Math.min(1, progress));
+            const rev = shape.reverseDraw;
+
+            ctx.save();
+            ctx.strokeStyle = shape.color;
+            ctx.lineWidth = shape.width;
+            ctx.lineCap = 'round';
+            ctx.lineJoin = 'round';
+            
+            // Vox specific stylings
+            if (shape.type === 'highlight' || shape.type === 'straight_highlight') {
+                // Highlighters look great on dark canvases with standard opacity + source-over
+                ctx.globalCompositeOperation = 'source-over'; 
+                if (shape.type === 'straight_highlight') ctx.lineCap = 'butt'; // clean rectangular marker edges
+            }
+            ctx.globalAlpha = shape.opacity;
+
+            if (shape.type === 'pen' || shape.type === 'highlight') {
+                if (shape.points.length < 2) { ctx.restore(); return; }
+                
+                const targetLen = shape.metrics.total * p;
+                let drawn = 0;
+                
+                ctx.beginPath();
+                
+                if (rev) {
+                    ctx.moveTo(shape.points[shape.points.length-1].x, shape.points[shape.points.length-1].y);
+                    for (let i = shape.points.length - 2; i >= 0; i--) {
+                        let seg = shape.metrics.segments[i];
+                        if (drawn + seg > targetLen) {
+                            let ratio = (targetLen - drawn) / seg;
+                            let p0 = shape.points[i+1], p1 = shape.points[i];
+                            ctx.lineTo(p0.x + (p1.x - p0.x) * ratio, p0.y + (p1.y - p0.y) * ratio);
+                            break;
+                        }
+                        ctx.lineTo(shape.points[i].x, shape.points[i].y);
+                        drawn += seg;
+                    }
+                } else {
+                    ctx.moveTo(shape.points[0].x, shape.points[0].y);
+                    for (let i = 0; i < shape.points.length - 1; i++) {
+                        let seg = shape.metrics.segments[i];
+                        if (drawn + seg > targetLen) {
+                            let ratio = (targetLen - drawn) / seg;
+                            let p0 = shape.points[i], p1 = shape.points[i+1];
+                            ctx.lineTo(p0.x + (p1.x - p0.x) * ratio, p0.y + (p1.y - p0.y) * ratio);
+                            break;
+                        }
+                        ctx.lineTo(shape.points[i+1].x, shape.points[i+1].y);
+                        drawn += seg;
+                    }
+                }
+                ctx.stroke();
+            } 
+            else if (['arrow', 'arc_arrow', 'straight_line', 'straight_highlight'].includes(shape.type)) {
+                const s = {x: shape.startX, y: shape.startY};
+                const e = {x: shape.endX, y: shape.endY};
+                
+                ctx.beginPath();
+                if (shape.type === 'arrow' || shape.type === 'straight_line' || shape.type === 'straight_highlight') {
+                    const startP = rev ? e : s;
+                    const endP = rev ? s : e;
+                    const curX = startP.x + (endP.x - startP.x) * p;
+                    const curY = startP.y + (endP.y - startP.y) * p;
+                    
+                    ctx.moveTo(startP.x, startP.y);
+                    ctx.lineTo(curX, curY);
+                    ctx.stroke();
+
+                    if (shape.type === 'arrow') {
+                        const angle = Math.atan2(endP.y - startP.y, endP.x - startP.x);
+                        if (rev) drawArrowHead(ctx, e.x, e.y, Math.atan2(s.y - e.y, s.x - e.x), shape.width * 2.5);
+                        else if (p > 0.05) drawArrowHead(ctx, curX, curY, angle, shape.width * 2.5);
+                    }
+                } 
+                else if (shape.type === 'arc_arrow') {
+                    // Arc Arrow
+                    const steps = Math.max(10, Math.floor(100 * p));
+                    let pts = [];
+                    for(let i=0; i<=steps; i++){
+                        let pt = getArcPoint(s, e, shape.bend, (i/100) * p);
+                        pts.push(pt);
+                    }
+                    
+                    if (rev) {
+                        pts = [];
+                        for(let i=0; i<=steps; i++){
+                            let pt = getArcPoint(s, e, shape.bend, 1 - ((i/100) * p));
+                            pts.push(pt);
+                        }
+                    }
+
+                    if(pts.length > 0) {
+                        ctx.moveTo(pts[0].x, pts[0].y);
+                        for(let i=1; i<pts.length; i++) ctx.lineTo(pts[i].x, pts[i].y);
+                        ctx.stroke();
+
+                        if (rev) {
+                            let tip = getArcPoint(s, e, shape.bend, 1);
+                            drawArrowHead(ctx, tip.x, tip.y, tip.angle + Math.PI, shape.width * 2.5);
+                        } else if (p > 0.05) {
+                            let tip = pts[pts.length-1];
+                            drawArrowHead(ctx, tip.x, tip.y, tip.angle, shape.width * 2.5);
+                        }
+                    }
+                }
+            }
+            else if (shape.type === 'circle' || shape.type === 'rect') {
+                const w = shape.endX - shape.startX;
+                const h = shape.endY - shape.startY;
+                
+                ctx.beginPath();
+                if (shape.type === 'rect') {
+                    const perimeter = 2 * (Math.abs(w) + Math.abs(h));
+                    ctx.setLineDash([perimeter]);
+                    ctx.lineDashOffset = rev ? -perimeter * (1 - p) : perimeter * (1 - p);
+                    ctx.strokeRect(shape.startX, shape.startY, w, h);
+                    ctx.setLineDash([]);
+                } else if (shape.type === 'circle') {
+                    const rx = Math.abs(w) / 2;
+                    const ry = Math.abs(h) / 2;
+                    const cx = Math.min(shape.startX, shape.endX) + rx;
+                    const cy = Math.min(shape.startY, shape.endY) + ry;
+                    let sweep = 2 * Math.PI * p;
+                    if (rev) {
+                        ctx.ellipse(cx, cy, rx, ry, 0, 2 * Math.PI - sweep, 2 * Math.PI, false);
+                    } else {
+                        ctx.ellipse(cx, cy, rx, ry, 0, 0, sweep, false);
+                    }
+                    ctx.stroke();
+                }
+            }
+
+            // Selection Outline
+            if (state.selectedShapeId === shape.id && !state.isPlaying && !state.isExporting) {
+                ctx.globalAlpha = 1.0;
+                ctx.globalCompositeOperation = 'source-over';
+                const b = getShapeBounds(shape);
+                ctx.strokeStyle = 'rgba(255,255,255,0.8)';
+                ctx.lineWidth = 1;
+                ctx.setLineDash([6, 6]);
+                ctx.strokeRect(b.minX, b.minY, b.maxX - b.minX, b.maxY - b.minY);
+                ctx.setLineDash([]);
+            }
+            ctx.restore();
+        }
+
+        function renderScene(forcedTime = null) {
+            ctx.clearRect(0, 0, canvas.width, canvas.height);
+            
+            // Draw Custom Background Color
+            if (state.bgColor && state.bgColor !== 'transparent') {
+                ctx.fillStyle = state.bgColor;
+                ctx.fillRect(0, 0, canvas.width, canvas.height);
+            }
+
+            if (state.bgImage) {
+                const imgRatio = state.bgImage.width / state.bgImage.height;
+                const canvasRatio = canvas.width / canvas.height;
+                let drawW = canvas.width, drawH = canvas.height, drawX = 0, drawY = 0;
+                if (imgRatio > canvasRatio) {
+                    drawH = canvas.height; drawW = state.bgImage.width * (canvas.height / state.bgImage.height); drawX = (canvas.width - drawW) / 2;
+                } else {
+                    drawW = canvas.width; drawH = state.bgImage.height * (canvas.width / state.bgImage.width); drawY = (canvas.height - drawH) / 2;
+                }
+                ctx.drawImage(state.bgImage, drawX, drawY, drawW, drawH);
+            }
+
+            let currentElapsed = forcedTime !== null ? forcedTime : (performance.now() / 1000);
+
+            state.shapes.forEach(shape => {
+                let progress = 1; 
+                if (state.isPlaying && forcedTime !== null) {
+                    progress = (forcedTime - shape.startTime) / shape.duration;
+                }
+                drawShape(ctx, shape, progress);
+            });
+
+            if (state.isDragging && state.currentShape && state.tool !== 'select') {
+                drawShape(ctx, state.currentShape, 1.0); 
+            }
+        }
+
+        // --- Interaction ---
+        function getMousePos(e) {
+            const rect = canvas.getBoundingClientRect();
+            const scaleX = canvas.width / rect.width;
+            const scaleY = canvas.height / rect.height;
+            return { x: (e.clientX - rect.left) * scaleX, y: (e.clientY - rect.top) * scaleY };
+        }
+
+        canvas.addEventListener('pointerdown', (e) => {
+            if (state.isPlaying || state.isExporting) return;
+            e.preventDefault();
+            const pos = getMousePos(e);
+            
+            if (state.tool === 'select') {
+                let hitId = null;
+                for (let i = state.shapes.length - 1; i >= 0; i--) {
+                    const b = getShapeBounds(state.shapes[i]);
+                    if (pos.x >= b.minX && pos.x <= b.maxX && pos.y >= b.minY && pos.y <= b.maxY) { hitId = state.shapes[i].id; break; }
+                }
+                state.selectedShapeId = hitId;
+                syncUI();
+                renderScene();
+                if (hitId) {
+                    state.isDragging = true;
+                    state.lastDragPos = pos;
+                    canvas.setPointerCapture(e.pointerId);
+                }
+                return;
+            }
+
+            state.selectedShapeId = null; 
+            syncUI();
+            state.isDragging = true;
+            canvas.setPointerCapture(e.pointerId);
+
+            state.currentShape = {
+                id: Date.now() + Math.random(),
+                type: state.tool,
+                color: state.color,
+                width: state.width,
+                opacity: state.opacity,
+                bend: state.bend, // Set without dividing by 100
+                smoothness: state.smoothness,
+                reverseDraw: state.reverseDraw,
+                startTime: state.timelineCursor,
+                duration: state.duration
+            };
+
+            if (state.tool === 'pen' || state.tool === 'highlight') {
+                state.currentShape.rawPoints = [pos];
+                state.currentShape.points = [pos];
+                state.currentShape.metrics = {total: 0, segments: []};
+            } else {
+                state.currentShape.startX = pos.x; state.currentShape.startY = pos.y;
+                state.currentShape.endX = pos.x; state.currentShape.endY = pos.y;
+            }
+            renderScene();
+        });
+
+        canvas.addEventListener('pointermove', (e) => {
+            if (!state.isDragging || state.isPlaying) return;
+            e.preventDefault();
+            const pos = getMousePos(e);
+            
+            if (state.tool === 'select' && state.selectedShapeId) {
+                const shape = state.shapes.find(s => s.id === state.selectedShapeId);
+                if (shape) {
+                    const dx = pos.x - state.lastDragPos.x, dy = pos.y - state.lastDragPos.y;
+                    if (shape.points) { shape.points.forEach(p => { p.x += dx; p.y += dy; }); shape.rawPoints.forEach(p => { p.x += dx; p.y += dy; }); } 
+                    else { shape.startX += dx; shape.endX += dx; shape.startY += dy; shape.endY += dy; }
+                    state.lastDragPos = pos;
+                    renderScene();
+                }
+            } else if (state.currentShape) {
+                if (state.tool === 'pen' || state.tool === 'highlight') {
+                    // Throttling point collection slightly for better performance
+                    let last = state.currentShape.rawPoints[state.currentShape.rawPoints.length-1];
+                    if (Math.hypot(pos.x-last.x, pos.y-last.y) > 5) {
+                        state.currentShape.rawPoints.push(pos);
+                        state.currentShape.points = smoothPolyline(state.currentShape.rawPoints, state.currentShape.smoothness);
+                        state.currentShape.metrics = calculatePathMetrics(state.currentShape.points);
+                    }
+                } else {
+                    state.currentShape.endX = pos.x; state.currentShape.endY = pos.y;
+                }
+                renderScene();
+            }
+        });
+
+        canvas.addEventListener('pointerup', (e) => {
+            if (!state.isDragging || state.isPlaying) return;
+            state.isDragging = false;
+            canvas.releasePointerCapture(e.pointerId);
+            
+            if (state.tool !== 'select' && state.currentShape) {
+                let valid = false;
+                if(state.currentShape.points && state.currentShape.metrics.total > 10) valid = true;
+                if(!state.currentShape.points && Math.hypot(state.currentShape.endX-state.currentShape.startX, state.currentShape.endY-state.currentShape.startY) > 5) valid = true;
+                
+                if (valid) {
+                    state.shapes.push({...state.currentShape});
+                    state.timelineCursor += state.duration;
+                    state.selectedShapeId = state.currentShape.id;
+                    syncUI();
+                }
+                state.currentShape = null;
+            }
+            renderScene();
+        });
+
+        function clearCanvas() {
+            state.shapes = []; state.timelineCursor = 0; state.selectedShapeId = null;
+            syncUI(); renderScene();
+        }
+
+        function undoLast() {
+            if (state.shapes.length > 0) {
+                const removed = state.shapes.pop();
+                state.timelineCursor = Math.max(0, state.timelineCursor - removed.duration);
+                if (state.selectedShapeId === removed.id) { state.selectedShapeId = null; syncUI(); }
+                renderScene();
+            }
+        }
+
+        // --- Playback & Export ---
+        function setPlayUI(playing) {
+            const btnPlay = document.getElementById('btn-play');
+            const ind = document.getElementById('status-indicator');
+            document.querySelectorAll('button:not(#btn-play):not(#btn-export), input, select').forEach(b => b.disabled = playing);
+            
+            if (playing) {
+                ind.classList.remove('opacity-0');
+                btnPlay.innerHTML = `<i data-lucide="square" class="w-4 h-4"></i><span class="hidden sm:inline">Stop</span>`;
+                if(state.isExporting) document.getElementById('status-text').innerText = 'Exporting...';
+                else document.getElementById('status-text').innerText = 'Playing';
+            } else {
+                ind.classList.add('opacity-0');
+                btnPlay.innerHTML = `<i data-lucide="play" class="w-4 h-4"></i><span class="hidden sm:inline">Preview</span>`;
+            }
+            lucide.createIcons();
+        }
+
+        function togglePreview() {
+            if (state.isPlaying) { stopPlayback(); return; }
+            if (state.shapes.length === 0) return showToast('Draw annotations first!', 'error');
+            
+            state.selectedShapeId = null; syncUI(); // Deselect before play
+            state.isPlaying = true;
+            setPlayUI(true);
+            requestAnimationFrame((timestamp) => { state.playbackStartTime = timestamp; playbackLoop(timestamp); });
+        }
+
+        function playbackLoop(timestamp) {
+            if (!state.isPlaying) return;
+            let elapsed = (timestamp - state.playbackStartTime) / 1000; 
+            let totalTime = state.timelineCursor + 1.0; 
+            renderScene(elapsed);
+
+            if (state.isExporting) {
+                let pct = Math.min(100, Math.round((elapsed / totalTime) * 100));
+                document.getElementById('rec-time').innerText = `${pct}%`;
+            }
+            if (elapsed >= totalTime) {
+                if (state.isExporting) {
+                    document.getElementById('rec-time').innerText = `Finalizing...`;
+                } else { stopPlayback(); }
+                return;
+            }
+            requestAnimationFrame(playbackLoop);
+        }
+
+        function stopPlayback() {
+            state.isPlaying = false;
+            if (state.isExporting && state.mediaRecorder) {
+                if (state.mediaRecorder.state !== 'inactive') state.mediaRecorder.stop();
+                state.isExporting = false;
+                document.getElementById('export-loader').classList.add('opacity-0');
+                setTimeout(() => document.getElementById('export-loader').classList.add('hidden'), 300);
+            }
+            setPlayUI(false); renderScene(); 
+        }
+
+        function exportMedia() {
+            if (state.shapes.length === 0) return showToast('Draw annotations first!', 'error');
+            if (state.isPlaying || state.isExporting) return;
+            
+            state.selectedShapeId = null; syncUI(); // Clean up view
+            const format = document.getElementById('export-fmt').value;
+
+            if (format === 'png') {
+                renderScene();
+                const link = document.createElement('a');
+                link.download = `vox-annotation-${Date.now()}.png`;
+                link.href = canvas.toDataURL('image/png');
+                link.click();
+                showToast('Snapshot saved!', 'success');
+            } else if (format === 'webm') {
+                exportVideo();
+            } else if (format === 'gif') {
+                exportGif();
+            }
+        }
+
+        function exportVideo() {
+            try {
+                const stream = canvas.captureStream(60); 
+                state.recordedChunks = [];
+                state.mediaRecorder = new MediaRecorder(stream, { mimeType: 'video/webm; codecs=vp9', videoBitsPerSecond: 20000000 });
+                state.mediaRecorder.ondataavailable = e => { if (e.data.size > 0) state.recordedChunks.push(e.data); };
+                state.mediaRecorder.onstop = () => {
+                    const blob = new Blob(state.recordedChunks, { type: 'video/webm' });
+                    const url = URL.createObjectURL(blob);
+                    const link = document.createElement('a');
+                    link.href = url; link.download = `vox-animation-${Date.now()}.webm`; link.click();
+                    URL.revokeObjectURL(url);
+                    showToast('Video exported!', 'success');
+                };
+
+                state.mediaRecorder.start();
+                state.isPlaying = true; state.isExporting = true;
+                setPlayUI(true);
+                
+                const loader = document.getElementById('export-loader');
+                document.getElementById('export-title').innerText = "Rendering Video";
+                loader.classList.remove('hidden');
+                requestAnimationFrame(() => loader.classList.remove('opacity-0'));
+
+                const totalTime = state.timelineCursor + 1.0;
+                let exportStartTime = performance.now();
+                
+                function exportRenderLoop(now) {
+                    let elapsed = (now - exportStartTime) / 1000;
+                    renderScene(elapsed);
+                    let pct = Math.min(100, Math.round((elapsed / totalTime) * 100));
+                    document.getElementById('rec-time').innerText = `${pct}%`;
+                    if (elapsed < totalTime) requestAnimationFrame(exportRenderLoop);
+                    else { document.getElementById('rec-time').innerText = `Finalizing...`; setTimeout(stopPlayback, 500); }
+                }
+                requestAnimationFrame(exportRenderLoop);
+            } catch (err) {
+                console.error(err); showToast('Export failed.', 'error'); stopPlayback();
+            }
+        }
+
+        function exportGif() {
+            try {
+                // Generate a smaller hidden canvas for GIF to prevent memory crash
+                const scale = Math.min(800 / canvas.width, 1.0);
+                const gW = canvas.width * scale; const gH = canvas.height * scale;
+                const gCnv = document.createElement('canvas'); gCnv.width = gW; gCnv.height = gH;
+                const gCtx = gCnv.getContext('2d');
+
+                state.isPlaying = true; state.isExporting = true;
+                setPlayUI(true);
+                
+                const loader = document.getElementById('export-loader');
+                document.getElementById('export-title').innerText = "Capturing Frames";
+                loader.classList.remove('hidden');
+                requestAnimationFrame(() => loader.classList.remove('opacity-0'));
+
+                const totalTime = state.timelineCursor + 1.0;
+                const fps = 15; 
+                const totalFrames = Math.ceil(totalTime * fps);
+                let currentFrame = 0;
+                let framesData = [];
+
+                function captureFrame() {
+                    let elapsed = currentFrame / fps;
+                    renderScene(elapsed);
+                    
+                    // Copy to small canvas with black bg, or the chosen bg color
+                    gCtx.fillStyle = state.bgColor && state.bgColor !== 'transparent' ? state.bgColor : '#121212';
+                    gCtx.fillRect(0,0,gW,gH);
+                    gCtx.drawImage(canvas, 0, 0, gW, gH);
+                    framesData.push(gCnv.toDataURL('image/png', 0.8));
+
+                    currentFrame++;
+                    let pct = Math.min(100, Math.round((currentFrame / totalFrames) * 100));
+                    document.getElementById('rec-time').innerText = `${pct}%`;
+
+                    if (currentFrame < totalFrames) {
+                        setTimeout(captureFrame, 2); 
+                    } else {
+                        document.getElementById('export-title').innerText = "Encoding GIF";
+                        document.getElementById('rec-time').innerText = `Please wait...`;
+                        setTimeout(() => {
+                            gifshot.createGIF({
+                                gifWidth: gW, gifHeight: gH, images: framesData, interval: 1 / fps, numFrames: framesData.length, sampleInterval: 10
+                            }, function (obj) {
+                                if (!obj.error) {
+                                    const link = document.createElement('a'); link.download = `vox-anim-${Date.now()}.gif`; link.href = obj.image; link.click();
+                                    showToast('GIF exported!', 'success');
+                                } else showToast('GIF Encoding failed.', 'error');
+                                
+                                state.isExporting = false;
+                                document.getElementById('export-loader').classList.add('opacity-0');
+                                setTimeout(() => document.getElementById('export-loader').classList.add('hidden'), 300);
+                                stopPlayback();
+                            });
+                        }, 50);
+                    }
+                }
+                captureFrame();
+            } catch (err) { console.error(err); showToast('GIF Export failed.', 'error'); stopPlayback(); }
+        }
+
+        function showToast(msg, type) {
+            const c = document.getElementById('toast-container');
+            const t = document.createElement('div');
+            t.className = `bg-zinc-800/95 backdrop-blur-md text-white px-4 py-3 rounded-xl shadow-2xl ring-1 ring-white/10 flex items-center gap-3 transform transition-all -translate-y-4 opacity-0 z-50`;
+            const icon = type === 'success' ? 'check-circle' : 'info';
+            const color = type === 'success' ? 'text-emerald-400' : 'text-blue-400';
+            t.innerHTML = `<i data-lucide="${icon}" class="w-4 h-4 ${color}"></i> <span class="text-sm font-medium">${msg}</span>`;
+            c.appendChild(t); lucide.createIcons();
+            requestAnimationFrame(() => t.classList.remove('-translate-y-4', 'opacity-0'));
+            setTimeout(() => { t.classList.add('-translate-y-4', 'opacity-0'); setTimeout(() => t.remove(), 300); }, 3000);
+        }
+
+        syncUI(); renderScene();
+    </script>
+</body>
+</html>

@@ -1,0 +1,1270 @@
+<!DOCTYPE html>
+<html lang="en" class="dark">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+    <title>Editorial Thumbnail Creator Pro</title>
+    
+    <!-- Google Fonts for Editorial Look -->
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <!-- Inter, Playfair Display, Roboto, Oswald (Vox), Fira Code (Fireship), Carrois Gothic, Caveat -->
+    <link href="https://fonts.googleapis.com/css2?family=Carrois+Gothic&family=Caveat:wght@600;700&family=Fira+Code:wght@400;600;700&family=Inter:wght@400;700;900&family=Oswald:wght@400;600;700&family=Playfair+Display:ital,wght@0,400;0,600;0,700;1,400;1,600&family=Roboto:wght@400;700;900&display=swap" rel="stylesheet">
+
+    <!-- Tailwind CSS -->
+    <script src="https://cdn.tailwindcss.com"></script>
+    <script>
+        tailwind.config = {
+            darkMode: 'class',
+            theme: {
+                extend: {
+                    fontFamily: {
+                        sans: ['Inter', 'sans-serif'],
+                        serif: ['Playfair Display', 'serif'],
+                    },
+                    colors: {
+                        brand: {
+                            500: '#eab308', // Yellow/Amber
+                            600: '#ca8a04',
+                        }
+                    }
+                }
+            }
+        }
+    </script>
+
+    <!-- Phosphor Icons -->
+    <script src="https://unpkg.com/@phosphor-icons/web"></script>
+    <!-- GIF.js for GIF Export -->
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/gif.js/0.2.0/gif.js"></script>
+
+    <style>
+        body {
+            transition: background-color 0.2s ease, color 0.2s ease;
+            overscroll-behavior-y: none;
+        }
+        
+        /* Custom ranges for toolbar */
+        input[type=range] {
+            -webkit-appearance: none;
+            width: 100%;
+            background: transparent;
+        }
+        input[type=range]::-webkit-slider-thumb {
+            -webkit-appearance: none;
+            height: 16px;
+            width: 16px;
+            border-radius: 50%;
+            background: #eab308;
+            cursor: pointer;
+            margin-top: -6px;
+            box-shadow: 0 2px 6px rgba(0,0,0,0.4);
+        }
+        input[type=range]::-webkit-slider-runnable-track {
+            width: 100%;
+            height: 4px;
+            cursor: pointer;
+            background: rgba(255, 255, 255, 0.1);
+            border-radius: 2px;
+        }
+
+        /* Custom scrollbars */
+        ::-webkit-scrollbar { width: 6px; height: 6px; }
+        ::-webkit-scrollbar-track { background: transparent; }
+        ::-webkit-scrollbar-thumb { background: rgba(255, 255, 255, 0.15); border-radius: 10px; }
+        ::-webkit-scrollbar-thumb:hover { background: rgba(255, 255, 255, 0.25); }
+
+        /* Color inputs */
+        input[type="color"] {
+            -webkit-appearance: none;
+            border: none;
+            width: 100%;
+            height: 100%;
+            padding: 0;
+            cursor: pointer;
+            background: transparent;
+        }
+        input[type="color"]::-webkit-color-swatch-wrapper { padding: 0; }
+        input[type="color"]::-webkit-color-swatch { border: none; border-radius: 6px; box-shadow: inset 0 0 0 1px rgba(255,255,255,0.2); }
+
+        /* Canvas container background for depth */
+        .checker-bg {
+            background-color: #09090b; 
+            background-image: 
+                linear-gradient(45deg, #18181b 25%, transparent 25%), 
+                linear-gradient(-45deg, #18181b 25%, transparent 25%), 
+                linear-gradient(45deg, transparent 75%, #18181b 75%), 
+                linear-gradient(-45deg, transparent 75%, #18181b 75%);
+            background-size: 24px 24px;
+            background-position: 0 0, 0 12px, 12px -12px, -12px 0px;
+        }
+        
+        #export-canvas {
+            box-shadow: 0 0 0 1px rgba(255,255,255,0.05), 0 30px 60px -12px rgba(0,0,0,0.8);
+            object-fit: contain;
+            max-width: 100%;
+            max-height: 100%;
+        }
+    </style>
+</head>
+<body class="bg-zinc-950 text-gray-100 h-screen flex flex-col overflow-hidden">
+
+    <!-- HEADER (macOS Glass) -->
+    <header class="h-14 bg-zinc-900/80 backdrop-blur-2xl border-b border-white/5 flex items-center justify-between px-4 sm:px-6 flex-shrink-0 z-20">
+        <div class="flex items-center gap-3">
+            <div class="bg-brand-500 text-zinc-900 font-black px-2 py-0.5 rounded-sm shadow-sm">
+                THUMB
+            </div>
+            <h1 class="text-sm font-semibold tracking-tight text-zinc-100 hidden sm:block">Editorial Thumbnail <span class="text-zinc-500 font-normal">Pro</span></h1>
+        </div>
+
+        <div class="flex items-center justify-end gap-3 shrink-0">
+            <button id="btn-header-preview" class="flex items-center gap-2 px-3 py-1.5 bg-white/5 hover:bg-white/10 text-white rounded-lg font-medium transition-colors border border-white/10 text-xs shadow-sm">
+                <i class="ph-fill ph-play-circle text-lg" id="icon-play"></i>
+                <span id="text-play" class="hidden sm:inline">Preview Anim</span>
+            </button>
+            
+            <div class="flex bg-brand-600 rounded-lg shadow-lg shadow-brand-600/20 ring-1 ring-inset ring-white/20 transition-all hover:bg-brand-500 text-zinc-900">
+                <select id="export-res" class="bg-transparent font-bold pl-2 pr-1 py-1.5 outline-none cursor-pointer appearance-none text-xs border-r border-brand-700/30 hidden sm:block">
+                    <option value="1920" selected>HD 1080p</option>
+                    <option value="2560">2K 1440p</option>
+                    <option value="3840">4K 2160p</option>
+                    <option value="640">360p (GIF)</option>
+                </select>
+                <select id="export-fmt" class="bg-transparent font-bold pl-2 pr-1 py-1.5 outline-none cursor-pointer appearance-none text-xs border-r border-brand-700/30" onchange="document.getElementById('text-export').innerText = this.value.toUpperCase()">
+                    <option value="png" selected>PNG</option>
+                    <option value="webm">WEBM</option>
+                    <option value="gif">GIF</option>
+                </select>
+                <button id="btn-header-export" class="flex items-center gap-2 px-3 py-1.5 font-black transition-all rounded-r-lg text-xs">
+                    <i class="ph-bold ph-download text-sm"></i>
+                    <span class="hidden sm:inline" id="text-export">PNG</span>
+                </button>
+            </div>
+        </div>
+    </header>
+
+    <!-- MAIN APP AREA -->
+    <main class="flex-1 flex flex-col md:flex-row overflow-hidden relative">
+        
+        <!-- Recording Overlay -->
+        <div id="recording-overlay" class="absolute top-4 left-1/2 -translate-x-1/2 bg-red-500/90 backdrop-blur-md border border-red-500/50 text-white px-5 py-2.5 rounded-full font-medium text-sm flex items-center gap-2 shadow-[0_10px_30px_rgba(239,68,68,0.3)] z-50 transition-transform duration-300 transform -translate-y-20">
+            <div class="w-2 h-2 bg-white rounded-full animate-pulse"></div>
+            <span id="recording-text">Rendering File...</span>
+        </div>
+
+        <!-- TOOLBAR / SIDEBAR -->
+        <aside class="w-full md:w-[400px] bg-zinc-900/60 backdrop-blur-3xl border-b md:border-b-0 md:border-r border-white/5 p-5 flex flex-col gap-6 overflow-y-auto z-10 flex-shrink-0 h-[45vh] md:h-full order-2 md:order-1 shadow-[0_-10px_40px_rgba(0,0,0,0.5)] md:shadow-none">
+            
+            <!-- 1. Layout & Canvas Setup -->
+            <div class="flex flex-col gap-3 flex-shrink-0">
+                <h2 class="text-[10px] font-bold uppercase tracking-widest text-zinc-500">1. Layout & Canvas</h2>
+                
+                <div class="grid grid-cols-2 gap-3">
+                    <div>
+                        <label class="block text-[10px] font-medium mb-1.5 text-zinc-400">Aspect Ratio</label>
+                        <select id="aspect-ratio" class="w-full px-3 py-2 rounded-lg border border-white/10 bg-black/20 text-xs text-zinc-200 outline-none focus:ring-1 focus:ring-brand-500 appearance-none">
+                            <option value="16:9" selected>16:9 (YouTube/Web)</option>
+                            <option value="9:16">9:16 (Shorts/Reels)</option>
+                            <option value="1:1">1:1 (Instagram)</option>
+                            <option value="4:3">4:3 (Classic)</option>
+                            <option value="3:4">3:4 (Portrait)</option>
+                        </select>
+                    </div>
+                    <div>
+                        <label class="block text-[10px] font-medium mb-1.5 text-zinc-400">Canvas Fill Color</label>
+                        <div class="relative w-full h-8 rounded-lg overflow-hidden border border-white/20">
+                            <input type="color" id="bg-color" value="#000000" title="Background Color">
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <div class="w-full h-px bg-white/5"></div>
+
+            <!-- 2. Background Image Setup -->
+            <div class="flex flex-col gap-3 flex-shrink-0">
+                <h2 class="text-[10px] font-bold uppercase tracking-widest text-zinc-500">2. Background Media</h2>
+                
+                <button onclick="document.getElementById('bg-upload').click()" class="w-full py-2.5 bg-zinc-800 hover:bg-zinc-700 text-zinc-200 rounded-lg text-xs font-bold transition-colors ring-1 ring-white/10 flex items-center justify-center gap-2 shadow-inner shadow-white/5">
+                    <i class="ph-bold ph-image text-brand-500 text-base"></i> Upload Background
+                </button>
+                <input type="file" id="bg-upload" accept="image/*" class="hidden">
+                
+                <div class="mt-1">
+                    <label class="block text-[10px] font-medium text-zinc-400 mb-1.5">Image Effect</label>
+                    <select id="image-filter" class="w-full px-3 py-2 rounded-lg border border-white/10 bg-black/20 text-xs text-zinc-200 outline-none focus:ring-1 focus:ring-brand-500 appearance-none">
+                        <option value="none" selected>Normal</option>
+                        <option value="blur(8px)">Blurry</option>
+                        <option value="blur(4px) brightness(60%)">Dark Blur</option>
+                        <option value="grayscale(100%)">Grayscale</option>
+                        <option value="sepia(100%)">Sepia</option>
+                        <option value="contrast(150%) saturate(120%)">High Contrast</option>
+                    </select>
+                </div>
+
+                <div class="grid grid-cols-3 gap-3 mt-1 bg-black/20 p-3 rounded-lg border border-white/5">
+                    <div>
+                        <div class="flex justify-between items-center mb-2">
+                            <label class="block text-[10px] font-medium text-zinc-400">Zoom</label>
+                            <span id="zoom-val" class="text-[10px] text-brand-500 font-mono font-bold">1.0x</span>
+                        </div>
+                        <input type="range" id="prop-zoom" min="0.5" max="3" step="0.05" value="1.0">
+                    </div>
+                    <div>
+                        <div class="flex justify-between items-center mb-2">
+                            <label class="block text-[10px] font-medium text-zinc-400">Pan X</label>
+                        </div>
+                        <input type="range" id="prop-pan-x" min="-1000" max="1000" step="10" value="0">
+                    </div>
+                    <div>
+                        <div class="flex justify-between items-center mb-2">
+                            <label class="block text-[10px] font-medium text-zinc-400">Pan Y</label>
+                        </div>
+                        <input type="range" id="prop-pan-y" min="-1000" max="1000" step="10" value="0">
+                    </div>
+                </div>
+            </div>
+
+            <div class="w-full h-px bg-white/5"></div>
+
+            <!-- 3. Dark Vignettes -->
+            <div class="flex flex-col gap-3 flex-shrink-0">
+                <div class="flex justify-between items-center">
+                    <h2 class="text-[10px] font-bold uppercase tracking-widest text-zinc-500">3. Shadow Vignettes</h2>
+                    <span class="text-[10px] text-zinc-500">Enhance text readability</span>
+                </div>
+                
+                <div class="grid grid-cols-2 gap-x-4 gap-y-3">
+                    <div>
+                        <div class="flex justify-between items-center mb-1">
+                            <label class="block text-[10px] font-medium text-zinc-400">Bottom Shadow</label>
+                            <span id="vig-b-val" class="text-[10px] text-zinc-500 font-mono">100%</span>
+                        </div>
+                        <input type="range" id="vig-bottom" min="0" max="100" step="5" value="100">
+                    </div>
+                    <div>
+                        <div class="flex justify-between items-center mb-1">
+                            <label class="block text-[10px] font-medium text-zinc-400">Top Shadow</label>
+                            <span id="vig-t-val" class="text-[10px] text-zinc-500 font-mono">40%</span>
+                        </div>
+                        <input type="range" id="vig-top" min="0" max="100" step="5" value="40">
+                    </div>
+                    <div>
+                        <div class="flex justify-between items-center mb-1">
+                            <label class="block text-[10px] font-medium text-zinc-400">Left Shadow</label>
+                            <span id="vig-l-val" class="text-[10px] text-zinc-500 font-mono">0%</span>
+                        </div>
+                        <input type="range" id="vig-left" min="0" max="100" step="5" value="0">
+                    </div>
+                    <div>
+                        <div class="flex justify-between items-center mb-1">
+                            <label class="block text-[10px] font-medium text-zinc-400">Right Shadow</label>
+                            <span id="vig-r-val" class="text-[10px] text-zinc-500 font-mono">0%</span>
+                        </div>
+                        <input type="range" id="vig-right" min="0" max="100" step="5" value="0">
+                    </div>
+                </div>
+            </div>
+
+            <div class="w-full h-px bg-white/5"></div>
+
+            <!-- 4. Brands & Overlays -->
+            <div class="flex flex-col gap-3 flex-shrink-0">
+                <h2 class="text-[10px] font-bold uppercase tracking-widest text-zinc-500">4. Brands & Overlays</h2>
+                
+                <!-- Text Logo Badge -->
+                <div class="flex items-center gap-3 bg-black/20 p-2 rounded-lg border border-white/5">
+                    <input type="checkbox" id="show-logo" checked class="w-4 h-4 accent-brand-500 cursor-pointer" title="Enable Text Badge">
+                    <input type="text" id="logo-text" value="Vox" class="flex-1 px-3 py-1.5 rounded bg-black/40 text-xs text-zinc-100 font-black outline-none border border-transparent focus:border-brand-500 transition-shadow">
+                    
+                    <div class="relative w-6 h-6 rounded border border-white/20 shrink-0">
+                        <input type="color" id="logo-bg-color" value="#facc15" title="Badge Background">
+                    </div>
+                    <div class="relative w-6 h-6 rounded border border-white/20 shrink-0">
+                        <input type="color" id="logo-text-color" value="#000000" title="Badge Text Color">
+                    </div>
+                    <select id="logo-pos" class="w-24 px-1 py-1 rounded border border-white/10 bg-black/40 text-[10px] text-zinc-300 outline-none">
+                        <option value="top-center" selected>Top Center</option>
+                        <option value="top-left">Top Left</option>
+                        <option value="top-right">Top Right</option>
+                        <option value="bottom-right">Bottom Right</option>
+                    </select>
+                </div>
+
+                <!-- Custom Overlay Image -->
+                <div class="mt-2">
+                    <button onclick="document.getElementById('overlay-upload').click()" class="w-full py-2 bg-zinc-800 hover:bg-zinc-700 text-zinc-300 rounded-lg text-[11px] font-medium transition-colors border border-white/10 border-dashed flex items-center justify-center gap-2">
+                        <i class="ph-bold ph-image-square text-zinc-400"></i> Add Custom Overlay / Logo Image
+                    </button>
+                    <input type="file" id="overlay-upload" accept="image/*" class="hidden">
+                    
+                    <div class="grid grid-cols-3 gap-3 mt-2 bg-black/20 p-3 rounded-lg border border-white/5">
+                        <div>
+                            <div class="flex justify-between items-center mb-2">
+                                <label class="block text-[10px] font-medium text-zinc-400">O-Zoom</label>
+                                <span id="overlay-zoom-val" class="text-[10px] text-zinc-500 font-mono">1.0x</span>
+                            </div>
+                            <input type="range" id="prop-overlay-zoom" min="0.1" max="3" step="0.05" value="1.0">
+                        </div>
+                        <div>
+                            <div class="flex justify-between items-center mb-2">
+                                <label class="block text-[10px] font-medium text-zinc-400">O-Pan X</label>
+                            </div>
+                            <input type="range" id="prop-overlay-pan-x" min="-1000" max="1000" step="10" value="0">
+                        </div>
+                        <div>
+                            <div class="flex justify-between items-center mb-2">
+                                <label class="block text-[10px] font-medium text-zinc-400">O-Pan Y</label>
+                            </div>
+                            <input type="range" id="prop-overlay-pan-y" min="-1000" max="1000" step="10" value="0">
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <div class="w-full h-px bg-white/5"></div>
+
+            <!-- 5. Typography Content -->
+            <div class="flex flex-col gap-4 flex-shrink-0">
+                <h2 class="text-[10px] font-bold uppercase tracking-widest text-zinc-500">5. Editorial Text</h2>
+
+                <!-- Headline -->
+                <div class="space-y-2">
+                    <div class="flex justify-between items-center">
+                        <label class="block text-[11px] font-bold text-zinc-300">Headline</label>
+                        <div class="relative w-6 h-6 rounded border border-white/20 shrink-0">
+                            <input type="color" id="hl-color" value="#ffffff">
+                        </div>
+                    </div>
+                    <textarea id="text-headline" class="w-full p-3 rounded-lg border border-white/10 bg-black/20 text-[13px] text-white font-bold outline-none focus:ring-1 focus:ring-brand-500 resize-none" rows="3">ACTIVISTS TRIED TO FREE 2,000 DOGS BRED FOR LAB RESEARCH. THEN CAME THE TEAR GAS.</textarea>
+                    
+                    <div class="grid grid-cols-2 gap-3">
+                        <select id="hl-font" class="w-full px-2 py-1.5 rounded border border-white/10 bg-black/20 text-xs text-zinc-300 outline-none">
+                            <option value="Inter" selected>Inter (Modern Sans)</option>
+                            <option value="Oswald">Oswald (Vox Headline)</option>
+                            <option value="Fira Code">Fira Code (Fireship)</option>
+                            <option value="Roboto">Roboto (Clean Sans)</option>
+                            <option value="Playfair Display">Playfair (Serif)</option>
+                            <option value="Carrois Gothic">Carrois Gothic</option>
+                            <option value="Caveat">Caveat (Handwritten)</option>
+                        </select>
+                        <div class="flex items-center gap-2">
+                            <span class="text-[10px] text-zinc-500">Size</span>
+                            <input type="range" id="hl-size" min="20" max="180" step="2" value="84">
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Subtitle -->
+                <div class="space-y-2">
+                    <div class="flex justify-between items-center">
+                        <label class="block text-[11px] font-bold text-zinc-300">Subtitle / Deck</label>
+                        <div class="relative w-6 h-6 rounded border border-white/20 shrink-0">
+                            <input type="color" id="sub-color" value="#e2e8f0">
+                        </div>
+                    </div>
+                    <textarea id="text-subtitle" class="w-full p-2 rounded-lg border border-white/10 bg-black/20 text-[12px] text-zinc-200 outline-none focus:ring-1 focus:ring-brand-500 resize-none" rows="2">A viral campaign to rescue beagles used for biomedical experiments is part of a much bigger fight.</textarea>
+                    
+                    <div class="grid grid-cols-2 gap-3">
+                        <select id="sub-font" class="w-full px-2 py-1.5 rounded border border-white/10 bg-black/20 text-xs text-zinc-300 outline-none">
+                            <option value="Playfair Display" selected>Playfair (Serif)</option>
+                            <option value="Inter">Inter (Sans)</option>
+                            <option value="Oswald">Oswald (Sans Condensed)</option>
+                            <option value="Fira Code">Fira Code (Mono)</option>
+                        </select>
+                        <div class="flex items-center gap-2">
+                            <span class="text-[10px] text-zinc-500">Size</span>
+                            <input type="range" id="sub-size" min="16" max="100" step="1" value="42">
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Author -->
+                <div class="space-y-2">
+                    <div class="flex justify-between items-center">
+                        <label class="block text-[11px] font-bold text-zinc-300">Author Credit</label>
+                        <div class="relative w-6 h-6 rounded border border-white/20 shrink-0">
+                            <input type="color" id="auth-color" value="#cbd5e1">
+                        </div>
+                    </div>
+                    <input type="text" id="text-author" value="By Marina Bolotnikova" class="w-full px-3 py-2 rounded-lg border border-white/10 bg-black/20 text-[12px] text-zinc-200 outline-none focus:ring-1 focus:ring-brand-500">
+                    
+                    <div class="grid grid-cols-2 gap-3">
+                        <select id="auth-font" class="w-full px-2 py-1.5 rounded border border-white/10 bg-black/20 text-xs text-zinc-300 outline-none">
+                            <option value="Playfair Display" selected>Playfair (Italic Serif)</option>
+                            <option value="Inter">Inter (Sans)</option>
+                            <option value="Oswald">Oswald (Sans Condensed)</option>
+                            <option value="Fira Code">Fira Code (Mono)</option>
+                        </select>
+                        <div class="flex items-center gap-2">
+                            <span class="text-[10px] text-zinc-500">Size</span>
+                            <input type="range" id="auth-size" min="12" max="80" step="1" value="32">
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Layout Config -->
+                <div class="grid grid-cols-2 gap-4 mt-2">
+                    <div>
+                        <label class="block text-[10px] font-medium mb-1.5 text-zinc-400">Text Alignment</label>
+                        <select id="text-align" class="w-full px-2 py-1.5 rounded border border-white/10 bg-black/20 text-xs text-zinc-300 outline-none">
+                            <option value="center" selected>Center</option>
+                            <option value="left">Left Aligned</option>
+                            <option value="right">Right Aligned</option>
+                        </select>
+                    </div>
+                    <div>
+                        <div class="flex justify-between items-center mb-1.5">
+                            <label class="block text-[10px] font-medium text-zinc-400">Anim Length</label>
+                            <span id="dur-val" class="text-[10px] text-brand-500 font-mono font-bold">4.0s</span>
+                        </div>
+                        <input type="range" id="anim-dur" min="1" max="10" step="0.5" value="4.0">
+                    </div>
+                </div>
+
+            </div>
+        </aside>
+
+        <!-- CANVAS AREA -->
+        <section id="canvas-container" class="flex-1 relative overflow-hidden flex items-center justify-center p-4 sm:p-8 checker-bg order-1 md:order-2">
+            <canvas id="export-canvas" class="rounded-lg"></canvas>
+        </section>
+
+    </main>
+
+    <script>
+        // --- Fetch GIF.js Worker to guarantee CORS safety ---
+        let gifWorkerUrl = null;
+        fetch('https://cdnjs.cloudflare.com/ajax/libs/gif.js/0.2.0/gif.worker.js')
+            .then(res => res.text())
+            .then(text => {
+                const blob = new Blob([text], { type: 'application/javascript' });
+                gifWorkerUrl = URL.createObjectURL(blob);
+            })
+            .catch(err => console.error('Failed to load GIF worker:', err));
+
+        // --- App State ---
+        const state = {
+            aspectRatio: '16:9',
+            bgColor: '#000000',
+            
+            bgImage: null,
+            imageFilter: 'none',
+            zoom: 1.0,
+            panX: 0,
+            panY: 0,
+            
+            overlayImage: null,
+            overlayScale: 1.0,
+            overlayX: 0,
+            overlayY: 0,
+
+            vigBottom: 100,
+            vigTop: 40,
+            vigLeft: 0,
+            vigRight: 0,
+
+            showLogo: true,
+            logoText: 'Vox',
+            logoBg: '#facc15',
+            logoColor: '#000000',
+            logoPos: 'top-center',
+
+            hlText: '',
+            hlColor: '#ffffff',
+            hlFont: 'Inter',
+            hlSize: 84,
+
+            subText: '',
+            subColor: '#e2e8f0',
+            subFont: 'Playfair Display',
+            subSize: 42,
+
+            authText: '',
+            authColor: '#cbd5e1',
+            authFont: 'Playfair Display',
+            authSize: 32,
+
+            textAlign: 'center',
+            animDuration: 4000,
+            
+            progress: 1.0,
+            isAnimating: false,
+            isRecording: false
+        };
+
+        const canvas = document.getElementById('export-canvas');
+        // Initial setup for default 16:9
+        canvas.width = 1920;
+        canvas.height = 1080;
+
+        // --- UI Binding ---
+        const uiAspectRatio = document.getElementById('aspect-ratio');
+        const uiBgColor = document.getElementById('bg-color');
+        
+        const uiImageFilter = document.getElementById('image-filter');
+        const uiZoom = document.getElementById('prop-zoom');
+        const uiPanX = document.getElementById('prop-pan-x');
+        const uiPanY = document.getElementById('prop-pan-y');
+        
+        const uiOverlayUpload = document.getElementById('overlay-upload');
+        const uiOverlayZoom = document.getElementById('prop-overlay-zoom');
+        const uiOverlayPanX = document.getElementById('prop-overlay-pan-x');
+        const uiOverlayPanY = document.getElementById('prop-overlay-pan-y');
+
+        const uiVigB = document.getElementById('vig-bottom');
+        const uiVigT = document.getElementById('vig-top');
+        const uiVigL = document.getElementById('vig-left');
+        const uiVigR = document.getElementById('vig-right');
+
+        const uiShowLogo = document.getElementById('show-logo');
+        const uiLogoText = document.getElementById('logo-text');
+        const uiLogoBg = document.getElementById('logo-bg-color');
+        const uiLogoColor = document.getElementById('logo-text-color');
+        const uiLogoPos = document.getElementById('logo-pos');
+
+        const uiHlText = document.getElementById('text-headline');
+        const uiHlColor = document.getElementById('hl-color');
+        const uiHlFont = document.getElementById('hl-font');
+        const uiHlSize = document.getElementById('hl-size');
+
+        const uiSubText = document.getElementById('text-subtitle');
+        const uiSubColor = document.getElementById('sub-color');
+        const uiSubFont = document.getElementById('sub-font');
+        const uiSubSize = document.getElementById('sub-size');
+
+        const uiAuthText = document.getElementById('text-author');
+        const uiAuthColor = document.getElementById('auth-color');
+        const uiAuthFont = document.getElementById('auth-font');
+        const uiAuthSize = document.getElementById('auth-size');
+
+        const uiTextAlign = document.getElementById('text-align');
+        const uiAnimDur = document.getElementById('anim-dur');
+
+        // --- Utility ---
+        function showToast(message, type = 'info') {
+            let container = document.getElementById('toast-container');
+            if (!container) {
+                container = document.createElement('div');
+                container.id = 'toast-container';
+                container.className = 'fixed top-20 right-6 z-[60] flex flex-col gap-2 pointer-events-none';
+                document.body.appendChild(container);
+            }
+            const toast = document.createElement('div');
+            toast.className = `bg-zinc-800/95 backdrop-blur-md text-white px-4 py-3 rounded-xl shadow-2xl ring-1 ring-white/10 flex items-center gap-3 transform transition-all -translate-y-4 opacity-0 z-50`;
+            let icon = type === 'success' ? 'check-circle' : (type === 'error' ? 'warning' : 'info');
+            let color = type === 'success' ? 'text-brand-400' : (type === 'error' ? 'text-red-400' : 'text-sky-400');
+            toast.innerHTML = `<i class="ph-fill ph-${icon} text-lg ${color}"></i> <span class="text-sm font-medium">${message}</span>`;
+            container.appendChild(toast); 
+            requestAnimationFrame(() => toast.classList.remove('-translate-y-4', 'opacity-0'));
+            setTimeout(() => { toast.classList.add('-translate-y-4', 'opacity-0'); setTimeout(() => toast.remove(), 300); }, 3000);
+        }
+
+        // --- Image Loading ---
+        function loadDefaultImage() {
+            const img = new Image();
+            img.crossOrigin = "Anonymous";
+            // High quality editorial placeholder
+            img.src = 'https://images.unsplash.com/photo-1551434678-e076c223a692?q=80&w=2850&auto=format&fit=crop';
+            img.onload = () => {
+                state.bgImage = img;
+                updateAndRender();
+            };
+        }
+
+        document.getElementById('bg-upload').addEventListener('change', (e) => {
+            const file = e.target.files[0];
+            if (!file) return;
+            const reader = new FileReader();
+            reader.onload = (event) => {
+                const img = new Image();
+                img.onload = () => {
+                    state.bgImage = img;
+                    state.zoom = 1.0;
+                    if(uiZoom) uiZoom.value = 1.0;
+                    state.panX = 0;
+                    if(uiPanX) uiPanX.value = 0;
+                    state.panY = 0;
+                    if(uiPanY) uiPanY.value = 0;
+                    updateAndRender();
+                };
+                img.src = event.target.result;
+            };
+            reader.readAsDataURL(file);
+        });
+
+        if (uiOverlayUpload) {
+            uiOverlayUpload.addEventListener('change', (e) => {
+                const file = e.target.files[0];
+                if (!file) return;
+                const reader = new FileReader();
+                reader.onload = (event) => {
+                    const img = new Image();
+                    img.onload = () => {
+                        state.overlayImage = img;
+                        state.overlayScale = 1.0;
+                        if(uiOverlayZoom) uiOverlayZoom.value = 1.0;
+                        state.overlayX = 0;
+                        if(uiOverlayPanX) uiOverlayPanX.value = 0;
+                        state.overlayY = 0;
+                        if(uiOverlayPanY) uiOverlayPanY.value = 0;
+                        updateAndRender();
+                        showToast('Overlay added successfully', 'success');
+                    };
+                    img.src = event.target.result;
+                };
+                reader.readAsDataURL(file);
+            });
+        }
+
+        // --- Aspect Ratio & Dimensions Logic ---
+        function getBaseDimensions() {
+            let w = 1920, h = 1080;
+            if (state.aspectRatio === '9:16') { w = 1080; h = 1920; }
+            else if (state.aspectRatio === '1:1') { w = 1080; h = 1080; }
+            else if (state.aspectRatio === '4:3') { w = 1440; h = 1080; }
+            else if (state.aspectRatio === '3:4') { w = 1080; h = 1440; }
+            return { w, h };
+        }
+
+        function getExportDimensions(targetRes) {
+            const base = getBaseDimensions();
+            let exportScale = 1.0;
+            
+            // For export targets, targetRes defines the 'long edge'
+            if (base.w >= base.h) {
+                exportScale = targetRes / base.w;
+            } else {
+                exportScale = targetRes / base.h;
+            }
+            
+            const expW = Math.round(base.w * exportScale);
+            const expH = Math.round(base.h * exportScale);
+            
+            return { expW, expH, exportScale };
+        }
+
+        // --- Text Wrapping Logic ---
+        function wrapText(ctx, text, maxWidth) {
+            const words = text.split(' ');
+            const lines = [];
+            let currentLine = words[0];
+
+            for (let i = 1; i < words.length; i++) {
+                const word = words[i];
+                const width = ctx.measureText(currentLine + " " + word).width;
+                if (width < maxWidth) {
+                    currentLine += " " + word;
+                } else {
+                    lines.push(currentLine);
+                    currentLine = word;
+                }
+            }
+            lines.push(currentLine);
+            return lines;
+        }
+
+        // --- Core Render Engine ---
+        function updateStateFromUI() {
+            if(uiAspectRatio) state.aspectRatio = uiAspectRatio.value;
+            if(uiBgColor) state.bgColor = uiBgColor.value;
+
+            if(uiImageFilter) state.imageFilter = uiImageFilter.value;
+            if(uiZoom) state.zoom = parseFloat(uiZoom.value);
+            if(uiPanX) state.panX = parseInt(uiPanX.value);
+            if(uiPanY) state.panY = parseInt(uiPanY.value);
+
+            if(uiOverlayZoom) state.overlayScale = parseFloat(uiOverlayZoom.value);
+            if(uiOverlayPanX) state.overlayX = parseInt(uiOverlayPanX.value);
+            if(uiOverlayPanY) state.overlayY = parseInt(uiOverlayPanY.value);
+
+            if(uiVigB) state.vigBottom = parseInt(uiVigB.value);
+            if(uiVigT) state.vigTop = parseInt(uiVigT.value);
+            if(uiVigL) state.vigLeft = parseInt(uiVigL.value);
+            if(uiVigR) state.vigRight = parseInt(uiVigR.value);
+
+            if(uiShowLogo) state.showLogo = uiShowLogo.checked;
+            if(uiLogoText) state.logoText = uiLogoText.value;
+            if(uiLogoBg) state.logoBg = uiLogoBg.value;
+            if(uiLogoColor) state.logoColor = uiLogoColor.value;
+            if(uiLogoPos) state.logoPos = uiLogoPos.value;
+
+            if(uiHlText) state.hlText = uiHlText.value;
+            if(uiHlColor) state.hlColor = uiHlColor.value;
+            if(uiHlFont) state.hlFont = uiHlFont.value;
+            if(uiHlSize) state.hlSize = parseInt(uiHlSize.value);
+
+            if(uiSubText) state.subText = uiSubText.value;
+            if(uiSubColor) state.subColor = uiSubColor.value;
+            if(uiSubFont) state.subFont = uiSubFont.value;
+            if(uiSubSize) state.subSize = parseInt(uiSubSize.value);
+
+            if(uiAuthText) state.authText = uiAuthText.value;
+            if(uiAuthColor) state.authColor = uiAuthColor.value;
+            if(uiAuthFont) state.authFont = uiAuthFont.value;
+            if(uiAuthSize) state.authSize = parseInt(uiAuthSize.value);
+
+            if(uiTextAlign) state.textAlign = uiTextAlign.value;
+            if(uiAnimDur) state.animDuration = parseFloat(uiAnimDur.value) * 1000;
+            
+            // Resize main preview canvas if needed
+            const baseDims = getBaseDimensions();
+            if (canvas.width !== baseDims.w || canvas.height !== baseDims.h) {
+                canvas.width = baseDims.w;
+                canvas.height = baseDims.h;
+            }
+            
+            // Update value labels
+            if(document.getElementById('zoom-val')) document.getElementById('zoom-val').innerText = state.zoom.toFixed(2) + 'x';
+            if(document.getElementById('overlay-zoom-val')) document.getElementById('overlay-zoom-val').innerText = state.overlayScale.toFixed(2) + 'x';
+            if(document.getElementById('vig-b-val')) document.getElementById('vig-b-val').innerText = state.vigBottom + '%';
+            if(document.getElementById('vig-t-val')) document.getElementById('vig-t-val').innerText = state.vigTop + '%';
+            if(document.getElementById('vig-l-val')) document.getElementById('vig-l-val').innerText = state.vigLeft + '%';
+            if(document.getElementById('vig-r-val')) document.getElementById('vig-r-val').innerText = state.vigRight + '%';
+            if(document.getElementById('dur-val')) document.getElementById('dur-val').innerText = (state.animDuration/1000).toFixed(1) + 's';
+        }
+
+        // Easing for animations
+        function easeOutCubic(x) { return 1 - Math.pow(1 - x, 3); }
+
+        function renderFrame(progress, targetCanvas = canvas, exportScale = 1.0) {
+            const tCtx = targetCanvas.getContext('2d');
+            // Base logical dimensions
+            const W = targetCanvas.width / exportScale;
+            const H = targetCanvas.height / exportScale;
+
+            const easeP = easeOutCubic(progress);
+
+            tCtx.save();
+            tCtx.scale(exportScale, exportScale);
+
+            // Fill solid background layer
+            tCtx.fillStyle = state.bgColor;
+            tCtx.fillRect(0, 0, W, H);
+
+            // 1. Draw Background Image with Pan/Zoom, Filter, and Ken Burns effect
+            if (state.bgImage) {
+                tCtx.save();
+                
+                // Ken Burns: Image scales up slightly over time
+                const animZoom = state.zoom * (1 + (progress * 0.08)); 
+                
+                tCtx.translate(W / 2 + state.panX, H / 2 + state.panY);
+                tCtx.scale(animZoom, animZoom);
+
+                const imgRatio = state.bgImage.width / state.bgImage.height;
+                const canvasRatio = W / H;
+                let drawW = W, drawH = H;
+                
+                if (imgRatio > canvasRatio) {
+                    drawH = H;
+                    drawW = state.bgImage.width * (H / state.bgImage.height);
+                } else {
+                    drawW = W;
+                    drawH = state.bgImage.height * (W / state.bgImage.width);
+                }
+
+                if (state.imageFilter && state.imageFilter !== 'none') {
+                    tCtx.filter = state.imageFilter;
+                }
+
+                tCtx.drawImage(state.bgImage, -drawW / 2, -drawH / 2, drawW, drawH);
+                tCtx.restore();
+            }
+
+            // 2. Draw Vignettes
+            if (state.vigBottom > 0) {
+                const grd = tCtx.createLinearGradient(0, H, 0, H * (1 - state.vigBottom/100));
+                grd.addColorStop(0, 'rgba(0,0,0,1)');
+                grd.addColorStop(1, 'rgba(0,0,0,0)');
+                tCtx.fillStyle = grd;
+                tCtx.fillRect(0, 0, W, H);
+            }
+            if (state.vigTop > 0) {
+                const grd = tCtx.createLinearGradient(0, 0, 0, H * (state.vigTop/100));
+                grd.addColorStop(0, 'rgba(0,0,0,0.8)');
+                grd.addColorStop(1, 'rgba(0,0,0,0)');
+                tCtx.fillStyle = grd;
+                tCtx.fillRect(0, 0, W, H);
+            }
+            if (state.vigLeft > 0) {
+                const grd = tCtx.createLinearGradient(0, 0, W * (state.vigLeft/100), 0);
+                grd.addColorStop(0, 'rgba(0,0,0,0.8)');
+                grd.addColorStop(1, 'rgba(0,0,0,0)');
+                tCtx.fillStyle = grd;
+                tCtx.fillRect(0, 0, W, H);
+            }
+            if (state.vigRight > 0) {
+                const grd = tCtx.createLinearGradient(W, 0, W * (1 - state.vigRight/100), 0);
+                grd.addColorStop(0, 'rgba(0,0,0,0.8)');
+                grd.addColorStop(1, 'rgba(0,0,0,0)');
+                tCtx.fillStyle = grd;
+                tCtx.fillRect(0, 0, W, H);
+            }
+
+            // 3. Draw Overlay Image (e.g. Logos)
+            if (state.overlayImage) {
+                tCtx.save();
+                tCtx.translate(W / 2 + state.overlayX, H / 2 + state.overlayY);
+                tCtx.scale(state.overlayScale, state.overlayScale);
+                tCtx.drawImage(state.overlayImage, -state.overlayImage.width / 2, -state.overlayImage.height / 2);
+                tCtx.restore();
+            }
+
+            // Global animation modifier for text
+            tCtx.globalAlpha = Math.min(1, easeP * 2);
+            const yOffset = (1 - easeP) * 50; // Slides up
+
+            // 4. Setup Text Layout Parameters
+            // Margin adapts slightly if it's a portrait ratio to save space
+            const marginX = W * 0.06;
+            const marginY = H * 0.07;
+            const maxWidth = state.textAlign === 'center' ? (W - marginX * 2) : (W - marginX * 2.5);
+            
+            let anchorX = marginX;
+            if (state.textAlign === 'center') anchorX = W / 2;
+            else if (state.textAlign === 'right') anchorX = W - marginX;
+
+            tCtx.textAlign = state.textAlign;
+
+            // Compute block heights to stack from bottom up
+            let authorHeight = 0;
+            if (state.authText) {
+                tCtx.font = `${state.authFont === 'Playfair Display' ? 'italic' : ''} 400 ${state.authSize}px "${state.authFont}"`;
+                authorHeight = state.authSize * 1.5;
+            }
+
+            let subLines = [];
+            let subHeight = 0;
+            if (state.subText) {
+                tCtx.font = `400 ${state.subSize}px "${state.subFont}"`;
+                subLines = wrapText(tCtx, state.subText, maxWidth);
+                subHeight = subLines.length * (state.subSize * 1.4) + (authorHeight > 0 ? 30 : 0);
+            }
+
+            let hlLines = [];
+            let hlHeight = 0;
+            if (state.hlText) {
+                tCtx.font = `900 ${state.hlSize}px "${state.hlFont}"`;
+                hlLines = wrapText(tCtx, state.hlText, maxWidth);
+                hlHeight = hlLines.length * (state.hlSize * 1.15) + ((subHeight > 0 || authorHeight > 0) ? 40 : 0);
+            }
+
+            // Bottom starting Y
+            let currentY = H - marginY - yOffset;
+
+            // Draw Author
+            if (state.authText) {
+                tCtx.font = `${state.authFont === 'Playfair Display' ? 'italic' : ''} 400 ${state.authSize}px "${state.authFont}"`;
+                tCtx.fillStyle = state.authColor;
+                tCtx.textBaseline = 'bottom';
+                tCtx.fillText(state.authText, anchorX, currentY);
+                currentY -= authorHeight;
+            }
+
+            // Draw Subtitle
+            if (state.subText) {
+                currentY -= (authorHeight > 0 ? 30 : 0);
+                tCtx.font = `400 ${state.subSize}px "${state.subFont}"`;
+                tCtx.fillStyle = state.subColor;
+                tCtx.textBaseline = 'bottom';
+                for (let i = subLines.length - 1; i >= 0; i--) {
+                    tCtx.fillText(subLines[i], anchorX, currentY);
+                    currentY -= (state.subSize * 1.4);
+                }
+            }
+
+            // Draw Headline
+            if (state.hlText) {
+                currentY -= ((subHeight > 0 || authorHeight > 0) ? 40 : 0);
+                tCtx.font = `900 ${state.hlSize}px "${state.hlFont}"`;
+                tCtx.fillStyle = state.hlColor;
+                tCtx.textBaseline = 'bottom';
+                
+                // Add text shadow for extra pop
+                tCtx.shadowColor = 'rgba(0,0,0,0.5)';
+                tCtx.shadowBlur = 10;
+                tCtx.shadowOffsetY = 4;
+
+                for (let i = hlLines.length - 1; i >= 0; i--) {
+                    tCtx.fillText(hlLines[i], anchorX, currentY);
+                    currentY -= (state.hlSize * 1.15);
+                }
+                tCtx.shadowColor = 'transparent'; // reset
+            }
+
+            // 5. Draw Logo Text Badge (Vox style)
+            if (state.showLogo && state.logoText) {
+                tCtx.globalAlpha = Math.min(1, easeP * 3); 
+                
+                tCtx.font = `900 48px "${state.hlFont}"`;
+                const metrics = tCtx.measureText(state.logoText);
+                const padX = 24, padY = 16;
+                const boxW = metrics.width + padX * 2;
+                const boxH = 48 + padY * 2;
+
+                let lX, lY;
+                if (state.logoPos === 'top-center') {
+                    lX = W/2 - boxW/2;
+                    lY = marginY - yOffset/2;
+                } else if (state.logoPos === 'top-left') {
+                    lX = marginX;
+                    lY = marginY - yOffset/2;
+                } else if (state.logoPos === 'top-right') {
+                    lX = W - marginX - boxW;
+                    lY = marginY - yOffset/2;
+                } else if (state.logoPos === 'bottom-right') {
+                    lX = W - marginX - boxW;
+                    lY = H - marginY - boxH;
+                }
+
+                tCtx.fillStyle = state.logoBg;
+                tCtx.fillRect(lX, lY, boxW, boxH);
+                
+                tCtx.fillStyle = state.logoColor;
+                tCtx.textAlign = 'center';
+                tCtx.textBaseline = 'middle';
+                tCtx.fillText(state.logoText, lX + boxW/2, lY + boxH/2 + 2); // manual optical alignment tweak
+            }
+
+            tCtx.restore();
+        }
+
+        // --- Interaction & Update Logic ---
+        function updateAndRender() {
+            updateStateFromUI();
+            renderFrame(1.0, canvas, 1.0); // Render final state
+        }
+
+        // Event Listeners for all UI inputs
+        const elementsToBind = [
+            uiAspectRatio, uiBgColor, uiImageFilter,
+            uiZoom, uiPanX, uiPanY, 
+            uiOverlayZoom, uiOverlayPanX, uiOverlayPanY,
+            uiVigB, uiVigT, uiVigL, uiVigR, 
+            uiShowLogo, uiLogoText, uiLogoBg, uiLogoColor, uiLogoPos,
+            uiHlText, uiHlColor, uiHlFont, uiHlSize,
+            uiSubText, uiSubColor, uiSubFont, uiSubSize,
+            uiAuthText, uiAuthColor, uiAuthFont, uiAuthSize,
+            uiTextAlign, uiAnimDur
+        ];
+
+        elementsToBind.forEach(el => {
+            if (el) {
+                if(el.tagName === 'SELECT' || el.type === 'checkbox') {
+                    el.addEventListener('change', updateAndRender);
+                } else {
+                    el.addEventListener('input', updateAndRender);
+                }
+            }
+        });
+
+        // Initialize Application
+        loadDefaultImage();
+
+        // --- Header Actions & Export Logic ---
+        const btnPreview = document.getElementById('btn-header-preview');
+        const btnExport = document.getElementById('btn-header-export');
+        const exportFmt = document.getElementById('export-fmt');
+        const exportRes = document.getElementById('export-res');
+        const overlay = document.getElementById('recording-overlay');
+        const recordingText = document.getElementById('recording-text');
+        const iconPlay = document.getElementById('icon-play');
+        const textPlay = document.getElementById('text-play');
+
+        if (btnPreview) {
+            btnPreview.addEventListener('click', () => {
+                if (state.isRecording) return;
+                if (state.isAnimating) {
+                    state.isAnimating = false; 
+                } else {
+                    runAnimation();
+                }
+            });
+        }
+
+        if (btnExport) {
+            btnExport.addEventListener('click', async () => {
+                if (state.isAnimating || state.isRecording) return;
+                
+                const fmt = exportFmt ? exportFmt.value : 'png';
+                const targetRes = exportRes ? parseInt(exportRes.value) : 1920;
+                
+                const dims = getExportDimensions(targetRes);
+
+                if (fmt === 'png') {
+                    exportSnapshot(dims.expW, dims.expH, dims.exportScale);
+                } else if (fmt === 'gif') {
+                    exportGIF(dims.expW, dims.expH, dims.exportScale);
+                } else {
+                    exportVideo(dims.expW, dims.expH, dims.exportScale);
+                }
+            });
+        }
+
+        function runAnimation() {
+            state.isAnimating = true;
+            if (btnPreview) {
+                btnPreview.classList.add('bg-rose-500/20', 'text-rose-400', 'border-rose-500/50');
+                btnPreview.classList.remove('bg-white/5', 'text-white', 'border-white/10');
+            }
+            if (iconPlay) iconPlay.classList.replace('ph-play-circle', 'ph-stop-circle');
+            if (textPlay) textPlay.innerText = 'Stop';
+            if (btnExport) btnExport.disabled = true;
+
+            updateStateFromUI(); 
+
+            const startTime = performance.now();
+            const durationMs = state.animDuration;
+
+            function animLoop(currentTime) {
+                if (!state.isAnimating) {
+                    resetPreviewBtn();
+                    return;
+                }
+
+                const elapsed = Math.max(0, currentTime - startTime);
+                let p = durationMs > 0 ? elapsed / durationMs : 1.0;
+                p = Math.max(0, Math.min(1, p));
+                
+                state.progress = p;
+                renderFrame(p, canvas, 1.0);
+
+                if (p < 1.0) {
+                    requestAnimationFrame(animLoop);
+                } else {
+                    state.isAnimating = false;
+                    resetPreviewBtn();
+                }
+            }
+            requestAnimationFrame(animLoop);
+        }
+
+        function resetPreviewBtn() {
+            if (btnPreview) {
+                btnPreview.classList.remove('bg-rose-500/20', 'text-rose-400', 'border-rose-500/50');
+                btnPreview.classList.add('bg-white/5', 'text-white', 'border-white/10');
+            }
+            if (iconPlay) iconPlay.classList.replace('ph-stop-circle', 'ph-play-circle');
+            if (textPlay) textPlay.innerText = 'Preview Anim';
+            if (btnExport) btnExport.disabled = false;
+        }
+
+        function exportSnapshot(targetWidth, targetHeight, exportScale) {
+            const expCanvas = document.createElement('canvas');
+            expCanvas.width = targetWidth;
+            expCanvas.height = targetHeight;
+            
+            updateStateFromUI();
+            renderFrame(1.0, expCanvas, exportScale);
+
+            const url = expCanvas.toDataURL("image/png");
+            const a = document.createElement('a');
+            a.href = url;
+            a.download = `editorial-thumb-${targetWidth}w-${Date.now()}.png`;
+            a.click();
+            showToast('Snapshot exported successfully!', 'success');
+        }
+
+        function exportGIF(targetWidth, targetHeight, exportScale) {
+            if (!gifWorkerUrl) return showToast('GIF encoder initializing. Try again in a moment.', 'info');
+            
+            const expCanvas = document.createElement('canvas');
+            expCanvas.width = targetWidth;
+            expCanvas.height = targetHeight;
+            const eCtx = expCanvas.getContext('2d', { willReadFrequently: true });
+
+            const gif = new GIF({
+                workers: 2,
+                quality: 10,
+                width: targetWidth,
+                height: targetHeight,
+                workerScript: gifWorkerUrl
+            });
+
+            state.isRecording = true;
+            if (btnPreview) btnPreview.disabled = true;
+            if (btnExport) btnExport.disabled = true;
+            
+            if (overlay) {
+                overlay.classList.remove('-translate-y-20');
+                overlay.classList.add('translate-y-4');
+            }
+            if (recordingText) recordingText.innerText = 'Preparing GIF...';
+
+            updateStateFromUI();
+            
+            const fps = 15; 
+            const totalTimeSec = state.animDuration / 1000;
+            const totalFrames = Math.ceil(totalTimeSec * fps);
+            let currentFrame = 0;
+
+            function renderNextFrame() {
+                if (!state.isRecording) return;
+
+                let p = currentFrame / totalFrames;
+                p = Math.max(0, Math.min(1, p));
+                
+                state.progress = p;
+                
+                renderFrame(p, expCanvas, exportScale);
+                gif.addFrame(eCtx, {copy: true, delay: 1000 / fps});
+                
+                // Sync UI
+                renderFrame(p, canvas, 1.0);
+
+                let pct = Math.round((currentFrame / totalFrames) * 50); 
+                if (recordingText) recordingText.innerText = `Rendering Frames ${pct}%`;
+
+                currentFrame++;
+                if (currentFrame <= totalFrames) {
+                    requestAnimationFrame(renderNextFrame);
+                } else {
+                    if (recordingText) recordingText.innerText = `Encoding GIF... (This takes a while)`;
+                    gif.render();
+                }
+            }
+
+            gif.on('finished', function(blob) {
+                const url = URL.createObjectURL(blob);
+                const a = document.createElement('a');
+                a.style.display = 'none';
+                a.href = url;
+                a.download = `editorial-thumb-anim-${targetWidth}w-${Date.now()}.gif`;
+                document.body.appendChild(a);
+                a.click();
+                
+                setTimeout(() => {
+                    document.body.removeChild(a);
+                    URL.revokeObjectURL(url);
+                }, 100);
+
+                if (overlay) {
+                    overlay.classList.remove('translate-y-4');
+                    overlay.classList.add('-translate-y-20');
+                }
+                state.isRecording = false;
+                state.progress = 1.0;
+                renderFrame(1.0, canvas, 1.0); 
+                if (btnPreview) btnPreview.disabled = false;
+                if (btnExport) btnExport.disabled = false;
+                if (recordingText) recordingText.innerText = 'Rendering File...';
+                showToast('GIF exported successfully!', 'success');
+            });
+
+            renderNextFrame();
+        }
+
+        async function exportVideo(targetWidth, targetHeight, exportScale) {
+            const expCanvas = document.createElement('canvas');
+            expCanvas.width = targetWidth;
+            expCanvas.height = targetHeight;
+
+            let mediaRecorder;
+            let recordedChunks = [];
+            state.isRecording = true;
+            
+            try {
+                const stream = expCanvas.captureStream(60);
+                
+                let options = { mimeType: 'video/webm;codecs=vp9' };
+                if (!MediaRecorder.isTypeSupported(options.mimeType)) {
+                    options = { mimeType: 'video/webm;codecs=vp8' };
+                    if (!MediaRecorder.isTypeSupported(options.mimeType)) {
+                        options = { mimeType: 'video/webm' };
+                    }
+                }
+
+                options.videoBitsPerSecond = 20000000;
+
+                mediaRecorder = new MediaRecorder(stream, options);
+
+                mediaRecorder.ondataavailable = (e) => {
+                    if (e.data.size > 0) recordedChunks.push(e.data);
+                };
+
+                mediaRecorder.onstop = () => {
+                    const blob = new Blob(recordedChunks, { type: options.mimeType.split(';')[0] });
+                    const url = URL.createObjectURL(blob);
+                    
+                    const a = document.createElement('a');
+                    a.style.display = 'none';
+                    a.href = url;
+                    a.download = `editorial-thumb-anim-${targetWidth}w-${Date.now()}.webm`;
+                    document.body.appendChild(a);
+                    a.click();
+                    
+                    setTimeout(() => {
+                        document.body.removeChild(a);
+                        window.URL.revokeObjectURL(url);
+                    }, 100);
+
+                    if (overlay) {
+                        overlay.classList.remove('translate-y-4');
+                        overlay.classList.add('-translate-y-20');
+                    }
+                    state.isRecording = false;
+                    state.progress = 1.0;
+                    renderFrame(1.0, canvas, 1.0); 
+                    if (btnPreview) btnPreview.disabled = false;
+                    if (btnExport) btnExport.disabled = false;
+                    if (recordingText) recordingText.innerText = 'Rendering File...';
+                    showToast('Video exported successfully!', 'success');
+                };
+
+                if (overlay) {
+                    overlay.classList.remove('-translate-y-20');
+                    overlay.classList.add('translate-y-4');
+                }
+                if (recordingText) recordingText.innerText = 'Rendering Video...';
+
+                mediaRecorder.start();
+
+                if (btnPreview) btnPreview.disabled = true;
+                if (btnExport) btnExport.disabled = true;
+                updateStateFromUI();
+                
+                const startTime = performance.now();
+                const durationMs = state.animDuration;
+
+                function animLoop(currentTime) {
+                    if (!state.isRecording) return;
+                    
+                    const elapsed = Math.max(0, currentTime - startTime);
+                    let p = durationMs > 0 ? elapsed / durationMs : 1.0;
+                    p = Math.max(0, Math.min(1, p));
+                    
+                    state.progress = p;
+                    
+                    renderFrame(p, expCanvas, exportScale);
+                    renderFrame(p, canvas, 1.0);
+
+                    if (p < 1.0) {
+                        requestAnimationFrame(animLoop);
+                    } else {
+                        if (recordingText) recordingText.innerText = 'Finalizing...';
+                        setTimeout(() => {
+                            if(mediaRecorder.state !== 'inactive') mediaRecorder.stop();
+                        }, 500);
+                    }
+                }
+                requestAnimationFrame(animLoop);
+
+            } catch (err) {
+                console.error("Recording failed:", err);
+                showToast('Recording failed. Browser might not support it.', 'error');
+                if (overlay) {
+                    overlay.classList.remove('translate-y-4');
+                    overlay.classList.add('-translate-y-20');
+                }
+                state.isRecording = false;
+                if (btnPreview) btnPreview.disabled = false;
+                if (btnExport) btnExport.disabled = false;
+                renderFrame(1.0, canvas, 1.0);
+            }
+        }
+
+    </script>
+</body>
+</html>

@@ -1,0 +1,614 @@
+<!DOCTYPE html>
+<html lang="en" class="dark">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+    <title>Macify Canvas Studio</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
+    <script src="https://unpkg.com/lucide@latest"></script>
+    <style>
+        :root { color-scheme: dark; }
+
+        body {
+            font-family: 'Inter', sans-serif;
+            background-color: #09090b; 
+            color: #ececf1;
+            overflow: hidden;
+            -webkit-font-smoothing: antialiased;
+        }
+
+        ::-webkit-scrollbar { width: 6px; height: 6px; }
+        ::-webkit-scrollbar-track { background: transparent; }
+        ::-webkit-scrollbar-thumb { background: rgba(255, 255, 255, 0.15); border-radius: 10px; }
+
+        .transparent-pattern {
+            background-image: 
+                linear-gradient(45deg, #18181b 25%, transparent 25%, transparent 75%, #18181b 75%, #18181b), 
+                linear-gradient(45deg, #18181b 25%, transparent 25%, transparent 75%, #18181b 75%, #18181b);
+            background-size: 20px 20px;
+            background-position: 0 0, 10px 10px;
+        }
+
+        input[type="range"] { -webkit-appearance: none; height: 4px; background: rgba(255, 255, 255, 0.1); border-radius: 2px; }
+        input[type="range"]::-webkit-slider-thumb { -webkit-appearance: none; width: 16px; height: 16px; border-radius: 50%; background: #fff; cursor: pointer; transition: transform 0.1s; }
+        input[type="range"]::-webkit-slider-thumb:hover { transform: scale(1.15); }
+        
+        input[type="color"]::-webkit-color-swatch-wrapper { padding: 0; }
+        input[type="color"]::-webkit-color-swatch { border: none; border-radius: 50%; }
+
+        .segmented-btn { transition: all 0.2s cubic-bezier(0.4, 0, 0.2, 1); }
+        .segmented-btn.active { background: rgba(255, 255, 255, 0.15); color: white; box-shadow: 0 1px 3px rgba(0,0,0,0.2), inset 0 1px 0 rgba(255,255,255,0.1); }
+
+        #scale-wrapper {
+            position: absolute; inset: 0; display: flex; align-items: center; justify-content: center; padding: 24px; overflow: hidden;
+        }
+
+        #preview-canvas {
+            box-shadow: 0 25px 50px -12px rgba(0,0,0,0.8), 0 0 0 1px rgba(255,255,255,0.05);
+            border-radius: 12px; max-width: 100%; max-height: 100%; object-fit: contain;
+        }
+    </style>
+</head>
+<body class="flex flex-col h-screen text-sm">
+
+    <!-- Header -->
+    <header class="w-full h-16 bg-zinc-900/90 backdrop-blur-2xl border-b border-white/5 flex items-center justify-between px-4 z-40 shrink-0">
+        
+        <!-- Logo -->
+        <div class="flex items-center gap-3 w-1/4">
+            <div class="w-8 h-8 rounded-lg bg-gradient-to-br from-indigo-500 to-purple-600 flex items-center justify-center shadow-inner">
+                <i data-lucide="layers" class="w-4 h-4 text-white"></i>
+            </div>
+            <h1 class="font-bold tracking-tight text-white hidden sm:block">Macify <span class="font-normal text-zinc-400">Canvas</span></h1>
+        </div>
+
+        <!-- URL Fetcher -->
+        <div class="flex-1 max-w-xl flex justify-center">
+            <form id="url-form" class="w-full relative flex items-center">
+                <i data-lucide="globe" class="absolute left-3 w-4 h-4 text-zinc-400"></i>
+                <input type="text" id="app-url-input" placeholder="Enter website URL..." value="designcode.io" class="w-full bg-black/40 border border-white/10 focus:border-indigo-500 rounded-xl py-2 pl-9 pr-24 text-sm text-white outline-none transition-all shadow-inner">
+                <button type="submit" class="absolute right-1.5 px-3 py-1 bg-zinc-800 hover:bg-zinc-700 text-white text-xs font-semibold rounded-lg transition-colors flex items-center gap-1.5">
+                    <i data-lucide="download-cloud" class="w-3.5 h-3.5"></i> Fetch
+                </button>
+            </form>
+        </div>
+
+        <!-- Export Controls -->
+        <div class="flex items-center justify-end gap-3 w-1/4">
+            <button onclick="document.getElementById('file-upload').click()" class="hidden lg:flex items-center gap-2 px-3 py-1.5 rounded-lg bg-white/5 hover:bg-white/10 text-zinc-300 transition-all ring-1 ring-white/10 text-xs font-medium">
+                <i data-lucide="image" class="w-4 h-4"></i> Upload Image
+            </button>
+            <input type="file" id="file-upload" accept="image/*" class="hidden" onchange="handleImageUpload(event)">
+            
+            <div class="flex bg-indigo-600 rounded-lg shadow-lg ring-1 ring-inset ring-white/20 hover:bg-indigo-500">
+                <button onclick="exportImage()" class="flex items-center gap-2 px-3 py-1.5 text-white font-medium hover:bg-white/10 border-r border-indigo-400/30 text-xs">
+                    <i data-lucide="camera" class="w-4 h-4"></i> PNG
+                </button>
+                <button onclick="exportVideo()" class="flex items-center gap-2 px-3 py-1.5 text-white font-medium hover:bg-white/10 rounded-r-lg text-xs">
+                    <i data-lucide="video" class="w-4 h-4"></i> WebM
+                </button>
+            </div>
+        </div>
+    </header>
+
+    <!-- Main Layout -->
+    <div class="flex flex-1 relative overflow-hidden">
+        
+        <!-- Sidebar -->
+        <aside class="w-80 bg-zinc-900/90 backdrop-blur-3xl border-r border-white/5 flex flex-col z-30 shrink-0 shadow-2xl overflow-y-auto">
+            <div class="p-5 space-y-6">
+                
+                <!-- Browser Style -->
+                <div class="space-y-3">
+                    <label class="text-[10px] font-bold text-zinc-500 uppercase tracking-widest">Browser Style</label>
+                    <div class="flex p-1 bg-black/30 rounded-lg ring-1 ring-white/5">
+                        <button class="segmented-btn active flex-1 py-1.5 rounded text-xs text-zinc-400" data-style="chrome" onclick="setStyle('chrome')">Chrome</button>
+                        <button class="segmented-btn flex-1 py-1.5 rounded text-xs text-zinc-400" data-style="safari" onclick="setStyle('safari')">Safari</button>
+                        <button class="segmented-btn flex-1 py-1.5 rounded text-xs text-zinc-400" data-style="app" onclick="setStyle('app')">Mac App</button>
+                    </div>
+                    <div class="flex p-1 bg-black/30 rounded-lg ring-1 ring-white/5">
+                        <button class="segmented-btn active flex-1 py-1.5 rounded text-xs text-zinc-400" data-theme="dark" onclick="setTheme('dark')"><i data-lucide="moon" class="w-3.5 h-3.5 inline mb-0.5"></i> Dark</button>
+                        <button class="segmented-btn flex-1 py-1.5 rounded text-xs text-zinc-400" data-theme="light" onclick="setTheme('light')"><i data-lucide="sun" class="w-3.5 h-3.5 inline mb-0.5"></i> Light</button>
+                    </div>
+                </div>
+
+                <!-- Background -->
+                <div class="space-y-3 pt-4 border-t border-white/5">
+                    <div class="flex justify-between items-center">
+                        <label class="text-[10px] font-bold text-zinc-500 uppercase tracking-widest">Background</label>
+                        <label class="flex items-center gap-1.5 cursor-pointer text-[10px] text-zinc-400 hover:text-white">
+                            <input type="checkbox" id="bg-transparent" class="accent-indigo-500" onchange="state.bgTransparent = this.checked; renderFrame(1);"> Transparent
+                        </label>
+                    </div>
+                    <div class="grid grid-cols-4 gap-2">
+                        <button class="w-full aspect-square rounded-md shadow-sm border border-white/10" style="background: linear-gradient(135deg, #ec4899, #8b5cf6);" onclick="setBg('gradient', '#ec4899', '#8b5cf6')"></button>
+                        <button class="w-full aspect-square rounded-md shadow-sm border border-white/10" style="background: linear-gradient(135deg, #3b82f6, #2dd4bf);" onclick="setBg('gradient', '#3b82f6', '#2dd4bf')"></button>
+                        <button class="w-full aspect-square rounded-md shadow-sm border border-white/10" style="background: linear-gradient(135deg, #f59e0b, #ef4444);" onclick="setBg('gradient', '#f59e0b', '#ef4444')"></button>
+                        <button class="w-full aspect-square rounded-md shadow-sm border border-white/10" style="background: #18181b;" onclick="setBg('solid', '#18181b', null)"></button>
+                    </div>
+                </div>
+
+                <!-- Window Settings -->
+                <div class="space-y-4 pt-4 border-t border-white/5">
+                    <label class="text-[10px] font-bold text-zinc-500 uppercase tracking-widest">Window Layout</label>
+                    <div>
+                        <div class="flex justify-between mb-1"><span class="text-xs text-zinc-400">Device</span></div>
+                        <select class="w-full bg-black/40 border border-white/10 rounded-lg text-xs text-zinc-200 px-3 py-2 outline-none focus:ring-1 focus:ring-indigo-500" onchange="state.viewportMode = this.value; renderFrame(1);">
+                            <option value="desktop" selected>Desktop (1440x900)</option>
+                            <option value="mobile">Mobile (375x812)</option>
+                        </select>
+                    </div>
+                    <div>
+                        <div class="flex justify-between mb-1"><span class="text-xs text-zinc-400">Padding</span><span id="val-pad" class="text-xs text-zinc-500">64px</span></div>
+                        <input type="range" min="0" max="200" value="64" class="w-full accent-indigo-500" oninput="state.padding = parseInt(this.value); document.getElementById('val-pad').innerText=this.value+'px'; renderFrame(1);">
+                    </div>
+                    <div>
+                        <div class="flex justify-between mb-1"><span class="text-xs text-zinc-400">Border Radius</span><span id="val-rad" class="text-xs text-zinc-500">12px</span></div>
+                        <input type="range" min="0" max="40" value="12" class="w-full accent-indigo-500" oninput="state.borderRadius = parseInt(this.value); document.getElementById('val-rad').innerText=this.value+'px'; renderFrame(1);">
+                    </div>
+                </div>
+
+                <!-- Animation Engine -->
+                <div class="space-y-4 pt-4 border-t border-white/5 bg-indigo-500/5 p-4 rounded-xl border border-indigo-500/10">
+                    <label class="text-[10px] font-bold text-indigo-400 uppercase tracking-widest flex items-center gap-1.5"><i data-lucide="film" class="w-3.5 h-3.5"></i> Cinematic Motion</label>
+                    
+                    <select class="w-full bg-black/40 border border-white/10 rounded-lg text-xs text-zinc-200 px-3 py-2 outline-none focus:ring-1 focus:ring-indigo-500" onchange="state.animType = this.value; renderFrame(1);">
+                        <option value="none">No Animation</option>
+                        <option value="zoom-in" selected>Smooth Zoom In</option>
+                        <option value="zoom-out">Smooth Zoom Out</option>
+                        <option value="pan-up">Scroll Down (Pan Up)</option>
+                        <option value="pan-down">Scroll Up (Pan Down)</option>
+                    </select>
+
+                    <div>
+                        <div class="flex justify-between mb-1"><span class="text-[10px] text-zinc-400">Intensity</span><span id="val-int" class="text-[10px] text-indigo-300">15%</span></div>
+                        <input type="range" min="5" max="50" value="15" class="w-full accent-indigo-500" oninput="state.animIntensity = parseInt(this.value); document.getElementById('val-int').innerText=this.value+'%'; renderFrame(1);">
+                    </div>
+
+                    <div>
+                        <div class="flex justify-between mb-1"><span class="text-[10px] text-zinc-400">Duration</span><span id="val-dur" class="text-[10px] text-indigo-300">5.0s</span></div>
+                        <input type="range" min="1" max="10" step="0.5" value="5" class="w-full accent-indigo-500" oninput="state.animDuration = parseFloat(this.value); document.getElementById('val-dur').innerText=this.value+'s';">
+                    </div>
+
+                    <button onclick="togglePreview()" id="btn-preview" class="w-full py-2 bg-indigo-600 hover:bg-indigo-500 text-white rounded-lg text-xs font-bold transition-colors flex justify-center items-center gap-2 mt-2">
+                        <i data-lucide="play" class="w-3.5 h-3.5" id="icon-preview"></i> <span id="text-preview">Play Preview</span>
+                    </button>
+                </div>
+
+            </div>
+        </aside>
+
+        <!-- Canvas Area -->
+        <main class="flex-1 relative bg-zinc-950 transparent-pattern overflow-hidden flex items-center justify-center">
+            <div id="scale-wrapper">
+                <canvas id="preview-canvas" width="1920" height="1080"></canvas>
+            </div>
+        </main>
+    </div>
+
+    <!-- Export Overlay -->
+    <div id="export-loader" class="fixed inset-0 z-50 bg-black/90 hidden flex-col items-center justify-center transition-opacity opacity-0 backdrop-blur-sm">
+        <div class="w-12 h-12 border-4 border-white/10 border-t-indigo-500 rounded-full animate-spin mb-4" id="loader-spinner"></div>
+        <h2 class="text-xl font-bold text-white mb-2" id="loader-title">Processing...</h2>
+        <p class="text-sm text-zinc-400" id="loader-desc">Please wait.</p>
+    </div>
+
+    <div id="toast-container" class="fixed top-20 right-6 z-[60] flex flex-col gap-2 pointer-events-none"></div>
+
+    <script>
+        lucide.createIcons();
+
+        const canvas = document.getElementById('preview-canvas');
+        const ctx = canvas.getContext('2d', { alpha: true });
+
+        const state = {
+            url: 'https://designcode.io', domain: 'designcode.io', pageTitle: 'Design+Code',
+            image: null, logo: null,
+            
+            viewportMode: 'desktop', windowTheme: 'dark', windowStyle: 'chrome',
+            borderRadius: 12, shadowSize: 40, padding: 64,
+            bgType: 'gradient', bgSolid: '#18181b', gradStart: '#0f172a', gradEnd: '#1e293b', bgTransparent: false,
+            
+            animType: 'zoom-in', animDuration: 5.0, animIntensity: 15,
+            
+            isPlaying: false, isExporting: false, reqId: null
+        };
+
+        function showToast(msg, type='info') {
+            const container = document.getElementById('toast-container');
+            const toast = document.createElement('div');
+            toast.className = `bg-zinc-800/90 backdrop-blur text-white px-4 py-3 rounded-xl shadow-2xl ring-1 ring-white/10 flex items-center gap-3 transform transition-all -translate-y-4 opacity-0 z-50`;
+            const icon = type === 'success' ? 'check-circle' : (type === 'error' ? 'alert-triangle' : 'info');
+            const color = type === 'success' ? 'text-green-400' : (type === 'error' ? 'text-red-400' : 'text-indigo-400');
+            toast.innerHTML = `<i data-lucide="${icon}" class="w-4 h-4 ${color}"></i> <span class="text-sm font-medium">${msg}</span>`;
+            container.appendChild(toast); lucide.createIcons();
+            requestAnimationFrame(() => toast.classList.remove('-translate-y-4', 'opacity-0'));
+            setTimeout(() => { toast.classList.add('-translate-y-4', 'opacity-0'); setTimeout(() => toast.remove(), 300); }, 3000);
+        }
+
+        function toggleLoader(show, title='', desc='') {
+            const l = document.getElementById('export-loader');
+            if(show) {
+                document.getElementById('loader-title').innerText = title;
+                document.getElementById('loader-desc').innerText = desc;
+                l.classList.remove('hidden'); requestAnimationFrame(() => l.classList.remove('opacity-0'));
+            } else {
+                l.classList.add('opacity-0'); setTimeout(() => l.classList.add('hidden'), 300);
+            }
+        }
+
+        // --- Safe Data Loaders ---
+        function loadCorsImage(url) {
+            return new Promise((resolve) => {
+                const img = new Image();
+                img.crossOrigin = "anonymous";
+                img.onload = () => resolve(img);
+                img.onerror = () => resolve(null);
+                img.src = url;
+            });
+        }
+
+        // --- URL Cloud Fetch ---
+        async function fetchUrlSnapshot(rawUrl) {
+            if (!rawUrl || rawUrl.trim() === '') return;
+            
+            // Validate & Parse URL safely
+            let formattedUrl = rawUrl.trim();
+            if (!formattedUrl.startsWith('http://') && !formattedUrl.startsWith('https://')) {
+                formattedUrl = 'https://' + formattedUrl;
+            }
+            
+            try {
+                const parsed = new URL(formattedUrl);
+                state.domain = parsed.hostname.replace('www.', '');
+                state.url = formattedUrl;
+                document.getElementById('app-url-input').value = state.domain; // Clean display
+            } catch (e) {
+                return showToast('Invalid URL format.', 'error');
+            }
+
+            toggleLoader(true, 'Capturing Website...', 'Using Cloud Engine to render a 4K snapshot.');
+            
+            try {
+                let reqW = state.viewportMode === 'mobile' ? 400 : 1600;
+                let reqH = state.viewportMode === 'mobile' ? 850 : 1000;
+                let apiUrl = `https://api.microlink.io?url=${encodeURIComponent(state.url)}&screenshot=true&meta=true&viewport.width=${reqW}&viewport.height=${reqH}`;
+                if (state.viewportMode === 'mobile') apiUrl += `&viewport.isMobile=true`;
+                
+                const response = await fetch(apiUrl);
+                const data = await response.json();
+                if (data.status !== 'success' || !data.data.screenshot) throw new Error();
+
+                const img = await loadCorsImage(data.data.screenshot.url);
+                if (!img) throw new Error();
+                
+                state.image = img;
+                state.pageTitle = data.data.title || state.domain;
+                state.logo = await loadCorsImage(`https://unavatar.io/${state.domain}?fallback=false`);
+
+                renderFrame(1);
+                showToast('Website Loaded successfully!', 'success');
+            } catch (err) {
+                showToast('Failed to capture website. Some sites block cloud rendering.', 'error');
+                // Create a blank placeholder so the UI doesn't break
+                const tempC = document.createElement('canvas'); tempC.width=1440; tempC.height=900;
+                const tempCtx = tempC.getContext('2d'); tempCtx.fillStyle='#1e1e1e'; tempCtx.fillRect(0,0,1440,900);
+                tempCtx.fillStyle='#ffffff'; tempCtx.font='24px sans-serif'; tempCtx.fillText('Capture Failed', 100, 100);
+                const placeholder = new Image(); placeholder.onload = () => { state.image = placeholder; renderFrame(1); };
+                placeholder.src = tempC.toDataURL();
+            }
+            toggleLoader(false);
+        }
+
+        document.getElementById('url-form').addEventListener('submit', (e) => {
+            e.preventDefault();
+            fetchUrlSnapshot(document.getElementById('app-url-input').value);
+        });
+
+        function handleImageUpload(e) {
+            const file = e.target.files[0];
+            if (!file) return;
+            const reader = new FileReader();
+            reader.onload = (event) => {
+                const img = new Image();
+                img.onload = () => { 
+                    state.image = img; state.domain = 'Local Image'; state.pageTitle = file.name; state.logo = null;
+                    renderFrame(1); showToast('Image imported!', 'success'); 
+                };
+                img.src = event.target.result;
+            };
+            reader.readAsDataURL(file);
+        }
+
+        // --- UI State Setters ---
+        function setStyle(s) { state.windowStyle = s; document.querySelectorAll('[data-style]').forEach(b => b.classList.toggle('active', b.dataset.style===s)); renderFrame(1); }
+        function setTheme(t) { state.windowTheme = t; document.querySelectorAll('[data-theme]').forEach(b => b.classList.toggle('active', b.dataset.theme===t)); renderFrame(1); }
+        function setBg(type, c1, c2) { state.bgType=type; state.bgSolid=c1; state.gradStart=c1; state.gradEnd=c2; state.bgTransparent=false; document.getElementById('bg-transparent').checked=false; renderFrame(1); }
+
+        function drawRoundedRect(tCtx, x, y, w, h, radii) {
+            let tl=0, tr=0, br=0, bl=0;
+            if (typeof radii === 'number') tl=tr=br=bl=radii; 
+            else if (Array.isArray(radii)) [tl,tr,br,bl] = radii.length>=4 ? radii : [radii[0],radii[0],radii[0],radii[0]];
+            tCtx.beginPath(); tCtx.moveTo(x+tl, y); tCtx.lineTo(x+w-tr, y); tCtx.quadraticCurveTo(x+w, y, x+w, y+tr);
+            tCtx.lineTo(x+w, y+h-br); tCtx.quadraticCurveTo(x+w, y+h, x+w-br, y+h); tCtx.lineTo(x+bl, y+h); tCtx.quadraticCurveTo(x, y+h, x, y+h-bl);
+            tCtx.lineTo(x, y+tl); tCtx.quadraticCurveTo(x, y, x+tl, y); tCtx.closePath();
+        }
+
+        // --- Master Canvas Engine ---
+        function drawToContext(tCtx, targetWidth, targetHeight, sourceImg, progress) {
+            tCtx.clearRect(0, 0, targetWidth, targetHeight);
+            if (!sourceImg) return;
+
+            // Dimensions Setup
+            const isMobile = state.viewportMode === 'mobile';
+            const reqW = isMobile ? 375 : 1200;
+            const reqH = isMobile ? 812 : 800;
+            const headerH = state.windowStyle === 'safari' ? 52 : (state.windowStyle === 'app' ? 48 : 76);
+            
+            const winW = reqW;
+            const winH = reqH;
+            const baseW = winW + (state.padding * 2);
+            const baseH = winH + (state.padding * 2);
+            
+            const scale = Math.min(targetWidth / baseW, targetHeight / baseH);
+            const offsetX = (targetWidth - (baseW * scale)) / 2;
+            const offsetY = (targetHeight - (baseH * scale)) / 2;
+
+            tCtx.save();
+            tCtx.translate(offsetX, offsetY);
+            tCtx.scale(scale, scale);
+
+            // 1. Cinematic Transform (Ken Burns Math)
+            let animScale = 1.0; let panY = 0;
+            if (state.animType !== 'none') {
+                const p = -(Math.cos(Math.PI * progress) - 1) / 2; // easeInOutSine
+                const intensity = state.animIntensity / 100;
+                switch (state.animType) {
+                    case 'zoom-in': animScale = 1.0 + (intensity * p); break;
+                    case 'zoom-out': animScale = (1.0 + intensity) - (intensity * p); break;
+                    case 'pan-up': animTy = -winH * 0.2 * p; break;
+                    case 'pan-down': animTy = -winH * 0.2 * (1-p); break;
+                }
+            }
+
+            tCtx.translate(baseW/2, baseH/2);
+            tCtx.scale(animScale, animScale);
+            tCtx.translate(-baseW/2, -baseH/2 + (panY || 0));
+
+            // 2. Background
+            if (!state.bgTransparent) {
+                const bleed = 2000;
+                if (state.bgType === 'solid') {
+                    tCtx.fillStyle = state.bgSolid; tCtx.fillRect(-bleed, -bleed, baseW + bleed*2, baseH + bleed*2);
+                } else {
+                    const grad = tCtx.createLinearGradient(0, 0, baseW, baseH);
+                    grad.addColorStop(0, state.gradStart); grad.addColorStop(1, state.gradEnd);
+                    tCtx.fillStyle = grad; tCtx.fillRect(-bleed, -bleed, baseW + bleed*2, baseH + bleed*2);
+                }
+            }
+
+            // 3. Window Shadow
+            const winX = state.padding; const winY = state.padding;
+            tCtx.shadowColor = 'rgba(0, 0, 0, 0.5)';
+            tCtx.shadowBlur = state.shadowSize * 1.5;
+            tCtx.shadowOffsetY = state.shadowSize * 0.8;
+
+            const isDark = state.windowTheme === 'dark';
+            
+            // Window Base
+            drawRoundedRect(tCtx, winX, winY, winW, winH, state.borderRadius);
+            tCtx.fillStyle = isDark ? '#1e1e1e' : '#ffffff';
+            tCtx.fill();
+            tCtx.shadowColor = 'transparent'; tCtx.shadowBlur = 0; tCtx.shadowOffsetY = 0;
+
+            // 4. Draw Header
+            const bgTop = isDark ? '#202124' : '#dfe1e5';
+            const bgBot = isDark ? '#35363a' : '#ffffff';
+            const textC = isDark ? '#e8eaed' : '#3c4043';
+
+            if (state.windowStyle === 'chrome') {
+                drawRoundedRect(tCtx, winX, winY, winW, headerH, [state.borderRadius, state.borderRadius, 0, 0]);
+                tCtx.fillStyle = bgTop; tCtx.fill();
+                tCtx.beginPath(); tCtx.rect(winX, winY + 36, winW, 40); tCtx.fillStyle = bgBot; tCtx.fill();
+
+                // Dots
+                ['#ff5f56', '#ffbd2e', '#27c93f'].forEach((c, i) => {
+                    tCtx.beginPath(); tCtx.arc(winX + 22 + (i*20), winY + 18, 6, 0, Math.PI*2);
+                    tCtx.fillStyle = c; tCtx.fill();
+                });
+
+                // Tab
+                if (!isMobile) {
+                    const tabW = Math.min(240, winW - 140);
+                    tCtx.beginPath(); drawRoundedRect(tCtx, winX + 88, winY + 4, tabW, 32, [8,8,0,0]);
+                    tCtx.fillStyle = bgBot; tCtx.fill();
+                    tCtx.fillStyle = textC; tCtx.font = "12px sans-serif"; tCtx.fillText(state.domain, winX + 110, winY + 24);
+                }
+
+                // URL Bar
+                const abX = winX + 104; const abW = winW - 120;
+                drawRoundedRect(tCtx, abX, winY + 42, abW, 28, 14);
+                tCtx.fillStyle = isDark ? '#202124' : '#f1f3f4'; tCtx.fill();
+                tCtx.fillStyle = textC; tCtx.font = "13px sans-serif"; tCtx.fillText(state.domain, abX + 32, winY + 61);
+            } 
+            else if (state.windowStyle === 'safari') {
+                drawRoundedRect(tCtx, winX, winY, winW, headerH, [state.borderRadius, state.borderRadius, 0, 0]);
+                tCtx.fillStyle = isDark ? '#2d2d2d' : '#f6f6f6'; tCtx.fill();
+                
+                ['#ff5f56', '#ffbd2e', '#27c93f'].forEach((c, i) => {
+                    tCtx.beginPath(); tCtx.arc(winX + 22 + (i*20), winY + headerH/2, 6, 0, Math.PI*2);
+                    tCtx.fillStyle = c; tCtx.fill();
+                });
+
+                const abW = Math.min(winW * 0.6, 500);
+                const abX = winX + (winW - abW)/2;
+                drawRoundedRect(tCtx, abX, winY + 12, abW, 28, 6);
+                tCtx.fillStyle = isDark ? '#1c1c1e' : '#ffffff'; tCtx.fill();
+                tCtx.fillStyle = textC; tCtx.font = "13px sans-serif"; tCtx.textAlign = "center";
+                tCtx.fillText(state.domain, winX + winW/2, winY + 31);
+                tCtx.textAlign = "left";
+            }
+            else if (state.windowStyle === 'app') {
+                drawRoundedRect(tCtx, winX, winY, winW, headerH, [state.borderRadius, state.borderRadius, 0, 0]);
+                tCtx.fillStyle = isDark ? '#2d2d2d' : '#f6f6f6'; tCtx.fill();
+                
+                ['#ff5f56', '#ffbd2e', '#27c93f'].forEach((c, i) => {
+                    tCtx.beginPath(); tCtx.arc(winX + 22 + (i*20), winY + headerH/2, 6, 0, Math.PI*2);
+                    tCtx.fillStyle = c; tCtx.fill();
+                });
+                
+                tCtx.fillStyle = textC; tCtx.font = "bold 13px sans-serif"; tCtx.textAlign = "center";
+                tCtx.fillText(state.pageTitle, winX + winW/2, winY + 28);
+                tCtx.textAlign = "left";
+            }
+
+            // 5. Draw the actual screenshot image
+            tCtx.save();
+            drawRoundedRect(tCtx, winX, winY + headerH, winW, winH - headerH, [0, 0, state.borderRadius, state.borderRadius]);
+            tCtx.clip();
+            
+            // Draw image to fill width
+            const imgRatio = sourceImg.height / sourceImg.width;
+            const drawH = winW * imgRatio;
+            tCtx.drawImage(sourceImg, winX, winY + headerH, winW, drawH);
+            tCtx.restore();
+
+            // Inner Stroke
+            drawRoundedRect(tCtx, winX, winY, winW, winH, state.borderRadius);
+            tCtx.lineWidth = 1; tCtx.strokeStyle = isDark ? 'rgba(255,255,255,0.1)' : 'rgba(0,0,0,0.1)'; tCtx.stroke();
+
+            tCtx.restore();
+        }
+
+        function renderFrame(progress) {
+            state.animProgress = progress;
+            const wrapper = document.getElementById('scale-wrapper');
+            const availW = wrapper.clientWidth;
+            const availH = wrapper.clientHeight;
+            
+            // Set canvas physical resolution for crispness
+            canvas.width = availW * (window.devicePixelRatio || 1);
+            canvas.height = availH * (window.devicePixelRatio || 1);
+            canvas.style.width = availW + 'px';
+            canvas.style.height = availH + 'px';
+
+            drawToContext(ctx, canvas.width, canvas.height, sourceImg=state.image, progress);
+            
+            if(state.bgTransparent) wrapper.classList.add('transparent-pattern');
+            else wrapper.classList.remove('transparent-pattern');
+        }
+
+        window.addEventListener('resize', () => { if(!state.isPlaying) renderFrame(1); });
+
+        // --- Playback Engine ---
+        function updatePlayUI(playing) {
+            const btn = document.getElementById('btn-preview');
+            const icon = document.getElementById('icon-preview');
+            const txt = document.getElementById('text-preview');
+            
+            if (playing) {
+                btn.classList.replace('bg-indigo-600', 'bg-rose-600'); btn.classList.replace('hover:bg-indigo-500', 'hover:bg-rose-500');
+                icon.setAttribute('data-lucide', 'square'); txt.innerText = 'Stop';
+            } else {
+                btn.classList.replace('bg-rose-600', 'bg-indigo-600'); btn.classList.replace('hover:bg-rose-500', 'hover:bg-indigo-500');
+                icon.setAttribute('data-lucide', 'play'); txt.innerText = 'Play Preview';
+            }
+            lucide.createIcons();
+        }
+
+        function togglePreview() {
+            if (state.isPlaying) {
+                state.isPlaying = false; cancelAnimationFrame(state.reqId); updatePlayUI(false); renderFrame(1); return;
+            }
+            if (!state.image) return showToast('Fetch a URL first!', 'error');
+            if (state.animType === 'none') return showToast('Select an animation style first!', 'info');
+
+            state.isPlaying = true; updatePlayUI(true);
+            const startTime = performance.now();
+            
+            function loop(now) {
+                if (!state.isPlaying) return;
+                let p = ((now - startTime) / 1000) / state.animDuration;
+                if (p >= 1) { 
+                    if(state.isExporting) { p = 1; } // hold frame for exporter to finish
+                    else { startTime = now; p = 0; } // Loop preview
+                }
+                renderFrame(p);
+                if (state.isPlaying) state.reqId = requestAnimationFrame(loop);
+            }
+            state.reqId = requestAnimationFrame(loop);
+        }
+
+        // --- Export Engine ---
+        async function exportImage() {
+            if (!state.image) return showToast('Fetch a URL first!', 'error');
+            
+            try {
+                showToast('Rendering PNG...', 'info');
+                const targetW = parseInt(document.getElementById('export-res').value);
+                const targetH = Math.round(targetW * (9/16)); // 16:9 ratio
+
+                const expCanvas = document.createElement('canvas');
+                expCanvas.width = targetW; expCanvas.height = targetH;
+                drawToContext(expCanvas.getContext('2d'), targetW, targetH, state.image, 1);
+
+                const link = document.createElement('a'); link.download = `macify-${Date.now()}.png`;
+                link.href = expCanvas.toDataURL('image/png'); link.click();
+                showToast('PNG Exported!', 'success');
+            } catch(e) { showToast('Export failed.', 'error'); }
+        }
+
+        async function exportVideo() {
+            if (!state.image) return showToast('Fetch a URL first!', 'error');
+            if (state.animType === 'none') return showToast('Select an animation first!', 'info');
+            if (state.isPlaying) togglePreview(); // stop preview
+
+            try {
+                const targetW = parseInt(document.getElementById('export-res').value);
+                const targetH = Math.round(targetW * (9/16));
+
+                const rCanvas = document.createElement('canvas');
+                rCanvas.width = targetW; rCanvas.height = targetH;
+                const rCtx = rCanvas.getContext('2d');
+
+                const stream = rCanvas.captureStream(60); 
+                let chunks = [];
+                
+                const recorder = new MediaRecorder(stream, { mimeType: 'video/webm; codecs=vp9', videoBitsPerSecond: 20000000 });
+                recorder.ondataavailable = e => { if (e.data.size > 0) chunks.push(e.data); };
+                recorder.onstop = () => {
+                    const blob = new Blob(chunks, { type: 'video/webm' });
+                    const link = document.createElement('a'); link.download = `macify-video-${Date.now()}.webm`;
+                    link.href = URL.createObjectURL(blob); link.click();
+                    showToast('Video Exported!', 'success');
+                    state.isExporting = false; state.isPlaying = false; toggleLoader(false); renderFrame(1);
+                };
+
+                recorder.start();
+                state.isPlaying = true; state.isExporting = true;
+                toggleLoader(true, 'Rendering Video', 'Capturing at 60FPS directly from Canvas...');
+
+                const startTime = performance.now();
+                function recordLoop(now) {
+                    let p = ((now - startTime) / 1000) / state.animDuration;
+                    if (p > 1) { recorder.stop(); return; }
+                    
+                    drawToContext(rCtx, targetW, targetH, state.image, p);
+                    renderFrame(p); // sync UI
+                    
+                    requestAnimationFrame(recordLoop);
+                }
+                requestAnimationFrame(recordLoop);
+
+            } catch (err) {
+                showToast('Video Export failed.', 'error'); toggleLoader(false);
+            }
+        }
+
+        // Init empty state
+        renderFrame(1);
+
+    </script>
+</body>
+</html>

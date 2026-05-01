@@ -1,0 +1,690 @@
+<!DOCTYPE html>
+<html lang="en" class="dark">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+    <title>VoxMap Animator Pro</title>
+    
+    <!-- Tailwind CSS -->
+    <script src="https://cdn.tailwindcss.com"></script>
+    <script>
+        tailwind.config = {
+            darkMode: 'class',
+            theme: { 
+                extend: { 
+                    fontFamily: { 
+                        sans: ['Inter', 'sans-serif'],
+                        mono: ['JetBrains Mono', 'monospace'],
+                        vox: ['Helvetica Neue', 'Helvetica', 'Arial', 'sans-serif']
+                    }
+                } 
+            }
+        }
+    </script>
+    
+    <!-- Google Fonts -->
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=JetBrains+Mono:wght@400;500&family=Playfair+Display:ital,wght@0,600;1,600&display=swap" rel="stylesheet">
+    
+    <!-- Lucide Icons -->
+    <script src="https://unpkg.com/lucide@latest"></script>
+
+    <!-- D3 and Markmap -->
+    <script src="https://cdn.jsdelivr.net/npm/d3@7"></script>
+    <script src="https://cdn.jsdelivr.net/npm/markmap-lib@0.15.4/dist/browser/index.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/markmap-view@0.15.4/dist/browser/index.js"></script>
+
+    <style>
+        /* DYNAMIC THEME VARIABLES */
+        :root { 
+            color-scheme: dark; 
+            
+            /* Customizable Map Variables */
+            --map-bg: #121212;
+            --map-line: #ffcc00;
+            --map-root-text: #ffcc00;
+            --map-l1-text: #e5e5e5;
+            --map-node-text: #ffffff;
+            --map-node-bg: #121212;
+            --map-font: 'Helvetica Neue', Helvetica, Arial, sans-serif;
+            --map-line-weight: 5px;
+            
+            --draw-speed: 0.8s;
+        }
+        
+        body {
+            background-color: #09090b;
+            color: #ececf1;
+            overflow: hidden;
+            -webkit-font-smoothing: antialiased;
+        }
+
+        /* macOS style scrollbars */
+        ::-webkit-scrollbar { width: 4px; height: 4px; }
+        ::-webkit-scrollbar-track { background: transparent; }
+        ::-webkit-scrollbar-thumb { background: rgba(255, 255, 255, 0.15); border-radius: 10px; }
+        ::-webkit-scrollbar-thumb:hover { background: rgba(255, 255, 255, 0.3); }
+
+        .pattern-dots {
+            background-image: radial-gradient(rgba(255, 255, 255, 0.05) 1px, transparent 1px);
+            background-size: 20px 20px;
+        }
+
+        /* Markdown Editor Texture */
+        textarea {
+            tab-size: 2;
+            line-height: 1.5;
+        }
+
+        /* * DYNAMIC MARKMAP OVERRIDES 
+         * Driven by CSS variables configured in the UI 
+         */
+        #markmap-container {
+            font-family: var(--map-font);
+            font-weight: 700;
+            background-color: var(--map-bg);
+            transition: background-color 0.4s ease;
+        }
+
+        .markmap-node > circle {
+            fill: var(--map-node-bg) !important;
+            stroke: var(--map-line) !important;
+            stroke-width: calc(var(--map-line-weight) * 0.8) !important;
+            transition: all 0.3s ease;
+        }
+
+        .markmap-node text {
+            font-weight: 800 !important;
+            fill: var(--map-node-text) !important;
+            font-size: 20px !important;
+            text-shadow: 0px 2px 10px rgba(0,0,0,0.6);
+            transition: fill 0.3s ease;
+        }
+
+        /* Root node special styling */
+        .markmap-node[data-depth="0"] text {
+            font-size: 32px !important;
+            fill: var(--map-root-text) !important;
+        }
+
+        /* Level 1 node special styling */
+        .markmap-node[data-depth="1"] text {
+            font-size: 24px !important;
+            fill: var(--map-l1-text) !important;
+        }
+
+        .markmap-link {
+            stroke: var(--map-line) !important;
+            stroke-width: var(--map-line-weight) !important;
+            opacity: 0.9;
+            transition: stroke 0.3s ease, stroke-width 0.3s ease;
+        }
+
+        /* * SVG DRAW ANIMATION
+         * Smoothly draws the stroke of new lines 
+         */
+        .draw-anim .markmap-link {
+            stroke-dasharray: 1500;
+            stroke-dashoffset: 1500;
+            animation: drawPath var(--draw-speed) ease-out forwards;
+        }
+        
+        @keyframes drawPath {
+            to { stroke-dashoffset: 0; }
+        }
+
+        /* Sleek Button Hover */
+        .mac-btn { transition: all 0.2s ease; }
+        .mac-btn:hover { transform: scale(1.02); }
+        .mac-btn:active { transform: scale(0.98); }
+
+        /* Sleek Range Sliders */
+        input[type="range"] {
+            -webkit-appearance: none;
+            height: 3px;
+            background: rgba(255, 255, 255, 0.1);
+            border-radius: 2px;
+            outline: none;
+        }
+        input[type="range"]::-webkit-slider-thumb {
+            -webkit-appearance: none;
+            width: 12px;
+            height: 12px;
+            border-radius: 50%;
+            background: #fff;
+            box-shadow: 0 1px 4px rgba(0,0,0,0.4);
+            cursor: pointer;
+            transition: transform 0.1s;
+        }
+        input[type="range"]::-webkit-slider-thumb:hover { transform: scale(1.2); }
+
+        /* Color Picker Reset */
+        input[type="color"] {
+            -webkit-appearance: none;
+            border: none;
+            width: 100%;
+            height: 100%;
+            padding: 0;
+            cursor: pointer;
+            background: transparent;
+        }
+        input[type="color"]::-webkit-color-swatch-wrapper { padding: 0; }
+        input[type="color"]::-webkit-color-swatch { border: none; border-radius: 4px; box-shadow: inset 0 0 0 1px rgba(255,255,255,0.1); }
+    </style>
+</head>
+<body class="flex flex-col h-screen text-sm">
+
+    <!-- Glass Header -->
+    <header class="absolute top-0 w-full h-14 bg-zinc-900/80 backdrop-blur-2xl border-b border-white/5 flex items-center justify-between px-4 sm:px-6 z-40 shadow-sm">
+        
+        <!-- Logo -->
+        <div class="flex items-center gap-3">
+            <div class="w-7 h-7 rounded-lg bg-gradient-to-br from-yellow-400 to-amber-600 flex items-center justify-center shadow-inner shadow-white/20">
+                <i data-lucide="git-merge" class="w-4 h-4 text-zinc-900"></i>
+            </div>
+            <h1 class="font-semibold tracking-tight whitespace-nowrap text-zinc-100">VoxMap <span class="text-zinc-500 font-normal">Animator Pro</span></h1>
+        </div>
+
+        <!-- Animation & Export Controls -->
+        <div class="flex items-center gap-2 sm:gap-3">
+            <!-- Render Button -->
+            <button onclick="updateMarkmap()" class="mac-btn flex items-center gap-2 px-3 py-1.5 bg-white/5 hover:bg-white/10 text-zinc-300 rounded-lg text-xs font-medium border border-white/10" title="Refresh Map">
+                <i data-lucide="refresh-cw" class="w-3.5 h-3.5"></i> <span class="hidden sm:inline">Refresh</span>
+            </button>
+            
+            <div class="w-px h-4 bg-white/10 mx-1"></div>
+
+            <!-- Play Sequence Button -->
+            <button onclick="playVoxSequence()" id="btn-play" class="mac-btn flex items-center gap-2 px-4 py-1.5 bg-zinc-100 hover:bg-white text-zinc-900 rounded-lg font-bold shadow-lg shadow-white/10 text-xs sm:text-sm transition-all">
+                <i data-lucide="play-circle" class="w-4 h-4"></i>
+                <span>Animate</span>
+            </button>
+            
+            <!-- Export Video Button -->
+            <button onclick="exportVideo()" id="btn-export" class="mac-btn flex items-center gap-2 px-4 py-1.5 bg-yellow-500 hover:bg-yellow-400 text-yellow-950 rounded-lg font-bold shadow-lg shadow-yellow-500/20 text-xs sm:text-sm transition-all">
+                <i data-lucide="video" class="w-4 h-4"></i>
+                <span class="hidden sm:inline">Record</span>
+            </button>
+        </div>
+    </header>
+
+    <!-- Main Layout -->
+    <div class="flex flex-1 pt-14 relative overflow-hidden flex-col md:flex-row">
+        
+        <!-- Left Sidebar -->
+        <aside class="w-full md:w-[320px] flex-shrink-0 bg-zinc-900/80 backdrop-blur-3xl border-r border-white/5 z-30 h-[45%] md:h-full flex flex-col order-2 md:order-1 overflow-y-auto">
+            
+            <!-- Editor Section -->
+            <div class="flex flex-col flex-1 min-h-[200px] border-b border-white/5">
+                <div class="flex items-center justify-between px-4 py-2 bg-white/[0.02] border-b border-white/5">
+                    <label class="text-[10px] font-semibold text-zinc-500 uppercase tracking-wider flex items-center gap-1.5">
+                        <i data-lucide="code-2" class="w-3 h-3"></i> Markdown Source
+                    </label>
+                </div>
+                <div class="flex-1 p-2 relative bg-black/20">
+                    <textarea id="markdown-input" class="w-full h-full bg-transparent text-zinc-300 font-mono text-[12px] p-2 outline-none resize-none custom-scrollbar" spellcheck="false"></textarea>
+                </div>
+            </div>
+
+            <!-- Templates Section -->
+            <details class="group border-b border-white/5" open>
+                <summary class="px-4 py-3 flex items-center justify-between cursor-pointer hover:bg-white/[0.02] transition-colors list-none [&::-webkit-details-marker]:hidden select-none bg-white/[0.01]">
+                    <div class="flex items-center gap-2">
+                        <i data-lucide="chevron-right" class="w-3.5 h-3.5 text-zinc-500 group-open:rotate-90 transition-transform"></i>
+                        <span class="text-[10px] font-semibold text-zinc-400 uppercase tracking-wider">Quick Templates</span>
+                    </div>
+                </summary>
+                <div class="p-3 grid grid-cols-2 gap-2 bg-black/20">
+                    <button onclick="loadTemplate('vox')" class="p-2 bg-white/5 hover:bg-white/10 rounded border border-white/10 text-xs text-left transition-colors flex flex-col gap-1">
+                        <span class="font-bold text-yellow-500">Vox Style</span>
+                        <span class="text-[9px] text-zinc-500">Dark & High Contrast</span>
+                    </button>
+                    <button onclick="loadTemplate('corporate')" class="p-2 bg-white/5 hover:bg-white/10 rounded border border-white/10 text-xs text-left transition-colors flex flex-col gap-1">
+                        <span class="font-bold text-blue-400">Corporate</span>
+                        <span class="text-[9px] text-zinc-500">Clean & Light</span>
+                    </button>
+                    <button onclick="loadTemplate('hacker')" class="p-2 bg-white/5 hover:bg-white/10 rounded border border-white/10 text-xs text-left transition-colors flex flex-col gap-1">
+                        <span class="font-bold text-emerald-400 font-mono">Terminal</span>
+                        <span class="text-[9px] text-zinc-500">Matrix Aesthetics</span>
+                    </button>
+                    <button onclick="loadTemplate('organic')" class="p-2 bg-white/5 hover:bg-white/10 rounded border border-white/10 text-xs text-left transition-colors flex flex-col gap-1">
+                        <span class="font-bold text-orange-300 font-serif">Organic</span>
+                        <span class="text-[9px] text-zinc-500">Earth Tones</span>
+                    </button>
+                </div>
+            </details>
+
+            <!-- Appearance Settings -->
+            <details class="group border-b border-white/5">
+                <summary class="px-4 py-3 flex items-center justify-between cursor-pointer hover:bg-white/[0.02] transition-colors list-none [&::-webkit-details-marker]:hidden select-none bg-white/[0.01]">
+                    <div class="flex items-center gap-2">
+                        <i data-lucide="chevron-right" class="w-3.5 h-3.5 text-zinc-500 group-open:rotate-90 transition-transform"></i>
+                        <span class="text-[10px] font-semibold text-zinc-400 uppercase tracking-wider">Appearance</span>
+                    </div>
+                </summary>
+                <div class="p-4 space-y-4 bg-black/20">
+                    
+                    <!-- Font & Weight -->
+                    <div class="space-y-3">
+                        <div class="flex justify-between items-center">
+                            <span class="text-xs text-zinc-400 font-medium">Font Family</span>
+                            <select id="prop-font" class="bg-black/40 border border-white/10 rounded px-2 py-1 text-xs text-zinc-300 outline-none w-32" onchange="updateTheme('font', this.value)">
+                                <option value="'Helvetica Neue', Helvetica, Arial, sans-serif">Helvetica (Vox)</option>
+                                <option value="'Inter', sans-serif">Inter (Clean)</option>
+                                <option value="'JetBrains Mono', monospace">JetBrains Mono</option>
+                                <option value="'Playfair Display', serif">Playfair Serif</option>
+                            </select>
+                        </div>
+                        
+                        <div>
+                            <div class="flex justify-between items-center mb-2">
+                                <span class="text-xs text-zinc-400 font-medium">Line Weight</span>
+                                <span id="weight-val" class="text-xs text-zinc-500 font-mono">5px</span>
+                            </div>
+                            <input type="range" id="prop-weight" min="1" max="12" step="1" value="5" class="w-full accent-zinc-400" oninput="updateTheme('weight', this.value)">
+                        </div>
+                    </div>
+
+                    <div class="w-full h-px bg-white/5"></div>
+
+                    <!-- Colors -->
+                    <div class="space-y-2">
+                        <div class="flex items-center justify-between">
+                            <span class="text-xs text-zinc-400">Background Color</span>
+                            <div class="w-16 h-6 relative rounded overflow-hidden border border-white/20"><input type="color" id="color-bg" value="#121212" onchange="updateTheme('bg', this.value)"></div>
+                        </div>
+                        <div class="flex items-center justify-between">
+                            <span class="text-xs text-zinc-400">Branch Lines</span>
+                            <div class="w-16 h-6 relative rounded overflow-hidden border border-white/20"><input type="color" id="color-line" value="#ffcc00" onchange="updateTheme('line', this.value)"></div>
+                        </div>
+                        <div class="flex items-center justify-between">
+                            <span class="text-xs text-zinc-400">Root Text</span>
+                            <div class="w-16 h-6 relative rounded overflow-hidden border border-white/20"><input type="color" id="color-root" value="#ffcc00" onchange="updateTheme('root', this.value)"></div>
+                        </div>
+                        <div class="flex items-center justify-between">
+                            <span class="text-xs text-zinc-400">Sub-Node Text</span>
+                            <div class="w-16 h-6 relative rounded overflow-hidden border border-white/20"><input type="color" id="color-text" value="#e5e5e5" onchange="updateTheme('text', this.value)"></div>
+                        </div>
+                    </div>
+
+                </div>
+            </details>
+
+            <!-- Animation Settings Panel -->
+            <details class="group">
+                <summary class="px-4 py-3 flex items-center justify-between cursor-pointer hover:bg-white/[0.02] transition-colors list-none [&::-webkit-details-marker]:hidden select-none bg-white/[0.01]">
+                    <div class="flex items-center gap-2">
+                        <i data-lucide="chevron-right" class="w-3.5 h-3.5 text-zinc-500 group-open:rotate-90 transition-transform"></i>
+                        <span class="text-[10px] font-semibold text-zinc-400 uppercase tracking-wider">Animation Engine</span>
+                    </div>
+                </summary>
+                <div class="p-4 space-y-4 bg-black/20">
+                    
+                    <div class="flex items-center justify-between">
+                        <span class="text-xs text-zinc-300 font-medium">SVG Stroke Draw Effect</span>
+                        <label class="relative inline-flex items-center cursor-pointer">
+                            <input type="checkbox" id="prop-draw-anim" class="sr-only peer" checked onchange="state.drawAnimation = this.checked; updateMarkmap();">
+                            <div class="w-7 h-4 bg-zinc-700 peer-focus:outline-none rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border-gray-300 after:border after:rounded-full after:h-3 after:w-3 after:transition-all peer-checked:bg-yellow-500"></div>
+                        </label>
+                    </div>
+
+                    <div>
+                        <div class="flex justify-between items-center mb-2">
+                            <span class="text-xs text-zinc-400 font-medium">Sequence Reveal Delay</span>
+                            <span id="delay-val" class="text-xs text-yellow-500 font-mono font-bold">800ms</span>
+                        </div>
+                        <input type="range" id="prop-delay" min="200" max="2000" step="100" value="800" class="w-full accent-yellow-500" oninput="state.revealDelay = parseInt(this.value); document.getElementById('delay-val').innerText = this.value + 'ms'; updateThemeCSS();">
+                    </div>
+
+                    <div class="flex items-center justify-between">
+                        <span class="text-xs text-zinc-400 font-medium">Auto-Center Camera</span>
+                        <label class="relative inline-flex items-center cursor-pointer">
+                            <input type="checkbox" id="prop-autofit" class="sr-only peer" checked onchange="state.autoFit = this.checked">
+                            <div class="w-7 h-4 bg-zinc-700 peer-focus:outline-none rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border-gray-300 after:border after:rounded-full after:h-3 after:w-3 after:transition-all peer-checked:bg-zinc-400"></div>
+                        </label>
+                    </div>
+                </div>
+            </details>
+
+        </aside>
+
+        <!-- Main Canvas Area -->
+        <main class="flex-1 relative bg-transparent pattern-dots overflow-hidden order-1 md:order-2 flex items-center justify-center draw-anim" id="preview-area">
+            <!-- Markmap SVG Container -->
+            <svg id="markmap-container" class="w-full h-full cursor-move"></svg>
+
+            <!-- Recording Indicator -->
+            <div id="recording-indicator" class="absolute top-6 right-6 flex items-center gap-2 bg-rose-500/10 border border-rose-500/50 text-rose-400 px-4 py-2.5 rounded-full shadow-lg opacity-0 transition-opacity duration-300 pointer-events-none backdrop-blur-md z-50">
+                <div class="w-2.5 h-2.5 rounded-full bg-rose-500 animate-pulse shadow-[0_0_8px_rgba(244,63,94,0.8)]"></div>
+                <span class="text-xs font-bold tracking-widest uppercase">Recording</span>
+            </div>
+        </main>
+    </div>
+
+    <!-- Toasts -->
+    <div id="toast-container" class="fixed top-20 right-6 z-[60] flex flex-col gap-2 pointer-events-none"></div>
+
+    <script>
+        lucide.createIcons();
+
+        // --- Templates Library ---
+        const TEMPLATES = {
+            vox: {
+                md: `# How Ideas Spread\n## 1. The Spark\n- Observation\n- Deep Curiosity\n- Problem Solving\n## 2. The Medium\n- Books & Articles\n- Social Media\n- Word of Mouth\n## 3. The Catalyst\n- Influencers\n- Viral Trends\n## 4. The Impact\n- Cultural Shift\n- Direct Action\n- New Paradigms`,
+                theme: { bg: '#121212', line: '#ffcc00', root: '#ffcc00', text: '#e5e5e5', font: "'Helvetica Neue', Helvetica, Arial, sans-serif", weight: 5 }
+            },
+            corporate: {
+                md: `# Q3 Strategy\n## Marketing\n- SEO Optimization\n- Content Strategy\n- PR Campaigns\n## Sales\n- Outbound Pipeline\n- CRM Integration\n- Partner Program\n## Product\n- v2.0 Release\n- Mobile App\n- UX Revamp`,
+                theme: { bg: '#f8fafc', line: '#3b82f6', root: '#1e293b', text: '#475569', font: "'Inter', sans-serif", weight: 3 }
+            },
+            hacker: {
+                md: `# System Arch\n## Frontend\n- React.js\n- Tailwind CSS\n- WebGL\n## Backend\n- Node.js API\n- Redis Cache\n- PostgreSQL\n## DevOps\n- Docker\n- CI/CD Pipeline\n- AWS Hosting`,
+                theme: { bg: '#020617', line: '#10b981', root: '#10b981', text: '#34d399', font: "'JetBrains Mono', monospace", weight: 2 }
+            },
+            organic: {
+                md: `# Botany 101\n## Roots\n- Absorption\n- Anchorage\n- Storage\n## Stems\n- Support\n- Transport\n## Leaves\n- Photosynthesis\n- Gas Exchange\n- Transpiration`,
+                theme: { bg: '#fbf8f1', line: '#b45309', root: '#78350f', text: '#451a03', font: "'Playfair Display', serif", weight: 4 }
+            }
+        };
+
+        // --- Application State ---
+        const state = {
+            markmapInstance: null,
+            rootNode: null,
+            isPlaying: false,
+            isRecording: false,
+            revealDelay: 800,
+            autoFit: true,
+            drawAnimation: true,
+            theme: { ...TEMPLATES.vox.theme }
+        };
+
+        // --- Initialization ---
+        document.addEventListener('DOMContentLoaded', () => {
+            // Load initial template into editor
+            document.getElementById('markdown-input').value = TEMPLATES.vox.md;
+            syncThemeUI();
+            updateThemeCSS();
+            
+            initMarkmap();
+            
+            // Auto-update on text change (debounced)
+            let timeout;
+            document.getElementById('markdown-input').addEventListener('input', () => {
+                clearTimeout(timeout);
+                timeout = setTimeout(updateMarkmap, 500);
+            });
+        });
+
+        // --- Theme Engine ---
+        function loadTemplate(id) {
+            const t = TEMPLATES[id];
+            document.getElementById('markdown-input').value = t.md;
+            state.theme = { ...t.theme };
+            syncThemeUI();
+            updateThemeCSS();
+            updateMarkmap();
+            showToast(`Loaded ${id} template`, 'success');
+        }
+
+        function updateTheme(prop, val) {
+            state.theme[prop] = val;
+            if (prop === 'weight') document.getElementById('weight-val').innerText = val + 'px';
+            updateThemeCSS();
+        }
+
+        function syncThemeUI() {
+            document.getElementById('color-bg').value = state.theme.bg;
+            document.getElementById('color-line').value = state.theme.line;
+            document.getElementById('color-root').value = state.theme.root;
+            document.getElementById('color-text').value = state.theme.text;
+            document.getElementById('prop-font').value = state.theme.font;
+            document.getElementById('prop-weight').value = state.theme.weight;
+            document.getElementById('weight-val').innerText = state.theme.weight + 'px';
+        }
+
+        function updateThemeCSS() {
+            const r = document.documentElement;
+            r.style.setProperty('--map-bg', state.theme.bg);
+            r.style.setProperty('--map-node-bg', state.theme.bg); // Match node circle center to bg
+            r.style.setProperty('--map-line', state.theme.line);
+            r.style.setProperty('--map-root-text', state.theme.root);
+            r.style.setProperty('--map-l1-text', state.theme.text);
+            r.style.setProperty('--map-node-text', state.theme.text);
+            r.style.setProperty('--map-font', state.theme.font);
+            r.style.setProperty('--map-line-weight', state.theme.weight + 'px');
+            
+            // Sync SVG animation speed to reveal delay for tight sync
+            r.style.setProperty('--draw-speed', (state.revealDelay / 1000) + 's');
+
+            const preview = document.getElementById('preview-area');
+            if (state.drawAnimation) {
+                preview.classList.add('draw-anim');
+            } else {
+                preview.classList.remove('draw-anim');
+            }
+        }
+
+        // --- Markmap Engine ---
+        function initMarkmap() {
+            if (typeof markmap === 'undefined') {
+                setTimeout(initMarkmap, 100);
+                return;
+            }
+
+            try {
+                const svg = document.querySelector('#markmap-container');
+                const transformer = new markmap.Transformer();
+                const md = document.getElementById('markdown-input').value;
+                const { root } = transformer.transform(md);
+                state.rootNode = root;
+
+                // Create markmap instance
+                state.markmapInstance = markmap.Markmap.create(svg, {
+                    autoFit: true,
+                    duration: 600, // internal d3 transition duration
+                    paddingX: 100
+                }, root);
+
+            } catch (err) {
+                console.error("Markmap init error:", err);
+                showToast("Failed to initialize map.", "error");
+            }
+        }
+
+        function updateMarkmap() {
+            if (!state.markmapInstance || typeof markmap === 'undefined') return;
+            const md = document.getElementById('markdown-input').value;
+            const transformer = new markmap.Transformer();
+            const { root } = transformer.transform(md);
+            state.rootNode = root;
+            
+            state.markmapInstance.setData(root);
+            if (state.autoFit) state.markmapInstance.fit();
+        }
+
+        // --- Vox Style Animation Sequence ---
+
+        // Helper: recursively fold all nodes except the root
+        function foldAll(node, depth = 0) {
+            if (node.c && node.c.length > 0) {
+                // Set payload fold to 1 (collapsed) if depth > 0
+                if (depth > 0) {
+                    node.p = { ...node.p, fold: 1 };
+                } else {
+                    node.p = { ...node.p, fold: 0 }; // Keep root open initially
+                }
+                node.c.forEach(child => foldAll(child, depth + 1));
+            }
+        }
+
+        // Helper: asynchronously unfold nodes step-by-step
+        async function unfoldSequentially(node) {
+            if (!state.isPlaying) return; // Halt if stopped
+
+            if (node.c && node.c.length > 0) {
+                // Unfold current node
+                node.p = { ...node.p, fold: 0 };
+                state.markmapInstance.setData(state.rootNode);
+                
+                if (state.autoFit) {
+                    await state.markmapInstance.fit();
+                }
+
+                // Wait for the D3 transition + user configured delay
+                await new Promise(r => setTimeout(r, state.revealDelay));
+
+                // Process children sequentially
+                for (let child of node.c) {
+                    if (!state.isPlaying) break;
+                    await unfoldSequentially(child);
+                }
+            }
+        }
+
+        async function playVoxSequence() {
+            if (state.isPlaying || typeof markmap === 'undefined') return;
+            state.isPlaying = true;
+
+            const btn = document.getElementById('btn-play');
+            btn.innerHTML = `<i data-lucide="square" class="w-4 h-4 text-rose-500"></i><span class="text-rose-500">Stop</span>`;
+            lucide.createIcons();
+
+            // Re-trigger CSS animations by quickly removing and adding the container class
+            if(state.drawAnimation) {
+                document.getElementById('preview-area').classList.remove('draw-anim');
+                void document.getElementById('preview-area').offsetWidth; // trigger reflow
+                document.getElementById('preview-area').classList.add('draw-anim');
+            }
+
+            try {
+                // 1. Refresh to get clean state
+                const md = document.getElementById('markdown-input').value;
+                const transformer = new markmap.Transformer();
+                const { root } = transformer.transform(md);
+                state.rootNode = root;
+
+                // 2. Fold everything initially
+                foldAll(state.rootNode, 0);
+                state.markmapInstance.setData(state.rootNode);
+                await state.markmapInstance.fit();
+                
+                // Pause at start
+                await new Promise(r => setTimeout(r, 800));
+
+                // 3. Start unfolding sequentially
+                if (state.rootNode.c) {
+                    for (let child of state.rootNode.c) {
+                        if (!state.isPlaying) break;
+                        await unfoldSequentially(child);
+                    }
+                }
+            } catch (err) {
+                console.error(err);
+            } finally {
+                stopSequence();
+            }
+        }
+
+        function stopSequence() {
+            state.isPlaying = false;
+            const btn = document.getElementById('btn-play');
+            btn.innerHTML = `<i data-lucide="play-circle" class="w-4 h-4"></i><span>Animate</span>`;
+            lucide.createIcons();
+            
+            // Unfold all completely upon stopping
+            if (state.rootNode) {
+                const unfoldAll = (n) => {
+                    n.p = { ...n.p, fold: 0 };
+                    if (n.c) n.c.forEach(unfoldAll);
+                };
+                unfoldAll(state.rootNode);
+                state.markmapInstance.setData(state.rootNode);
+                state.markmapInstance.fit();
+            }
+        }
+
+        // --- Screen Capture Export (WebM) ---
+        // Native screen capture is required to smoothly record SVG CSS/D3 animations
+        async function exportVideo() {
+            if (state.isRecording) return;
+            
+            try {
+                // Request screen share (Targeting the current tab ideally)
+                showToast("Please select the 'Current Tab' in the popup to record the animation.", "info");
+                
+                const stream = await navigator.mediaDevices.getDisplayMedia({
+                    video: { displaySurface: "browser", preferCurrentTab: true },
+                    audio: false
+                });
+
+                state.isRecording = true;
+                const ind = document.getElementById('recording-indicator');
+                ind.classList.remove('opacity-0');
+
+                const recorder = new MediaRecorder(stream, { mimeType: 'video/webm; codecs=vp9' });
+                const chunks = [];
+
+                recorder.ondataavailable = e => {
+                    if (e.data.size > 0) chunks.push(e.data);
+                };
+
+                recorder.onstop = () => {
+                    const blob = new Blob(chunks, { type: 'video/webm' });
+                    const url = URL.createObjectURL(blob);
+                    const link = document.createElement('a');
+                    link.href = url;
+                    link.download = `voxmap-animation-${Date.now()}.webm`;
+                    link.click();
+                    URL.revokeObjectURL(url);
+                    
+                    state.isRecording = false;
+                    ind.classList.add('opacity-0');
+                    showToast('Video exported successfully!', 'success');
+                };
+
+                // Start recording
+                recorder.start();
+                
+                // Wait briefly for recording to stabilize, then trigger animation
+                await new Promise(r => setTimeout(r, 500));
+                await playVoxSequence();
+                
+                // Wait briefly after animation finishes before cutting
+                await new Promise(r => setTimeout(r, 1000));
+                
+                // Stop recording
+                recorder.stop();
+                stream.getTracks().forEach(track => track.stop()); // Stop screen sharing
+
+            } catch (err) {
+                console.error("Recording error:", err);
+                state.isRecording = false;
+                document.getElementById('recording-indicator').classList.add('opacity-0');
+                if (err.name === "NotAllowedError") {
+                    showToast("Screen capture permission denied.", "error");
+                } else {
+                    showToast("Export failed. Browser may not support DisplayMedia.", "error");
+                }
+            }
+        }
+
+        // --- UI Utilities ---
+        function showToast(message, type = 'info') {
+            const container = document.getElementById('toast-container');
+            const toast = document.createElement('div');
+            toast.className = `bg-zinc-800/95 backdrop-blur-md text-white px-4 py-3 rounded-xl shadow-2xl ring-1 ring-white/10 flex items-center gap-3 transform transition-all -translate-y-4 opacity-0 z-50`;
+            let icon = type === 'success' ? 'check-circle' : (type === 'error' ? 'alert-triangle' : 'info');
+            let color = type === 'success' ? 'text-emerald-400' : (type === 'error' ? 'text-rose-400' : 'text-blue-400');
+            toast.innerHTML = `<i data-lucide="${icon}" class="w-4 h-4 ${color}"></i> <span class="text-sm font-medium">${message}</span>`;
+            container.appendChild(toast); 
+            lucide.createIcons();
+            
+            requestAnimationFrame(() => toast.classList.remove('-translate-y-4', 'opacity-0'));
+            setTimeout(() => { 
+                toast.classList.add('-translate-y-4', 'opacity-0'); 
+                setTimeout(() => toast.remove(), 300); 
+            }, 4000);
+        }
+    </script>
+</body>
+</html>
