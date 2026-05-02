@@ -1,0 +1,1118 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+    <title>Editorial Map Animator Pro</title>
+    
+    <!-- Google Fonts -->
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Carrois+Gothic&family=Caveat:wght@600;700&family=Inter:wght@400;500;600;700;800;900&family=JetBrains+Mono:wght@400;500;700&family=Playfair+Display:wght@600;700&family=Roboto:wght@400;500;700;900&display=swap" rel="stylesheet">
+
+    <!-- Tailwind CSS -->
+    <script src="https://cdn.tailwindcss.com"></script>
+    <script>
+        tailwind.config = {
+            theme: {
+                extend: {
+                    fontFamily: {
+                        sans: ['Inter', 'sans-serif'],
+                        mono: ['JetBrains Mono', 'monospace'],
+                    },
+                    colors: {
+                        blueprint: {
+                            50: '#f0f4f8',
+                            100: '#d9e2ec',
+                            200: '#bcccdc',
+                            300: '#9fb3c8',
+                            800: '#102a43',
+                            900: '#003366', 
+                        },
+                        brand: {
+                            red: '#ef4444',
+                            blue: '#3b82f6',
+                            green: '#10b981'
+                        }
+                    }
+                }
+            }
+        }
+    </script>
+
+    <!-- Phosphor Icons -->
+    <script src="https://unpkg.com/@phosphor-icons/web"></script>
+    <!-- GIF.js for Export -->
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/gif.js/0.2.0/gif.js"></script>
+    <!-- D3.js for Map Projections and Color Scales -->
+    <script src="https://d3js.org/d3.v7.min.js"></script>
+
+    <style>
+        body { overscroll-behavior-y: none; }
+        
+        .blueprint-bg {
+            background-color: #f4f7fa;
+            background-image: 
+                linear-gradient(rgba(0, 51, 102, 0.08) 1px, transparent 1px),
+                linear-gradient(90deg, rgba(0, 51, 102, 0.08) 1px, transparent 1px);
+            background-size: 24px 24px;
+            background-position: center center;
+        }
+
+        input[type=range] {
+            -webkit-appearance: none;
+            width: 100%;
+            background: transparent;
+        }
+        input[type=range]::-webkit-slider-thumb {
+            -webkit-appearance: none;
+            height: 16px;
+            width: 16px;
+            border-radius: 50%;
+            background: #003366;
+            cursor: pointer;
+            margin-top: -6px;
+            box-shadow: 0 1px 3px rgba(0,0,0,0.3);
+        }
+        input[type=range]::-webkit-slider-runnable-track {
+            width: 100%;
+            height: 4px;
+            cursor: pointer;
+            background: #cbd5e1;
+            border-radius: 2px;
+        }
+        input[type=range]:focus::-webkit-slider-runnable-track { background: #94a3b8; }
+
+        ::-webkit-scrollbar { width: 8px; height: 8px; }
+        ::-webkit-scrollbar-track { background: transparent; }
+        ::-webkit-scrollbar-thumb { background: #cbd5e1; border-radius: 0px; border: 1px solid #f4f7fa; }
+        ::-webkit-scrollbar-thumb:hover { background: #94a3b8; }
+
+        input[type="color"] {
+            -webkit-appearance: none;
+            border: none;
+            width: 100%;
+            height: 100%;
+            padding: 0;
+            cursor: pointer;
+            background: transparent;
+        }
+        input[type="color"]::-webkit-color-swatch-wrapper { padding: 0; }
+        input[type="color"]::-webkit-color-swatch { border: none; }
+
+        .blueprint-shadow { box-shadow: 6px 6px 0px rgba(0, 51, 102, 0.1); }
+    </style>
+</head>
+<body class="blueprint-bg text-slate-800 h-screen flex flex-col overflow-hidden">
+
+    <!-- HEADER -->
+    <header class="h-16 bg-white border-b border-blueprint-900 flex items-center justify-between px-4 sm:px-8 flex-shrink-0 z-20">
+        <div class="flex items-center gap-4">
+            <div class="border-2 border-blueprint-900 px-3 py-1 flex items-center bg-white blueprint-shadow select-none">
+                <span class="text-xl sm:text-2xl font-black text-blueprint-900 tracking-tighter uppercase">Map</span>
+                <span class="text-xl sm:text-2xl font-black text-brand-green tracking-tighter uppercase">Animator</span>
+            </div>
+            <div class="hidden md:flex gap-2 text-[10px] font-bold text-blueprint-900 uppercase tracking-widest mt-1">
+                <span class="border border-blueprint-200 px-2 py-0.5 bg-blueprint-50">Geo Spatial</span>
+                <span class="border border-blueprint-200 px-2 py-0.5 bg-blueprint-50">Pro Studio</span>
+            </div>
+        </div>
+
+        <div class="flex items-center justify-end gap-3 shrink-0">
+            <label class="hidden md:flex items-center gap-1.5 cursor-pointer bg-white hover:bg-slate-50 px-2.5 py-1.5 border border-blueprint-200 transition" title="Export as transparent PNG or GIF">
+                <input type="checkbox" id="header-transparent" class="w-3.5 h-3.5 accent-blueprint-900 rounded-none cursor-pointer">
+                <span class="text-[11px] font-bold text-blueprint-800 uppercase tracking-wide">Transparent</span>
+            </label>
+
+            <button id="btn-header-preview" class="flex items-center gap-2 px-4 py-1.5 bg-white hover:bg-slate-50 text-blueprint-900 font-bold transition-colors border-2 border-blueprint-900 text-xs shadow-[2px_2px_0px_#003366] hover:shadow-none hover:translate-x-[2px] hover:translate-y-[2px] uppercase">
+                <i class="ph-bold ph-play-circle text-lg" id="icon-play"></i>
+                <span id="text-play" class="hidden sm:inline tracking-wider">Preview</span>
+            </button>
+            
+            <div class="flex bg-blueprint-900 border-2 border-blueprint-900 shadow-[2px_2px_0px_rgba(0,51,102,0.5)]">
+                <select id="export-res" class="bg-white text-blueprint-900 font-bold pl-3 pr-2 py-1.5 outline-none cursor-pointer appearance-none text-xs border-r-2 border-blueprint-900 hidden sm:block uppercase">
+                    <option value="640">360p GIF</option>
+                    <option value="854">480p GIF</option>
+                    <option value="1920" selected>HD 1080p</option>
+                    <option value="2560">2K 1440p</option>
+                </select>
+                <select id="export-fmt" class="bg-white text-blueprint-900 font-bold pl-3 pr-2 py-1.5 outline-none cursor-pointer appearance-none text-xs uppercase" onchange="document.getElementById('text-export').innerText = this.value.toUpperCase()">
+                    <option value="webm" selected>WebM</option>
+                    <option value="gif">GIF</option>
+                    <option value="png">PNG</option>
+                </select>
+                <button id="btn-header-export" class="flex items-center gap-2 px-4 py-1.5 text-white font-black hover:bg-blueprint-800 transition-colors text-xs uppercase tracking-widest">
+                    <i class="ph-bold ph-download text-sm"></i>
+                    <span class="hidden sm:inline" id="text-export">WEBM</span>
+                </button>
+            </div>
+        </div>
+    </header>
+
+    <main class="flex-1 flex flex-col md:flex-row overflow-hidden relative">
+        <!-- Recording Overlay -->
+        <div id="recording-overlay" class="absolute top-6 left-1/2 -translate-x-1/2 bg-white border-2 border-brand-green text-brand-green px-6 py-3 font-bold text-sm flex items-center gap-3 shadow-[4px_4px_0px_#10b981] z-50 transition-transform duration-300 transform -translate-y-24 uppercase tracking-widest">
+            <div class="w-2.5 h-2.5 bg-brand-green rounded-full animate-pulse"></div>
+            <span id="recording-text">Rendering Video...</span>
+        </div>
+
+        <!-- TOOLBAR / SIDEBAR -->
+        <aside class="w-full md:w-[420px] bg-white border-b md:border-b-0 md:border-r border-blueprint-900 p-5 md:p-6 flex flex-col gap-6 overflow-y-auto z-10 flex-shrink-0 h-[50vh] md:h-full order-2 md:order-1 shadow-[0_-4px_10px_rgba(0,0,0,0.05)] md:shadow-none">
+            
+            <div class="text-[10px] font-black text-blueprint-900 uppercase tracking-widest bg-blueprint-100 px-2 py-1 inline-block w-max mb-[-12px]">Map Properties</div>
+
+            <!-- Quick Templates -->
+            <div class="flex flex-col gap-2 flex-shrink-0">
+                <h2 class="text-[11px] font-bold uppercase tracking-widest text-slate-500 flex items-center gap-2">
+                    <i class="ph-fill ph-globe-hemisphere-west text-brand-blue text-lg"></i> Data Presets
+                </h2>
+                <div class="grid grid-cols-2 gap-2 mt-1">
+                    <button class="template-btn py-2 bg-white border border-blueprint-200 hover:border-blueprint-900 hover:bg-blueprint-50 text-xs font-semibold text-slate-700 transition truncate px-3 text-left" data-template="population">👥 Pop Density</button>
+                    <button class="template-btn py-2 bg-white border border-blueprint-200 hover:border-blueprint-900 hover:bg-blueprint-50 text-xs font-semibold text-slate-700 transition truncate px-3 text-left" data-template="gdp">💰 Global GDP</button>
+                    <button class="template-btn py-2 bg-white border border-brand-blue hover:bg-blue-50 text-xs font-bold text-slate-800 transition truncate px-3 text-left" data-template="vox-demo">🗳️ Vox: Democracy</button>
+                    <button class="template-btn py-2 bg-slate-800 border border-slate-700 hover:bg-slate-900 text-xs font-bold text-white transition truncate px-3 text-left" data-template="vox-taiwan">⚔️ Vox: Conflict</button>
+                </div>
+            </div>
+
+            <div class="w-full border-b border-dashed border-blueprint-300"></div>
+
+            <!-- Metadata -->
+            <div class="flex flex-col gap-3 flex-shrink-0">
+                <h2 class="text-[11px] font-bold uppercase tracking-widest text-slate-500">Map Metadata</h2>
+                <div class="flex items-center gap-3">
+                    <input type="checkbox" id="show-title" checked class="w-4 h-4 accent-blueprint-900 cursor-pointer" title="Toggle Title">
+                    <input type="text" id="chart-title" value="Global Population Density" class="flex-1 px-3 py-2 bg-slate-50 border border-blueprint-200 text-sm text-slate-900 font-semibold outline-none focus:ring-1 focus:ring-blueprint-900 focus:border-blueprint-900 transition-all placeholder:font-normal">
+                </div>
+                <div class="flex items-center gap-3">
+                    <input type="checkbox" id="show-subtitle" checked class="w-4 h-4 accent-blueprint-900 cursor-pointer">
+                    <input type="text" id="chart-subtitle" value="People per square kilometer of land area." class="flex-1 px-3 py-2 bg-slate-50 border border-blueprint-200 text-sm text-slate-700 outline-none focus:ring-1 focus:ring-blueprint-900 focus:border-blueprint-900 transition-all">
+                </div>
+                <div class="flex items-center gap-3">
+                    <input type="checkbox" id="show-source" checked class="w-4 h-4 accent-blueprint-900 cursor-pointer">
+                    <input type="text" id="chart-source" value="SOURCE: WORLD BANK DATA" class="flex-1 px-3 py-2 bg-slate-50 border border-blueprint-200 text-xs text-slate-500 uppercase font-medium outline-none focus:ring-1 focus:ring-blueprint-900 focus:border-blueprint-900 transition-all">
+                </div>
+            </div>
+
+            <div class="w-full border-b border-dashed border-blueprint-300"></div>
+
+            <!-- Data Editor (CSV Driven for ease of copy/paste) -->
+            <div class="flex flex-col gap-3 flex-1 min-h-[240px]">
+                <div class="flex items-center justify-between">
+                    <h2 class="text-[11px] font-bold uppercase tracking-widest text-slate-500">Choropleth Data (CSV)</h2>
+                </div>
+                <p class="text-[10px] text-slate-500 font-medium leading-tight">Format: <b>Name, ISO-A3, Value, #Color (Optional)</b></p>
+                <textarea id="data-input" class="w-full flex-1 p-3 border-2 border-blueprint-200 bg-slate-50 text-[12px] text-slate-800 font-mono outline-none focus:border-blueprint-900 resize-none whitespace-pre transition-colors leading-relaxed" spellcheck="false">
+Country,ISO3,Value,Color
+India,IND,481
+China,CHN,153
+United States,USA,36
+Indonesia,IDN,151
+Pakistan,PAK,287
+Brazil,BRA,25
+Nigeria,NGA,226
+Bangladesh,BGD,1265
+Russia,RUS,9
+Mexico,MEX,66</textarea>
+            </div>
+
+            <div class="w-full border-b border-dashed border-blueprint-300"></div>
+
+            <!-- Appearance Settings -->
+            <div class="flex flex-col gap-5 flex-shrink-0">
+                <h2 class="text-[11px] font-bold uppercase tracking-widest text-slate-500">Geography & Style</h2>
+                
+                <div>
+                    <label class="block text-[10px] font-bold uppercase tracking-wider text-blueprint-900 mb-1.5">Visual Theme</label>
+                    <select id="visual-theme" class="w-full px-3 py-2 bg-slate-50 border border-blueprint-200 text-xs text-slate-800 font-bold outline-none focus:border-blueprint-900 appearance-none cursor-pointer shadow-[2px_2px_0px_#cbd5e1]">
+                        <option value="classic">Blueprint (Classic)</option>
+                        <option value="vox-light">Editorial Light (Vox Style)</option>
+                        <option value="vox-dark">Tactical Dark (Vox Style)</option>
+                    </select>
+                </div>
+                
+                <div>
+                    <label class="block text-[10px] font-bold uppercase tracking-wider text-blueprint-900 mb-1.5">Map Data Source (GeoJSON)</label>
+                    <select id="map-source" class="w-full px-3 py-2 bg-slate-50 border border-blueprint-200 text-xs text-slate-800 font-medium outline-none focus:border-blueprint-900 appearance-none cursor-pointer">
+                        <option value="https://raw.githubusercontent.com/holtzy/D3-graph-gallery/master/DATA/world.geojson" selected>High Detail (Standard Borders)</option>
+                        <option value="https://raw.githubusercontent.com/johan/world.geo.json/master/countries.geo.json">Low Detail (Simplified/Faster)</option>
+                    </select>
+                </div>
+
+                <div class="grid grid-cols-2 gap-4">
+                    <div>
+                        <label class="block text-[10px] font-bold uppercase tracking-wider text-blueprint-900 mb-1.5">Map Projection</label>
+                        <select id="map-projection" class="w-full px-3 py-2 bg-slate-50 border border-blueprint-200 text-xs text-slate-800 font-medium outline-none focus:border-blueprint-900 appearance-none cursor-pointer">
+                            <option value="geoMercator">Mercator (Standard)</option>
+                            <option value="geoNaturalEarth1" selected>Natural Earth</option>
+                            <option value="geoOrthographic">Orthographic (3D)</option>
+                            <option value="geoEquirectangular">Equirectangular</option>
+                        </select>
+                    </div>
+                    <div>
+                        <label class="block text-[10px] font-bold uppercase tracking-wider text-blueprint-900 mb-1.5">Color Scale</label>
+                        <select id="color-scale" class="w-full px-3 py-2 bg-slate-50 border border-blueprint-200 text-xs text-slate-800 font-medium outline-none focus:border-blueprint-900 appearance-none cursor-pointer">
+                            <option value="interpolateBlues">Deep Blues</option>
+                            <option value="interpolateReds">Intense Reds</option>
+                            <option value="interpolateGreens">Forest Greens</option>
+                            <option value="interpolateViridis">Viridis (Data Sci)</option>
+                            <option value="interpolateInferno" selected>Inferno (Heat)</option>
+                            <option value="interpolateMagma">Magma</option>
+                            <option value="interpolateTurbo">Turbo (Rainbow)</option>
+                        </select>
+                    </div>
+                </div>
+
+                <div class="grid grid-cols-3 gap-4">
+                    <div>
+                        <label class="block text-[10px] font-bold uppercase tracking-wider text-blueprint-900 mb-1.5">Ocean / BG</label>
+                        <div class="relative w-full h-8 border border-blueprint-200 overflow-hidden">
+                            <input type="color" id="bg-color" value="#ffffff">
+                        </div>
+                    </div>
+                    <div>
+                        <label class="block text-[10px] font-bold uppercase tracking-wider text-blueprint-900 mb-1.5">Base Land</label>
+                        <div class="relative w-full h-8 border border-blueprint-200 overflow-hidden">
+                            <input type="color" id="base-country-color" value="#e2e8f0">
+                        </div>
+                    </div>
+                    <div>
+                        <label class="block text-[10px] font-bold uppercase tracking-wider text-blueprint-900 mb-1.5">Text Color</label>
+                        <div class="relative w-full h-8 border border-blueprint-200 overflow-hidden">
+                            <input type="color" id="text-color" value="#0f172a">
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Animation & Camera View -->
+                <div class="flex flex-col mt-2 p-3 bg-slate-50 border border-blueprint-100 relative">
+                    <label class="block text-[10px] font-bold uppercase tracking-widest text-blueprint-900 mb-3">Camera & View</label>
+                    <label class="absolute top-3 right-3 flex items-center gap-1.5 cursor-pointer bg-white px-2 py-1 border border-blueprint-200 shadow-sm">
+                        <input type="checkbox" id="animate-camera" class="w-3 h-3 accent-blueprint-900">
+                        <span class="text-[9px] font-bold text-slate-700 uppercase tracking-wider">Cinematic Pan</span>
+                    </label>
+
+                    <div class="grid grid-cols-2 gap-4 mt-2">
+                        <div>
+                            <div class="flex justify-between items-center mb-2">
+                                <label class="block text-[10px] font-bold text-slate-500 uppercase tracking-wider">Anim Speed</label>
+                                <span id="duration-val" class="text-[10px] text-blueprint-900 font-bold">2.5s</span>
+                            </div>
+                            <input type="range" id="anim-duration" min="0.5" max="5" step="0.5" value="2.5">
+                        </div>
+                        <div>
+                            <div class="flex justify-between items-center mb-2">
+                                <label class="block text-[10px] font-bold text-slate-500 uppercase tracking-wider">Map Scale</label>
+                                <span id="zoom-val" class="text-[10px] text-blueprint-900 font-bold">1.0x</span>
+                            </div>
+                            <input type="range" id="map-zoom" min="0.5" max="8" step="0.1" value="1.0">
+                        </div>
+                    </div>
+                    <div class="grid grid-cols-3 gap-4 mt-4">
+                        <div>
+                            <div class="flex justify-between items-center mb-2">
+                                <label class="block text-[10px] font-bold text-slate-500 uppercase tracking-wider">Pan X</label>
+                                <span id="pan-x-val" class="text-[10px] text-blueprint-900 font-bold">0</span>
+                            </div>
+                            <input type="range" id="map-pan-x" min="-2000" max="2000" step="10" value="0">
+                        </div>
+                        <div>
+                            <div class="flex justify-between items-center mb-2">
+                                <label class="block text-[10px] font-bold text-slate-500 uppercase tracking-wider">Pan Y</label>
+                                <span id="pan-y-val" class="text-[10px] text-blueprint-900 font-bold">0</span>
+                            </div>
+                            <input type="range" id="map-pan-y" min="-2000" max="2000" step="10" value="0">
+                        </div>
+                        <div>
+                            <div class="flex justify-between items-center mb-2">
+                                <label class="block text-[10px] font-bold text-slate-500 uppercase tracking-wider">Border</label>
+                                <span id="border-val" class="text-[10px] text-blueprint-900 font-bold">0.8</span>
+                            </div>
+                            <input type="range" id="border-width" min="0" max="5" step="0.1" value="0.8">
+                        </div>
+                    </div>
+                </div>
+                
+                <!-- Globe specific config (hidden by default unless Orthographic is selected) -->
+                <div id="globe-controls" class="hidden mt-2 p-3 bg-slate-50 border border-blueprint-100 flex-col gap-4">
+                    <label class="block text-[10px] font-bold uppercase tracking-widest text-blueprint-900">Globe Rotation (Pitch/Yaw/Roll)</label>
+                    <div class="grid grid-cols-3 gap-2">
+                        <input type="range" id="rot-yaw" min="-180" max="180" step="1" value="0" title="Yaw (Longitude)">
+                        <input type="range" id="rot-pitch" min="-90" max="90" step="1" value="0" title="Pitch (Latitude)">
+                        <input type="range" id="rot-roll" min="-180" max="180" step="1" value="0" title="Roll">
+                    </div>
+                    <label class="flex items-center gap-2 cursor-pointer mt-1">
+                        <input type="checkbox" id="auto-spin" checked class="w-4 h-4 accent-blueprint-900 border-blueprint-300">
+                        <span class="text-[11px] font-bold text-slate-700 uppercase tracking-wider">Spin during animation</span>
+                    </label>
+                </div>
+                
+                <div class="flex items-center gap-6 mt-1 mb-2">
+                    <label class="flex items-center gap-2 cursor-pointer">
+                        <input type="checkbox" id="show-graticule" checked class="w-4 h-4 accent-blueprint-900 border-blueprint-300">
+                        <span class="text-[11px] font-bold text-slate-700 uppercase tracking-wider">Show Graticule</span>
+                    </label>
+                    <label class="flex items-center gap-2 cursor-pointer">
+                        <input type="checkbox" id="show-legend" checked class="w-4 h-4 accent-blueprint-900 border-blueprint-300">
+                        <span class="text-[11px] font-bold text-slate-700 uppercase tracking-wider">Color Legend</span>
+                    </label>
+                </div>
+            </div>
+        </aside>
+
+        <!-- CANVAS AREA -->
+        <section id="canvas-container" class="flex-1 relative overflow-hidden flex items-center justify-center p-4 sm:p-12 order-1 md:order-2 bg-slate-100">
+            
+            <div id="loading-geo" class="absolute inset-0 z-10 flex flex-col items-center justify-center bg-white/80 backdrop-blur-sm">
+                <i class="ph-bold ph-spinner animate-spin text-4xl text-blueprint-900 mb-4"></i>
+                <span class="text-sm font-bold uppercase tracking-widest text-blueprint-900">Fetching Topography...</span>
+            </div>
+
+            <div class="relative p-2 bg-white border-2 border-blueprint-900 blueprint-shadow">
+                <canvas id="export-canvas" class="w-full max-w-[1200px] aspect-video bg-[#ffffff]"></canvas>
+            </div>
+        </section>
+
+    </main>
+
+    <script>
+        // --- Fetch GIF.js Worker ---
+        let gifWorkerUrl = null;
+        fetch('https://cdnjs.cloudflare.com/ajax/libs/gif.js/0.2.0/gif.worker.js')
+            .then(res => res.text())
+            .then(text => {
+                const blob = new Blob([text], { type: 'application/javascript' });
+                gifWorkerUrl = URL.createObjectURL(blob);
+            })
+            .catch(err => console.error('Failed to load GIF worker:', err));
+
+        // --- Template Data ---
+        const templates = {
+            'population': {
+                title: 'Global Population Density',
+                subtitle: 'People per square kilometer of land area.',
+                source: 'SOURCE: WORLD BANK DATA',
+                projection: 'geoNaturalEarth1',
+                theme: 'classic',
+                scale: 'interpolateInferno',
+                zoom: 1.0, panX: 0, panY: 0,
+                bg: '#ffffff', txt: '#0f172a', base: '#e2e8f0',
+                csv: `Country,ISO3,Value\nIndia,IND,481\nChina,CHN,153\nUnited States,USA,36\nIndonesia,IDN,151\nPakistan,PAK,287\nBrazil,BRA,25\nNigeria,NGA,226\nBangladesh,BGD,1265\nRussia,RUS,9\nMexico,MEX,66\nJapan,JPN,338\nEthiopia,ETH,115\nPhilippines,PHL,368`
+            },
+            'gdp': {
+                title: 'Global GDP per Capita',
+                subtitle: 'Current USD (Selected Countries).',
+                source: 'SOURCE: INTERNATIONAL MONETARY FUND',
+                projection: 'geoOrthographic',
+                theme: 'classic',
+                scale: 'interpolateViridis',
+                zoom: 1.0, panX: 0, panY: 0,
+                bg: '#ffffff', txt: '#1e293b', base: '#f1f5f9',
+                csv: `Country,ISO3,Value\nUSA,USA,80000\nChina,CHN,12500\nJapan,JPN,35000\nGermany,DEU,52000\nIndia,IND,2600\nUK,GBR,48000\nFrance,FRA,44000\nBrazil,BRA,8900\nItaly,ITA,37000\nCanada,CAN,53000\nAustralia,AUS,64000\nSwitzerland,CHE,98000\nNorway,NOR,106000`
+            },
+            'vox-demo': {
+                title: 'How democracy conquered the world — 1962',
+                subtitle: 'Democracy',
+                source: 'Source: Polity IV',
+                projection: 'geoNaturalEarth1',
+                theme: 'vox-light',
+                scale: 'interpolateBlues',
+                zoom: 1.2, panX: 0, panY: 100, animateCamera: true,
+                bg: '#ffffff', txt: '#000000', base: '#e5e7eb',
+                csv: `Country,ISO3,Value,Color\nUnited States,USA,1,#9ecae1\nCanada,CAN,1,#9ecae1\nAustralia,AUS,1,#9ecae1\nIndia,IND,1,#9ecae1\nJapan,JPN,1,#9ecae1\nFrance,FRA,1,#9ecae1\nGermany,DEU,1,#9ecae1\nItaly,ITA,1,#9ecae1\nUnited Kingdom,GBR,1,#9ecae1\nSweden,SWE,1,#9ecae1\nNorway,NOR,1,#9ecae1\nColombia,COL,1,#9ecae1\nVenezuela,VEN,1,#9ecae1\nPhilippines,PHL,1,#9ecae1\nNew Zealand,NZL,1,#9ecae1\nTurkey,TUR,1,#9ecae1\nCustom Red Country,BRA,1,#ef4444`
+            },
+            'vox-taiwan': {
+                title: 'Taiwan\'s precarious position',
+                subtitle: 'Massive military scale gap in the region',
+                source: 'Source: Security Estimates 2024',
+                projection: 'geoMercator',
+                theme: 'vox-dark',
+                scale: 'interpolateReds',
+                zoom: 5.5, panX: -800, panY: -200, animateCamera: true,
+                bg: '#0f1715', txt: '#f8fafc', base: '#1b2d29',
+                csv: `Country,ISO3,Value,Color\nChina,CHN,10,#ec4899\nTaiwan,TWN,1,#10b981`
+            }
+        };
+
+        // --- App State & Data ---
+        const state = {
+            geoData: null, 
+            dataMap: {}, 
+            maxVal: 0,
+            minVal: 0,
+            
+            progress: 1.0,
+            isAnimating: false,
+            isRecording: false,
+            
+            theme: 'classic',
+            title: '', subtitle: '', source: '',
+            showTitle: true, showSubtitle: true, showSource: true,
+            
+            fontFamily: 'Inter',
+            titleColor: '#0f172a',
+            textColor: '#0f172a',
+            bgColor: '#ffffff',
+            baseLandColor: '#e2e8f0',
+            
+            projectionType: 'geoNaturalEarth1',
+            colorScaleName: 'interpolateInferno',
+            mapSourceUrl: 'https://raw.githubusercontent.com/holtzy/D3-graph-gallery/master/DATA/world.geojson',
+            borderWidth: 0.8,
+            
+            zoom: 1.0,
+            panX: 0,
+            panY: 0,
+            animateCamera: false,
+            
+            rotYaw: 0, rotPitch: 0, rotRoll: 0,
+            autoSpin: true,
+            
+            showGraticule: true,
+            showLegend: true
+        };
+
+        // Visual Canvas Setup
+        const canvas = document.getElementById('export-canvas');
+        canvas.width = 1920;
+        canvas.height = 1080;
+
+        // DOM Elements
+        const themeSelect = document.getElementById('visual-theme');
+        const uiTitle = document.getElementById('chart-title');
+        const uiSubtitle = document.getElementById('chart-subtitle');
+        const uiSource = document.getElementById('chart-source');
+        const uiShowTitle = document.getElementById('show-title');
+        const uiShowSubtitle = document.getElementById('show-subtitle');
+        const uiShowSource = document.getElementById('show-source');
+        const uiTitleColor = document.getElementById('text-color'); 
+        const uiBgColor = document.getElementById('bg-color');
+        const uiBaseLandColor = document.getElementById('base-country-color');
+        const dataInput = document.getElementById('data-input');
+        const projSelect = document.getElementById('map-projection');
+        const colorScaleSelect = document.getElementById('color-scale');
+        const mapSourceSelect = document.getElementById('map-source');
+        
+        const durationSlider = document.getElementById('anim-duration');
+        const zoomSlider = document.getElementById('map-zoom');
+        const panXSlider = document.getElementById('map-pan-x');
+        const panYSlider = document.getElementById('map-pan-y');
+        const borderWidthSlider = document.getElementById('border-width');
+        const animCameraCheck = document.getElementById('animate-camera');
+        
+        const globeControls = document.getElementById('globe-controls');
+        const rotYaw = document.getElementById('rot-yaw');
+        const rotPitch = document.getElementById('rot-pitch');
+        const rotRoll = document.getElementById('rot-roll');
+        const autoSpinCheck = document.getElementById('auto-spin');
+        const graticuleCheck = document.getElementById('show-graticule');
+        const legendCheck = document.getElementById('show-legend');
+        const loadingOverlay = document.getElementById('loading-geo');
+
+        function showToast(message, type = 'info') {
+            let container = document.getElementById('toast-container');
+            if (!container) {
+                container = document.createElement('div');
+                container.id = 'toast-container';
+                container.className = 'fixed top-20 right-6 z-[60] flex flex-col gap-3 pointer-events-none';
+                document.body.appendChild(container);
+            }
+            const toast = document.createElement('div');
+            toast.className = `bg-white border-l-4 text-slate-800 px-5 py-4 shadow-xl flex items-center gap-3 transform transition-all -translate-y-4 opacity-0 z-50`;
+            let icon = 'info'; let borderColor = 'border-blueprint-900'; let iconColor = 'text-blueprint-900';
+            if (type === 'success') { icon = 'check-circle'; borderColor = 'border-green-500'; iconColor = 'text-green-500'; } 
+            else if (type === 'error') { icon = 'warning'; borderColor = 'border-brand-red'; iconColor = 'text-brand-red'; }
+            toast.classList.add(borderColor);
+            toast.innerHTML = `<i class="ph-fill ph-${icon} text-xl ${iconColor}"></i> <span class="text-sm font-bold tracking-wide uppercase">${message}</span>`;
+            container.appendChild(toast); 
+            requestAnimationFrame(() => toast.classList.remove('-translate-y-4', 'opacity-0'));
+            setTimeout(() => { toast.classList.add('-translate-y-4', 'opacity-0'); setTimeout(() => toast.remove(), 300); }, 3000);
+        }
+
+        async function loadGeoData(url) {
+            loadingOverlay.style.display = 'flex';
+            try {
+                const response = await fetch(url);
+                const data = await response.json();
+                state.geoData = data;
+                loadingOverlay.style.display = 'none';
+                updateAndRender();
+            } catch (error) {
+                console.error("Failed to load map data", error);
+                showToast("Error loading map geography.", "error");
+                loadingOverlay.style.display = 'none';
+            }
+        }
+
+        function parseCSVtoState(csvString) {
+            const lines = csvString.split('\n');
+            state.dataMap = {};
+            state.maxVal = 0;
+            state.minVal = Infinity;
+            let startIdx = 1; 
+
+            for (let i = startIdx; i < lines.length; i++) {
+                const row = lines[i].split(',').map(c => c.trim());
+                if (row.length < 3) continue; 
+                
+                const iso = row[1].toUpperCase();
+                const valueStr = row[2];
+                const color = row.length > 3 ? row[3] : null;
+                const value = parseFloat(valueStr.replace(/[^0-9.-]+/g,""));
+                
+                if (!isNaN(value)) {
+                    state.dataMap[iso] = { 
+                        value: value, 
+                        color: (color && color.startsWith('#')) ? color : null 
+                    };
+                    if (value > state.maxVal) state.maxVal = value;
+                    if (value < state.minVal) state.minVal = value;
+                }
+            }
+            if (state.minVal === Infinity) state.minVal = 0;
+        }
+
+        function updateStateFromUI() {
+            state.theme = themeSelect.value;
+            state.title = uiTitle.value;
+            state.subtitle = uiSubtitle.value;
+            state.source = uiSource.value;
+            
+            state.showTitle = uiShowTitle.checked;
+            state.showSubtitle = uiShowSubtitle.checked;
+            state.showSource = uiShowSource.checked;
+            
+            state.titleColor = uiTitleColor.value;
+            state.textColor = uiTitleColor.value;
+            state.bgColor = uiBgColor.value;
+            state.baseLandColor = uiBaseLandColor.value;
+            
+            state.projectionType = projSelect.value;
+            state.colorScaleName = colorScaleSelect.value;
+            state.borderWidth = parseFloat(borderWidthSlider.value);
+            
+            if (state.mapSourceUrl !== mapSourceSelect.value) {
+                state.mapSourceUrl = mapSourceSelect.value;
+                loadGeoData(state.mapSourceUrl); // Fetch new geojson if changed
+            }
+            
+            state.zoom = parseFloat(zoomSlider.value);
+            state.panX = parseInt(panXSlider.value);
+            state.panY = parseInt(panYSlider.value);
+            state.animateCamera = animCameraCheck.checked;
+            
+            state.rotYaw = parseFloat(rotYaw.value);
+            state.rotPitch = parseFloat(rotPitch.value);
+            state.rotRoll = parseFloat(rotRoll.value);
+            state.autoSpin = autoSpinCheck.checked;
+            
+            state.showGraticule = graticuleCheck.checked;
+            state.showLegend = legendCheck.checked;
+
+            globeControls.style.display = state.projectionType === 'geoOrthographic' ? 'flex' : 'none';
+            
+            const raw = dataInput.value.trim();
+            if (raw) parseCSVtoState(raw);
+        }
+
+        function formatValue(val) {
+            if (val === undefined || isNaN(val)) return '';
+            const rounded = Math.abs(state.maxVal - state.minVal) < 5 ? val.toFixed(2) : Math.round(val);
+            return Number(rounded).toLocaleString();
+        }
+
+        function easeOutQuint(x) {
+            return 1 - Math.pow(1 - x, 5);
+        }
+
+        // --- Caching Hatch Pattern for Vox Light Theme ---
+        let hatchPattern = null;
+        function getHatchPattern(tCtx) {
+            if (hatchPattern) return hatchPattern;
+            const pCanvas = document.createElement('canvas');
+            pCanvas.width = 12;
+            pCanvas.height = 12;
+            const pCtx = pCanvas.getContext('2d');
+            pCtx.fillStyle = '#f9fafb'; // Very light grey bg
+            pCtx.fillRect(0,0,12,12);
+            pCtx.strokeStyle = '#e5e7eb'; // Slightly darker grey stripe
+            pCtx.lineWidth = 1.5;
+            pCtx.beginPath();
+            pCtx.moveTo(-3, 15); pCtx.lineTo(15, -3);
+            pCtx.moveTo(-3, 3);  pCtx.lineTo(3, -3);
+            pCtx.moveTo(9, 15);  pCtx.lineTo(15, 9);
+            pCtx.stroke();
+            hatchPattern = tCtx.createPattern(pCanvas, 'repeat');
+            return hatchPattern;
+        }
+
+        // --- Core Scaling Rendering Engine ---
+        function renderFrame(progress, targetCanvas = canvas, exportScale = 1.0, isTransparent = false) {
+            const tCtx = targetCanvas.getContext('2d', { alpha: isTransparent });
+            const easeP = easeOutQuint(progress);
+
+            const W = 1920;
+            const H = 1080;
+
+            tCtx.save();
+            tCtx.scale(exportScale, exportScale);
+
+            if (isTransparent) {
+                tCtx.clearRect(0, 0, W, H);
+            } else {
+                tCtx.fillStyle = state.bgColor;
+                tCtx.fillRect(0, 0, W, H);
+            }
+
+            // Draw Typography based on Theme
+            const isVox = state.theme === 'vox-light' || state.theme === 'vox-dark';
+            const fontBase = isVox ? 'Inter' : state.fontFamily;
+            
+            tCtx.textAlign = 'left';
+            let currentY = 70;
+            
+            if (state.showTitle) {
+                tCtx.textBaseline = 'top';
+                tCtx.font = `${isVox ? '900 86px' : '800 64px'} "${fontBase}"`;
+                tCtx.fillStyle = state.titleColor;
+                // Custom tracking workaround for Canvas
+                tCtx.fillText(state.title, 80, currentY);
+                currentY += isVox ? 110 : 80;
+            } else {
+                currentY = 70;
+            }
+
+            // Subtitle & Legend inline (Vox Style)
+            if (state.showSubtitle && isVox) {
+                tCtx.globalAlpha = Math.min(1, easeP * 2);
+                
+                // Draw color square legend
+                const sqSize = 32;
+                tCtx.fillStyle = state.theme === 'vox-light' ? '#9ecae1' : '#e11d48';
+                tCtx.fillRect(80, currentY, sqSize, sqSize);
+                
+                tCtx.textBaseline = 'middle';
+                tCtx.font = `500 32px "${fontBase}"`;
+                tCtx.fillStyle = state.textColor;
+                tCtx.fillText(state.subtitle, 80 + sqSize + 15, currentY + sqSize/2 + 2);
+                tCtx.globalAlpha = 1.0;
+                
+            } else if (state.showSubtitle) {
+                tCtx.textBaseline = 'top';
+                tCtx.font = `400 38px "${fontBase}"`;
+                tCtx.fillStyle = state.textColor;
+                tCtx.globalAlpha = 0.8;
+                tCtx.fillText(state.subtitle, 80, currentY);
+                tCtx.globalAlpha = 1.0;
+            }
+
+            if (state.showSource) {
+                tCtx.textBaseline = 'bottom';
+                tCtx.font = `${isVox ? '500 24px' : '600 20px'} "${fontBase}"`;
+                tCtx.fillStyle = state.textColor;
+                tCtx.globalAlpha = isVox ? 0.4 : 0.6;
+                tCtx.fillText(state.source, 80, H - 40);
+                tCtx.globalAlpha = 1.0;
+            }
+
+            // Vox Logo
+            if (isVox) {
+                const logoSize = 48;
+                const logoX = W - 80 - logoSize;
+                const logoY = H - 80 - logoSize;
+                tCtx.fillStyle = '#ffe500';
+                tCtx.fillRect(logoX, logoY, logoSize, logoSize);
+                tCtx.fillStyle = '#000000';
+                tCtx.textAlign = 'center';
+                tCtx.textBaseline = 'middle';
+                tCtx.font = '900 32px "Inter"';
+                tCtx.fillText('V', logoX + logoSize/2, logoY + logoSize/2 + 2);
+            }
+
+            // Classic Decorator Lines
+            if (state.theme === 'classic') {
+                tCtx.beginPath();
+                tCtx.moveTo(80, 220); tCtx.lineTo(W - 80, 220);
+                tCtx.strokeStyle = state.textColor;
+                tCtx.globalAlpha = 0.15;
+                tCtx.lineWidth = 2; tCtx.stroke();
+                tCtx.beginPath();
+                tCtx.moveTo(80, H - 80); tCtx.lineTo(W - 80, H - 80);
+                tCtx.stroke(); tCtx.globalAlpha = 1.0;
+            }
+
+            if (!state.geoData) { tCtx.restore(); return; }
+
+            // --- MAP PROJECTION & CAMERA ---
+            const mapArea = { x: 80, y: isVox ? 200 : 250, w: W - 160, h: H - (isVox ? 280 : 350) };
+            
+            let projection;
+            if (state.projectionType === 'geoMercator') projection = d3.geoMercator();
+            else if (state.projectionType === 'geoOrthographic') projection = d3.geoOrthographic();
+            else if (state.projectionType === 'geoEquirectangular') projection = d3.geoEquirectangular();
+            else projection = d3.geoNaturalEarth1(); 
+
+            // Dynamic rotation for Globe
+            if (state.projectionType === 'geoOrthographic') {
+                let spin = state.autoSpin ? (progress * 360) : 0;
+                projection.rotate([state.rotYaw - spin, -state.rotPitch, state.rotRoll]);
+            }
+
+            // Initial base fit
+            projection.fitSize([mapArea.w, mapArea.h], state.geoData);
+            
+            // Dynamic Camera Animation interpolation
+            let currentZoom = state.zoom;
+            let currentPanX = state.panX;
+            let currentPanY = state.panY;
+
+            if (state.animateCamera) {
+                currentZoom += (easeP * 0.3); // Subtle zoom in
+                currentPanX += (easeP * -50); // Subtle pan
+                currentPanY += (easeP * 20);
+            }
+
+            // Apply calculated scale and transform
+            projection.scale(projection.scale() * currentZoom);
+            const cx = mapArea.x + mapArea.w/2 + currentPanX;
+            const cy = mapArea.y + mapArea.h/2 + currentPanY;
+            projection.translate([cx, cy]);
+
+            const pathGenerator = d3.geoPath(projection, tCtx);
+            const colorScale = d3.scaleSequential(d3[state.colorScaleName]).domain([state.minVal, state.maxVal]);
+
+            // Unified Map Drop Shadow (Vox Light style)
+            if (state.theme === 'vox-light') {
+                tCtx.beginPath();
+                pathGenerator(state.geoData);
+                tCtx.shadowColor = 'rgba(0,0,0,0.15)';
+                tCtx.shadowBlur = 0;
+                tCtx.shadowOffsetX = -2;
+                tCtx.shadowOffsetY = 4;
+                tCtx.fillStyle = 'white'; // Mask
+                tCtx.fill();
+                tCtx.shadowColor = 'transparent'; // Reset
+            }
+
+            // Draw Graticule
+            if (state.showGraticule && state.theme !== 'vox-light') {
+                const graticule = d3.geoGraticule10();
+                tCtx.beginPath(); pathGenerator(graticule);
+                tCtx.strokeStyle = state.textColor;
+                tCtx.globalAlpha = state.theme === 'vox-dark' ? 0.05 : 0.08;
+                tCtx.lineWidth = 1; tCtx.stroke(); tCtx.globalAlpha = 1.0;
+            }
+
+            // Draw Countries
+            state.geoData.features.forEach(feature => {
+                // Support multiple GeoJSON ID formats
+                const iso = feature.id || (feature.properties ? (feature.properties.iso_a3 || feature.properties.ISO_A3 || feature.properties.adm0_a3) : null);
+                const dataObj = iso ? state.dataMap[iso] : null;
+                
+                tCtx.beginPath();
+                pathGenerator(feature);
+
+                if (dataObj) {
+                    let targetColor = dataObj.color || d3.color(colorScale(dataObj.value)).hex();
+                    
+                    // Theme overrides only if CSV doesn't specify a hardcoded color
+                    if (!dataObj.color && state.theme === 'vox-light') targetColor = '#9ecae1'; 
+                    if (!dataObj.color && state.theme === 'vox-dark') targetColor = '#e11d48';  
+
+                    const animatedColor = d3.interpolateRgb(state.baseLandColor, targetColor)(easeP);
+                    tCtx.fillStyle = animatedColor;
+                    
+                    // Add glow for tactical dark theme
+                    if (state.theme === 'vox-dark' && progress > 0.1) {
+                        tCtx.shadowColor = targetColor;
+                        tCtx.shadowBlur = 15 * easeP;
+                    }
+                } else {
+                    if (state.theme === 'vox-light') tCtx.fillStyle = getHatchPattern(tCtx);
+                    else tCtx.fillStyle = state.baseLandColor;
+                }
+
+                tCtx.fill();
+                tCtx.shadowBlur = 0; // Reset
+                
+                // Borders
+                if (state.theme === 'vox-light') {
+                    tCtx.strokeStyle = '#ffffff';
+                    tCtx.lineWidth = state.borderWidth * 1.5;
+                } else if (state.theme === 'vox-dark') {
+                    tCtx.strokeStyle = '#020617';
+                    tCtx.lineWidth = state.borderWidth;
+                } else {
+                    tCtx.strokeStyle = state.bgColor;
+                    tCtx.lineWidth = state.borderWidth;
+                }
+                tCtx.stroke();
+            });
+
+            // Classic Legend (Hidden in Vox styles, as they use the subtitle square)
+            if (state.showLegend && state.maxVal > state.minVal && state.theme === 'classic') {
+                drawLegend(tCtx, W, H, fontBase, colorScale, easeP);
+            }
+
+            tCtx.restore();
+        }
+
+        function drawLegend(tCtx, W, H, fontBase, colorScale, progress) {
+            const legendW = 400; const legendH = 16;
+            const lx = (W - legendW) / 2; const ly = H - 100;
+
+            tCtx.globalAlpha = progress;
+            const numStops = 20;
+            for(let i=0; i<numStops; i++) {
+                const fraction = i / (numStops - 1);
+                const val = state.minVal + fraction * (state.maxVal - state.minVal);
+                const color = colorScale(val);
+                tCtx.fillStyle = color;
+                tCtx.fillRect(lx + (fraction * legendW) - (legendW/numStops/2), ly, legendW/numStops + 2, legendH);
+            }
+
+            tCtx.strokeStyle = state.textColor; tCtx.lineWidth = 2;
+            tCtx.strokeRect(lx, ly, legendW, legendH);
+
+            tCtx.textAlign = 'center'; tCtx.textBaseline = 'top';
+            tCtx.font = `600 18px "${fontBase}"`; tCtx.fillStyle = state.textColor;
+            tCtx.fillText(formatValue(state.minVal), lx, ly + 25);
+            tCtx.fillText(formatValue(state.maxVal), lx + legendW, ly + 25);
+            tCtx.globalAlpha = 1.0;
+        }
+
+        function updateAndRender() {
+            updateStateFromUI();
+            renderFrame(1.0, canvas, 1.0, false); 
+        }
+
+        // Wire Event Listeners
+        document.querySelectorAll('.template-btn').forEach(btn => {
+            btn.addEventListener('click', () => {
+                const template = btn.getAttribute('data-template');
+                if (templates[template]) {
+                    const t = templates[template];
+                    uiTitle.value = t.title;
+                    uiSubtitle.value = t.subtitle;
+                    uiSource.value = t.source;
+                    projSelect.value = t.projection;
+                    themeSelect.value = t.theme;
+                    colorScaleSelect.value = t.scale;
+                    dataInput.value = t.csv;
+                    uiBgColor.value = t.bg;
+                    uiTitleColor.value = t.txt;
+                    if(t.base) uiBaseLandColor.value = t.base;
+                    
+                    zoomSlider.value = t.zoom || 1.0;
+                    panXSlider.value = t.panX || 0;
+                    panYSlider.value = t.panY || 0;
+                    animCameraCheck.checked = t.animateCamera || false;
+                    document.getElementById('zoom-val').textContent = parseFloat(zoomSlider.value).toFixed(1) + 'x';
+                    document.getElementById('pan-x-val').textContent = panXSlider.value;
+                    document.getElementById('pan-y-val').textContent = panYSlider.value;
+                    
+                    if(t.projection === 'geoOrthographic') { rotYaw.value = "100"; rotPitch.value = "-15"; }
+                    updateAndRender();
+                }
+            });
+        });
+
+        const inputs = [uiTitle, uiSubtitle, uiSource, uiBgColor, uiTitleColor, uiBaseLandColor, dataInput, projSelect, themeSelect, colorScaleSelect, mapSourceSelect];
+        inputs.forEach(el => el.addEventListener('input', updateAndRender));
+        inputs.forEach(el => el.addEventListener('change', updateAndRender));
+
+        [uiShowTitle, uiShowSubtitle, uiShowSource, legendCheck, graticuleCheck, autoSpinCheck, animCameraCheck].forEach(el => el.addEventListener('change', updateAndRender));
+        
+        durationSlider.addEventListener('input', (e) => { 
+            state.duration = parseFloat(e.target.value) * 1000;
+            document.getElementById('duration-val').textContent = e.target.value + 's';
+        });
+        [zoomSlider, panXSlider, panYSlider, rotYaw, rotPitch, rotRoll, borderWidthSlider].forEach(el => el.addEventListener('input', (e) => {
+            if(el.id === 'map-zoom') document.getElementById('zoom-val').textContent = parseFloat(e.target.value).toFixed(1) + 'x';
+            if(el.id === 'map-pan-x') document.getElementById('pan-x-val').textContent = e.target.value;
+            if(el.id === 'map-pan-y') document.getElementById('pan-y-val').textContent = e.target.value;
+            if(el.id === 'border-width') document.getElementById('border-val').textContent = e.target.value;
+            updateAndRender();
+        }));
+
+        // Export & Animation Logic
+        const btnPreview = document.getElementById('btn-header-preview');
+        const btnExport = document.getElementById('btn-header-export');
+        const exportFmt = document.getElementById('export-fmt');
+        const exportRes = document.getElementById('export-res');
+        const transparentToggle = document.getElementById('header-transparent');
+        const overlay = document.getElementById('recording-overlay');
+        const recordingText = document.getElementById('recording-text');
+        const iconPlay = document.getElementById('icon-play');
+        const textPlay = document.getElementById('text-play');
+
+        btnPreview.addEventListener('click', () => {
+            if (state.isRecording) return;
+            if (state.isAnimating) state.isAnimating = false;
+            else runAnimation();
+        });
+
+        btnExport.addEventListener('click', async () => {
+            if (state.isAnimating || state.isRecording) return;
+            const fmt = exportFmt.value;
+            const targetWidth = parseInt(exportRes.value);
+            const exportScale = targetWidth / 1920;
+            const isTransparent = transparentToggle.checked && (fmt === 'png' || fmt === 'gif'); 
+
+            if (fmt === 'png') exportSnapshot(targetWidth, exportScale, isTransparent);
+            else if (fmt === 'gif') exportGIF(targetWidth, exportScale, isTransparent);
+            else exportVideo(targetWidth, exportScale);
+        });
+
+        function runAnimation() {
+            state.isAnimating = true;
+            btnPreview.classList.add('bg-red-100', 'text-brand-red', 'border-brand-red');
+            btnPreview.classList.remove('bg-white', 'text-blueprint-900', 'border-blueprint-900');
+            iconPlay.classList.replace('ph-play-circle', 'ph-stop-circle');
+            textPlay.innerText = 'Stop';
+            btnExport.disabled = true;
+
+            updateStateFromUI(); 
+
+            const startTime = performance.now();
+            const durationMs = state.duration;
+
+            function animLoop(currentTime) {
+                if (!state.isAnimating) { resetPreviewBtn(); return; }
+                const elapsed = Math.max(0, currentTime - startTime);
+                let p = durationMs > 0 ? elapsed / durationMs : 1.0;
+                p = Math.max(0, Math.min(1, p));
+                
+                state.progress = p;
+                renderFrame(p, canvas, 1.0, false);
+
+                if (p < 1.0) requestAnimationFrame(animLoop);
+                else {
+                    if(state.projectionType === 'geoOrthographic' && state.autoSpin && !state.isRecording) requestAnimationFrame(animLoop);
+                    else { state.isAnimating = false; resetPreviewBtn(); }
+                }
+            }
+            requestAnimationFrame(animLoop);
+        }
+
+        function resetPreviewBtn() {
+            btnPreview.classList.remove('bg-red-100', 'text-brand-red', 'border-brand-red');
+            btnPreview.classList.add('bg-white', 'text-blueprint-900', 'border-blueprint-900');
+            iconPlay.classList.replace('ph-stop-circle', 'ph-play-circle');
+            textPlay.innerText = 'Preview';
+            btnExport.disabled = false;
+        }
+
+        function exportSnapshot(targetWidth, exportScale, isTransparent) {
+            const targetHeight = targetWidth * (1080/1920);
+            const expCanvas = document.createElement('canvas');
+            expCanvas.width = targetWidth; expCanvas.height = targetHeight;
+            updateStateFromUI(); renderFrame(1.0, expCanvas, exportScale, isTransparent);
+            const a = document.createElement('a'); a.href = expCanvas.toDataURL("image/png");
+            a.download = `map-animator-snap-${targetWidth}w-${Date.now()}.png`;
+            a.click(); showToast('Snapshot exported successfully!', 'success');
+        }
+
+        function exportGIF(targetWidth, exportScale, isTransparent) {
+            if (!gifWorkerUrl) return showToast('GIF encoder initializing. Try again in a moment.', 'info');
+            const targetHeight = targetWidth * (1080/1920);
+            const expCanvas = document.createElement('canvas');
+            expCanvas.width = targetWidth; expCanvas.height = targetHeight;
+            const eCtx = expCanvas.getContext('2d', { willReadFrequently: true });
+
+            const gif = new GIF({ workers: 2, quality: 10, width: targetWidth, height: targetHeight, workerScript: gifWorkerUrl, transparent: isTransparent ? 'rgba(0,0,0,0)' : null });
+
+            state.isRecording = true; btnPreview.disabled = true; btnExport.disabled = true;
+            overlay.classList.remove('-translate-y-24'); overlay.classList.add('translate-y-4');
+            recordingText.innerText = 'Preparing GIF...';
+            updateStateFromUI();
+            
+            const fps = 15; const totalFrames = Math.ceil((state.duration / 1000) * fps);
+            let currentFrame = 0;
+
+            function renderNextFrame() {
+                if (!state.isRecording) return;
+                let p = Math.max(0, Math.min(1, currentFrame / totalFrames));
+                state.progress = p;
+                renderFrame(p, expCanvas, exportScale, isTransparent);
+                gif.addFrame(eCtx, {copy: true, delay: 1000 / fps, dispose: isTransparent ? 2 : 0});
+                renderFrame(p, canvas, 1.0, false);
+                recordingText.innerText = `Rendering Frames ${Math.round((currentFrame / totalFrames) * 50)}%`;
+
+                currentFrame++;
+                if (currentFrame <= totalFrames) requestAnimationFrame(renderNextFrame);
+                else { recordingText.innerText = `Encoding GIF... (This takes a while)`; gif.render(); }
+            }
+
+            gif.on('finished', function(blob) {
+                const url = URL.createObjectURL(blob);
+                const a = document.createElement('a'); a.style.display = 'none'; a.href = url;
+                a.download = `map-animator-anim-${targetWidth}w-${Date.now()}.gif`;
+                document.body.appendChild(a); a.click();
+                setTimeout(() => { document.body.removeChild(a); URL.revokeObjectURL(url); }, 100);
+                overlay.classList.remove('translate-y-4'); overlay.classList.add('-translate-y-24');
+                state.isRecording = false; state.progress = 1.0; renderFrame(1.0, canvas, 1.0, false); 
+                btnPreview.disabled = false; btnExport.disabled = false;
+                recordingText.innerText = 'Rendering Video...'; showToast('GIF exported successfully!', 'success');
+            });
+
+            renderNextFrame();
+        }
+
+        async function exportVideo(targetWidth, exportScale) {
+            const targetHeight = targetWidth * (1080/1920);
+            const expCanvas = document.createElement('canvas');
+            expCanvas.width = targetWidth; expCanvas.height = targetHeight;
+
+            let mediaRecorder; let recordedChunks = []; state.isRecording = true;
+            
+            try {
+                const stream = expCanvas.captureStream(60);
+                let options = { mimeType: 'video/webm;codecs=vp9' };
+                if (!MediaRecorder.isTypeSupported(options.mimeType)) options = { mimeType: 'video/webm;codecs=vp8' };
+                if (!MediaRecorder.isTypeSupported(options.mimeType)) options = { mimeType: 'video/webm' };
+                options.videoBitsPerSecond = 20000000;
+                mediaRecorder = new MediaRecorder(stream, options);
+
+                mediaRecorder.ondataavailable = (e) => { if (e.data.size > 0) recordedChunks.push(e.data); };
+                mediaRecorder.onstop = () => {
+                    const blob = new Blob(recordedChunks, { type: options.mimeType.split(';')[0] });
+                    const url = URL.createObjectURL(blob);
+                    const a = document.createElement('a'); a.style.display = 'none'; a.href = url;
+                    a.download = `map-animator-anim-${targetWidth}w-${Date.now()}.webm`;
+                    document.body.appendChild(a); a.click();
+                    setTimeout(() => { document.body.removeChild(a); window.URL.revokeObjectURL(url); }, 100);
+                    overlay.classList.remove('translate-y-4'); overlay.classList.add('-translate-y-24');
+                    state.isRecording = false; state.progress = 1.0; renderFrame(1.0, canvas, 1.0, false); 
+                    btnPreview.disabled = false; btnExport.disabled = false;
+                    recordingText.innerText = 'Rendering Video...'; showToast('Video exported successfully!', 'success');
+                };
+
+                overlay.classList.remove('-translate-y-24'); overlay.classList.add('translate-y-4');
+                recordingText.innerText = 'Rendering Video...';
+                mediaRecorder.start(); btnPreview.disabled = true; btnExport.disabled = true; updateStateFromUI();
+                
+                const startTime = performance.now(); const durationMs = state.duration;
+
+                function animLoop(currentTime) {
+                    if (!state.isRecording) return;
+                    const elapsed = Math.max(0, currentTime - startTime);
+                    let p = Math.max(0, Math.min(1, durationMs > 0 ? elapsed / durationMs : 1.0));
+                    state.progress = p;
+                    renderFrame(p, expCanvas, exportScale, false); renderFrame(p, canvas, 1.0, false);
+
+                    if (p < 1.0) requestAnimationFrame(animLoop);
+                    else { recordingText.innerText = 'Finalizing...'; setTimeout(() => { if(mediaRecorder.state !== 'inactive') mediaRecorder.stop(); }, 500); }
+                }
+                requestAnimationFrame(animLoop);
+
+            } catch (err) {
+                console.error("Recording failed:", err); showToast('Recording failed. Browser might not support it.', 'error');
+                overlay.classList.remove('translate-y-4'); overlay.classList.add('-translate-y-24');
+                state.isRecording = false; btnPreview.disabled = false; btnExport.disabled = false; renderFrame(1.0, canvas, 1.0, false);
+            }
+        }
+
+        loadGeoData(state.mapSourceUrl);
+    </script>
+</body>
+</html>
