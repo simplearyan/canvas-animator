@@ -288,6 +288,37 @@
 
     <!-- MAIN CONTENT -->
     <main id="main-content" class="sm:ml-[72px] xl:ml-[240px] main-content-pt pb-16 sm:pb-8 px-4 md:px-6 transition-all duration-300">
+        
+        <!-- Premium Horizontal Ad Banner -->
+        <div class="max-w-[2000px] mx-auto w-full mb-8 rounded-2xl overflow-hidden relative group cursor-pointer bg-gradient-to-r from-[#17e3e0] to-[#0fd2ee] shadow-sm">
+            <div class="px-6 py-5 sm:py-7 flex flex-col justify-between relative z-10 w-full md:w-3/4">
+                <div class="mb-5 sm:mb-6">
+                    <h2 class="text-2xl sm:text-[28px] font-bold text-black mb-2 leading-tight tracking-tight">Get ad-free YouTube with prepaid plans & UPI</h2>
+                    <p class="text-black/80 text-[13px] font-medium mb-1">YouTube featured</p>
+                    <p class="text-black/60 text-[11px] mt-2 max-w-sm">Terms apply. Monthly paid subscription. Cancel anytime</p>
+                </div>
+                <div>
+                    <button class="bg-black/10 hover:bg-black/20 text-black font-semibold text-sm px-5 py-2 rounded-full transition-colors border border-black/5">Get Premium</button>
+                </div>
+            </div>
+            
+            <div class="absolute top-4 right-4 z-20">
+                <button class="bg-white/40 hover:bg-white/60 text-black w-8 h-8 rounded-full flex items-center justify-center transition-colors">
+                    <i class="ph-bold ph-dots-three-vertical"></i>
+                </button>
+            </div>
+            
+            <!-- Google AdSense Tag (Hidden visually, structural placeholder) -->
+            <div class="absolute inset-0 z-0 opacity-0 pointer-events-none">
+                 <!-- <ins class="adsbygoogle"
+                     style="display:block; width:100%; height:100%;"
+                     data-ad-client="ca-pub-XXXXXXXXXXXXXXXX"
+                     data-ad-slot="XXXXXXXXXX"
+                     data-ad-format="horizontal"
+                     data-full-width-responsive="true"></ins> -->
+            </div>
+        </div>
+
         <div id="gallery" class="yt-grid max-w-[2000px] mx-auto">
             <!-- Items injected here -->
         </div>
@@ -419,14 +450,22 @@
 
         // Gallery Logic
         let allItems = [];
+        let verticalItems = [];
         let gallerySettings = { playMode: 'hover' };
 
         async function loadGallery() {
             try {
-                const response = await fetch('gallery-data.json');
-                if (!response.ok) throw new Error(`HTTP ${response.status}`);
-                const data = JSON.parse(await response.text());
+                const [galleryResponse, verticalResponse] = await Promise.all([
+                    fetch('gallery-data.json'),
+                    fetch('vertical-data.json')
+                ]);
+                if (!galleryResponse.ok) throw new Error(`HTTP ${galleryResponse.status}`);
+                
+                const data = JSON.parse(await galleryResponse.text());
+                const verticalData = verticalResponse.ok ? JSON.parse(await verticalResponse.text()) : { items: [] };
+                
                 allItems = data.items || [];
+                verticalItems = verticalData.items || [];
                 gallerySettings = data.settings || { playMode: 'hover' };
                 renderGallery(allItems);
             } catch (e) {
@@ -488,17 +527,9 @@
                     const shortsRow = document.createElement('div');
                     shortsRow.style.gridColumn = '1 / -1'; // Span full width of grid
                     shortsRow.className = 'w-full my-8 flex flex-col gap-4 border-t border-b border-yt-borderLight dark:border-yt-borderDark py-6';
-                    
-                    const mockShorts = [
-                        { file: 'mock-animation/9-16/cinematic-motion-1080p-1777356376987.webm', title: 'Cinematic Motion 1080p', views: '842K views' },
-                        { file: 'mock-animation/9-16/social-anim-youtube-solid-1777285222567.webm', title: 'Solid Background Motion', views: '920K views' },
-                        { file: 'mock-animation/9-16/roughface-lipsync.webm', title: 'Roughface Lipsync Test', views: '1.5M views' },
-                        { file: 'mock-animation/9-16/social-anim-youtube-bg-1777211161589.webm', title: 'Social Media Animation BG', views: '430K views' },
-                        { file: 'mock-animation/9-16/cinematic-motion-1080p-1777356809034.webm', title: 'Cinematic Action Sequence', views: '3.4M views' }
-                    ];
 
                     let shortsCardsHTML = '';
-                    mockShorts.forEach((short, i) => {
+                    verticalItems.forEach((short, i) => {
                         const darkColor = ambientColorsDark[i % ambientColorsDark.length];
                         const lightColor = ambientColorsLight[i % ambientColorsLight.length];
                         shortsCardsHTML += `
@@ -569,6 +600,86 @@
                 
                 container.appendChild(card);
             });
+
+            // Append Pro Studios Row if enabled
+            if (gallerySettings.showProStudios) {
+                const studiosRow = document.createElement('div');
+                studiosRow.style.gridColumn = '1 / -1'; // Span full width of grid
+                studiosRow.className = 'w-full mt-4 mb-12 flex flex-col gap-4 py-6 relative';
+            
+            const mockStudios = [
+                { file: 'mock-animation/16-9/annotation-pro-2560w-solid-1777291438316.webm', title: 'Macify Lens Studio', desc: '3D Camera & Scene Builder' },
+                { file: 'mock-animation/16-9/editorial-chart.webm', title: 'FocusFrame Engine', desc: 'Smart Motion Tracking' },
+                { file: 'mock-animation/16-9/editorial-chart (1).webm', title: 'Mixamo 3D Studio', desc: 'Character Animation' },
+                { file: 'mock-animation/16-9/editorial-chart (2).webm', title: 'IITM Annotator', desc: 'Interactive Touch Canvas' },
+                { file: 'mock-animation/9-16/cinematic-motion-1080p-1777356376987.webm', title: 'Title Animator', desc: 'Kinetic Typography' }
+            ];
+
+            let studioCardsHTML = '';
+            mockStudios.forEach((studio, i) => {
+                const darkColor = ambientColorsDark[(i+3) % ambientColorsDark.length];
+                const lightColor = ambientColorsLight[(i+3) % ambientColorsLight.length];
+                
+                studioCardsHTML += `
+                    <a href="#" class="preset-card flex-shrink-0 flex flex-col gap-3 snap-start group cursor-pointer w-[240px] sm:w-[260px] md:w-[280px] lg:w-[calc((100%-4rem)/5)]" style="--ambient-color-dark: ${darkColor}; --ambient-color: ${lightColor};">
+                        <div class="relative w-full aspect-[4/5] bg-gray-100 dark:bg-[#1f1f1f] rounded-2xl flex flex-col items-center justify-between p-1.5 border border-yt-borderLight dark:border-yt-borderDark overflow-hidden transition-all duration-300">
+                            <!-- Video Background -->
+                            <video src="${studio.file}#t=0.1" preload="metadata" muted loop playsinline onmouseover="this.play()" onmouseout="this.pause();this.currentTime=0.1" class="absolute inset-0 w-full h-full object-cover z-0 transition-transform duration-500 group-hover:scale-105" style="transform: translateZ(0); -webkit-transform: translateZ(0);"></video>
+                            
+                            <!-- Overlay Gradient for button contrast -->
+                            <div class="absolute inset-0 bg-gradient-to-t from-black/70 via-black/20 to-transparent z-10 pointer-events-none"></div>
+                            
+                            <!-- Top badge -->
+                            <div class="w-full flex justify-between relative z-20 px-1 pt-1">
+                                <span class="bg-black/60 backdrop-blur-md text-white text-[10px] font-bold px-2 py-1 rounded-sm uppercase tracking-wide border border-white/10 shadow-sm">Pro</span>
+                            </div>
+                            
+                            <!-- Bottom Button -->
+                            <div class="w-full relative z-20 mt-auto px-1 pb-1">
+                                <div class="w-full bg-white text-[#0f0f0f] hover:bg-gray-100 text-sm font-bold py-2 rounded-full text-center transition-transform duration-300 shadow-md">
+                                    Launch
+                                </div>
+                            </div>
+                        </div>
+                        <div class="w-full px-1 relative z-10 flex justify-between items-start">
+                            <div class="flex flex-col">
+                                <h3 class="text-sm sm:text-base font-medium text-black dark:text-white line-clamp-1 leading-snug transition-colors">${studio.title}</h3>
+                                <span class="text-[12px] text-yt-textSecondaryLight dark:text-yt-textSecondaryDark mt-0.5 block">${studio.desc}</span>
+                            </div>
+                            <button class="text-yt-textSecondaryLight dark:text-yt-textSecondaryDark hover:text-black dark:hover:text-white p-1 -mt-1"><i class="ph-bold ph-dots-three-vertical"></i></button>
+                        </div>
+                    </a>
+                `;
+            });
+
+            studiosRow.innerHTML = `
+                <div class="flex items-center justify-between px-1 mb-2">
+                    <div class="flex items-center gap-3">
+                        <div class="bg-amber-500/10 dark:bg-amber-500/20 text-amber-500 p-1.5 rounded-full flex items-center justify-center">
+                            <i class="ph-fill ph-sparkle text-2xl"></i>
+                        </div>
+                        <div class="flex flex-col">
+                            <h2 class="text-xl font-bold text-black dark:text-white tracking-tight flex items-center gap-2">Pro Studios <span class="text-[10px] uppercase font-bold bg-amber-100 text-amber-600 dark:bg-amber-900/30 dark:text-amber-400 px-1.5 py-0.5 rounded-sm">PRO</span></h2>
+                            <span class="text-xs text-yt-textSecondaryLight dark:text-yt-textSecondaryDark">Advanced tools, full control</span>
+                        </div>
+                    </div>
+                    <div class="flex items-center gap-4">
+                        <button class="hidden sm:block text-sm font-medium border border-yt-borderLight dark:border-yt-borderDark rounded-full px-4 py-1.5 hover:bg-gray-100 dark:hover:bg-yt-dark transition-colors text-black dark:text-white">View all</button>
+                        <button class="text-yt-textSecondaryLight dark:text-yt-textSecondaryDark hover:text-black dark:hover:text-white"><i class="ph-bold ph-x text-xl"></i></button>
+                    </div>
+                </div>
+                <div class="flex gap-4 overflow-x-auto no-scrollbar py-6 px-4 -mx-4 snap-x snap-mandatory scroll-smooth" style="scroll-padding-left: 1rem;">
+                    ${studioCardsHTML}
+                </div>
+                <div class="w-full flex justify-center mt-2 border-t border-yt-borderLight dark:border-yt-borderDark relative">
+                    <button class="absolute -top-[15px] bg-white dark:bg-[#0f0f0f] border border-yt-borderLight dark:border-yt-borderDark text-sm font-medium rounded-full px-6 py-1 hover:bg-gray-50 dark:hover:bg-yt-light/10 transition-colors flex items-center gap-2 z-10 text-black dark:text-white shadow-sm">
+                        Show more <i class="ph-bold ph-caret-down"></i>
+                    </button>
+                </div>
+                </div>
+            `;
+                container.appendChild(studiosRow);
+            }
         }
 
         document.getElementById('search').addEventListener('input', e => {
