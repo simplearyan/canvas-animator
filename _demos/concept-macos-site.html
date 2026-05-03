@@ -1,0 +1,550 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Canvas Animator | Gallery — macOS Site Depth</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=SF+Pro+Display:wght@300;400;500;600;700&family=Inter:wght@300;400;500;600;700&display=swap" rel="stylesheet">
+    <script src="https://unpkg.com/lucide@latest"></script>
+    <style>
+        :root {
+            /* Light Mode Variables */
+            --bg-base: #f5f5f7;
+            --bg-content: #ffffff;
+            --bg-navbar: rgba(255, 255, 255, 0.85);
+            
+            --bg-surface: #ffffff;
+            --bg-surface-hover: #f1f1f2;
+            --bg-input: #f0f0f1;
+            
+            --border: rgba(0, 0, 0, 0.1);
+            --border-highlight: rgba(255, 255, 255, 0.8);
+            
+            --text-main: #1d1d1f;
+            --text-muted: #86868b;
+            
+            --accent: #007aff;
+            --accent-text: #ffffff;
+            
+            /* Depth Shadows */
+            --shadow-card: 0 4px 12px rgba(0, 0, 0, 0.05), 0 1px 2px rgba(0, 0, 0, 0.02);
+            --shadow-card-hover: 0 12px 24px rgba(0, 0, 0, 0.1), 0 4px 8px rgba(0, 0, 0, 0.04);
+            --shadow-inset-soft: inset 0 1px 2px rgba(0, 0, 0, 0.05);
+            --shadow-inset-deep: inset 0 1px 4px rgba(0, 0, 0, 0.1);
+            --shadow-convex: inset 0 1px 0 rgba(255, 255, 255, 1), 0 1px 2px rgba(0,0,0,0.05);
+        }
+
+        [data-theme="dark"] {
+            /* Dark Mode Variables */
+            --bg-base: #000000;
+            --bg-content: #1e1e1e;
+            --bg-navbar: rgba(28, 28, 30, 0.85);
+            
+            --bg-surface: #2c2c2e;
+            --bg-surface-hover: #3a3a3c;
+            --bg-input: #1c1c1e;
+            
+            --border: rgba(255, 255, 255, 0.1);
+            --border-highlight: rgba(255, 255, 255, 0.05);
+            
+            --text-main: #f5f5f7;
+            --text-muted: #98989d;
+            
+            --accent: #0a84ff;
+            --accent-text: #ffffff;
+            
+            /* Depth Shadows */
+            --shadow-card: 0 4px 12px rgba(0, 0, 0, 0.3), 0 1px 2px rgba(0, 0, 0, 0.2);
+            --shadow-card-hover: 0 16px 32px rgba(0, 0, 0, 0.5), 0 4px 8px rgba(0, 0, 0, 0.3);
+            --shadow-inset-soft: inset 0 1px 2px rgba(0, 0, 0, 0.3);
+            --shadow-inset-deep: inset 0 2px 5px rgba(0, 0, 0, 0.5);
+            --shadow-convex: inset 0 1px 0 rgba(255, 255, 255, 0.1), 0 1px 2px rgba(0,0,0,0.3);
+        }
+
+        * { box-sizing: border-box; margin: 0; padding: 0; }
+        
+        body {
+            font-family: -apple-system, 'SF Pro Display', 'Inter', BlinkMacSystemFont, sans-serif;
+            background: var(--bg-base);
+            color: var(--text-main);
+            overflow-x: hidden;
+            min-height: 100vh;
+            transition: background-color 0.3s ease;
+        }
+
+        .page-pad { padding-left: 20px; padding-right: 20px; }
+        @media (min-width: 640px) { .page-pad { padding-left: 40px; padding-right: 40px; } }
+        @media (min-width: 1024px) { .page-pad { padding-left: 80px; padding-right: 80px; } }
+
+        /* Site Navbar */
+        .site-navbar {
+            background: var(--bg-navbar);
+            backdrop-filter: blur(24px) saturate(180%);
+            -webkit-backdrop-filter: blur(24px) saturate(180%);
+            border-bottom: 1px solid var(--border);
+            padding: 12px 0;
+            position: sticky;
+            top: 0;
+            z-index: 100;
+            box-shadow: 0 1px 0 var(--border-highlight) inset, 0 4px 20px rgba(0,0,0,0.05);
+        }
+        .navbar-content {
+            display: flex;
+            align-items: center;
+            gap: 24px;
+            max-width: 1400px;
+            margin: 0 auto;
+        }
+
+        .site-brand {
+            display: flex;
+            align-items: center;
+            gap: 8px;
+            text-decoration: none;
+            color: var(--text-main);
+            font-weight: 600;
+            font-size: 15px;
+            letter-spacing: -0.01em;
+            flex-shrink: 0;
+        }
+        .site-brand-icon {
+            width: 28px;
+            height: 28px;
+            background: var(--bg-surface);
+            border: 1px solid var(--border);
+            border-radius: 8px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            box-shadow: var(--shadow-convex);
+        }
+
+        .macos-search-wrap {
+            position: relative;
+            flex: 1;
+            max-width: 600px;
+            margin: 0 auto;
+        }
+        .macos-search {
+            width: 100%;
+            background: var(--bg-input);
+            border: 1px solid var(--border);
+            border-radius: 8px;
+            padding: 8px 14px 8px 36px;
+            font-size: 14px;
+            color: var(--text-main);
+            font-family: inherit;
+            outline: none;
+            transition: all 0.2s;
+            box-shadow: var(--shadow-inset-soft);
+        }
+        .macos-search::placeholder { color: var(--text-muted); }
+        .macos-search:focus {
+            box-shadow: var(--shadow-inset-soft), 0 0 0 3px rgba(10, 132, 255, 0.3);
+            border-color: var(--accent);
+        }
+        .macos-search-icon {
+            position: absolute;
+            left: 12px;
+            top: 50%;
+            transform: translateY(-50%);
+            color: var(--text-muted);
+            stroke-width: 2;
+        }
+
+        .theme-toggle {
+            background: var(--bg-surface);
+            border: 1px solid var(--border);
+            color: var(--text-main);
+            border-radius: 8px;
+            padding: 8px;
+            cursor: pointer;
+            box-shadow: var(--shadow-convex);
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            transition: all 0.2s;
+            flex-shrink: 0;
+        }
+        .theme-toggle:active {
+            box-shadow: var(--shadow-inset-soft);
+            transform: scale(0.96);
+        }
+
+        /* Main Content */
+        .page-header {
+            padding: 60px 0 40px;
+            text-align: center;
+            position: relative;
+        }
+        .page-title {
+            font-size: 42px;
+            font-weight: 700;
+            letter-spacing: -0.03em;
+            margin-bottom: 12px;
+            text-shadow: 0 1px 2px rgba(0,0,0,0.05);
+        }
+        .page-subtitle {
+            font-size: 18px;
+            color: var(--text-muted);
+            font-weight: 400;
+            max-width: 600px;
+            margin: 0 auto;
+        }
+
+        /* Inner Shadow Filter Well */
+        .filter-well {
+            background: var(--bg-input);
+            border: 1px solid var(--border);
+            border-radius: 12px;
+            padding: 6px;
+            display: flex;
+            gap: 4px;
+            overflow-x: auto;
+            scrollbar-width: none;
+            margin-bottom: 40px;
+            box-shadow: var(--shadow-inset-deep);
+            max-width: 1400px;
+            margin-left: auto;
+            margin-right: auto;
+        }
+        .filter-well::-webkit-scrollbar { display: none; }
+        .filter-tab {
+            padding: 8px 20px;
+            border-radius: 8px;
+            font-size: 14px;
+            font-weight: 500;
+            color: var(--text-muted);
+            cursor: pointer;
+            white-space: nowrap;
+            transition: all 0.2s;
+        }
+        .filter-tab.active {
+            background: var(--bg-surface);
+            color: var(--text-main);
+            box-shadow: var(--shadow-convex), 0 2px 8px rgba(0,0,0,0.05);
+            border: 1px solid var(--border);
+        }
+        .filter-tab:hover:not(.active) {
+            color: var(--text-main);
+            background: rgba(255,255,255,0.05);
+        }
+
+        /* Gallery grid */
+        .gallery-grid {
+            display: grid;
+            grid-template-columns: 1fr;
+            gap: 24px;
+            max-width: 1400px;
+            margin: 0 auto;
+            padding-bottom: 80px;
+        }
+        @media (min-width: 768px) { .gallery-grid { grid-template-columns: repeat(2, 1fr); gap: 32px; } }
+        @media (min-width: 1024px) { .gallery-grid { grid-template-columns: repeat(3, 1fr); gap: 40px; } }
+
+        /* Depth Cards */
+        .preset-card {
+            background: var(--bg-surface);
+            border: 1px solid var(--border);
+            border-radius: 16px;
+            overflow: hidden;
+            text-decoration: none;
+            color: inherit;
+            display: flex;
+            flex-direction: column;
+            box-shadow: var(--shadow-card);
+            transition: all 0.3s cubic-bezier(0.2, 0.8, 0.2, 1);
+            position: relative;
+        }
+        /* Top highlight inner border */
+        .preset-card::after {
+            content: '';
+            position: absolute;
+            inset: 0;
+            border-radius: 16px;
+            box-shadow: inset 0 1px 0 var(--border-highlight);
+            pointer-events: none;
+            transition: opacity 0.3s;
+        }
+        .preset-card:hover {
+            transform: translateY(-4px) scale(1.01);
+            box-shadow: var(--shadow-card-hover);
+            border-color: rgba(128, 128, 128, 0.3);
+        }
+
+        .video-wrapper {
+            padding: 10px 10px 0;
+        }
+        .video-container {
+            aspect-ratio: 16/9;
+            background: #000;
+            border-radius: 10px;
+            overflow: hidden;
+            border: 1px solid var(--border);
+            box-shadow: var(--shadow-inset-deep);
+            position: relative;
+        }
+        video {
+            width: 100%;
+            height: 100%;
+            object-fit: cover;
+            opacity: 0.85;
+            transition: opacity 0.3s;
+        }
+        .preset-card:hover video { opacity: 1; }
+        
+        .card-info { 
+            padding: 20px; 
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+        }
+        .card-title {
+            font-size: 15px;
+            font-weight: 600;
+            letter-spacing: -0.01em;
+        }
+        .card-meta {
+            font-size: 11px;
+            color: var(--text-muted);
+            text-transform: uppercase;
+            letter-spacing: 0.05em;
+            font-weight: 600;
+            background: var(--bg-input);
+            padding: 6px 10px;
+            border-radius: 8px;
+            box-shadow: var(--shadow-inset-soft);
+            border: 1px solid var(--border);
+        }
+
+        /* Footer */
+        footer {
+            background: var(--bg-surface);
+            border-top: 1px solid var(--border);
+            padding: 60px 0 40px;
+            box-shadow: inset 0 1px 0 var(--border-highlight);
+        }
+        .footer-grid {
+            max-width: 1400px;
+            margin: 0 auto;
+            display: grid;
+            grid-template-columns: repeat(1, 1fr);
+            gap: 40px;
+        }
+        @media (min-width: 640px) { .footer-grid { grid-template-columns: repeat(2, 1fr); } }
+        @media (min-width: 1024px) { .footer-grid { grid-template-columns: repeat(4, 1fr); } }
+        
+        .footer-title {
+            font-weight: 600;
+            font-size: 13px;
+            color: var(--text-main);
+            margin-bottom: 20px;
+            text-transform: uppercase;
+            letter-spacing: 0.05em;
+        }
+        .footer-link {
+            display: block;
+            color: var(--text-muted);
+            text-decoration: none;
+            font-size: 14px;
+            margin-bottom: 12px;
+            transition: color 0.2s;
+        }
+        .footer-link:hover { color: var(--text-main); }
+        .footer-bottom {
+            max-width: 1400px;
+            margin: 40px auto 0;
+            padding-top: 24px;
+            border-top: 1px solid var(--border);
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            font-size: 13px;
+            color: var(--text-muted);
+        }
+    </style>
+</head>
+<body data-theme="dark">
+
+    <nav class="site-navbar">
+        <div class="navbar-content page-pad">
+            <a href="../index.html" class="site-brand">
+                <div class="site-brand-icon">
+                    <i data-lucide="layers" class="w-4 h-4"></i>
+                </div>
+                <span>Animator Studio</span>
+            </a>
+            
+            <div class="macos-search-wrap">
+                <i data-lucide="search" class="macos-search-icon w-4 h-4"></i>
+                <input type="text" id="search" placeholder="Search templates..." class="macos-search">
+            </div>
+            
+            <button class="theme-toggle" id="theme-toggle" title="Toggle Theme">
+                <i data-lucide="sun" class="w-4 h-4 hidden" id="icon-sun"></i>
+                <i data-lucide="moon" class="w-4 h-4" id="icon-moon"></i>
+            </button>
+        </div>
+    </nav>
+
+    <header class="page-header page-pad">
+        <h1 class="page-title">Motion Graphic Presets</h1>
+        <p class="page-subtitle">Free, fully customizable animation templates built for high-fidelity web experiences.</p>
+    </header>
+
+    <main class="page-pad">
+        <!-- Depth Filter Well -->
+        <div class="filter-well">
+            <div class="filter-tab active">All Items</div>
+            <div class="filter-tab">Charts &amp; Data</div>
+            <div class="filter-tab">Marketing</div>
+            <div class="filter-tab">Typography</div>
+            <div class="filter-tab">Whiteboard</div>
+            <div class="filter-tab">Social Media</div>
+        </div>
+
+        <!-- Gallery Grid -->
+        <div id="gallery" class="gallery-grid"></div>
+    </main>
+
+    <footer>
+        <div class="page-pad">
+            <div class="footer-grid">
+                <div>
+                    <div class="flex items-center gap-2 mb-4">
+                        <div class="site-brand-icon" style="background:var(--bg-input)">
+                            <span class="font-bold text-[10px]">AS</span>
+                        </div>
+                        <span class="font-bold text-base tracking-tight">Animator Studio</span>
+                    </div>
+                    <p class="text-[13px] leading-relaxed text-muted mb-6" style="color:var(--text-muted)">
+                        The ultimate research lab for high-fidelity canvas animations and interactive web motion graphics.
+                    </p>
+                </div>
+                
+                <div>
+                    <h4 class="footer-title">Product</h4>
+                    <a href="../index.html" class="footer-link">Main Studio</a>
+                    <a href="../_templates/index.html" class="footer-link">Component Lab</a>
+                    <a href="#" class="footer-link">Motion Presets</a>
+                </div>
+                
+                <div>
+                    <h4 class="footer-title">Company</h4>
+                    <a href="../about/index.html" class="footer-link">About Us</a>
+                    <a href="https://github.com/simplearyan/canvas-animator" class="footer-link">GitHub Repository</a>
+                </div>
+                
+                <div>
+                    <h4 class="footer-title">Legal</h4>
+                    <a href="../about/privacy.html" class="footer-link">Privacy Policy</a>
+                    <a href="../about/terms.html" class="footer-link">Terms of Service</a>
+                    <a href="../about/license.html" class="footer-link">License</a>
+                </div>
+            </div>
+            <div class="footer-bottom">
+                <p>© 2026 Animator Studio Research Lab.</p>
+                <div class="flex gap-6">
+                    <a href="../about/privacy.html" style="color:var(--text-muted);text-decoration:none">Privacy</a>
+                    <a href="../about/terms.html" style="color:var(--text-muted);text-decoration:none">Terms</a>
+                </div>
+            </div>
+        </div>
+    </footer>
+
+    <script>
+        // Theme Toggle Logic
+        const themeToggleBtn = document.getElementById('theme-toggle');
+        const iconSun = document.getElementById('icon-sun');
+        const iconMoon = document.getElementById('icon-moon');
+        const body = document.body;
+
+        // Check system preference initially
+        if (window.matchMedia && window.matchMedia('(prefers-color-scheme: light)').matches) {
+            setTheme('light');
+        }
+
+        themeToggleBtn.addEventListener('click', () => {
+            const currentTheme = body.getAttribute('data-theme');
+            setTheme(currentTheme === 'dark' ? 'light' : 'dark');
+        });
+
+        function setTheme(theme) {
+            body.setAttribute('data-theme', theme);
+            if (theme === 'dark') {
+                iconMoon.classList.remove('hidden');
+                iconSun.classList.add('hidden');
+            } else {
+                iconSun.classList.remove('hidden');
+                iconMoon.classList.add('hidden');
+            }
+        }
+
+        // Gallery Logic
+        let allItems = [];
+        let gallerySettings = { playMode: 'hover' };
+
+        async function loadGallery() {
+            try {
+                const response = await fetch('gallery-data.json');
+                if (!response.ok) throw new Error(`HTTP ${response.status}`);
+                const data = JSON.parse(await response.text());
+                allItems = data.items || [];
+                gallerySettings = data.settings || { playMode: 'hover' };
+                
+                renderGallery(allItems);
+            } catch (e) {
+                document.getElementById('gallery').innerHTML = `
+                    <div style="grid-column:1/-1;padding:80px 20px;text-align:center;border-radius:12px;background:var(--bg-input);border:1px solid var(--border);box-shadow:var(--shadow-inset-deep);">
+                        <i data-lucide="alert-circle" style="width:32px;height:32px;color:var(--text-muted);margin:0 auto 12px;"></i>
+                        <p style="color:var(--text-main);font-size:15px;margin-bottom:6px;font-weight:600;">No templates found</p>
+                        <p style="color:var(--text-muted);font-size:13px;">Run <code>node automate.js</code> to generate preview data.</p>
+                    </div>`;
+                lucide.createIcons();
+            }
+        }
+
+        function renderGallery(items) {
+            const container = document.getElementById('gallery');
+            container.innerHTML = '';
+            
+            if (!items.length) {
+                container.innerHTML = '<div style="grid-column:1/-1;padding:60px;text-align:center;color:var(--text-muted)">No matching templates.</div>';
+                return;
+            }
+            
+            items.forEach(item => {
+                const card = document.createElement('a');
+                card.href = item.file;
+                card.className = 'preset-card';
+                card.target = '_blank';
+                const isLoop = gallerySettings.playMode === 'loop';
+                
+                card.innerHTML = `
+                    <div class="video-wrapper">
+                        <div class="video-container">
+                            <video src="${item.preview}" muted loop playsinline ${isLoop ? 'autoplay' : ''}
+                                ${!isLoop ? 'onmouseover="this.play()" onmouseout="this.pause();this.currentTime=0"' : ''}></video>
+                        </div>
+                    </div>
+                    <div class="card-info">
+                        <div class="card-title">${item.title}</div>
+                        <div class="card-meta">${item.width}×${item.height}</div>
+                    </div>`;
+                container.appendChild(card);
+            });
+        }
+
+        document.getElementById('search').addEventListener('input', e => {
+            const q = e.target.value.toLowerCase();
+            renderGallery(allItems.filter(i => i.title.toLowerCase().includes(q) || i.file.toLowerCase().includes(q)));
+        });
+
+        lucide.createIcons();
+        loadGallery();
+    </script>
+</body>
+</html>

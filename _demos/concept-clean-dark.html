@@ -1,0 +1,427 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Canvas Animator | Gallery — Clean Dark</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800&display=swap" rel="stylesheet">
+    <script src="https://unpkg.com/lucide@latest"></script>
+    <style>
+        :root {
+            --bg-base: #09090b;
+            --bg-surface: #18181b;
+            --bg-surface-hover: #27272a;
+            --border: rgba(255, 255, 255, 0.08);
+            --border-hover: rgba(255, 255, 255, 0.15);
+            --text-main: #f8fafc;
+            --text-muted: #94a3b8;
+            --accent: #3b82f6;
+            --accent-glow: rgba(59, 130, 246, 0.5);
+        }
+        
+        * { box-sizing: border-box; }
+        
+        body {
+            font-family: 'Inter', sans-serif;
+            background-color: var(--bg-base);
+            color: var(--text-main);
+            overflow-x: hidden;
+            margin: 0;
+            background-image: radial-gradient(circle at 50% 0%, rgba(59, 130, 246, 0.08) 0%, transparent 50%);
+        }
+
+        .page-pad { padding-left: 20px; padding-right: 20px; }
+        @media (min-width: 640px) { .page-pad { padding-left: 40px; padding-right: 40px; } }
+        @media (min-width: 1024px) { .page-pad { padding-left: 80px; padding-right: 80px; } }
+
+        /* Smooth Glass Header */
+        .sticky-header {
+            position: sticky;
+            top: 0;
+            z-index: 50;
+            width: 100%;
+            background: rgba(9, 9, 11, 0.7);
+            backdrop-filter: blur(20px);
+            -webkit-backdrop-filter: blur(20px);
+            border-bottom: 1px solid transparent;
+            padding: 16px 20px;
+            transition: all 0.3s ease;
+        }
+        .sticky-header.is-stuck {
+            border-bottom-color: var(--border);
+            box-shadow: 0 10px 30px -10px rgba(0,0,0,0.5);
+        }
+
+        .search-container {
+            position: relative;
+            max-width: 600px;
+            margin: 0 auto;
+        }
+        .search-input {
+            width: 100%;
+            padding: 12px 20px 12px 48px;
+            font-size: 15px;
+            font-family: 'Inter', sans-serif;
+            border-radius: 100px;
+            border: 1px solid var(--border);
+            background: rgba(255, 255, 255, 0.03);
+            color: var(--text-main);
+            transition: all 0.3s ease;
+            outline: none;
+            box-shadow: inset 0 2px 4px rgba(0,0,0,0.2);
+        }
+        .search-input::placeholder { color: var(--text-muted); }
+        .search-input:focus {
+            background: rgba(255, 255, 255, 0.05);
+            border-color: var(--border-hover);
+            box-shadow: inset 0 2px 4px rgba(0,0,0,0.2), 0 0 0 4px rgba(255,255,255,0.05);
+        }
+        .search-icon {
+            position: absolute;
+            left: 20px;
+            top: 50%;
+            transform: translateY(-50%);
+            color: var(--text-muted);
+        }
+
+        /* Depth Grid */
+        .gallery-grid {
+            display: grid;
+            grid-template-columns: 1fr;
+            gap: 24px;
+        }
+        @media (min-width: 640px) { .gallery-grid { grid-template-columns: repeat(2, 1fr); gap: 32px; } }
+        @media (min-width: 1024px) { .gallery-grid { grid-template-columns: repeat(3, 1fr); gap: 40px; } }
+
+        /* Depth Cards */
+        .preset-card {
+            background: var(--bg-surface);
+            border-radius: 20px;
+            overflow: hidden;
+            border: 1px solid var(--border);
+            text-decoration: none;
+            color: inherit;
+            display: block;
+            transition: all 0.4s cubic-bezier(0.16, 1, 0.3, 1);
+            box-shadow: 0 4px 6px -1px rgba(0,0,0,0.2), 0 2px 4px -2px rgba(0,0,0,0.2);
+        }
+        .preset-card:hover {
+            transform: translateY(-6px);
+            border-color: var(--border-hover);
+            box-shadow: 0 20px 40px -10px rgba(0,0,0,0.5), 0 0 20px rgba(255,255,255,0.03);
+            background: var(--bg-surface-hover);
+        }
+        
+        .video-container {
+            aspect-ratio: 16/9;
+            background: #000;
+            position: relative;
+            overflow: hidden;
+        }
+        video {
+            width: 100%;
+            height: 100%;
+            object-fit: cover;
+            opacity: 0.7;
+            transition: opacity 0.5s ease, transform 0.5s ease;
+        }
+        .preset-card:hover video { 
+            opacity: 1;
+            transform: scale(1.03);
+        }
+        
+        .card-content {
+            padding: 20px;
+            background: linear-gradient(180deg, rgba(24,24,27,0) 0%, rgba(24,24,27,1) 10%);
+        }
+        .card-title {
+            font-size: 16px;
+            font-weight: 600;
+            color: var(--text-main);
+            margin-bottom: 6px;
+            transition: color 0.3s;
+        }
+        .preset-card:hover .card-title { color: #fff; }
+        .card-meta {
+            font-size: 12px;
+            color: var(--text-muted);
+            font-weight: 500;
+            letter-spacing: 0.05em;
+            display: flex;
+            align-items: center;
+            gap: 6px;
+        }
+
+        /* Filter Pills */
+        .filter-scroll-container {
+            overflow-x: auto;
+            scrollbar-width: none;
+            margin-bottom: 40px;
+            padding: 4px 0;
+            mask-image: linear-gradient(to right, transparent, black 20px, black calc(100% - 20px), transparent);
+            -webkit-mask-image: linear-gradient(to right, transparent, black 20px, black calc(100% - 20px), transparent);
+            padding-left: 20px;
+            padding-right: 20px;
+            margin-left: -20px;
+            margin-right: -20px;
+        }
+        .filter-scroll-container::-webkit-scrollbar { display: none; }
+        .filter-chips {
+            display: flex;
+            gap: 12px;
+            white-space: nowrap;
+            width: max-content;
+        }
+        .filter-chip {
+            padding: 8px 20px;
+            border-radius: 100px;
+            font-size: 14px;
+            font-weight: 500;
+            background: rgba(255,255,255,0.03);
+            border: 1px solid var(--border);
+            color: var(--text-muted);
+            cursor: pointer;
+            transition: all 0.3s ease;
+        }
+        .filter-chip:hover {
+            background: rgba(255,255,255,0.08);
+            color: var(--text-main);
+            transform: translateY(-1px);
+        }
+        .filter-chip.active {
+            background: var(--text-main);
+            color: var(--bg-base);
+            border-color: var(--text-main);
+            box-shadow: 0 4px 12px rgba(255,255,255,0.1);
+        }
+
+        /* Back Link */
+        .back-link {
+            display: inline-flex;
+            align-items: center;
+            gap: 8px;
+            color: var(--text-muted);
+            text-decoration: none;
+            font-size: 14px;
+            font-weight: 500;
+            padding: 8px 16px;
+            border-radius: 100px;
+            background: rgba(255,255,255,0.03);
+            border: 1px solid var(--border);
+            transition: all 0.3s ease;
+            margin-bottom: 40px;
+        }
+        .back-link:hover {
+            color: var(--text-main);
+            background: rgba(255,255,255,0.08);
+            transform: translateX(-4px);
+        }
+
+        /* Footer */
+        footer {
+            margin-top: 100px;
+            border-top: 1px solid var(--border);
+            background: var(--bg-surface);
+            padding: 60px 0 40px;
+        }
+        .footer-grid {
+            display: grid;
+            grid-template-columns: repeat(1, 1fr);
+            gap: 40px;
+        }
+        @media (min-width: 640px) { .footer-grid { grid-template-columns: repeat(2, 1fr); } }
+        @media (min-width: 1024px) { .footer-grid { grid-template-columns: repeat(4, 1fr); } }
+        
+        .footer-title {
+            font-weight: 600;
+            font-size: 14px;
+            color: var(--text-main);
+            margin-bottom: 20px;
+        }
+        .footer-link {
+            display: block;
+            color: var(--text-muted);
+            text-decoration: none;
+            font-size: 14px;
+            margin-bottom: 12px;
+            transition: color 0.2s;
+        }
+        .footer-link:hover { color: var(--text-main); }
+    </style>
+</head>
+<body>
+
+    <div class="page-pad pt-10">
+        <div class="max-w-[1400px] mx-auto">
+            <a href="../index.html" class="back-link">
+                <i data-lucide="arrow-left" class="w-4 h-4"></i>
+                Return to Studio
+            </a>
+
+            <header class="mb-12">
+                <div class="inline-flex items-center gap-2 px-3 py-1 rounded-full bg-blue-500/10 border border-blue-500/20 text-blue-400 text-xs font-semibold tracking-wide uppercase mb-6">
+                    <span class="w-2 h-2 rounded-full bg-blue-500 animate-pulse"></span>
+                    Gallery Access
+                </div>
+                <h1 class="text-4xl sm:text-6xl lg:text-7xl font-bold tracking-tight mb-6">
+                    Motion design,<br>
+                    <span class="text-transparent bg-clip-text bg-gradient-to-r from-blue-400 to-emerald-400">elevated.</span>
+                </h1>
+                <p class="text-lg md:text-xl text-slate-400 max-w-2xl font-light">
+                    Explore our curated collection of professional, high-fidelity canvas animation presets. Ready to deploy.
+                </p>
+            </header>
+        </div>
+    </div>
+
+    <div class="sticky-header" id="sticky-header">
+        <div class="search-container">
+            <i data-lucide="search" class="search-icon w-4 h-4"></i>
+            <input type="text" id="search" placeholder="Search templates..." class="search-input">
+        </div>
+    </div>
+
+    <main class="page-pad py-12 max-w-[1400px] mx-auto">
+        
+        <div class="filter-scroll-container">
+            <div class="filter-chips">
+                <div class="filter-chip active">All Presets</div>
+                <div class="filter-chip">Charts &amp; Graphs</div>
+                <div class="filter-chip">Marketing &amp; Ads</div>
+                <div class="filter-chip">Whiteboard</div>
+                <div class="filter-chip">Typography</div>
+                <div class="filter-chip">Social Media</div>
+                <div class="filter-chip">Transitions</div>
+            </div>
+        </div>
+
+        <div id="gallery" class="gallery-grid"></div>
+
+    </main>
+
+    <footer>
+        <div class="page-pad max-w-[1400px] mx-auto">
+            <div class="footer-grid">
+                <div>
+                    <div class="flex items-center gap-3 mb-6">
+                        <div class="w-10 h-10 rounded-xl bg-gradient-to-br from-gray-800 to-gray-900 border border-gray-700 flex items-center justify-center shadow-lg">
+                            <span class="text-white font-bold text-sm">AS</span>
+                        </div>
+                        <span class="font-bold text-lg tracking-tight">Animator Studio</span>
+                    </div>
+                    <p class="text-slate-400 text-sm leading-relaxed mb-6 max-w-xs">
+                        Advanced research lab for high-fidelity canvas animations and interactive web motion graphics.
+                    </p>
+                    <div class="flex gap-4">
+                        <a href="#" class="w-10 h-10 rounded-full bg-gray-800 flex items-center justify-center text-gray-400 hover:text-white hover:bg-gray-700 transition-all"><i data-lucide="github" class="w-5 h-5"></i></a>
+                        <a href="#" class="w-10 h-10 rounded-full bg-gray-800 flex items-center justify-center text-gray-400 hover:text-white hover:bg-gray-700 transition-all"><i data-lucide="twitter" class="w-5 h-5"></i></a>
+                    </div>
+                </div>
+                
+                <div>
+                    <h4 class="footer-title">Product</h4>
+                    <a href="../index.html" class="footer-link">Main Studio</a>
+                    <a href="../_templates/index.html" class="footer-link">Component Lab</a>
+                    <a href="#" class="footer-link">Motion Presets</a>
+                </div>
+                
+                <div>
+                    <h4 class="footer-title">Company</h4>
+                    <a href="../about/index.html" class="footer-link">About Us</a>
+                    <a href="#" class="footer-link">Careers</a>
+                    <a href="https://github.com/simplearyan/canvas-animator" class="footer-link">Open Source</a>
+                </div>
+                
+                <div>
+                    <h4 class="footer-title">Legal</h4>
+                    <a href="../about/privacy.html" class="footer-link">Privacy Policy</a>
+                    <a href="../about/terms.html" class="footer-link">Terms of Service</a>
+                    <a href="../about/license.html" class="footer-link">License</a>
+                </div>
+            </div>
+            
+            <div class="border-t border-white/5 mt-16 pt-8 flex flex-col md:flex-row justify-between items-center gap-4">
+                <p class="text-slate-500 text-sm">© 2026 Animator Studio Research Lab.</p>
+                <div class="flex items-center gap-2 text-sm text-slate-500">
+                    <span>Designed with</span>
+                    <i data-lucide="heart" class="w-4 h-4 text-rose-500 fill-rose-500/20"></i>
+                    <span>for creators</span>
+                </div>
+            </div>
+        </div>
+    </footer>
+
+    <script>
+        let allItems = [];
+        let gallerySettings = { playMode: 'hover' };
+
+        async function loadGallery() {
+            try {
+                const response = await fetch('gallery-data.json');
+                if (!response.ok) throw new Error(`HTTP ${response.status}`);
+                const data = JSON.parse(await response.text());
+                allItems = data.items || [];
+                gallerySettings = data.settings || { playMode: 'hover' };
+                renderGallery(allItems);
+            } catch (e) {
+                document.getElementById('gallery').innerHTML = `
+                    <div class="col-span-full py-24 text-center rounded-3xl border border-white/10 bg-white/5 backdrop-blur-sm">
+                        <div class="w-16 h-16 rounded-full bg-white/5 flex items-center justify-center mx-auto mb-6">
+                            <i data-lucide="database" class="w-8 h-8 text-slate-400"></i>
+                        </div>
+                        <h3 class="text-xl font-semibold text-white mb-2">No Gallery Data</h3>
+                        <p class="text-slate-400 mb-6">The gallery index hasn't been generated yet.</p>
+                        <code class="px-4 py-2 rounded-lg bg-black/50 border border-white/10 text-emerald-400 font-mono text-sm">node automate.js</code>
+                    </div>`;
+                lucide.createIcons();
+            }
+        }
+
+        function renderGallery(items) {
+            const container = document.getElementById('gallery');
+            container.innerHTML = '';
+            if (!items.length) {
+                container.innerHTML = '<div class="col-span-full py-12 text-slate-500 text-center">No matching templates.</div>';
+                return;
+            }
+            items.forEach(item => {
+                const card = document.createElement('a');
+                card.href = item.file;
+                card.className = 'preset-card';
+                card.target = '_blank';
+                const isLoop = gallerySettings.playMode === 'loop';
+                card.innerHTML = `
+                    <div class="video-container">
+                        <video src="${item.preview}" muted loop playsinline ${isLoop ? 'autoplay' : ''}
+                            ${!isLoop ? 'onmouseover="this.play()" onmouseout="this.pause();this.currentTime=0"' : ''}></video>
+                    </div>
+                    <div class="card-content">
+                        <h3 class="card-title">${item.title}</h3>
+                        <div class="card-meta">
+                            <i data-lucide="monitor" class="w-3.5 h-3.5"></i>
+                            ${item.width} × ${item.height}
+                        </div>
+                    </div>`;
+                container.appendChild(card);
+            });
+            lucide.createIcons();
+        }
+
+        document.getElementById('search').addEventListener('input', e => {
+            const q = e.target.value.toLowerCase();
+            renderGallery(allItems.filter(i => i.title.toLowerCase().includes(q) || i.file.toLowerCase().includes(q)));
+        });
+
+        window.addEventListener('scroll', () => {
+            const header = document.getElementById('sticky-header');
+            header.classList.toggle('is-stuck', window.scrollY > 100);
+        });
+
+        lucide.createIcons();
+        loadGallery();
+    </script>
+</body>
+</html>

@@ -1,0 +1,358 @@
+<!DOCTYPE html>
+<html lang="en" class="dark">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+    <title>Canvas Animator | Gallery — YT Style</title>
+    
+    <!-- Google Fonts: Roboto -->
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Roboto:wght@400;500;700&display=swap" rel="stylesheet">
+
+    <!-- Tailwind CSS -->
+    <script src="https://cdn.tailwindcss.com"></script>
+    <script>
+        tailwind.config = {
+            darkMode: 'class',
+            theme: {
+                extend: {
+                    fontFamily: {
+                        sans: ['Roboto', 'Arial', 'sans-serif'],
+                    },
+                    colors: {
+                        yt: {
+                            black: '#0f0f0f',
+                            dark: '#212121',
+                            darker: '#181818',
+                            light: '#f2f2f2',
+                            borderDark: '#3f3f3f',
+                            borderLight: '#e5e5e5',
+                            hoverDark: '#272727',
+                            hoverLight: '#e5e5e5',
+                            red: '#ff0000',
+                            blue: '#3ea6ff',
+                            textSecondaryDark: '#aaaaaa',
+                            textSecondaryLight: '#606060'
+                        }
+                    }
+                }
+            }
+        }
+    </script>
+
+    <!-- Phosphor Icons -->
+    <script src="https://unpkg.com/@phosphor-icons/web"></script>
+
+    <style>
+        /* Hide Scrollbar but keep functionality */
+        .no-scrollbar::-webkit-scrollbar { display: none; }
+        .no-scrollbar { -ms-overflow-style: none; scrollbar-width: none; }
+        
+        body { transition: background-color 0.2s ease, color 0.2s ease; overscroll-behavior-y: none; }
+
+        .chip-scroll::-webkit-scrollbar { display: none; }
+        
+        .video-container {
+            aspect-ratio: 16/9;
+            background: #000;
+            border-radius: 12px;
+            overflow: hidden;
+            position: relative;
+        }
+        .video-container video {
+            width: 100%;
+            height: 100%;
+            object-fit: cover;
+            transition: border-radius 0.3s;
+        }
+        
+        .duration-badge {
+            position: absolute;
+            bottom: 4px;
+            right: 4px;
+            background: rgba(0, 0, 0, 0.8);
+            color: white;
+            font-size: 12px;
+            font-weight: 500;
+            padding: 1px 4px;
+            border-radius: 4px;
+            letter-spacing: 0.5px;
+            z-index: 10;
+        }
+
+        .preset-card:hover .video-container { border-radius: 0; }
+        
+        /* Grid Layout matching YouTube */
+        .yt-grid {
+            display: grid;
+            grid-template-columns: 1fr;
+            gap: 40px 16px;
+        }
+        @media (min-width: 640px) { .yt-grid { grid-template-columns: repeat(2, 1fr); } }
+        @media (min-width: 1024px) { .yt-grid { grid-template-columns: repeat(3, 1fr); } }
+        @media (min-width: 1400px) { .yt-grid { grid-template-columns: repeat(4, 1fr); } }
+
+        /* Top padding adjustments for fixed header + chips */
+        .main-content-pt { padding-top: 112px; } /* 56px header + 56px chips */
+        @media (max-width: 639px) { .main-content-pt { padding-top: 104px; } }
+    </style>
+</head>
+<body class="bg-white dark:bg-yt-black text-black dark:text-white font-sans antialiased overflow-x-hidden">
+
+    <!-- HEADER -->
+    <header id="main-header" class="fixed top-0 left-0 right-0 h-14 bg-white dark:bg-yt-black flex items-center justify-between px-4 z-50">
+        <!-- Left: Menu & Logo -->
+        <div class="flex items-center gap-4">
+            <button class="hidden sm:flex p-2 rounded-full hover:bg-yt-hoverLight dark:hover:bg-yt-hoverDark transition">
+                <i class="ph ph-list text-2xl"></i>
+            </button>
+            <a href="../index.html" class="flex items-center gap-1" title="Animator Studio">
+                <div class="bg-yt-red text-white w-7 h-5 flex items-center justify-center rounded-[4px]">
+                    <i class="ph-fill ph-play text-xs"></i>
+                </div>
+                <span class="text-xl font-semibold tracking-tighter hidden sm:block">Animator</span>
+            </a>
+        </div>
+
+        <!-- Center: Search -->
+        <div class="hidden sm:flex items-center flex-1 max-w-[600px] ml-10">
+            <div class="flex w-full">
+                <div class="flex items-center flex-1 border border-yt-borderLight dark:border-yt-borderDark rounded-l-full px-4 py-0.5 bg-white dark:bg-yt-black focus-within:border-blue-500 ml-8">
+                    <i class="ph ph-magnifying-glass text-gray-500 hidden md:block mr-2"></i>
+                    <input type="text" id="search" placeholder="Search templates" class="w-full bg-transparent outline-none py-1.5 dark:text-white text-base">
+                </div>
+                <button class="px-5 border border-l-0 border-yt-borderLight dark:border-yt-borderDark rounded-r-full bg-yt-light dark:bg-yt-dark hover:bg-gray-200 dark:hover:bg-yt-hoverDark transition">
+                    <i class="ph ph-magnifying-glass text-xl"></i>
+                </button>
+            </div>
+            <button class="ml-4 p-2.5 rounded-full bg-yt-light dark:bg-yt-dark hover:bg-gray-200 dark:hover:bg-yt-hoverDark transition flex-shrink-0">
+                <i class="ph-fill ph-microphone text-xl"></i>
+            </button>
+        </div>
+
+        <!-- Right: Icons -->
+        <div class="flex items-center gap-1 sm:gap-3">
+            <button class="sm:hidden p-2 rounded-full hover:bg-yt-hoverLight dark:hover:bg-yt-hoverDark transition">
+                <i class="ph ph-magnifying-glass text-2xl"></i>
+            </button>
+            <button class="p-2 rounded-full hover:bg-yt-hoverLight dark:hover:bg-yt-hoverDark transition" id="theme-toggle" title="Toggle Theme">
+                <i class="ph ph-moon text-2xl dark:hidden"></i>
+                <i class="ph ph-sun text-2xl hidden dark:block"></i>
+            </button>
+            <a href="../about/index.html" class="hidden md:block p-2 rounded-full hover:bg-yt-hoverLight dark:hover:bg-yt-hoverDark transition">
+                <i class="ph ph-info text-2xl"></i>
+            </a>
+            <a href="https://github.com/simplearyan/canvas-animator" target="_blank" class="p-2 rounded-full hover:bg-yt-hoverLight dark:hover:bg-yt-hoverDark transition">
+                <i class="ph ph-github-logo text-2xl"></i>
+            </a>
+            <button class="p-1 ml-1 sm:ml-2">
+                <div class="w-8 h-8 rounded-full bg-purple-600 flex items-center justify-center text-white font-medium text-sm">AS</div>
+            </button>
+        </div>
+    </header>
+
+    <!-- SIDEBARS -->
+    <!-- Mini Sidebar (Tablet) -->
+    <aside class="hidden sm:flex xl:hidden flex-col fixed top-14 left-0 bottom-0 w-[72px] bg-white dark:bg-yt-black z-40 overflow-y-auto no-scrollbar items-center py-2">
+        <a href="../index.html" class="flex flex-col items-center justify-center w-full py-4 hover:bg-yt-hoverLight dark:hover:bg-yt-hoverDark rounded-xl gap-1">
+            <i class="ph ph-house text-2xl"></i>
+            <span class="text-[10px]">Home</span>
+        </a>
+        <a href="#" class="flex flex-col items-center justify-center w-full py-4 hover:bg-yt-hoverLight dark:hover:bg-yt-hoverDark rounded-xl gap-1">
+            <i class="ph-fill ph-monitor-play text-2xl"></i>
+            <span class="text-[10px]">Gallery</span>
+        </a>
+        <a href="../_templates/index.html" class="flex flex-col items-center justify-center w-full py-4 hover:bg-yt-hoverLight dark:hover:bg-yt-hoverDark rounded-xl gap-1">
+            <i class="ph ph-squares-four text-2xl"></i>
+            <span class="text-[10px]">Components</span>
+        </a>
+    </aside>
+
+    <!-- Full Sidebar (Desktop) -->
+    <aside class="hidden xl:flex flex-col fixed top-14 left-0 bottom-0 w-[240px] bg-white dark:bg-yt-black z-40 overflow-y-auto no-scrollbar px-3 py-3 pb-20">
+        <div class="border-b border-yt-borderLight dark:border-yt-borderDark pb-3 mb-3">
+            <a href="../index.html" class="flex items-center gap-5 px-3 py-2.5 hover:bg-yt-hoverLight dark:hover:bg-yt-hoverDark rounded-lg">
+                <i class="ph ph-house text-2xl"></i>
+                <span class="text-sm">Home</span>
+            </a>
+            <a href="#" class="flex items-center gap-5 px-3 py-2.5 bg-yt-light dark:bg-yt-dark rounded-lg font-medium">
+                <i class="ph-fill ph-monitor-play text-2xl"></i>
+                <span class="text-sm">Gallery</span>
+            </a>
+            <a href="../_templates/index.html" class="flex items-center gap-5 px-3 py-2.5 hover:bg-yt-hoverLight dark:hover:bg-yt-hoverDark rounded-lg">
+                <i class="ph ph-squares-four text-2xl"></i>
+                <span class="text-sm">Component Lab</span>
+            </a>
+        </div>
+        <div class="border-b border-yt-borderLight dark:border-yt-borderDark pb-3 mb-3">
+            <h3 class="px-3 text-base font-semibold mb-1 mt-2">Library</h3>
+            <a href="#" class="flex items-center gap-5 px-3 py-2.5 hover:bg-yt-hoverLight dark:hover:bg-yt-hoverDark rounded-lg">
+                <i class="ph ph-chart-bar text-2xl"></i>
+                <span class="text-sm">Charts & Data</span>
+            </a>
+            <a href="#" class="flex items-center gap-5 px-3 py-2.5 hover:bg-yt-hoverLight dark:hover:bg-yt-hoverDark rounded-lg">
+                <i class="ph ph-text-t text-2xl"></i>
+                <span class="text-sm">Typography</span>
+            </a>
+            <a href="#" class="flex items-center gap-5 px-3 py-2.5 hover:bg-yt-hoverLight dark:hover:bg-yt-hoverDark rounded-lg">
+                <i class="ph ph-chalkboard text-2xl"></i>
+                <span class="text-sm">Whiteboard</span>
+            </a>
+        </div>
+        <div class="border-b border-yt-borderLight dark:border-yt-borderDark pb-3 mb-3">
+            <h3 class="px-3 text-base font-semibold mb-1 mt-2">Explore</h3>
+            <a href="../about/index.html" class="flex items-center gap-5 px-3 py-2.5 hover:bg-yt-hoverLight dark:hover:bg-yt-hoverDark rounded-lg">
+                <i class="ph ph-info text-2xl"></i>
+                <span class="text-sm">About Studio</span>
+            </a>
+            <a href="../about/privacy.html" class="flex items-center gap-5 px-3 py-2.5 hover:bg-yt-hoverLight dark:hover:bg-yt-hoverDark rounded-lg">
+                <i class="ph ph-shield-check text-2xl"></i>
+                <span class="text-sm">Privacy Policy</span>
+            </a>
+            <a href="../about/terms.html" class="flex items-center gap-5 px-3 py-2.5 hover:bg-yt-hoverLight dark:hover:bg-yt-hoverDark rounded-lg">
+                <i class="ph ph-file-text text-2xl"></i>
+                <span class="text-sm">Terms</span>
+            </a>
+        </div>
+        <div class="px-4 py-2 text-xs text-yt-textSecondaryLight dark:text-yt-textSecondaryDark font-medium leading-relaxed">
+            <p>© 2026 Animator Studio</p>
+            <p>Research Lab</p>
+        </div>
+    </aside>
+
+    <!-- MOBILE BOTTOM NAVIGATION -->
+    <nav class="sm:hidden fixed bottom-0 left-0 right-0 bg-white dark:bg-yt-black border-t border-yt-borderLight dark:border-yt-borderDark flex justify-around items-center h-12 z-50">
+        <a href="../index.html" class="flex flex-col items-center justify-center w-full h-full text-black dark:text-white">
+            <i class="ph ph-house text-[22px]"></i>
+            <span class="text-[10px] mt-0.5">Home</span>
+        </a>
+        <a href="#" class="flex flex-col items-center justify-center w-full h-full text-black dark:text-white">
+            <i class="ph-fill ph-monitor-play text-[22px]"></i>
+            <span class="text-[10px] mt-0.5">Gallery</span>
+        </a>
+        <a href="../_templates/index.html" class="flex flex-col items-center justify-center w-full h-full text-black dark:text-white">
+            <i class="ph ph-plus-circle text-3xl font-light"></i>
+        </a>
+        <a href="../about/index.html" class="flex flex-col items-center justify-center w-full h-full text-black dark:text-white">
+            <i class="ph ph-info text-[22px]"></i>
+            <span class="text-[10px] mt-0.5">About</span>
+        </a>
+        <a href="https://github.com/simplearyan/canvas-animator" class="flex flex-col items-center justify-center w-full h-full text-black dark:text-white">
+            <i class="ph ph-github-logo text-[22px]"></i>
+            <span class="text-[10px] mt-0.5">GitHub</span>
+        </a>
+    </nav>
+
+    <!-- FILTER CHIPS (Sticky under header) -->
+    <div class="fixed top-14 left-0 sm:left-[72px] xl:left-[240px] right-0 h-14 bg-white/95 dark:bg-yt-black/95 backdrop-blur-sm z-30 border-b border-yt-borderLight dark:border-yt-borderDark flex items-center px-4 md:px-6">
+        <div class="overflow-x-auto chip-scroll flex gap-3 whitespace-nowrap py-2 w-full">
+            <button class="px-3 py-1.5 rounded-lg bg-black dark:bg-white text-white dark:text-black font-medium text-sm transition">All</button>
+            <button class="px-3 py-1.5 rounded-lg bg-yt-light dark:bg-yt-dark hover:bg-gray-200 dark:hover:bg-yt-hoverDark font-medium text-sm transition">Data Viz</button>
+            <button class="px-3 py-1.5 rounded-lg bg-yt-light dark:bg-yt-dark hover:bg-gray-200 dark:hover:bg-yt-hoverDark font-medium text-sm transition">Marketing</button>
+            <button class="px-3 py-1.5 rounded-lg bg-yt-light dark:bg-yt-dark hover:bg-gray-200 dark:hover:bg-yt-hoverDark font-medium text-sm transition">Whiteboard</button>
+            <button class="px-3 py-1.5 rounded-lg bg-yt-light dark:bg-yt-dark hover:bg-gray-200 dark:hover:bg-yt-hoverDark font-medium text-sm transition">Typography</button>
+            <button class="px-3 py-1.5 rounded-lg bg-yt-light dark:bg-yt-dark hover:bg-gray-200 dark:hover:bg-yt-hoverDark font-medium text-sm transition">Social Media</button>
+            <button class="px-3 py-1.5 rounded-lg bg-yt-light dark:bg-yt-dark hover:bg-gray-200 dark:hover:bg-yt-hoverDark font-medium text-sm transition">Transitions</button>
+        </div>
+    </div>
+
+    <!-- MAIN CONTENT -->
+    <main class="sm:ml-[72px] xl:ml-[240px] main-content-pt pb-16 sm:pb-8 px-4 md:px-6">
+        <div id="gallery" class="yt-grid max-w-[2000px] mx-auto">
+            <!-- Items injected here -->
+        </div>
+    </main>
+
+    <script>
+        // Theme Toggle Logic
+        const themeToggleBtn = document.getElementById('theme-toggle');
+        const html = document.documentElement;
+
+        themeToggleBtn.addEventListener('click', () => {
+            html.classList.toggle('dark');
+        });
+
+        // Gallery Logic
+        let allItems = [];
+        let gallerySettings = { playMode: 'hover' };
+
+        async function loadGallery() {
+            try {
+                const response = await fetch('gallery-data.json');
+                if (!response.ok) throw new Error(`HTTP ${response.status}`);
+                const data = JSON.parse(await response.text());
+                allItems = data.items || [];
+                gallerySettings = data.settings || { playMode: 'hover' };
+                renderGallery(allItems);
+            } catch (e) {
+                document.getElementById('gallery').innerHTML = `
+                    <div class="col-span-full py-20 text-center">
+                        <i class="ph ph-warning-circle text-4xl text-yt-textSecondaryLight dark:text-yt-textSecondaryDark mb-2"></i>
+                        <h2 class="text-lg font-medium mb-1">No videos found</h2>
+                        <p class="text-sm text-yt-textSecondaryLight dark:text-yt-textSecondaryDark">Run node automate.js to generate gallery previews.</p>
+                    </div>`;
+            }
+        }
+
+        function renderGallery(items) {
+            const container = document.getElementById('gallery');
+            container.innerHTML = '';
+            
+            if (!items.length) {
+                container.innerHTML = '<div class="col-span-full py-20 text-center text-sm text-yt-textSecondaryLight dark:text-yt-textSecondaryDark">No matching results found.</div>';
+                return;
+            }
+            
+            items.forEach(item => {
+                const card = document.createElement('a');
+                card.href = item.file;
+                card.className = 'preset-card flex flex-col gap-3 group';
+                card.target = '_blank';
+                
+                const isLoop = gallerySettings.playMode === 'loop';
+                // Fake a duration
+                const duration = "0:12"; 
+                // Fake views and time
+                const views = Math.floor(Math.random() * 900 + 100) + "K views";
+                const time = Math.floor(Math.random() * 11 + 1) + " months ago";
+                
+                card.innerHTML = `
+                    <div class="video-container">
+                        <video src="${item.preview}" muted loop playsinline ${isLoop ? 'autoplay' : ''}
+                            ${!isLoop ? 'onmouseover="this.play()" onmouseout="this.pause();this.currentTime=0"' : ''}></video>
+                        <div class="duration-badge">${duration}</div>
+                    </div>
+                    <div class="flex gap-3 pr-6">
+                        <div class="w-9 h-9 rounded-full bg-purple-600 flex items-center justify-center text-white font-medium text-sm flex-shrink-0 mt-0.5">AS</div>
+                        <div class="flex flex-col">
+                            <h3 class="text-sm font-medium line-clamp-2 leading-tight mb-1 group-hover:text-yt-blue">${item.title}</h3>
+                            <span class="text-[12px] text-yt-textSecondaryLight dark:text-yt-textSecondaryDark hover:text-black dark:hover:text-white transition">Animator Studio</span>
+                            <div class="text-[12px] text-yt-textSecondaryLight dark:text-yt-textSecondaryDark flex items-center">
+                                <span>${item.width}x${item.height}</span>
+                                <span class="mx-1">•</span>
+                                <span>Free Template</span>
+                            </div>
+                        </div>
+                        <button class="absolute right-0 top-1/2 -translate-y-1/2 opacity-0 group-hover:opacity-100 p-1.5 hover:bg-yt-hoverLight dark:hover:bg-yt-hoverDark rounded-full transition">
+                            <i class="ph-bold ph-dots-three-vertical text-xl"></i>
+                        </button>
+                    </div>
+                `;
+                
+                // Add relative positioning to the text container for the dots menu
+                card.querySelector('.flex.gap-3').classList.add('relative');
+                
+                container.appendChild(card);
+            });
+        }
+
+        document.getElementById('search').addEventListener('input', e => {
+            const q = e.target.value.toLowerCase();
+            renderGallery(allItems.filter(i => i.title.toLowerCase().includes(q) || i.file.toLowerCase().includes(q)));
+        });
+
+        loadGallery();
+    </script>
+</body>
+</html>
