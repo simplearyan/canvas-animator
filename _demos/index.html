@@ -295,7 +295,11 @@
         async function loadGallery() {
             try {
                 const response = await fetch('gallery-data.json');
-                const data = await response.json();
+                if (!response.ok) {
+                    throw new Error(`HTTP ${response.status}: gallery-data.json not found`);
+                }
+                const text = await response.text();
+                const data = JSON.parse(text);
                 allItems = data.items || [];
                 gallerySettings = data.settings || { playMode: 'hover' };
 
@@ -305,11 +309,13 @@
                 console.error('Failed to load gallery data:', e);
                 document.getElementById('gallery').innerHTML = `
                     <div class="col-span-full py-20 text-center border-2 border-dashed border-gray-200 rounded-2xl">
-                        <p class="text-gray-400 font-medium">No presets found. Run <code class="bg-gray-100 px-2 py-1 rounded">node automate.js</code> to generate previews.</p>
+                        <p class="text-gray-400 font-medium text-lg mb-2">Gallery data not available</p>
+                        <p class="text-gray-300 text-sm">Run <code class="bg-gray-100 text-gray-600 px-2 py-1 rounded font-mono">node automate.js</code> locally to generate previews, then commit <code class="bg-gray-100 text-gray-600 px-2 py-1 rounded font-mono">gallery-data.json</code> and the <code class="bg-gray-100 text-gray-600 px-2 py-1 rounded font-mono">previews/</code> folder.</p>
                     </div>
                 `;
             }
         }
+
 
         function renderGallery(items) {
             const container = document.getElementById('gallery');
