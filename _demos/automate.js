@@ -98,14 +98,52 @@ async function automate() {
 
     // 3. Apply Overrides & Trigger Native Export
     const outputFilename = `${path.basename(preset.file, '.html')}.${format}`;
-    await page.evaluate(async (p, filename) => {
-        // Apply State Overrides
-        if (p.stateOverrides) {
-            for (const [key, value] of Object.entries(p.stateOverrides)) {
-                try { eval(`${key} = ${JSON.stringify(value)}`); } catch (e) {}
+    
+    if (preset.stateOverrides) {
+      await page.evaluate((overrides) => {
+        for (const [key, value] of Object.entries(overrides)) {
+          try {
+            // Support both direct window access and appState
+            if (key.startsWith('appState.')) {
+                const prop = key.split('.')[1];
+                if (window.appState) window.appState[prop] = value;
+            } else {
+                eval(`${key} = ${JSON.stringify(value)}`);
+            }
+          } catch (e) {
+            console.warn(`Failed to override ${key}:`, e);
+          }
+        }
+        if (typeof render === 'function') render();
+      }, preset.stateOverrides);
+    }
+
+    // 1. Simulate Drawing if needed
+    if (preset.drawingInstructions) {
+        console.log('  🎨 Simulating drawing...');
+        for (const instr of preset.drawingInstructions) {
+            if (instr.action === 'stroke' && instr.points.length > 0) {
+                // Get canvas position to be precise
+                const canvasBox = await page.evaluate(() => {
+                    const canvas = document.querySelector('canvas');
+                    const rect = canvas.getBoundingClientRect();
+                    return { x: rect.left, y: rect.top, w: rect.width, h: rect.height };
+                });
+
+                const [startX, startY] = instr.points[0];
+                await page.mouse.move(canvasBox.x + startX, canvasBox.y + startY);
+                await page.mouse.down();
+                for (let i = 1; i < instr.points.length; i++) {
+                    const [px, py] = instr.points[i];
+                    await page.mouse.move(canvasBox.x + px, canvasBox.y + py, { steps: 5 });
+                }
+                await page.mouse.up();
+                await new Promise(r => setTimeout(r, 200));
             }
         }
-        
+    }
+
+    await page.evaluate(async (p, filename) => {
         window.isAutomatedExport = true;
         window.automatedFilename = filename;
 
@@ -137,7 +175,11 @@ async function automate() {
   }
 
   // Save Gallery Data
-  fs.writeFileSync(galleryDataPath, JSON.stringify(galleryItems, null, 2));
+  const finalData = {
+    settings: config.global,
+    items: galleryItems
+  };
+  fs.writeFileSync(galleryDataPath, JSON.stringify(finalData, null, 2));
   console.log(`\nGallery data updated at ${galleryDataPath}`);
 
   await browser.close();

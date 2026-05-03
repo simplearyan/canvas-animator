@@ -14,6 +14,52 @@
             background-color: #ffffff;
             color: #111827;
         }
+        .sticky-header {
+            position: sticky;
+            top: 0;
+            z-index: 50;
+            background: rgba(255, 255, 255, 0.8);
+            backdrop-filter: blur(12px);
+            -webkit-backdrop-filter: blur(12px);
+            padding: 20px 0;
+            margin: 0 -24px;
+            padding-left: 24px;
+            padding-right: 24px;
+            border-bottom: 1px solid transparent;
+            transition: all 0.3s;
+        }
+        .sticky-header.is-stuck {
+            border-bottom: 1px solid #f3f4f6;
+            box-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.05);
+        }
+        .search-container {
+            position: relative;
+            max-width: 800px;
+            margin: 0 auto;
+        }
+        .search-input {
+            width: 100%;
+            padding: 14px 20px 14px 48px;
+            font-size: 1rem;
+            border-radius: 12px;
+            border: 1px solid #e5e7eb;
+            background: #f9fafb;
+            transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+            outline: none;
+        }
+        .search-input:focus {
+            background: #ffffff;
+            border-color: #111827;
+            box-shadow: 0 10px 15px -3px rgba(0, 0, 0, 0.05);
+        }
+        .search-icon {
+            position: absolute;
+            left: 16px;
+            top: 50%;
+            transform: translateY(-50%);
+            color: #9ca3af;
+            pointer-events: none;
+        }
         .gallery-grid {
             display: grid;
             grid-template-columns: repeat(auto-fill, minmax(380px, 1fr));
@@ -47,19 +93,85 @@
         .preset-card:hover video {
             opacity: 1;
         }
+        .filter-scroll-container {
+            overflow-x: auto;
+            scrollbar-width: none; /* Firefox */
+            -ms-overflow-style: none;  /* IE and Edge */
+            padding: 4px 0;
+        }
+        .filter-scroll-container::-webkit-scrollbar {
+            display: none; /* Chrome, Safari and Opera */
+        }
+        .filter-chips {
+            display: flex;
+            gap: 12px;
+            white-space: nowrap;
+            width: max-content;
+        }
+        .filter-chip {
+            padding: 8px 18px;
+            border-radius: 9999px;
+            font-size: 0.875rem;
+            font-weight: 600;
+            border: 1px solid #e5e7eb;
+            transition: all 0.2s;
+            cursor: pointer;
+            background: #ffffff;
+        }
+        .filter-chip:hover {
+            background: #f3f4f6;
+        }
+        .filter-chip.active {
+            background: #111827;
+            color: #ffffff;
+            border-color: #111827;
+        }
     </style>
+    <script src="https://unpkg.com/lucide@latest"></script>
 </head>
 <body class="p-6 md:p-12">
 
-    <!-- Header -->
     <header class="max-w-7xl mx-auto mb-16">
-        <h1 class="text-4xl md:text-6xl font-extrabold tracking-tight mb-4">
-            Free motion <br>graphics templates
-        </h1>
-        <p class="text-lg md:text-xl text-gray-500 max-w-2xl leading-relaxed">
-            Create professional animations in no time with our collection of free, fully customizable motion design templates.
-        </p>
+        <div class="flex flex-col md:flex-row md:items-end justify-between gap-6">
+            <div class="space-y-4">
+                <h1 class="text-4xl md:text-6xl font-extrabold tracking-tight">
+                    Free motion <br>graphics templates
+                </h1>
+                <p class="text-lg text-gray-500 max-w-xl leading-relaxed">
+                    Create professional animations in no time with our collection of free, fully customizable motion design templates.
+                </p>
+            </div>
+            
+            <div class="flex items-center gap-3">
+                <span class="text-xs font-black uppercase tracking-[0.2em] text-gray-400">Powered by</span>
+                <span class="text-sm font-bold border-2 border-black px-2 py-0.5">ANIMATOR STUDIO</span>
+            </div>
+        </div>
     </header>
+
+    <!-- Sticky Search & Filter Bar -->
+    <div class="sticky-header" id="sticky-header">
+        <div class="max-w-7xl mx-auto space-y-6">
+            <!-- Search Bar -->
+            <div class="search-container">
+                <i data-lucide="search" class="search-icon w-5 h-5"></i>
+                <input type="text" id="search" placeholder="Search for animation presets..." class="search-input">
+            </div>
+
+            <!-- Horizontal Scrolling Filter Chips -->
+            <div class="filter-scroll-container">
+                <div class="filter-chips">
+                    <div class="filter-chip active">All Presets</div>
+                    <div class="filter-chip">Charts & Graphs</div>
+                    <div class="filter-chip">Ads & Marketing</div>
+                    <div class="filter-chip">Whiteboard Animation</div>
+                    <div class="filter-chip">Motion Typography</div>
+                    <div class="filter-chip">Social Media</div>
+                    <div class="filter-chip">Transitions</div>
+                </div>
+            </div>
+        </div>
+    </div>
 
     <!-- Gallery -->
     <main class="max-w-7xl mx-auto">
@@ -81,36 +193,18 @@
     </main>
 
     <script>
+        let allItems = [];
+        let gallerySettings = { playMode: 'hover' };
+
         async function loadGallery() {
             try {
                 const response = await fetch('gallery-data.json');
-                const items = await response.json();
-                const container = document.getElementById('gallery');
-                container.innerHTML = '';
+                const data = await response.json();
+                allItems = data.items || [];
+                gallerySettings = data.settings || { playMode: 'hover' };
 
-                items.forEach(item => {
-                    const card = document.createElement('a');
-                    card.href = item.file;
-                    card.className = 'preset-card group';
-                    
-                    card.innerHTML = `
-                        <div class="video-container">
-                            <video 
-                                src="${item.preview}" 
-                                muted 
-                                loop 
-                                playsinline
-                                onmouseover="this.play()" 
-                                onmouseout="this.pause(); this.currentTime = 0;"
-                            ></video>
-                        </div>
-                        <div class="p-5">
-                            <h3 class="text-lg font-bold group-hover:text-blue-600 transition-colors">${item.title}</h3>
-                            <p class="text-sm text-gray-400 mt-1 uppercase tracking-wider font-semibold">${item.width}x${item.height}</p>
-                        </div>
-                    `;
-                    container.appendChild(card);
-                });
+                renderGallery(allItems);
+                lucide.createIcons();
             } catch (e) {
                 console.error('Failed to load gallery data:', e);
                 document.getElementById('gallery').innerHTML = `
@@ -120,6 +214,65 @@
                 `;
             }
         }
+
+        function renderGallery(items) {
+            const container = document.getElementById('gallery');
+            container.innerHTML = '';
+
+            if (items.length === 0) {
+                container.innerHTML = `
+                    <div class="col-span-full py-20 text-center">
+                        <p class="text-xl text-gray-400">No matching templates found.</p>
+                    </div>
+                `;
+                return;
+            }
+
+            items.forEach(item => {
+                const card = document.createElement('a');
+                card.href = item.file;
+                card.className = 'preset-card group';
+                
+                const isLoop = gallerySettings.playMode === 'loop';
+                
+                card.innerHTML = `
+                    <div class="video-container">
+                        <video 
+                            src="${item.preview}" 
+                            muted 
+                            loop 
+                            playsinline
+                            ${isLoop ? 'autoplay' : ''}
+                            ${!isLoop ? 'onmouseover="this.play()" onmouseout="this.pause(); this.currentTime = 0;"' : ''}
+                        ></video>
+                    </div>
+                    <div class="p-5">
+                        <h3 class="text-lg font-bold group-hover:text-blue-600 transition-colors">${item.title}</h3>
+                        <p class="text-sm text-gray-400 mt-1 uppercase tracking-wider font-semibold">${item.width}x${item.height}</p>
+                    </div>
+                `;
+                container.appendChild(card);
+            });
+        }
+
+        document.getElementById('search').addEventListener('input', (e) => {
+            const query = e.target.value.toLowerCase().trim();
+            const filtered = allItems.filter(item => 
+                item.title.toLowerCase().includes(query) || 
+                item.file.toLowerCase().includes(query)
+            );
+            renderGallery(filtered);
+        });
+
+        // Add shadow to header on scroll
+        window.addEventListener('scroll', () => {
+            const header = document.getElementById('sticky-header');
+            if (window.scrollY > 100) {
+                header.classList.add('is-stuck');
+            } else {
+                header.classList.remove('is-stuck');
+            }
+        });
 
         loadGallery();
     </script>
