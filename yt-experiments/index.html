@@ -451,18 +451,22 @@
         // Gallery Logic
         let allItems = [];
         let verticalItems = [];
+        let layoutConfig = { layout: [], config: { columns: 3 } };
         let gallerySettings = { playMode: 'hover' };
 
         async function loadGallery() {
             try {
-                const [galleryResponse, verticalResponse] = await Promise.all([
+                const [galleryResponse, verticalResponse, layoutResponse] = await Promise.all([
                     fetch('gallery-data.json'),
-                    fetch('vertical-data.json')
+                    fetch('vertical-data.json'),
+                    fetch('layout-config.json')
                 ]);
+                
                 if (!galleryResponse.ok) throw new Error(`HTTP ${galleryResponse.status}`);
                 
-                const data = JSON.parse(await galleryResponse.text());
-                const verticalData = verticalResponse.ok ? JSON.parse(await verticalResponse.text()) : { items: [] };
+                const data = await galleryResponse.json();
+                const verticalData = verticalResponse.ok ? await verticalResponse.json() : { items: [] };
+                layoutConfig = layoutResponse.ok ? await layoutResponse.json() : { layout: [], config: { columns: 3 } };
                 
                 allItems = data.items || [];
                 verticalItems = verticalData.items || [];
@@ -490,95 +494,119 @@
             const ambientColorsDark = ['#3e2a22', '#1a2b3c', '#2a3c2a', '#3c1a2b', '#2c2c2c', '#3a3a1c'];
             const ambientColorsLight = ['#f5e6e1', '#e1ebf5', '#e6f5e1', '#f5e1eb', '#f0f0f0', '#f5f5e1'];
 
-            items.forEach((item, index) => {
-                // Inject AdSense placeholder at the 6th spot (index 5)
-                if (index === 5) {
-                    const adCard = document.createElement('div');
-                    adCard.className = 'preset-card flex flex-col gap-3 relative';
-                    adCard.innerHTML = `
-                        <div class="video-container overflow-hidden flex items-center justify-center bg-gray-100 dark:bg-[#181818] border border-yt-borderLight dark:border-yt-borderDark">
-                            <span class="absolute text-yt-textSecondaryLight dark:text-yt-textSecondaryDark text-xs font-medium tracking-widest z-0 pointer-events-none">ADVERTISEMENT</span>
-                            <!-- Google AdSense Tag -->
-                            <ins class="adsbygoogle relative z-10"
-                                 style="display:block; width:100%; height:100%;"
-                                 data-ad-client="ca-pub-XXXXXXXXXXXXXXXX"
-                                 data-ad-slot="XXXXXXXXXX"
-                                 data-ad-format="auto"
-                                 data-full-width-responsive="true"></ins>
-                        </div>
-                        <div class="flex gap-3 pr-6">
-                            <div class="w-9 h-9 rounded-full bg-yt-light dark:bg-yt-dark flex items-center justify-center text-yt-textSecondaryLight dark:text-yt-textSecondaryDark flex-shrink-0 mt-0.5">
-                                <i class="ph-bold ph-megaphone text-lg"></i>
+            const renderAdCard = () => {
+                const adCard = document.createElement('div');
+                adCard.className = 'preset-card flex flex-col gap-3 relative';
+                adCard.innerHTML = `
+                    <div class="video-container overflow-hidden flex items-center justify-center bg-gray-100 dark:bg-[#181818] border border-yt-borderLight dark:border-yt-borderDark">
+                        <span class="absolute text-yt-textSecondaryLight dark:text-yt-textSecondaryDark text-xs font-medium tracking-widest z-0 pointer-events-none">ADVERTISEMENT</span>
+                        <ins class="adsbygoogle relative z-10" style="display:block; width:100%; height:100%;" data-ad-client="ca-pub-XXXXXXXXXXXXXXXX" data-ad-slot="XXXXXXXXXX" data-ad-format="auto" data-full-width-responsive="true"></ins>
+                    </div>
+                    <div class="flex gap-3 pr-6">
+                        <div class="w-9 h-9 rounded-full bg-yt-light dark:bg-yt-dark flex items-center justify-center text-yt-textSecondaryLight dark:text-yt-textSecondaryDark flex-shrink-0 mt-0.5"><i class="ph-bold ph-megaphone text-lg"></i></div>
+                        <div class="flex flex-col w-full">
+                            <h3 class="text-sm sm:text-base font-medium text-black dark:text-white line-clamp-2 leading-snug mb-1">Special Offer</h3>
+                            <div class="flex items-center mb-2">
+                                <span class="text-[12px] font-bold text-black dark:text-white">Sponsored</span>
+                                <span class="text-[12px] text-yt-textSecondaryLight dark:text-yt-textSecondaryDark mx-1">•</span>
+                                <span class="text-[12px] text-yt-textSecondaryLight dark:text-yt-textSecondaryDark">Google AdSense</span>
                             </div>
-                            <div class="flex flex-col w-full">
-                                <h3 class="text-sm sm:text-base font-medium text-black dark:text-white line-clamp-2 leading-snug mb-1">Special Offer</h3>
-                                <div class="flex items-center mb-2">
-                                    <span class="text-[12px] font-bold text-black dark:text-white">Sponsored</span>
-                                    <span class="text-[12px] text-yt-textSecondaryLight dark:text-yt-textSecondaryDark mx-1">•</span>
-                                    <span class="text-[12px] text-yt-textSecondaryLight dark:text-yt-textSecondaryDark">Google AdSense</span>
-                                </div>
-                                <button class="w-full bg-blue-50 hover:bg-blue-100 dark:bg-blue-900/30 dark:hover:bg-blue-900/50 text-blue-600 dark:text-blue-400 font-medium text-sm py-1.5 rounded-full transition-colors mt-1">Learn More</button>
+                            <button class="w-full bg-blue-50 hover:bg-blue-100 dark:bg-blue-900/30 dark:hover:bg-blue-900/50 text-blue-600 dark:text-blue-400 font-medium text-sm py-1.5 rounded-full transition-colors mt-1">Learn More</button>
+                        </div>
+                    </div>`;
+                container.appendChild(adCard);
+            };
+
+            const renderShortsRow = () => {
+                const shortsRow = document.createElement('div');
+                shortsRow.style.gridColumn = '1 / -1';
+                shortsRow.className = 'w-full my-8 flex flex-col gap-4 border-t border-b border-yt-borderLight dark:border-yt-borderDark py-6';
+                let shortsCardsHTML = '';
+                verticalItems.forEach((short, i) => {
+                    const darkColor = ambientColorsDark[i % ambientColorsDark.length];
+                    const lightColor = ambientColorsLight[i % ambientColorsLight.length];
+                    shortsCardsHTML += `
+                        <a href="#" class="preset-card flex-shrink-0 flex flex-col gap-3 snap-start group cursor-pointer w-[240px] sm:w-[260px] md:w-[280px] lg:w-[calc((100%-4rem)/5)]" style="--ambient-color-dark: ${darkColor}; --ambient-color: ${lightColor};">
+                            <div class="relative w-full aspect-[9/16] bg-transparent rounded-2xl flex items-center justify-center">
+                                <video src="${short.file}#t=0.1" preload="metadata" muted loop playsinline onmouseover="this.play()" onmouseout="this.pause();this.currentTime=0.1" class="h-full w-full object-cover rounded-2xl transition-transform duration-300" style="transform: translateZ(0); -webkit-transform: translateZ(0);"></video>
                             </div>
+                            <div class="w-full px-1 relative z-10">
+                                <h3 class="text-sm sm:text-base font-medium text-black dark:text-white line-clamp-2 leading-snug transition-colors">${short.title}</h3>
+                                <span class="text-xs text-yt-textSecondaryLight dark:text-yt-textSecondaryDark mt-0.5 block">${short.views}</span>
+                            </div>
+                        </a>`;
+                });
+                shortsRow.innerHTML = `
+                    <div class="flex items-center gap-2 px-1 mb-2">
+                        <i class="ph-fill ph-rocket-launch text-2xl text-purple-500"></i>
+                        <h2 class="text-xl font-bold text-black dark:text-white tracking-tight">Made for Socials</h2>
+                    </div>
+                    <div class="flex gap-4 overflow-x-auto no-scrollbar py-6 px-4 -mx-4 snap-x snap-mandatory scroll-smooth" style="scroll-padding-left: 1rem;">${shortsCardsHTML}</div>`;
+                container.appendChild(shortsRow);
+            };
+
+            const renderProStudiosRow = () => {
+                if (!gallerySettings.showProStudios) return;
+                const studiosRow = document.createElement('div');
+                studiosRow.style.gridColumn = '1 / -1';
+                studiosRow.className = 'w-full mt-4 mb-12 flex flex-col gap-4 py-6 relative';
+                const mockStudios = [
+                    { file: 'mock-animation/16-9/annotation-pro-2560w-solid-1777291438316.webm', title: 'Macify Lens Studio', desc: '3D Camera & Scene Builder' },
+                    { file: 'mock-animation/16-9/editorial-chart.webm', title: 'FocusFrame Engine', desc: 'Smart Motion Tracking' },
+                    { file: 'mock-animation/16-9/editorial-chart (1).webm', title: 'Mixamo 3D Studio', desc: 'Character Animation' },
+                    { file: 'mock-animation/16-9/editorial-chart (2).webm', title: 'IITM Annotator', desc: 'Interactive Touch Canvas' },
+                    { file: 'mock-animation/9-16/cinematic-motion-1080p-1777356376987.webm', title: 'Title Animator', desc: 'Kinetic Typography' }
+                ];
+                let studioCardsHTML = '';
+                mockStudios.forEach((studio, i) => {
+                    const darkColor = ambientColorsDark[(i+3) % ambientColorsDark.length];
+                    const lightColor = ambientColorsLight[(i+3) % ambientColorsLight.length];
+                    studioCardsHTML += `
+                        <a href="#" class="preset-card flex-shrink-0 flex flex-col gap-3 snap-start group cursor-pointer w-[240px] sm:w-[260px] md:w-[280px] lg:w-[calc((100%-4rem)/5)]" style="--ambient-color-dark: ${darkColor}; --ambient-color: ${lightColor};">
+                            <div class="relative w-full aspect-[4/5] bg-gray-100 dark:bg-[#1f1f1f] rounded-2xl flex flex-col items-center justify-between p-1.5 border border-yt-borderLight dark:border-yt-borderDark overflow-hidden transition-all duration-300">
+                                <video src="${studio.file}#t=0.1" preload="metadata" muted loop playsinline onmouseover="this.play()" onmouseout="this.pause();this.currentTime=0.1" class="absolute inset-0 w-full h-full object-cover z-0 transition-transform duration-500 group-hover:scale-105" style="transform: translateZ(0); -webkit-transform: translateZ(0);"></video>
+                                <div class="absolute inset-0 bg-gradient-to-t from-black/70 via-black/20 to-transparent z-10 pointer-events-none"></div>
+                                <div class="w-full flex justify-between relative z-20 px-1 pt-1"><span class="bg-black/60 backdrop-blur-md text-white text-[10px] font-bold px-2 py-1 rounded-sm uppercase tracking-wide border border-white/10 shadow-sm">Pro</span></div>
+                                <div class="w-full relative z-20 mt-auto px-1 pb-1"><div class="w-full bg-white text-[#0f0f0f] hover:bg-gray-100 text-sm font-bold py-2 rounded-full text-center transition-transform duration-300 shadow-md">Launch</div></div>
+                            </div>
+                            <div class="w-full px-1 relative z-10 flex justify-between items-start">
+                                <div class="flex flex-col"><h3 class="text-sm sm:text-base font-medium text-black dark:text-white line-clamp-1 leading-snug transition-colors">${studio.title}</h3><span class="text-[12px] text-yt-textSecondaryLight dark:text-yt-textSecondaryDark mt-0.5 block">${studio.desc}</span></div>
+                                <button class="text-yt-textSecondaryLight dark:text-yt-textSecondaryDark hover:text-black dark:hover:text-white p-1 -mt-1"><i class="ph-bold ph-dots-three-vertical"></i></button>
+                            </div>
+                        </a>`;
+                });
+                studiosRow.innerHTML = `
+                    <div class="flex items-center justify-between px-1 mb-2">
+                        <div class="flex items-center gap-3">
+                            <div class="bg-amber-500/10 dark:bg-amber-500/20 text-amber-500 p-1.5 rounded-full flex items-center justify-center"><i class="ph-fill ph-sparkle text-2xl"></i></div>
+                            <div class="flex flex-col"><h2 class="text-xl font-bold text-black dark:text-white tracking-tight flex items-center gap-2">Pro Studios <span class="text-[10px] uppercase font-bold bg-amber-100 text-amber-600 dark:bg-amber-900/30 dark:text-amber-400 px-1.5 py-0.5 rounded-sm">PRO</span></h2><span class="text-xs text-yt-textSecondaryLight dark:text-yt-textSecondaryDark">Advanced tools, full control</span></div>
                         </div>
-                    `;
-                    container.appendChild(adCard);
+                        <div class="flex items-center gap-4"><button class="hidden sm:block text-sm font-medium border border-yt-borderLight dark:border-yt-borderDark rounded-full px-4 py-1.5 hover:bg-gray-100 dark:hover:bg-yt-dark transition-colors text-black dark:text-white">View all</button><button class="text-yt-textSecondaryLight dark:text-yt-textSecondaryDark hover:text-black dark:hover:text-white"><i class="ph-bold ph-x text-xl"></i></button></div>
+                    </div>
+                    <div class="flex gap-4 overflow-x-auto no-scrollbar py-6 px-4 -mx-4 snap-x snap-mandatory scroll-smooth" style="scroll-padding-left: 1rem;">${studioCardsHTML}</div>
+                    <div class="w-full flex justify-center mt-2 border-t border-yt-borderLight dark:border-yt-borderDark relative"><button class="absolute -top-[15px] bg-white dark:bg-[#0f0f0f] border border-yt-borderLight dark:border-yt-borderDark text-sm font-medium rounded-full px-6 py-1 hover:bg-gray-50 dark:hover:bg-yt-light/10 transition-colors flex items-center gap-2 z-10 text-black dark:text-white shadow-sm">Show more <i class="ph-bold ph-caret-down"></i></button></div>`;
+                container.appendChild(studiosRow);
+            };
 
-                    // Append Shorts Row
-                    const shortsRow = document.createElement('div');
-                    shortsRow.style.gridColumn = '1 / -1'; // Span full width of grid
-                    shortsRow.className = 'w-full my-8 flex flex-col gap-4 border-t border-b border-yt-borderLight dark:border-yt-borderDark py-6';
-
-                    let shortsCardsHTML = '';
-                    verticalItems.forEach((short, i) => {
-                        const darkColor = ambientColorsDark[i % ambientColorsDark.length];
-                        const lightColor = ambientColorsLight[i % ambientColorsLight.length];
-                        shortsCardsHTML += `
-                            <a href="#" class="preset-card flex-shrink-0 flex flex-col gap-3 snap-start group cursor-pointer w-[240px] sm:w-[260px] md:w-[280px] lg:w-[calc((100%-4rem)/5)]" style="--ambient-color-dark: ${darkColor}; --ambient-color: ${lightColor};">
-                                <div class="relative w-full aspect-[9/16] bg-transparent rounded-2xl flex items-center justify-center">
-                                    <video src="${short.file}#t=0.1" preload="metadata" muted loop playsinline onmouseover="this.play()" onmouseout="this.pause();this.currentTime=0.1" class="h-full w-full object-cover rounded-2xl transition-transform duration-300" style="transform: translateZ(0); -webkit-transform: translateZ(0);"></video>
-                                </div>
-                                <div class="w-full px-1 relative z-10">
-                                    <h3 class="text-sm sm:text-base font-medium text-black dark:text-white line-clamp-2 leading-snug transition-colors">${short.title}</h3>
-                                    <span class="text-xs text-yt-textSecondaryLight dark:text-yt-textSecondaryDark mt-0.5 block">${short.views}</span>
-                                </div>
-                            </a>
-                        `;
-                    });
-
-                    shortsRow.innerHTML = `
-                        <div class="flex items-center gap-2 px-1 mb-2">
-                            <i class="ph-fill ph-rocket-launch text-2xl text-purple-500"></i>
-                            <h2 class="text-xl font-bold text-black dark:text-white tracking-tight">Made for Socials</h2>
-                        </div>
-                        <div class="flex gap-4 overflow-x-auto no-scrollbar py-6 px-4 -mx-4 snap-x snap-mandatory scroll-smooth" style="scroll-padding-left: 1rem;">
-                            ${shortsCardsHTML}
-                        </div>
-                    `;
-                    container.appendChild(shortsRow);
-                }
-
+            const sectionMap = { adCard: renderAdCard, shortsRow: renderShortsRow, proStudiosRow: renderProStudiosRow };
+            const cols = layoutConfig.config.columns || 3;
+            
+            const renderItem = (item, idx) => {
                 const card = document.createElement('a');
                 card.href = item.file;
                 card.className = 'preset-card flex flex-col gap-3 group';
                 card.target = '_blank';
-                
-                card.style.setProperty('--ambient-color-dark', ambientColorsDark[index % ambientColorsDark.length]);
-                card.style.setProperty('--ambient-color', ambientColorsLight[index % ambientColorsLight.length]);
-                
+                card.style.setProperty('--ambient-color-dark', ambientColorsDark[idx % ambientColorsDark.length]);
+                card.style.setProperty('--ambient-color', ambientColorsLight[idx % ambientColorsLight.length]);
                 const isLoop = gallerySettings.playMode === 'loop';
-                // Fake a duration
                 const duration = "0:12"; 
-                // Fake views and time
-                const views = Math.floor(Math.random() * 900 + 100) + "K views";
-                const time = Math.floor(Math.random() * 11 + 1) + " months ago";
-                
                 card.innerHTML = `
                     <div class="video-container">
                         <video src="${item.preview}#t=0.1" preload="metadata" muted loop playsinline ${isLoop ? 'autoplay' : ''}
                             ${!isLoop ? 'onmouseover="this.play()" onmouseout="this.pause();this.currentTime=0.1"' : ''}></video>
                         <div class="duration-badge">${duration}</div>
                     </div>
-                    <div class="flex gap-3 pr-6">
+                    <div class="flex gap-3 pr-6 relative">
                         <div class="w-9 h-9 rounded-full bg-purple-600 flex items-center justify-center text-white font-medium text-sm flex-shrink-0 mt-0.5">AS</div>
                         <div class="flex flex-col">
                             <h3 class="text-sm sm:text-base font-medium text-black dark:text-white line-clamp-2 leading-snug mb-1 transition-colors">${item.title}</h3>
@@ -592,94 +620,45 @@
                         <button class="absolute right-0 top-1/2 -translate-y-1/2 opacity-0 group-hover:opacity-100 p-1.5 hover:bg-yt-hoverLight dark:hover:bg-yt-hoverDark rounded-full transition">
                             <i class="ph-bold ph-dots-three-vertical text-xl"></i>
                         </button>
-                    </div>
-                `;
-                
-                // Add relative positioning to the text container for the dots menu
-                card.querySelector('.flex.gap-3').classList.add('relative');
-                
+                    </div>`;
                 container.appendChild(card);
-            });
-
-            // Append Pro Studios Row if enabled
-            if (gallerySettings.showProStudios) {
-                const studiosRow = document.createElement('div');
-                studiosRow.style.gridColumn = '1 / -1'; // Span full width of grid
-                studiosRow.className = 'w-full mt-4 mb-12 flex flex-col gap-4 py-6 relative';
+            };
             
-            const mockStudios = [
-                { file: 'mock-animation/16-9/annotation-pro-2560w-solid-1777291438316.webm', title: 'Macify Lens Studio', desc: '3D Camera & Scene Builder' },
-                { file: 'mock-animation/16-9/editorial-chart.webm', title: 'FocusFrame Engine', desc: 'Smart Motion Tracking' },
-                { file: 'mock-animation/16-9/editorial-chart (1).webm', title: 'Mixamo 3D Studio', desc: 'Character Animation' },
-                { file: 'mock-animation/16-9/editorial-chart (2).webm', title: 'IITM Annotator', desc: 'Interactive Touch Canvas' },
-                { file: 'mock-animation/9-16/cinematic-motion-1080p-1777356376987.webm', title: 'Title Animator', desc: 'Kinetic Typography' }
-            ];
+            // Track sections that have been rendered to avoid duplicates for row-based singletons
+            const renderedRowSections = new Set();
+            let itemIdx = 0;
+            const adCount = layoutConfig.sections.filter(s => s.id === 'adCard' && s.enabled).length;
 
-            let studioCardsHTML = '';
-            mockStudios.forEach((studio, i) => {
-                const darkColor = ambientColorsDark[(i+3) % ambientColorsDark.length];
-                const lightColor = ambientColorsLight[(i+3) % ambientColorsLight.length];
-                
-                studioCardsHTML += `
-                    <a href="#" class="preset-card flex-shrink-0 flex flex-col gap-3 snap-start group cursor-pointer w-[240px] sm:w-[260px] md:w-[280px] lg:w-[calc((100%-4rem)/5)]" style="--ambient-color-dark: ${darkColor}; --ambient-color: ${lightColor};">
-                        <div class="relative w-full aspect-[4/5] bg-gray-100 dark:bg-[#1f1f1f] rounded-2xl flex flex-col items-center justify-between p-1.5 border border-yt-borderLight dark:border-yt-borderDark overflow-hidden transition-all duration-300">
-                            <!-- Video Background -->
-                            <video src="${studio.file}#t=0.1" preload="metadata" muted loop playsinline onmouseover="this.play()" onmouseout="this.pause();this.currentTime=0.1" class="absolute inset-0 w-full h-full object-cover z-0 transition-transform duration-500 group-hover:scale-105" style="transform: translateZ(0); -webkit-transform: translateZ(0);"></video>
-                            
-                            <!-- Overlay Gradient for button contrast -->
-                            <div class="absolute inset-0 bg-gradient-to-t from-black/70 via-black/20 to-transparent z-10 pointer-events-none"></div>
-                            
-                            <!-- Top badge -->
-                            <div class="w-full flex justify-between relative z-20 px-1 pt-1">
-                                <span class="bg-black/60 backdrop-blur-md text-white text-[10px] font-bold px-2 py-1 rounded-sm uppercase tracking-wide border border-white/10 shadow-sm">Pro</span>
-                            </div>
-                            
-                            <!-- Bottom Button -->
-                            <div class="w-full relative z-20 mt-auto px-1 pb-1">
-                                <div class="w-full bg-white text-[#0f0f0f] hover:bg-gray-100 text-sm font-bold py-2 rounded-full text-center transition-transform duration-300 shadow-md">
-                                    Launch
-                                </div>
-                            </div>
-                        </div>
-                        <div class="w-full px-1 relative z-10 flex justify-between items-start">
-                            <div class="flex flex-col">
-                                <h3 class="text-sm sm:text-base font-medium text-black dark:text-white line-clamp-1 leading-snug transition-colors">${studio.title}</h3>
-                                <span class="text-[12px] text-yt-textSecondaryLight dark:text-yt-textSecondaryDark mt-0.5 block">${studio.desc}</span>
-                            </div>
-                            <button class="text-yt-textSecondaryLight dark:text-yt-textSecondaryDark hover:text-black dark:hover:text-white p-1 -mt-1"><i class="ph-bold ph-dots-three-vertical"></i></button>
-                        </div>
-                    </a>
-                `;
-            });
+            for (let s = 0; s < items.length + adCount + 10; s++) {
+                // Row Breaking sections (Full width)
+                if (s > 0 && s % cols === 0) {
+                    const rowFinished = s / cols;
+                    const rowSec = layoutConfig.sections.find(sec => sec.enabled && sec.id !== 'adCard' && sec.afterRow === rowFinished);
+                    if (rowSec && !renderedRowSections.has(rowSec.id)) {
+                        sectionMap[rowSec.id]?.();
+                        renderedRowSections.add(rowSec.id);
+                    }
+                }
 
-            studiosRow.innerHTML = `
-                <div class="flex items-center justify-between px-1 mb-2">
-                    <div class="flex items-center gap-3">
-                        <div class="bg-amber-500/10 dark:bg-amber-500/20 text-amber-500 p-1.5 rounded-full flex items-center justify-center">
-                            <i class="ph-fill ph-sparkle text-2xl"></i>
-                        </div>
-                        <div class="flex flex-col">
-                            <h2 class="text-xl font-bold text-black dark:text-white tracking-tight flex items-center gap-2">Pro Studios <span class="text-[10px] uppercase font-bold bg-amber-100 text-amber-600 dark:bg-amber-900/30 dark:text-amber-400 px-1.5 py-0.5 rounded-sm">PRO</span></h2>
-                            <span class="text-xs text-yt-textSecondaryLight dark:text-yt-textSecondaryDark">Advanced tools, full control</span>
-                        </div>
-                    </div>
-                    <div class="flex items-center gap-4">
-                        <button class="hidden sm:block text-sm font-medium border border-yt-borderLight dark:border-yt-borderDark rounded-full px-4 py-1.5 hover:bg-gray-100 dark:hover:bg-yt-dark transition-colors text-black dark:text-white">View all</button>
-                        <button class="text-yt-textSecondaryLight dark:text-yt-textSecondaryDark hover:text-black dark:hover:text-white"><i class="ph-bold ph-x text-xl"></i></button>
-                    </div>
-                </div>
-                <div class="flex gap-4 overflow-x-auto no-scrollbar py-6 px-4 -mx-4 snap-x snap-mandatory scroll-smooth" style="scroll-padding-left: 1rem;">
-                    ${studioCardsHTML}
-                </div>
-                <div class="w-full flex justify-center mt-2 border-t border-yt-borderLight dark:border-yt-borderDark relative">
-                    <button class="absolute -top-[15px] bg-white dark:bg-[#0f0f0f] border border-yt-borderLight dark:border-yt-borderDark text-sm font-medium rounded-full px-6 py-1 hover:bg-gray-50 dark:hover:bg-yt-light/10 transition-colors flex items-center gap-2 z-10 text-black dark:text-white shadow-sm">
-                        Show more <i class="ph-bold ph-caret-down"></i>
-                    </button>
-                </div>
-                </div>
-            `;
-                container.appendChild(studiosRow);
+                // Grid Item sections (Ads counting as preview cards)
+                const ad = layoutConfig.sections.find(sec => sec.enabled && sec.id === 'adCard' && sec.index === s);
+                if (ad) {
+                    renderAdCard();
+                } else if (itemIdx < items.length) {
+                    renderItem(items[itemIdx], itemIdx);
+                    itemIdx++;
+                } else {
+                    break;
+                }
             }
+
+            // Check if any row sections haven't been rendered yet
+            layoutConfig.sections.forEach(sec => {
+                if (sec.enabled && sec.id !== 'adCard' && !renderedRowSections.has(sec.id)) {
+                    sectionMap[sec.id]?.();
+                    renderedRowSections.add(sec.id);
+                }
+            });
         }
 
         document.getElementById('search').addEventListener('input', e => {
