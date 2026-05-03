@@ -238,6 +238,7 @@ function generateHTML(hierarchy) {
             <div class="logo">ANIMATOR<span>STUDIO</span></div>
                     <nav style="display: flex; gap: 1rem;">
                         <a href="tools/index.html" style="text-decoration: none; color: var(--border); font-weight: 700; border: 1px solid var(--border); padding: 5px 10px; font-size: 0.8rem; text-transform: uppercase;">Toolkit</a>
+                        <a href="_demos/index.html" style="text-decoration: none; color: var(--border); font-weight: 700; border: 1px solid var(--border); padding: 5px 10px; font-size: 0.8rem; text-transform: uppercase; background: var(--border); color: #fff;">Demos</a>
                         <a href="_templates/index.html" style="text-decoration: none; color: var(--border); font-weight: 700; border: 1px solid var(--border); padding: 5px 10px; font-size: 0.8rem; text-transform: uppercase;">Independent Animators</a>
                     </nav>
                 </div>
