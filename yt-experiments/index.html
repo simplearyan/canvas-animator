@@ -545,27 +545,73 @@
                 const shortsRow = document.createElement('div');
                 shortsRow.style.gridColumn = '1 / -1';
                 shortsRow.className = 'w-full my-8 flex flex-col gap-4 border-t border-b border-yt-borderLight dark:border-yt-borderDark py-6';
-                let shortsCardsHTML = '';
-                verticalItems.forEach((short, i) => {
-                    const darkColor = ambientColorsDark[i % ambientColorsDark.length];
-                    const lightColor = ambientColorsLight[i % ambientColorsLight.length];
-                    shortsCardsHTML += `
-                        <a href="#" class="preset-card flex-shrink-0 flex flex-col gap-3 snap-start group cursor-pointer w-[160px] sm:w-[220px] md:w-[240px] lg:w-[calc((100%-4rem)/5)]" style="--ambient-color-dark: ${darkColor}; --ambient-color: ${lightColor};">
-                            <div class="relative w-full aspect-[9/16] bg-transparent rounded-xl sm:rounded-2xl flex items-center justify-center">
-                                <video src="${short.file}#t=0.1" preload="metadata" muted loop playsinline onmouseover="this.play()" onmouseout="this.pause();this.currentTime=0.1" class="h-full w-full object-cover rounded-xl sm:rounded-2xl transition-transform duration-300" style="transform: translateZ(0); -webkit-transform: translateZ(0);"></video>
-                            </div>
-                            <div class="w-full px-1 relative z-10">
-                                <h3 class="text-xs sm:text-sm font-medium text-black dark:text-white line-clamp-2 leading-tight transition-colors">${short.title}</h3>
-                                <span class="text-[11px] text-yt-textSecondaryLight dark:text-yt-textSecondaryDark mt-0.5 block">${short.views}</span>
-                            </div>
-                        </a>`;
-                });
+                
                 shortsRow.innerHTML = `
                     <div class="flex items-center gap-2 px-3 sm:px-1 mb-2">
                         <i class="ph-fill ph-rocket-launch text-2xl text-purple-500"></i>
                         <h2 class="text-xl font-bold text-black dark:text-white tracking-tight">Made for Socials</h2>
                     </div>
-                    <div class="flex gap-3 sm:gap-4 overflow-x-auto no-scrollbar py-2 sm:py-6 px-3 sm:px-4 -mx-3 sm:-mx-4 snap-x snap-mandatory scroll-smooth" style="scroll-padding-left: 0.75rem;">${shortsCardsHTML}</div>`;
+                    <div class="shorts-container flex gap-3 sm:gap-4 overflow-x-auto no-scrollbar py-2 sm:py-6 px-3 sm:px-4 -mx-3 sm:-mx-4 snap-x snap-mandatory scroll-smooth" style="scroll-padding-left: 0.75rem;"></div>`;
+                
+                const shortsContainer = shortsRow.querySelector('.shorts-container');
+                
+                verticalItems.forEach((short, i) => {
+                    const ambientDark = ambientColorsDark[i % ambientColorsDark.length];
+                    const ambientLight = ambientColorsLight[i % ambientColorsLight.length];
+                    
+                    const card = document.createElement('a');
+                    card.href = "#";
+                    card.className = "preset-card flex-shrink-0 flex flex-col gap-3 snap-start group cursor-pointer w-[160px] sm:w-[220px] md:w-[240px] lg:w-[calc((100%-4rem)/5)]";
+                    
+                    card.innerHTML = `
+                        <div class="video-container relative w-full aspect-[9/16] rounded-xl sm:rounded-2xl overflow-hidden bg-gray-100 dark:bg-[#181818] transition-all duration-300">
+                            <!-- Placeholder -->
+                            <div class="placeholder-preview absolute inset-0 flex items-center justify-center transition-opacity duration-500" 
+                                 style="background: linear-gradient(135deg, ${ambientLight} 0%, #ffffff 100%);">
+                                <div class="absolute inset-0 flex items-center justify-center overflow-hidden opacity-[0.03] dark:opacity-[0.05]">
+                                    <span class="text-[120px] font-black uppercase">${short.title.charAt(0)}</span>
+                                </div>
+                                <span class="text-[12px] font-bold text-black/40 dark:text-white/40 uppercase tracking-tighter text-center px-4">
+                                    ${short.title.split(' ').slice(0, 1)}
+                                </span>
+                            </div>
+                            <!-- Thumbnail -->
+                            <div class="thumbnail-slot absolute inset-0 opacity-100 transition-opacity duration-500 bg-cover bg-center" 
+                                 style="background-image: url('${short.thumbnail || ''}')"></div>
+                            <div class="video-slot absolute inset-0 opacity-0 transition-opacity duration-300"></div>
+                        </div>
+                        <div class="w-full px-1 relative z-10">
+                            <h3 class="text-xs sm:text-sm font-medium text-black dark:text-white line-clamp-2 leading-tight transition-colors">${short.title}</h3>
+                            <span class="text-[11px] text-yt-textSecondaryLight dark:text-yt-textSecondaryDark mt-0.5 block">${short.views}</span>
+                        </div>`;
+
+                    // Injection Logic
+                    card.addEventListener('mouseenter', () => {
+                        const slot = card.querySelector('.video-slot');
+                        const placeholder = card.querySelector('.placeholder-preview');
+                        if (!slot.querySelector('video')) {
+                            const video = document.createElement('video');
+                            video.src = `${short.file}#t=0.1`;
+                            video.className = 'h-full w-full object-cover transition-transform duration-300 group-hover:scale-105';
+                            video.muted = true; video.loop = true; video.playsinline = true;
+                            video.onloadeddata = () => {
+                                slot.classList.replace('opacity-0', 'opacity-100');
+                                placeholder.classList.add('opacity-0');
+                                const thumb = card.querySelector('.thumbnail-slot');
+                                if (thumb) thumb.classList.add('opacity-0');
+                            };
+                            slot.appendChild(video);
+                        }
+                        slot.querySelector('video').play().catch(()=>{});
+                    });
+                    card.addEventListener('mouseleave', () => {
+                        const v = card.querySelector('video');
+                        if(v) { v.pause(); v.currentTime = 0.1; }
+                    });
+
+                    shortsContainer.appendChild(card);
+                });
+                
                 container.appendChild(shortsRow);
             };
 
@@ -574,30 +620,7 @@
                 const studiosRow = document.createElement('div');
                 studiosRow.style.gridColumn = '1 / -1';
                 studiosRow.className = 'w-full mt-4 mb-12 flex flex-col gap-4 py-6 relative';
-                const mockStudios = [
-                    { file: 'mock-animation/16-9/annotation-pro-2560w-solid-1777291438316.webm', title: 'Macify Lens Studio', desc: '3D Camera & Scene Builder' },
-                    { file: 'mock-animation/16-9/editorial-chart.webm', title: 'FocusFrame Engine', desc: 'Smart Motion Tracking' },
-                    { file: 'mock-animation/16-9/editorial-chart (1).webm', title: 'Mixamo 3D Studio', desc: 'Character Animation' },
-                    { file: 'mock-animation/16-9/editorial-chart (2).webm', title: 'IITM Annotator', desc: 'Interactive Touch Canvas' },
-                    { file: 'mock-animation/9-16/cinematic-motion-1080p-1777356376987.webm', title: 'Title Animator', desc: 'Kinetic Typography' }
-                ];
-                let studioCardsHTML = '';
-                mockStudios.forEach((studio, i) => {
-                    const darkColor = ambientColorsDark[(i+3) % ambientColorsDark.length];
-                    const lightColor = ambientColorsLight[(i+3) % ambientColorsLight.length];
-                    studioCardsHTML += `
-                        <a href="#" class="preset-card flex-shrink-0 flex flex-col gap-3 snap-start group cursor-pointer w-[180px] sm:w-[260px] md:w-[280px] lg:w-[calc((100%-4rem)/5)]" style="--ambient-color-dark: ${darkColor}; --ambient-color: ${lightColor};">
-                            <div class="relative w-full aspect-[4/5] bg-gray-100 dark:bg-[#1f1f1f] rounded-xl sm:rounded-2xl flex flex-col items-center justify-between p-1 border border-yt-borderLight dark:border-yt-borderDark overflow-hidden transition-all duration-300">
-                                <video src="${studio.file}#t=0.1" preload="metadata" muted loop playsinline onmouseover="this.play()" onmouseout="this.pause();this.currentTime=0.1" class="absolute inset-0 w-full h-full object-cover z-0 transition-transform duration-500 group-hover:scale-105" style="transform: translateZ(0); -webkit-transform: translateZ(0);"></video>
-                                <div class="absolute inset-0 bg-gradient-to-t from-black/70 via-black/20 to-transparent z-10 pointer-events-none"></div>
-                                <div class="w-full flex justify-between relative z-20 px-1 pt-1"><span class="bg-black/60 backdrop-blur-md text-white text-[9px] font-bold px-1.5 py-0.5 rounded-sm uppercase tracking-wide border border-white/10 shadow-sm">Pro</span></div>
-                                <div class="w-full relative z-20 mt-auto px-1 pb-1"><div class="w-full bg-white text-[#0f0f0f] hover:bg-gray-100 text-[12px] font-bold py-1.5 rounded-full text-center transition-transform duration-300 shadow-md">Launch</div></div>
-                            </div>
-                            <div class="w-full px-1 relative z-10 flex justify-between items-start">
-                                <div class="flex flex-col"><h3 class="text-xs sm:text-sm font-medium text-black dark:text-white line-clamp-1 leading-tight transition-colors">${studio.title}</h3><span class="text-[10px] text-yt-textSecondaryLight dark:text-yt-textSecondaryDark mt-0.5 block">${studio.desc}</span></div>
-                            </div>
-                        </a>`;
-                });
+                
                 studiosRow.innerHTML = `
                     <div class="flex items-center justify-between px-3 sm:px-1 mb-2">
                         <div class="flex items-center gap-3">
@@ -606,7 +629,64 @@
                         </div>
                         <div class="flex items-center gap-4"><button class="hidden sm:block text-sm font-medium border border-yt-borderLight dark:border-yt-borderDark rounded-full px-4 py-1.5 hover:bg-gray-100 dark:hover:bg-yt-dark transition-colors text-black dark:text-white">View all</button></div>
                     </div>
-                    <div class="flex gap-3 sm:gap-4 overflow-x-auto no-scrollbar py-2 sm:py-6 px-3 sm:px-4 -mx-3 sm:-mx-4 snap-x snap-mandatory scroll-smooth" style="scroll-padding-left: 0.75rem;">${studioCardsHTML}</div>`;
+                    <div class="studios-container flex gap-3 sm:gap-4 overflow-x-auto no-scrollbar py-2 sm:py-6 px-3 sm:px-4 -mx-3 sm:-mx-4 snap-x snap-mandatory scroll-smooth" style="scroll-padding-left: 0.75rem;"></div>`;
+
+                const studiosContainer = studiosRow.querySelector('.studios-container');
+                const mockStudios = [
+                    { file: 'mock-animation/16-9/annotation-pro-2560w-solid-1777291438316.webm', title: 'Macify Lens Studio', desc: '3D Camera Builder' },
+                    { file: 'mock-animation/16-9/editorial-chart.webm', title: 'FocusFrame Engine', desc: 'Motion Tracking' },
+                    { file: 'mock-animation/16-9/editorial-chart (1).webm', title: 'Mixamo 3D Studio', desc: 'Character Anim' },
+                    { file: 'mock-animation/16-9/editorial-chart (2).webm', title: 'IITM Annotator', desc: 'Interactive Canvas' },
+                    { file: 'mock-animation/9-16/cinematic-motion-1080p-1777356376987.webm', title: 'Title Animator', desc: 'Kinetic Type' }
+                ];
+
+                mockStudios.forEach((studio, i) => {
+                    const ambientDark = ambientColorsDark[(i+3) % ambientColorsDark.length];
+                    const ambientLight = ambientColorsLight[(i+3) % ambientColorsLight.length];
+                    
+                    const card = document.createElement('a');
+                    card.href = "#";
+                    card.className = "preset-card flex-shrink-0 flex flex-col gap-3 snap-start group cursor-pointer w-[180px] sm:w-[260px] md:w-[280px] lg:w-[calc((100%-4rem)/5)]";
+                    
+                    card.innerHTML = `
+                        <div class="relative w-full aspect-[4/5] bg-gray-100 dark:bg-[#1f1f1f] rounded-xl sm:rounded-2xl flex flex-col items-center justify-between p-1 border border-yt-borderLight dark:border-yt-borderDark overflow-hidden transition-all duration-300">
+                            <!-- Placeholder -->
+                            <div class="placeholder-preview absolute inset-0 flex items-center justify-center transition-opacity duration-500" 
+                                 style="background: linear-gradient(135deg, ${ambientLight} 0%, #ffffff 100%);">
+                                <span class="text-[12px] font-bold text-black/40 dark:text-white/40 uppercase tracking-tighter text-center px-4 z-10">${studio.title.split(' ').slice(0, 1)}</span>
+                            </div>
+                            <div class="video-slot absolute inset-0 opacity-0 transition-opacity duration-300 z-0"></div>
+                            <div class="absolute inset-0 bg-gradient-to-t from-black/70 via-black/20 to-transparent z-10 pointer-events-none"></div>
+                            <div class="w-full flex justify-between relative z-20 px-1 pt-1"><span class="bg-black/60 backdrop-blur-md text-white text-[9px] font-bold px-1.5 py-0.5 rounded-sm uppercase tracking-wide border border-white/10 shadow-sm">Pro</span></div>
+                            <div class="w-full relative z-20 mt-auto px-1 pb-1"><div class="w-full bg-white text-[#0f0f0f] hover:bg-gray-100 text-[12px] font-bold py-1.5 rounded-full text-center transition-transform duration-300 shadow-md">Launch</div></div>
+                        </div>
+                        <div class="w-full px-1 relative z-10 flex justify-between items-start">
+                            <div class="flex flex-col"><h3 class="text-xs sm:text-sm font-medium text-black dark:text-white line-clamp-1 leading-tight transition-colors">${studio.title}</h3><span class="text-[10px] text-yt-textSecondaryLight dark:text-yt-textSecondaryDark mt-0.5 block">${studio.desc}</span></div>
+                        </div>`;
+
+                    card.addEventListener('mouseenter', () => {
+                        const slot = card.querySelector('.video-slot');
+                        const placeholder = card.querySelector('.placeholder-preview');
+                        if (!slot.querySelector('video')) {
+                            const video = document.createElement('video');
+                            video.src = `${studio.file}#t=0.1`;
+                            video.className = 'absolute inset-0 w-full h-full object-cover transition-transform duration-500 group-hover:scale-105';
+                            video.muted = true; video.loop = true; video.playsinline = true;
+                            video.onloadeddata = () => {
+                                slot.classList.replace('opacity-0', 'opacity-100');
+                                placeholder.classList.add('opacity-0');
+                            };
+                            slot.appendChild(video);
+                        }
+                        slot.querySelector('video').play().catch(()=>{});
+                    });
+                    card.addEventListener('mouseleave', () => {
+                        const v = card.querySelector('video');
+                        if(v) { v.pause(); v.currentTime = 0.1; }
+                    });
+
+                    studiosContainer.appendChild(card);
+                });
                 container.appendChild(studiosRow);
             };
 
@@ -740,7 +820,13 @@
 
             // Initial check for afterRow: 0 (Top of gallery)
             layoutConfig.sections.forEach(sec => {
-                if (sec.enabled && sec.id !== 'adCard' && sec.afterRow === 0 && !renderedRowSections.has(sec.id)) {
+                const isGlobalEnabled = 
+                    (sec.id === 'shortsRow' && layoutConfig.config.showShorts !== false) ||
+                    (sec.id === 'proStudiosRow' && layoutConfig.config.showProStudios !== false) ||
+                    (sec.id === 'bannerAd' && layoutConfig.config.showAds !== false) ||
+                    (sec.id === 'adCard' && layoutConfig.config.showAds !== false);
+
+                if (sec.enabled && isGlobalEnabled && sec.id !== 'adCard' && sec.afterRow === 0 && !renderedRowSections.has(sec.id)) {
                     sectionMap[sec.id]?.();
                     renderedRowSections.add(sec.id);
                 }
@@ -750,7 +836,13 @@
                 // Row Breaking sections (Full width)
                 if (s > 0 && s % cols === 0) {
                     const rowFinished = s / cols;
-                    const rowSec = layoutConfig.sections.find(sec => sec.enabled && sec.id !== 'adCard' && sec.afterRow === rowFinished);
+                    const rowSec = layoutConfig.sections.find(sec => {
+                        const isGlobalEnabled = 
+                            (sec.id === 'shortsRow' && layoutConfig.config.showShorts !== false) ||
+                            (sec.id === 'proStudiosRow' && layoutConfig.config.showProStudios !== false) ||
+                            (sec.id === 'bannerAd' && layoutConfig.config.showAds !== false);
+                        return sec.enabled && isGlobalEnabled && sec.id !== 'adCard' && sec.afterRow === rowFinished;
+                    });
                     if (rowSec && !renderedRowSections.has(rowSec.id)) {
                         sectionMap[rowSec.id]?.();
                         renderedRowSections.add(rowSec.id);
@@ -758,7 +850,11 @@
                 }
 
                 // Grid Item sections (Ads counting as preview cards)
-                const ad = layoutConfig.sections.find(sec => sec.enabled && sec.id === 'adCard' && sec.index === s);
+                const ad = layoutConfig.sections.find(sec => {
+                    const isGlobalEnabled = (sec.id === 'adCard' && layoutConfig.config.showAds !== false);
+                    return sec.enabled && isGlobalEnabled && sec.id === 'adCard' && sec.index === s;
+                });
+                
                 if (ad) {
                     renderAdCard();
                 } else if (itemIdx < items.length) {
@@ -771,7 +867,12 @@
 
             // Check if any row sections haven't been rendered yet
             layoutConfig.sections.forEach(sec => {
-                if (sec.enabled && sec.id !== 'adCard' && !renderedRowSections.has(sec.id)) {
+                const isGlobalEnabled = 
+                    (sec.id === 'shortsRow' && layoutConfig.config.showShorts !== false) ||
+                    (sec.id === 'proStudiosRow' && layoutConfig.config.showProStudios !== false) ||
+                    (sec.id === 'bannerAd' && layoutConfig.config.showAds !== false);
+                
+                if (sec.enabled && isGlobalEnabled && sec.id !== 'adCard' && !renderedRowSections.has(sec.id)) {
                     sectionMap[sec.id]?.();
                     renderedRowSections.add(sec.id);
                 }
