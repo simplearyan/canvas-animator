@@ -4,8 +4,8 @@ const { execSync } = require('child_process');
 
 async function generateThumbnails() {
     const dataFiles = [
-        { path: 'gallery-data.json', itemsKey: 'items', folder: 'thumbnails' },
-        { path: 'vertical-data.json', itemsKey: 'items', folder: 'thumbnails_vertical' }
+        { path: 'gallery-data.json', itemsKey: 'items', folder: 'thumbnails', width: 480 },
+        { path: 'vertical-data.json', itemsKey: 'items', folder: 'thumbnails_vertical', width: 320 }
     ];
 
     for (const fileInfo of dataFiles) {
@@ -22,7 +22,6 @@ async function generateThumbnails() {
         console.log(`\n📂 Processing ${fileInfo.path} (${data[fileInfo.itemsKey].length} items)...`);
 
         for (const item of data[fileInfo.itemsKey]) {
-            // Support both 'preview' and 'file' (for shorts where file is the video)
             const videoSource = item.preview || item.file;
             if (!videoSource || videoSource === '#') continue;
 
@@ -38,10 +37,11 @@ async function generateThumbnails() {
 
             try {
                 console.log(`📸 Generating thumbnail for: ${item.title}`);
-                execSync(`ffmpeg -y -i "${videoPath}" -ss 00:00:00.100 -vframes 1 -q:v 80 "${thumbPath}"`, { stdio: 'ignore' });
+                // Scale to optimized width and use quality 60 for smaller WebP size
+                execSync(`ffmpeg -y -i "${videoPath}" -ss 00:00:00.100 -vframes 1 -vf scale=${fileInfo.width}:-1 -q:v 60 "${thumbPath}"`, { stdio: 'ignore' });
                 
                 item.thumbnail = relativeThumbPath;
-                console.log(`   ✅ Saved to ${relativeThumbPath}`);
+                console.log(`   ✅ Saved to ${relativeThumbPath} (${fileInfo.width}px)`);
             } catch (e) {
                 console.error(`   ❌ Failed: ${e.message}`);
             }
