@@ -1,0 +1,1670 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+    <title>Parliament Animator Pro - Canva Style</title>
+    
+    <!-- Google Fonts -->
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Barlow+Condensed:wght@400;500;600;700&family=Carrois+Gothic&family=Caveat:wght@600;700&family=Fira+Code:wght@400;500;600;700&family=Inter:wght@400;500;600;700;800;900&family=JetBrains+Mono:wght@400;500;700&family=Montserrat:wght@400;500;600;700;800;900&family=Outfit:wght@400;500;600;700;800;900&family=Playfair+Display:wght@600;700&family=Plus+Jakarta+Sans:wght@400;500;600;700;800&family=Roboto:wght@400;500;700;900&family=Rubik:wght@400;500;600;700;800;900&display=swap" rel="stylesheet">
+
+    <!-- Tailwind CSS -->
+    <script src="https://cdn.tailwindcss.com"></script>
+    <script>
+        tailwind.config = {
+            theme: {
+                extend: {
+                    fontFamily: {
+                        sans: ['Inter', 'sans-serif'],
+                        mono: ['JetBrains Mono', 'monospace'],
+                    },
+                    colors: {
+                        canva: {
+                            purple: '#8b3dff',
+                            blue: '#00c4cc',
+                            dark: '#111827',
+                            panel: '#ffffff',
+                            bg: '#f3f4f6',
+                            hover: '#f3f4f6',
+                            text: '#374151',
+                            muted: '#6b7280'
+                        },
+                        brand: {
+                            red: '#ef4444',
+                            blue: '#3b82f6'
+                        }
+                    }
+                }
+            }
+        }
+    </script>
+
+    <!-- Phosphor Icons -->
+    <script src="https://unpkg.com/@phosphor-icons/web"></script>
+    <!-- GIF.js for GIF Export capabilities -->
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/gif.js/0.2.0/gif.js"></script>
+
+    <style>
+        body { overscroll-behavior-y: none; }
+        
+        /* Custom ranges for toolbar */
+        input[type=range] {
+            -webkit-appearance: none;
+            width: 100%;
+            background: transparent;
+        }
+        input[type=range]::-webkit-slider-thumb {
+            -webkit-appearance: none;
+            height: 14px;
+            width: 14px;
+            border-radius: 50%;
+            background: #8b3dff;
+            cursor: pointer;
+            margin-top: -5px;
+            box-shadow: 0 1px 3px rgba(0,0,0,0.2);
+        }
+        input[type=range]::-webkit-slider-runnable-track {
+            width: 100%;
+            height: 4px;
+            cursor: pointer;
+            background: #e5e7eb;
+            border-radius: 2px;
+        }
+        input[type=range]:focus::-webkit-slider-runnable-track {
+            background: #d1d5db;
+        }
+
+        /* Custom scrollbars */
+        ::-webkit-scrollbar { width: 6px; height: 6px; }
+        ::-webkit-scrollbar-track { background: transparent; }
+        ::-webkit-scrollbar-thumb { background: #d1d5db; border-radius: 3px; }
+        ::-webkit-scrollbar-thumb:hover { background: #9ca3af; }
+
+        /* Color inputs */
+        input[type="color"] {
+            -webkit-appearance: none;
+            border: none;
+            width: 100%;
+            height: 100%;
+            padding: 0;
+            cursor: pointer;
+            background: transparent;
+            border-radius: 6px;
+            overflow: hidden;
+        }
+        input[type="color"]::-webkit-color-swatch-wrapper { padding: 0; }
+        input[type="color"]::-webkit-color-swatch { border: none; border-radius: 6px; }
+
+        /* Hide elements dynamically via JS class toggling */
+        .tab-content { display: none; }
+        .tab-content.active { display: flex; }
+        
+        .nav-btn { color: #6b7280; background: transparent; }
+        .nav-btn.active { color: #8b3dff; background: #f3f4f6; font-weight: 600; }
+        
+        /* Responsive Collapsible Panel Logic */
+        #wide-panel {
+            transition: width 0.3s ease-in-out, height 0.3s ease-in-out;
+        }
+        
+        @media (min-width: 768px) {
+            .panel-collapsed {
+                width: 0px !important;
+                border-right-width: 0px !important;
+            }
+            #wide-panel {
+                width: 340px;
+                height: 100%;
+            }
+        }
+        
+        @media (max-width: 767px) {
+            .panel-collapsed {
+                height: 0px !important;
+                border-top-width: 0px !important;
+            }
+            #wide-panel {
+                height: 55vh;
+                width: 100%;
+            }
+        }
+        
+        /* Checkbox styling */
+        input[type="checkbox"] {
+            accent-color: #8b3dff;
+            width: 1rem;
+            height: 1rem;
+            cursor: pointer;
+        }
+    </style>
+</head>
+<body class="bg-canva-bg text-canva-text h-screen flex flex-col overflow-hidden font-sans relative">
+
+    <!-- Mobile Backdrop -->
+    <div id="mobile-backdrop" class="fixed inset-0 bg-slate-900/40 z-30 hidden md:hidden opacity-0 transition-opacity duration-300"></div>
+
+    <!-- TOP NAVBAR (Canva Style Gradient) -->
+    <header class="h-[60px] bg-gradient-to-r from-[#00c4cc] to-[#8b3dff] text-white flex items-center justify-between px-3 md:px-4 flex-shrink-0 z-40 shadow-md">
+        
+        <!-- Left Section (Home + Support Button) -->
+        <div class="flex items-center gap-2 md:gap-4">
+            <button class="p-2 hover:bg-white/20 rounded transition" title="Home">
+                <i class="ph-fill ph-house text-xl"></i>
+            </button>
+            <div class="hidden sm:block h-6 w-px bg-white/30 mx-1"></div>
+            <!-- Coffee / Patreon Button -->
+            <a href="#" class="flex items-center gap-1.5 bg-[#FF813F] hover:bg-[#FF813F]/90 text-white text-[10px] sm:text-xs font-bold px-3 py-1.5 rounded-full transition shadow-sm" title="Support on Buy Me a Coffee">
+                <i class="ph-fill ph-coffee text-sm"></i>
+                <span class="hidden md:inline">Buy me a coffee</span>
+            </a>
+        </div>
+
+        <!-- Center Section (App Title) -->
+        <div class="flex items-center justify-center flex-1">
+            <span class="font-semibold tracking-wide text-white truncate max-w-[160px] sm:max-w-sm cursor-pointer hover:bg-white/20 px-2 md:px-4 py-1.5 rounded transition text-sm md:text-base text-center">
+                Parliament Animator Pro
+            </span>
+        </div>
+
+        <!-- Right Section -->
+        <div class="flex items-center justify-end gap-2 md:gap-3">
+            <div class="flex items-center bg-white/10 rounded-md overflow-hidden border border-white/20">
+                <label class="hidden xl:flex items-center gap-1.5 cursor-pointer hover:bg-white/20 px-3 py-1.5 transition text-xs font-medium border-r border-white/20" title="Transparent PNG/GIF">
+                    <input type="checkbox" id="header-transparent" class="w-3.5 h-3.5 accent-white rounded-sm cursor-pointer">
+                    Transparent BG
+                </label>
+                <select id="export-res" class="bg-transparent text-white text-[10px] md:text-xs font-medium pl-2 md:pl-3 pr-1 md:pr-2 py-1.5 outline-none cursor-pointer appearance-none border-r border-white/20 hidden lg:block">
+                    <option value="640" class="text-slate-800">360p</option>
+                    <option value="1920" class="text-slate-800" selected>1080p</option>
+                    <option value="3840" class="text-slate-800">4K</option>
+                </select>
+                <select id="export-fmt" class="bg-transparent text-white text-[10px] md:text-xs font-medium px-2 md:px-3 py-1.5 outline-none cursor-pointer appearance-none max-w-[70px] sm:max-w-none">
+                    <option value="webm" class="text-slate-800" selected>WebM</option>
+                    <option value="gif" class="text-slate-800">GIF</option>
+                    <option value="png" class="text-slate-800">PNG</option>
+                </select>
+            </div>
+
+            <button id="btn-header-preview" class="flex items-center gap-1 md:gap-2 bg-white/20 hover:bg-white/30 text-white font-medium px-3 md:px-4 py-1.5 rounded transition text-xs md:text-sm">
+                <i class="ph-fill ph-play" id="icon-play"></i>
+                <span id="text-play" class="hidden sm:inline">Preview</span>
+            </button>
+            
+            <button id="btn-header-export" class="flex items-center gap-1 md:gap-2 bg-white text-canva-purple hover:bg-gray-100 font-semibold px-3 md:px-5 py-1.5 rounded transition shadow-sm text-xs md:text-sm">
+                <span id="text-export" class="hidden sm:inline">Share</span> <i class="ph-bold ph-download-simple text-sm md:text-base"></i>
+            </button>
+        </div>
+    </header>
+
+    <!-- MAIN WORKSPACE -->
+    <div class="flex-1 flex overflow-hidden relative w-full h-full">
+        
+        <!-- SIDEBAR WRAPPER (Responsive bottom deck on mobile, static left on desktop) -->
+        <div id="editor-sidebar" class="fixed bottom-0 left-0 right-0 md:relative flex flex-col-reverse md:flex-row z-40 bg-white md:bg-transparent shadow-[0_-10px_30px_rgba(0,0,0,0.1)] md:shadow-none pointer-events-none md:pointer-events-auto h-auto md:h-full">
+            
+            <!-- NARROW NAV (Bottom Bar on Mobile, Left Sidebar on Desktop) -->
+            <nav class="w-full md:w-[72px] h-[60px] md:h-full bg-white border-slate-200 flex flex-row md:flex-col items-center justify-around md:justify-start md:py-4 flex-shrink-0 z-20 md:shadow-[2px_0_5px_rgba(0,0,0,0.02)] border-t md:border-t-0 md:border-r pointer-events-auto">
+                <button class="nav-btn active flex flex-col items-center justify-center w-14 h-14 md:w-16 md:h-16 rounded-xl transition gap-1" data-target="panel-templates" onclick="switchTab('panel-templates', this)">
+                    <i class="ph-fill ph-squares-four text-xl md:text-2xl"></i>
+                    <span class="text-[9px] md:text-[10px] tracking-wide">Design</span>
+                </button>
+                <button class="nav-btn flex flex-col items-center justify-center w-14 h-14 md:w-16 md:h-16 rounded-xl transition gap-1" data-target="panel-text" onclick="switchTab('panel-text', this)">
+                    <i class="ph-bold ph-text-t text-xl md:text-2xl"></i>
+                    <span class="text-[9px] md:text-[10px] tracking-wide">Text</span>
+                </button>
+                <button class="nav-btn flex flex-col items-center justify-center w-14 h-14 md:w-16 md:h-16 rounded-xl transition gap-1" data-target="panel-data" onclick="switchTab('panel-data', this)">
+                    <i class="ph-fill ph-chart-pie-slice text-xl md:text-2xl"></i>
+                    <span class="text-[9px] md:text-[10px] tracking-wide">Data</span>
+                </button>
+                <button class="nav-btn flex flex-col items-center justify-center w-14 h-14 md:w-16 md:h-16 rounded-xl transition gap-1" data-target="panel-style" onclick="switchTab('panel-style', this)">
+                    <i class="ph-fill ph-palette text-xl md:text-2xl"></i>
+                    <span class="text-[9px] md:text-[10px] tracking-wide">Brand</span>
+                </button>
+            </nav>
+
+            <!-- WIDE PANEL (Bottom Sheet on Mobile, Right Panel on Desktop) - Collapsible -->
+            <aside id="wide-panel" class="bg-white md:border-r md:border-t-0 border-t border-slate-200 flex flex-col z-10 shadow-[4px_0_15px_rgba(0,0,0,0.03)] md:shadow-[4px_0_15px_rgba(0,0,0,0.03)] overflow-hidden relative pointer-events-auto rounded-t-xl md:rounded-none">
+                
+                <!-- Mobile Drag/Header Handle -->
+                <div class="md:hidden flex items-center justify-between px-4 py-3 bg-white border-b border-slate-100 shrink-0 cursor-pointer shadow-sm z-10" onclick="closeSidebarMobile()">
+                    <span class="font-bold text-sm text-slate-800 tracking-wide" id="mobile-panel-title">Design</span>
+                    <button class="text-slate-500 hover:bg-slate-100 p-1 rounded-full transition">
+                        <i class="ph-bold ph-caret-down text-lg"></i>
+                    </button>
+                </div>
+
+                <!-- PANEL 1: Design / Templates -->
+                <div id="panel-templates" class="tab-content active flex-col h-full w-full">
+                    <div class="p-4 border-b border-slate-100 shrink-0 hidden md:block">
+                        <div class="relative">
+                            <i class="ph ph-magnifying-glass absolute left-3 top-1/2 -translate-y-1/2 text-slate-400"></i>
+                            <input type="text" placeholder="Search templates..." class="w-full bg-slate-100 border-none rounded-lg pl-9 pr-4 py-2 text-sm focus:ring-2 focus:ring-canva-purple outline-none transition">
+                        </div>
+                    </div>
+                    <div class="p-4 overflow-y-auto flex-1 flex flex-col gap-4">
+                        <h3 class="text-xs font-bold text-slate-500 uppercase tracking-wider hidden md:block">Parliament Templates</h3>
+                        <div class="grid grid-cols-2 md:grid-cols-2 gap-3">
+                            <!-- Template Cards -->
+                            <div class="template-btn cursor-pointer group flex flex-col gap-1.5" data-template="europe">
+                                <div class="w-full aspect-[4/3] bg-blue-50 border border-slate-200 rounded-lg flex items-center justify-center group-hover:border-canva-purple transition relative overflow-hidden">
+                                    <i class="ph-fill ph-map-trifold text-blue-500 text-3xl opacity-50"></i>
+                                </div>
+                                <span class="text-xs font-medium text-slate-700 line-clamp-1">🇪🇺 Europe</span>
+                            </div>
+                            <div class="template-btn cursor-pointer group flex flex-col gap-1.5" data-template="india">
+                                <div class="w-full aspect-[4/3] bg-orange-50 border border-slate-200 rounded-lg flex items-center justify-center group-hover:border-canva-purple transition relative overflow-hidden">
+                                    <i class="ph-fill ph-buildings text-orange-500 text-3xl opacity-50"></i>
+                                </div>
+                                <span class="text-xs font-medium text-slate-700 line-clamp-1">🇮🇳 India</span>
+                            </div>
+                            <div class="template-btn cursor-pointer group flex flex-col gap-1.5" data-template="usa">
+                                <div class="w-full aspect-[4/3] bg-red-50 border border-slate-200 rounded-lg flex items-center justify-center group-hover:border-canva-purple transition relative overflow-hidden">
+                                    <i class="ph-fill ph-bank text-red-500 text-3xl opacity-50"></i>
+                                </div>
+                                <span class="text-xs font-medium text-slate-700 line-clamp-1">🇺🇸 USA Reps</span>
+                            </div>
+                            <div class="template-btn cursor-pointer group flex flex-col gap-1.5" data-template="france">
+                                <div class="w-full aspect-[4/3] bg-indigo-50 border border-slate-200 rounded-lg flex items-center justify-center group-hover:border-canva-purple transition relative overflow-hidden">
+                                    <i class="ph-fill ph-flag text-indigo-500 text-3xl opacity-50"></i>
+                                </div>
+                                <span class="text-xs font-medium text-slate-700 line-clamp-1">🇫🇷 France</span>
+                            </div>
+                            <div class="template-btn cursor-pointer group flex flex-col gap-1.5" data-template="china">
+                                <div class="w-full aspect-[4/3] bg-rose-50 border border-slate-200 rounded-lg flex items-center justify-center group-hover:border-canva-purple transition relative overflow-hidden">
+                                    <i class="ph-fill ph-users-three text-rose-500 text-3xl opacity-50"></i>
+                                </div>
+                                <span class="text-xs font-medium text-slate-700 line-clamp-1">🇨🇳 China NPC</span>
+                            </div>
+                            <div class="template-btn cursor-pointer group flex flex-col gap-1.5" data-template="demo">
+                                <div class="w-full aspect-[4/3] bg-emerald-50 border border-slate-200 rounded-lg flex items-center justify-center group-hover:border-canva-purple transition relative overflow-hidden">
+                                    <i class="ph-fill ph-chart-pie-slice text-emerald-500 text-3xl opacity-50"></i>
+                                </div>
+                                <span class="text-xs font-medium text-slate-700 line-clamp-1">🏢 Corporate</span>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- PANEL 2: Text / Metadata -->
+                <div id="panel-text" class="tab-content flex-col h-full w-full">
+                    <div class="p-5 border-b border-slate-100 shrink-0 hidden md:block">
+                        <h2 class="text-lg font-bold text-slate-800">Text Content</h2>
+                    </div>
+                    <div class="p-4 md:p-5 overflow-y-auto flex-1 flex flex-col gap-5">
+                        <div class="flex flex-col gap-2">
+                            <label class="flex items-center justify-between">
+                                <span class="text-xs font-bold text-slate-500 uppercase tracking-wider">Main Title</span>
+                                <input type="checkbox" id="show-title" checked title="Toggle Visibility">
+                            </label>
+                            <input type="text" id="chart-title" value="European Parliament" class="w-full bg-white border border-slate-300 rounded-md px-3 py-2 text-sm focus:ring-2 focus:ring-canva-purple outline-none transition font-semibold text-slate-800">
+                        </div>
+                        <div class="flex flex-col gap-2">
+                            <label class="flex items-center justify-between">
+                                <span class="text-xs font-bold text-slate-500 uppercase tracking-wider">Subtitle</span>
+                                <input type="checkbox" id="show-subtitle" checked title="Toggle Visibility">
+                            </label>
+                            <input type="text" id="chart-subtitle" value="Projection of seats by political group" class="w-full bg-white border border-slate-300 rounded-md px-3 py-2 text-sm focus:ring-2 focus:ring-canva-purple outline-none transition text-slate-600">
+                        </div>
+                        <div class="flex flex-col gap-2">
+                            <label class="flex items-center justify-between">
+                                <span class="text-xs font-bold text-slate-500 uppercase tracking-wider">Source Attribution</span>
+                                <input type="checkbox" id="show-source" checked title="Toggle Visibility">
+                            </label>
+                            <input type="text" id="chart-source" value="SOURCE: EUROPEAN PARLIAMENT" class="w-full bg-white border border-slate-300 rounded-md px-3 py-2 text-xs focus:ring-2 focus:ring-canva-purple outline-none transition text-slate-500 uppercase">
+                        </div>
+
+                        <div class="h-px bg-slate-200 my-1 md:my-2"></div>
+                        
+                        <h3 class="text-xs font-bold text-slate-500 uppercase tracking-wider">Toggles</h3>
+                        <div class="flex flex-col gap-2 md:gap-3">
+                            <label class="flex items-center gap-3 cursor-pointer p-2 hover:bg-slate-50 rounded transition">
+                                <input type="checkbox" id="show-grid" checked>
+                                <span class="text-sm font-medium text-slate-700">Show Total Count Center</span>
+                            </label>
+                            <label class="flex items-center gap-3 cursor-pointer p-2 hover:bg-slate-50 rounded transition">
+                                <input type="checkbox" id="show-legend" checked>
+                                <span class="text-sm font-medium text-slate-700">Display Bottom Legend</span>
+                            </label>
+                            <label class="flex items-center gap-3 cursor-pointer p-2 hover:bg-slate-50 rounded transition">
+                                <input type="checkbox" id="show-legend-counts" checked>
+                                <span class="text-sm font-medium text-slate-700">Show Values in Legend</span>
+                            </label>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- PANEL 3: Data -->
+                <div id="panel-data" class="tab-content flex-col h-full w-full">
+                    <div class="p-3 md:p-5 border-b border-slate-100 shrink-0 flex items-center justify-between hidden md:flex">
+                        <h2 class="text-base md:text-lg font-bold text-slate-800">Chart Data</h2>
+                        <!-- Toggle Grid/CSV -->
+                        <div class="flex bg-slate-100 rounded-lg p-1">
+                            <button id="tab-grid" class="px-2 md:px-3 py-1 text-[10px] md:text-[11px] font-bold rounded bg-white shadow-sm text-canva-text transition">Grid</button>
+                            <button id="tab-csv" class="px-2 md:px-3 py-1 text-[10px] md:text-[11px] font-bold rounded text-slate-500 hover:text-slate-700 transition">CSV</button>
+                        </div>
+                    </div>
+
+                    <!-- Grid View -->
+                    <div id="view-grid" class="flex flex-col flex-1 overflow-hidden p-3 gap-2">
+                        <div class="flex text-[9px] md:text-[10px] font-bold text-slate-500 px-2 uppercase tracking-wider">
+                            <div class="flex-[3]">Label</div>
+                            <div class="flex-[2] text-center">Seats</div>
+                            <div class="w-10 text-center">Color</div>
+                            <div class="w-6"></div>
+                        </div>
+                        <div id="data-grid-rows" class="flex flex-col gap-2 overflow-y-auto flex-1 pr-1 pb-1">
+                            <!-- Rows injected via JS -->
+                        </div>
+                        <button id="btn-add-row" class="w-full py-2.5 mt-2 bg-canva-purple/10 text-canva-purple rounded-lg text-sm font-bold hover:bg-canva-purple/20 transition flex items-center justify-center gap-2 shrink-0">
+                            <i class="ph-bold ph-plus"></i> Add Row
+                        </button>
+                    </div>
+
+                    <!-- CSV View -->
+                    <div id="view-csv" class="hidden flex-col flex-1 p-4">
+                        <p class="text-[11px] text-slate-500 mb-2">Format: Label, Seats, #Color.</p>
+                        <textarea id="data-input" class="w-full flex-1 p-3 border border-slate-300 rounded-md bg-slate-50 text-xs font-mono outline-none focus:ring-2 focus:ring-canva-purple resize-none leading-relaxed" spellcheck="false">
+Label,Seats,Color
+The Left,46,#b91c1c
+S&D,136,#ef4444
+Greens/EFA,53,#22c55e
+Renew,74,#eab308
+EPP,188,#3b82f6
+ECR,83,#1e3a8a
+ID,58,#172554
+NI/Others,82,#94a3b8</textarea>
+                    </div>
+                </div>
+
+                <!-- PANEL 4: Brand / Style -->
+                <div id="panel-style" class="tab-content flex-col h-full w-full">
+                    <div class="p-5 border-b border-slate-100 shrink-0 hidden md:block">
+                        <h2 class="text-lg font-bold text-slate-800">Brand Kit & Style</h2>
+                    </div>
+                    <div class="p-4 md:p-5 overflow-y-auto flex-1 flex flex-col gap-5 md:gap-6">
+                        
+                        <div>
+                            <label class="block text-[11px] md:text-xs font-bold text-slate-500 uppercase tracking-wider mb-2">Color Palette</label>
+                            <select id="color-palette" class="w-full bg-white border border-slate-300 rounded-md px-3 py-2 text-sm focus:ring-2 focus:ring-canva-purple outline-none transition appearance-none cursor-pointer">
+                                <option value="vibrant">Vibrant Default</option>
+                                <option value="pastel">Pastel Dream</option>
+                                <option value="neon">Cyberpunk Neon</option>
+                                <option value="sunset">Sunset Glow</option>
+                                <option value="ocean">Deep Ocean</option>
+                            </select>
+                        </div>
+
+                        <div>
+                            <label class="block text-[11px] md:text-xs font-bold text-slate-500 uppercase tracking-wider mb-2">Brand Colors</label>
+                            <div class="flex gap-2 md:gap-3">
+                                <div class="flex-1 flex flex-col items-center gap-1">
+                                    <div class="w-8 h-8 md:w-10 md:h-10 rounded-full border shadow-sm overflow-hidden relative"><input type="color" id="bg-color" value="#ffffff" class="absolute -top-2 -left-2 w-16 h-16"></div>
+                                    <span class="text-[9px] md:text-[10px] font-medium text-slate-500 uppercase">Bg</span>
+                                </div>
+                                <div class="flex-1 flex flex-col items-center gap-1">
+                                    <div class="w-8 h-8 md:w-10 md:h-10 rounded-full border shadow-sm overflow-hidden relative"><input type="color" id="title-color" value="#111827" class="absolute -top-2 -left-2 w-16 h-16"></div>
+                                    <span class="text-[9px] md:text-[10px] font-medium text-slate-500 uppercase">Title</span>
+                                </div>
+                                <div class="flex-1 flex flex-col items-center gap-1">
+                                    <div class="w-8 h-8 md:w-10 md:h-10 rounded-full border shadow-sm overflow-hidden relative"><input type="color" id="text-color" value="#4b5563" class="absolute -top-2 -left-2 w-16 h-16"></div>
+                                    <span class="text-[9px] md:text-[10px] font-medium text-slate-500 uppercase">Text</span>
+                                </div>
+                            </div>
+                        </div>
+
+                        <div class="h-px bg-slate-200"></div>
+
+                        <div>
+                            <label class="block text-[11px] md:text-xs font-bold text-slate-500 uppercase tracking-wider mb-2">Typography</label>
+                            <select id="font-family" class="w-full bg-white border border-slate-300 rounded-md px-3 py-2 text-sm focus:ring-2 focus:ring-canva-purple outline-none transition appearance-none cursor-pointer">
+                                <option value="Inter">Inter (Canva Sans eq.)</option>
+                                <option value="Plus Jakarta Sans">Plus Jakarta Sans</option>
+                                <option value="Outfit">Outfit</option>
+                                <option value="Montserrat">Montserrat</option>
+                                <option value="Playfair Display">Playfair (Serif)</option>
+                                <option value="JetBrains Mono">JetBrains Mono</option>
+                            </select>
+                        </div>
+
+                        <div>
+                            <label class="block text-[11px] md:text-xs font-bold text-slate-500 uppercase tracking-wider mb-2">Animation Style</label>
+                            <select id="anim-style" class="w-full bg-white border border-slate-300 rounded-md px-3 py-2 text-sm focus:ring-2 focus:ring-canva-purple outline-none transition appearance-none cursor-pointer">
+                                <option value="sweep" selected>Sweep Left to Right</option>
+                                <option value="fade">Fade In Global</option>
+                                <option value="pop">Random Pop In</option>
+                            </select>
+                        </div>
+
+                        <div class="h-px bg-slate-200"></div>
+                        
+                        <h3 class="text-xs font-bold text-slate-500 uppercase tracking-wider">Sizing & Layout</h3>
+                        <div class="grid grid-cols-2 gap-x-4 gap-y-4 md:gap-y-5">
+                            <div>
+                                <div class="flex justify-between items-center mb-1"><label class="text-[9px] md:text-[10px] font-bold text-slate-600">Title Size</label></div>
+                                <input type="range" id="title-size" min="30" max="100" step="2" value="64">
+                            </div>
+                            <div>
+                                <div class="flex justify-between items-center mb-1"><label class="text-[9px] md:text-[10px] font-bold text-slate-600">Legend Size</label></div>
+                                <input type="range" id="legend-size" min="12" max="40" step="1" value="20">
+                            </div>
+                            <div>
+                                <div class="flex justify-between items-center mb-1">
+                                    <label class="text-[9px] md:text-[10px] font-bold text-slate-600">Seat Size</label>
+                                    <span id="seat-size-val" class="text-[8px] md:text-[9px] text-canva-purple font-bold">1.0x</span>
+                                </div>
+                                <input type="range" id="seat-size" min="0.5" max="2.0" step="0.1" value="1.0">
+                            </div>
+                            <div>
+                                <div class="flex justify-between items-center mb-1"><label class="text-[9px] md:text-[10px] font-bold text-slate-600">Arch Thick</label></div>
+                                <input type="range" id="arch-thickness" min="0.2" max="0.8" step="0.05" value="0.4">
+                            </div>
+                            <div>
+                                <div class="flex justify-between items-center mb-1">
+                                    <label class="text-[9px] md:text-[10px] font-bold text-slate-600">Chart Scale</label>
+                                    <span id="chart-scale-val" class="text-[8px] md:text-[9px] text-canva-purple font-bold">1.0x</span>
+                                </div>
+                                <input type="range" id="chart-scale" min="0.5" max="2.5" step="0.05" value="1.0">
+                            </div>
+                            <div>
+                                <div class="flex justify-between items-center mb-1">
+                                    <label class="text-[9px] md:text-[10px] font-bold text-slate-600">Duration</label>
+                                    <span id="duration-val" class="text-[8px] md:text-[9px] text-canva-purple font-bold">2.0s</span>
+                                </div>
+                                <input type="range" id="anim-duration" min="0.5" max="5" step="0.5" value="2.0">
+                            </div>
+                        </div>
+
+                        <!-- Hidden but preserved view controls to prevent JS errors -->
+                        <div class="hidden">
+                            <input type="range" id="chart-zoom" value="1.0">
+                            <input type="range" id="chart-pan-x" value="0">
+                            <input type="range" id="chart-pan-y" value="0">
+                            <button id="btn-reset-view">Reset</button>
+                            <span id="zoom-val"></span><span id="pan-x-val"></span><span id="pan-y-val"></span>
+                        </div>
+
+                    </div>
+                </div>
+
+            </aside>
+        </div>
+
+        <!-- MAIN CANVAS WORKSPACE -->
+        <main class="flex-1 relative flex flex-col items-center justify-center p-2 sm:p-4 md:p-8 overflow-hidden bg-canva-bg w-full h-full pb-[80px] md:pb-8">
+            
+            <!-- Canvas container acting as the "Paper" -->
+            <div class="relative w-full max-w-[1100px] aspect-video bg-white shadow-lg rounded-sm flex items-center justify-center transition-transform" style="min-height: 250px;">
+                <canvas id="export-canvas" class="w-full h-full object-contain"></canvas>
+            </div>
+
+            <!-- Ad Banner inside Canvas Area (Shows on Preview) -->
+            <div id="canvas-ad-overlay" class="absolute bottom-[75px] md:bottom-6 w-[95%] sm:w-[80%] max-w-[700px] bg-white border border-slate-200 shadow-xl rounded-xl flex items-center p-2.5 sm:p-3 z-30 transition-all duration-500 transform translate-y-32 opacity-0 pointer-events-none">
+                <span class="absolute -top-2.5 left-4 text-[8px] sm:text-[9px] bg-canva-purple text-white font-bold uppercase tracking-widest px-2 py-0.5 rounded-full shadow">Advertisement</span>
+                <div class="flex items-center gap-3 sm:gap-4 w-full pl-1 sm:pl-2">
+                    <div class="w-8 h-8 sm:w-10 sm:h-10 bg-purple-50 rounded-full flex items-center justify-center shrink-0">
+                        <i class="ph-fill ph-sparkle text-lg sm:text-xl text-canva-purple"></i>
+                    </div>
+                    <div class="flex flex-col flex-1">
+                        <span class="font-bold text-slate-800 text-xs sm:text-sm line-clamp-1">Unlock Magic Animation Pro</span>
+                        <span class="text-[10px] sm:text-xs text-slate-500 line-clamp-1">Access 50+ templates and remove limits.</span>
+                    </div>
+                    <button class="bg-canva-purple hover:bg-purple-700 text-white px-3 sm:px-4 py-1.5 sm:py-2 rounded-lg text-[10px] sm:text-xs font-bold transition shadow-sm shrink-0">Upgrade</button>
+                </div>
+            </div>
+            
+            <!-- Zoom/Page Controls Bottom Right -->
+            <div class="absolute bottom-[75px] right-4 md:bottom-6 md:right-6 bg-white shadow border border-slate-200 rounded-full px-3 py-1.5 sm:px-4 sm:py-2 flex items-center gap-2 sm:gap-3 text-slate-600 text-sm">
+                <i class="ph-bold ph-minus cursor-pointer hover:text-canva-purple transition"></i>
+                <span class="text-[10px] sm:text-xs font-bold w-8 sm:w-10 text-center">Fit</span>
+                <i class="ph-bold ph-plus cursor-pointer hover:text-canva-purple transition"></i>
+                <div class="w-px h-3 sm:h-4 bg-slate-200 mx-0.5 sm:mx-1"></div>
+                <i class="ph-bold ph-arrows-out-simple cursor-pointer hover:text-canva-purple transition"></i>
+            </div>
+            
+        </main>
+        
+        <!-- Recording Overlay -->
+        <div id="recording-overlay" class="absolute top-4 sm:top-8 left-1/2 -translate-x-1/2 bg-canva-dark text-white px-4 sm:px-6 py-2 sm:py-3 rounded-full font-medium text-xs sm:text-sm flex items-center gap-2 sm:gap-3 shadow-2xl z-50 transition-transform duration-300 transform -translate-y-32 tracking-wide">
+            <div class="w-2 h-2 bg-red-500 rounded-full animate-pulse"></div>
+            <span id="recording-text">Rendering Design...</span>
+        </div>
+
+    </div> <!-- END MAIN WORKSPACE -->
+
+    <script>
+        // --- Sidebar Tab & Responsive Layout Logic ---
+        const widePanel = document.getElementById('wide-panel');
+        const mobileBackdrop = document.getElementById('mobile-backdrop');
+        const mobileTitle = document.getElementById('mobile-panel-title');
+        
+        let currentTab = 'panel-templates';
+        let isPanelOpen = window.innerWidth >= 768; // Open by default on desktop
+
+        const panelTitles = {
+            'panel-templates': 'Design Templates',
+            'panel-text': 'Text Content',
+            'panel-data': 'Chart Data',
+            'panel-style': 'Brand & Style'
+        };
+
+        function applyPanelState() {
+            const isMobile = window.innerWidth < 768;
+            
+            if (isMobile) {
+                // Mobile behavior: Nav stays fixed bottom, Panel acts as a bottom sheet overlaying canvas
+                if (isPanelOpen) {
+                    widePanel.classList.remove('panel-collapsed');
+                    mobileBackdrop.classList.remove('hidden');
+                    setTimeout(() => mobileBackdrop.classList.remove('opacity-0'), 10);
+                } else {
+                    widePanel.classList.add('panel-collapsed');
+                    mobileBackdrop.classList.add('opacity-0');
+                    setTimeout(() => mobileBackdrop.classList.add('hidden'), 300);
+                }
+            } else {
+                // Desktop behavior: Standard collapsible side panel, no backdrop needed
+                mobileBackdrop.classList.add('hidden');
+                if (isPanelOpen) {
+                    widePanel.classList.remove('panel-collapsed');
+                } else {
+                    widePanel.classList.add('panel-collapsed');
+                }
+            }
+        }
+
+        // Handle window resize dynamically to auto-collapse/expand seamlessly
+        window.addEventListener('resize', () => {
+            if (window.innerWidth < 768 && isPanelOpen) {
+                isPanelOpen = false; // Auto close when shrinking to mobile
+            } else if (window.innerWidth >= 768 && !isPanelOpen) {
+                isPanelOpen = true;  // Auto open when expanding to desktop
+            }
+            applyPanelState();
+        });
+
+        function switchTab(targetId, btnElement) {
+            // Update Buttons visually
+            document.querySelectorAll('.nav-btn').forEach(btn => {
+                btn.classList.remove('active');
+            });
+            btnElement.classList.add('active');
+
+            // Update Panel content
+            document.querySelectorAll('.tab-content').forEach(panel => {
+                panel.classList.remove('active');
+            });
+            document.getElementById(targetId).classList.add('active');
+            
+            // Update Mobile Title
+            if (mobileTitle) mobileTitle.innerText = panelTitles[targetId];
+            
+            // Toggle Logic
+            if (targetId === currentTab && isPanelOpen) {
+                // Clicking the SAME active tab toggles it closed
+                isPanelOpen = false;
+            } else {
+                // Clicking a DIFFERENT tab forces it open
+                currentTab = targetId;
+                isPanelOpen = true;
+            }
+            applyPanelState();
+        }
+
+        function closeSidebarMobile() {
+            isPanelOpen = false;
+            applyPanelState();
+            // Deselect icon visually
+            document.querySelectorAll('.nav-btn').forEach(btn => btn.classList.remove('active'));
+        }
+
+        mobileBackdrop.addEventListener('click', closeSidebarMobile);
+        
+        // Initial setup
+        applyPanelState();
+
+        // --- Fetch GIF.js Worker to guarantee CORS safety ---
+        let gifWorkerUrl = null;
+        fetch('https://cdnjs.cloudflare.com/ajax/libs/gif.js/0.2.0/gif.worker.js')
+            .then(res => res.text())
+            .then(text => {
+                const blob = new Blob([text], { type: 'application/javascript' });
+                gifWorkerUrl = URL.createObjectURL(blob);
+            })
+            .catch(err => console.error('Failed to load GIF worker:', err));
+
+        // --- Template Data ---
+        const templates = {
+            'europe': {
+                title: 'European Parliament Composition',
+                subtitle: 'Projection of seats by political group (720 Seats)',
+                source: 'SOURCE: EUROPEAN PARLIAMENT 2024',
+                csv: `Label,Seats,Color\nThe Left,46,#b91c1c\nS&D,136,#ef4444\nGreens/EFA,53,#22c55e\nRenew,74,#eab308\nEPP,188,#3b82f6\nECR,83,#1e3a8a\nID,58,#172554\nNI/Others,82,#94a3b8`
+            },
+            'india': {
+                title: 'Lok Sabha Seat Distribution (2024)',
+                subtitle: '543 total seats representing the lower house of India.',
+                source: 'SOURCE: ELECTION COMMISSION OF INDIA',
+                csv: `Label,Seats,Color\nBJP,240,#f97316\nINC,99,#0ea5e9\nSP,37,#ef4444\nTMC,29,#22c55e\nDMK,22,#dc2626\nTDP,16,#eab308\nJDU,12,#16a34a\nOthers,88,#94a3b8`
+            },
+            'usa': {
+                title: 'US House of Representatives',
+                subtitle: 'Current composition of the 118th Congress (435 Seats)',
+                source: 'SOURCE: HOUSE.GOV',
+                csv: `Label,Seats,Color\nDemocrats,213,#3b82f6\nRepublicans,220,#ef4444\nVacant,2,#cbd5e1`
+            },
+            'france': {
+                title: 'French National Assembly (2024)',
+                subtitle: 'Seat distribution following the snap legislative elections.',
+                source: 'SOURCE: MINISTÈRE DE L\'INTÉRIEUR',
+                csv: `Label,Seats,Color\nNFP,193,#ef4444\nEnsemble,166,#eab308\nLR/DVD,68,#3b82f6\nRN/UXD,142,#1e3a8a\nOthers,8,#cbd5e1`
+            },
+            'china': {
+                title: 'National People\'s Congress (China)',
+                subtitle: 'Composition of the 14th NPC (2,977 Delegates)',
+                source: 'SOURCE: NPC.GOV.CN',
+                csv: `Label,Seats,Color\nCommunist Party,2091,#e11d48\nUnited Front / Others,886,#fca5a5`
+            },
+            'demo': {
+                title: 'Corporate Board Shareholder Votes',
+                subtitle: 'Distribution of voting power among major stakeholders.',
+                source: 'SOURCE: COMPANY SEC FILINGS',
+                csv: `Label,Seats,Color\nFounders,45,#10b981\nInstitutional A,30,#3b82f6\nInstitutional B,15,#a855f7\nRetail / Public,10,#94a3b8`
+            }
+        };
+
+        // --- App State & Data ---
+        const state = {
+            data: [], 
+            seriesNames: [],
+            
+            progress: 1.0,
+            isAnimating: false,
+            isRecording: false,
+            
+            title: 'European Parliament Composition',
+            subtitle: 'Projection of seats by political group (720 Seats)',
+            source: 'SOURCE: EUROPEAN PARLIAMENT 2024',
+            
+            showTitle: true,
+            showSubtitle: true,
+            showSource: true,
+            showLegendCounts: true,
+            
+            fontFamily: 'Inter',
+            titleSize: 64,
+            legendSize: 20,
+            seatSize: 1.0,
+            archThickness: 0.4,
+            chartScale: 1.0,
+            
+            titleColor: '#111827',
+            textColor: '#4b5563',
+            bgColor: '#ffffff',
+            colorPalette: 'vibrant',
+            zoom: 1.0,
+            panX: 0,
+            panY: 0,
+            
+            animStyle: 'sweep', 
+            duration: 2000,
+            showLegend: true,
+            showCount: true
+        };
+
+        // Color Palettes
+        const palettes = {
+            vibrant: ['#ef4444', '#3b82f6', '#10b981', '#f59e0b', '#a855f7', '#ec4899', '#06b6d4', '#eab308'],
+            pastel: ['#fca5a5', '#93c5fd', '#6ee7b7', '#fcd34d', '#d8b4fe', '#f9a8d4', '#67e8f9', '#fde047'],
+            neon: ['#ff00ff', '#00ffff', '#00ff00', '#ffff00', '#ff0000', '#0000ff'],
+            sunset: ['#f43f5e', '#f97316', '#eab308', '#8b5cf6', '#d946ef'],
+            ocean: ['#0369a1', '#0ea5e9', '#38bdf8', '#7dd3fc', '#0284c7']
+        };
+
+        // Visual Canvas Setup
+        const canvas = document.getElementById('export-canvas');
+        canvas.width = 1920;
+        canvas.height = 1080;
+
+        // DOM Elements
+        const uiTitle = document.getElementById('chart-title');
+        const uiSubtitle = document.getElementById('chart-subtitle');
+        const uiSource = document.getElementById('chart-source');
+        
+        const uiShowTitle = document.getElementById('show-title');
+        const uiShowSubtitle = document.getElementById('show-subtitle');
+        const uiShowSource = document.getElementById('show-source');
+        const uiShowLegendCounts = document.getElementById('show-legend-counts');
+        
+        const uiTitleSize = document.getElementById('title-size');
+        const uiLegendSize = document.getElementById('legend-size');
+        const uiSeatSize = document.getElementById('seat-size');
+        const uiArchThickness = document.getElementById('arch-thickness');
+        const uiChartScale = document.getElementById('chart-scale');
+        
+        const uiTitleColor = document.getElementById('title-color');
+        const uiTextColor = document.getElementById('text-color');
+        const uiBgColor = document.getElementById('bg-color');
+
+        const dataInput = document.getElementById('data-input');
+        const animStyleSelect = document.getElementById('anim-style');
+        const fontSelect = document.getElementById('font-family');
+        const paletteSelect = document.getElementById('color-palette');
+        
+        const durationSlider = document.getElementById('anim-duration');
+        const legendCheck = document.getElementById('show-legend');
+        const showCountCheck = document.getElementById('show-grid'); // reused id for Total Count
+
+        // Editor Tabs
+        let currentDataMode = 'grid';
+        const tabGrid = document.getElementById('tab-grid');
+        const tabCsv = document.getElementById('tab-csv');
+        const viewGrid = document.getElementById('view-grid');
+        const viewCsv = document.getElementById('view-csv');
+        const gridRowsContainer = document.getElementById('data-grid-rows');
+        const btnAddRow = document.getElementById('btn-add-row');
+
+        // --- Custom Toast System ---
+        function showToast(message, type = 'info') {
+            let container = document.getElementById('toast-container');
+            if (!container) {
+                container = document.createElement('div');
+                container.id = 'toast-container';
+                container.className = 'fixed top-20 right-6 z-[60] flex flex-col gap-3 pointer-events-none';
+                document.body.appendChild(container);
+            }
+            const toast = document.createElement('div');
+            toast.className = `bg-white border-l-4 text-slate-800 px-5 py-4 shadow-xl flex items-center gap-3 transform transition-all -translate-y-4 opacity-0 z-50 rounded-r-lg`;
+            
+            let icon = 'info';
+            let borderColor = 'border-canva-purple';
+            let iconColor = 'text-canva-purple';
+            
+            if (type === 'success') {
+                icon = 'check-circle';
+                borderColor = 'border-green-500';
+                iconColor = 'text-green-500';
+            } else if (type === 'error') {
+                icon = 'warning';
+                borderColor = 'border-brand-red';
+                iconColor = 'text-brand-red';
+            }
+
+            toast.classList.add(borderColor);
+            toast.innerHTML = `<i class="ph-fill ph-${icon} text-xl ${iconColor}"></i> <span class="text-sm font-semibold tracking-wide">${message}</span>`;
+            container.appendChild(toast); 
+            requestAnimationFrame(() => toast.classList.remove('-translate-y-4', 'opacity-0'));
+            setTimeout(() => { toast.classList.add('-translate-y-4', 'opacity-0'); setTimeout(() => toast.remove(), 300); }, 3000);
+        }
+
+        function isDarkColor(hexColor) {
+            const hex = hexColor.replace('#', '');
+            if(hex.length === 6) {
+                const r = parseInt(hex.substr(0, 2), 16);
+                const g = parseInt(hex.substr(2, 2), 16);
+                const b = parseInt(hex.substr(4, 2), 16);
+                return (r * 0.299 + g * 0.587 + b * 0.114) < 128;
+            }
+            return false;
+        }
+
+        // --- Data Parsing & Management ---
+        function parseCSVtoState(csvString) {
+            const lines = csvString.split('\n');
+            state.data = [];
+            state.seriesNames = [];
+            
+            let startIdx = 0;
+            if (lines.length > 0) {
+                const headerRow = lines[0].split(',').map(c => c.trim());
+                if (headerRow.length >= 2 && isNaN(parseFloat(headerRow[1]))) {
+                    startIdx = 1;
+                    state.seriesNames = ['Seats']; 
+                } else {
+                    state.seriesNames = ['Seats']; 
+                }
+            }
+
+            for (let i = startIdx; i < lines.length; i++) {
+                const row = lines[i].split(',').map(c => c.trim());
+                if (row.length < 2) continue;
+                
+                const label = row[0];
+                let color = null;
+                const values = [];
+                
+                for(let j = 1; j < row.length; j++) {
+                    if (row[j].startsWith('#')) {
+                        color = row[j];
+                    } else {
+                        values.push(parseInt(row[j]) || 0);
+                    }
+                }
+                
+                state.data.push({ label, values: [values[0] || 0], color }); 
+            }
+        }
+
+        function generateCSVFromState() {
+            let csv = `Label,Seats,Color\n`;
+            csv += state.data.map(d => `${d.label},${d.values[0]},${d.color || ''}`).join('\n');
+            return csv;
+        }
+
+        function buildGridFromState() {
+            gridRowsContainer.innerHTML = '';
+            state.data.forEach((item, index) => {
+                const row = document.createElement('div');
+                row.className = 'flex items-center gap-2 bg-slate-50 p-1 rounded border border-slate-100';
+                
+                // Label Input
+                const lblInput = document.createElement('input');
+                lblInput.type = 'text';
+                lblInput.value = item.label;
+                lblInput.className = 'flex-[3] min-w-0 px-2 py-1.5 bg-white border border-slate-200 rounded text-xs text-slate-800 focus:ring-1 focus:ring-canva-purple outline-none transition-colors';
+                lblInput.oninput = (e) => {
+                    state.data[index].label = e.target.value;
+                    syncFromGrid();
+                };
+
+                // Values Input
+                const valInput = document.createElement('input');
+                valInput.type = 'number';
+                valInput.value = item.values[0];
+                valInput.className = 'flex-[2] min-w-0 px-2 py-1.5 bg-white border border-slate-200 rounded text-xs text-slate-800 focus:ring-1 focus:ring-canva-purple outline-none transition-colors text-center';
+                valInput.oninput = (e) => {
+                    state.data[index].values = [parseInt(e.target.value) || 0];
+                    syncFromGrid();
+                };
+
+                // Color Picker
+                const colWrapper = document.createElement('div');
+                colWrapper.className = 'relative w-8 h-8 rounded border border-slate-200 shrink-0 bg-white overflow-hidden shadow-sm cursor-pointer';
+                const colInput = document.createElement('input');
+                colInput.type = 'color';
+                colInput.value = item.color || palettes[state.colorPalette][index % palettes[state.colorPalette].length];
+                colInput.className = 'absolute -top-2 -left-2 w-12 h-12 cursor-pointer';
+                colInput.oninput = (e) => {
+                    state.data[index].color = e.target.value;
+                    syncFromGrid();
+                };
+                colWrapper.appendChild(colInput);
+
+                // Delete Button
+                const delBtn = document.createElement('button');
+                delBtn.className = 'w-6 h-8 flex items-center justify-center text-slate-400 hover:text-brand-red transition shrink-0 rounded';
+                delBtn.innerHTML = '<i class="ph-bold ph-trash"></i>';
+                delBtn.onclick = () => {
+                    state.data.splice(index, 1);
+                    buildGridFromState();
+                    syncFromGrid();
+                };
+
+                row.appendChild(lblInput);
+                row.appendChild(valInput);
+                row.appendChild(colWrapper);
+                row.appendChild(delBtn);
+                
+                gridRowsContainer.appendChild(row);
+            });
+        }
+
+        // Add Row Handler
+        btnAddRow.addEventListener('click', () => {
+            state.data.push({ label: 'New Party', values: [10], color: null });
+            buildGridFromState();
+            syncFromGrid();
+            gridRowsContainer.scrollTop = gridRowsContainer.scrollHeight;
+        });
+
+        function syncFromGrid() {
+            dataInput.value = generateCSVFromState();
+            updateAndRender(false);
+        }
+
+        // Tab Handling Data
+        tabGrid.addEventListener('click', () => {
+            currentDataMode = 'grid';
+            tabGrid.classList.add('bg-white', 'shadow-sm', 'text-canva-text');
+            tabGrid.classList.remove('text-slate-500', 'hover:text-slate-700');
+            tabCsv.classList.remove('bg-white', 'shadow-sm', 'text-canva-text');
+            tabCsv.classList.add('text-slate-500', 'hover:text-slate-700');
+            viewGrid.classList.remove('hidden');
+            viewGrid.classList.add('flex');
+            viewCsv.classList.add('hidden');
+            viewCsv.classList.remove('flex');
+            buildGridFromState();
+        });
+
+        tabCsv.addEventListener('click', () => {
+            currentDataMode = 'csv';
+            tabCsv.classList.add('bg-white', 'shadow-sm', 'text-canva-text');
+            tabCsv.classList.remove('text-slate-500', 'hover:text-slate-700');
+            tabGrid.classList.remove('bg-white', 'shadow-sm', 'text-canva-text');
+            tabGrid.classList.add('text-slate-500', 'hover:text-slate-700');
+            viewCsv.classList.remove('hidden');
+            viewCsv.classList.add('flex');
+            viewGrid.classList.add('hidden');
+            viewGrid.classList.remove('flex');
+            dataInput.value = generateCSVFromState();
+        });
+
+        function updateStateFromUI(rebuildGrid = true) {
+            state.title = uiTitle.value;
+            state.subtitle = uiSubtitle.value;
+            state.source = uiSource.value;
+            
+            state.showTitle = uiShowTitle.checked;
+            state.showSubtitle = uiShowSubtitle.checked;
+            state.showSource = uiShowSource.checked;
+            state.showLegendCounts = uiShowLegendCounts.checked;
+            
+            state.titleSize = parseInt(uiTitleSize.value);
+            state.legendSize = parseInt(uiLegendSize.value);
+            state.seatSize = parseFloat(uiSeatSize.value);
+            state.archThickness = parseFloat(uiArchThickness.value);
+            state.chartScale = parseFloat(uiChartScale.value);
+            
+            state.titleColor = uiTitleColor.value;
+            state.textColor = uiTextColor.value;
+            state.bgColor = uiBgColor.value;
+            // Preserving zoom logic even if UI is hidden
+            const zm = document.getElementById('chart-zoom'); if(zm) state.zoom = parseFloat(zm.value);
+            const px = document.getElementById('chart-pan-x'); if(px) state.panX = parseInt(px.value);
+            const py = document.getElementById('chart-pan-y'); if(py) state.panY = parseInt(py.value);
+            
+            state.fontFamily = fontSelect.value;
+            state.colorPalette = paletteSelect.value;
+            state.animStyle = animStyleSelect.value;
+            
+            state.showLegend = legendCheck.checked;
+            state.showCount = showCountCheck.checked;
+            
+            const raw = dataInput.value.trim();
+            if (raw) parseCSVtoState(raw);
+
+            if (rebuildGrid && currentDataMode === 'grid') {
+                buildGridFromState();
+            }
+        }
+
+        function easeOutQuint(x) {
+            return 1 - Math.pow(1 - x, 5);
+        }
+
+        // --- Core Scaling Rendering Engine ---
+        function renderFrame(progress, targetCanvas = canvas, exportScale = 1.0, isTransparent = false) {
+            const tCtx = targetCanvas.getContext('2d', { alpha: isTransparent });
+            const easeP = easeOutQuint(progress);
+
+            const isDarkBg = isDarkColor(state.bgColor);
+            const gridColor = isDarkBg ? 'rgba(255,255,255,0.1)' : 'rgba(0,0,0,0.05)';
+            const fontBase = state.fontFamily;
+            const activePalette = palettes[state.colorPalette];
+
+            const W = 1920;
+            const H = 1080;
+
+            tCtx.save();
+            tCtx.scale(exportScale, exportScale);
+
+            if (isTransparent) {
+                tCtx.clearRect(0, 0, W, H);
+            } else {
+                tCtx.fillStyle = state.bgColor;
+                tCtx.fillRect(0, 0, W, H);
+            }
+
+            tCtx.translate(W / 2 + state.panX, H / 2 + state.panY);
+            tCtx.scale(state.zoom, state.zoom);
+            tCtx.translate(-W / 2, -H / 2);
+
+            tCtx.textAlign = 'left';
+            let currentY = 80; // Default Top Padding
+            
+            if (state.showTitle) {
+                tCtx.textBaseline = 'top';
+                tCtx.font = `800 ${state.titleSize}px "${fontBase}"`;
+                tCtx.fillStyle = state.titleColor;
+                tCtx.fillText(state.title, 80, currentY);
+                currentY += state.titleSize + 16;
+            }
+
+            if (state.showSubtitle) {
+                tCtx.textBaseline = 'top';
+                tCtx.font = `400 38px "${fontBase}"`;
+                tCtx.fillStyle = state.textColor;
+                tCtx.fillText(state.subtitle, 80, currentY);
+                currentY += 38 + 16;
+            }
+
+            if (state.showTitle || state.showSubtitle) {
+                tCtx.beginPath();
+                tCtx.moveTo(80, currentY + 10);
+                tCtx.lineTo(W - 80, currentY + 10);
+                tCtx.strokeStyle = gridColor;
+                tCtx.lineWidth = 2;
+                tCtx.stroke();
+                currentY += 40; // extra padding after the separator line
+            } else {
+                currentY = 80; // Keep space if no headers
+            }
+
+            if (state.showSource) {
+                tCtx.textBaseline = 'bottom';
+                tCtx.font = `600 20px "${fontBase}"`;
+                tCtx.fillStyle = state.textColor;
+                tCtx.textAlign = 'right';
+                tCtx.fillText(state.source, W - 80, H - 40);
+                tCtx.textAlign = 'left';
+            }
+
+            // Dynamic Chart Bounds Reservation (adjusts if legend is massive)
+            let bottomReserved = 40;
+            if (state.showSource) bottomReserved = 60;
+            if (state.showLegend) bottomReserved += (state.legendSize * 3);
+
+            const chartArea = {
+                x: 80,
+                y: currentY,
+                w: W - 160,
+                h: H - currentY - bottomReserved
+            };
+
+            if (state.data.length > 0) {
+                drawParliamentChart(tCtx, chartArea, progress, state.textColor, activePalette, fontBase);
+                
+                if (state.showLegend) {
+                    drawLegend(tCtx, W, H, state.textColor, activePalette, fontBase, progress);
+                }
+            }
+
+            tCtx.restore();
+        }
+
+        // --- Parliament Layout Algorithm ---
+        function calculateSeats(totalSeats, innerR) {
+            if (totalSeats <= 0) return [];
+            
+            // Adjust rows based on total seats to maintain aesthetic density
+            let baseRows = Math.max(3, Math.ceil(Math.sqrt(totalSeats) * 0.6));
+            if (totalSeats > 1000) baseRows = Math.max(10, Math.ceil(Math.sqrt(totalSeats) * 0.5));
+            const numRows = baseRows;
+
+            const rowRadii = [];
+            for (let i = 0; i < numRows; i++) {
+                rowRadii.push(innerR + (1 - innerR) * (i / (Math.max(1, numRows - 1))));
+            }
+            const rowLengths = rowRadii.map(r => Math.PI * r);
+            const totalLen = rowLengths.reduce((a, b) => a + b, 0);
+            
+            let seatsPerRow = rowLengths.map(l => Math.floor(totalSeats * (l / totalLen)));
+            let currentTotal = seatsPerRow.reduce((a, b) => a + b, 0);
+            
+            // Distribute remainder optimally
+            while (currentTotal < totalSeats) {
+                let maxFraction = -1;
+                let maxIndex = 0;
+                for (let i = 0; i < numRows; i++) {
+                    const frac = (totalSeats * (rowLengths[i] / totalLen)) - seatsPerRow[i];
+                    if (frac > maxFraction) {
+                        maxFraction = frac;
+                        maxIndex = i;
+                    }
+                }
+                seatsPerRow[maxIndex]++;
+                currentTotal++;
+            }
+            while (currentTotal > totalSeats) {
+                let maxVal = -1;
+                let maxIndex = 0;
+                for(let i=0; i<numRows; i++) {
+                     if (seatsPerRow[i] > maxVal) {
+                          maxVal = seatsPerRow[i];
+                          maxIndex = i;
+                     }
+                }
+                seatsPerRow[maxIndex]--;
+                currentTotal--;
+            }
+
+            const seats = [];
+            for (let i = 0; i < numRows; i++) {
+                const numInRow = seatsPerRow[i];
+                if (numInRow === 0) continue;
+                for (let j = 0; j < numInRow; j++) {
+                    const angle = numInRow === 1 ? Math.PI/2 : Math.PI - (j / (numInRow - 1)) * Math.PI;
+                    seats.push({
+                        angle: angle,
+                        r: rowRadii[i]
+                    });
+                }
+            }
+            
+            // Sort to fill from left (PI) to right (0) across all rows
+            seats.sort((a, b) => {
+                if (Math.abs(a.angle - b.angle) > 0.0001) return b.angle - a.angle;
+                return a.r - b.r;
+            });
+            
+            return { seats, numRows, totalLen, rowLengths, seatsPerRow };
+        }
+
+        function drawParliamentChart(tCtx, area, progress, textColor, palette, fontBase) {
+            const totalSeats = state.data.reduce((sum, item) => sum + (item.values[0] || 0), 0);
+            if (totalSeats === 0) return;
+
+            // Geometry fully respects dynamically resized chart area bounds AND Chart Scale slider
+            const cx = area.x + area.w / 2;
+            const cy = area.y + area.h * 0.85; 
+            const maxOuterRadius = Math.min(area.w / 2, area.h * 0.85) * 0.95 * state.chartScale;
+            
+            const layout = calculateSeats(totalSeats, state.archThickness);
+            
+            // Calculate optimal dot size
+            const outerRowLen = Math.PI * 1.0; // normalized
+            const dotsInOuter = layout.seatsPerRow[layout.numRows - 1] || 1;
+            const normalizedDotDiameter = (outerRowLen / Math.max(1, dotsInOuter - 1));
+            
+            // Apply radius mapping and user scaling
+            const dotRadius = (normalizedDotDiameter * maxOuterRadius * 0.4) * state.seatSize;
+
+            // Map Colors
+            let partyIdx = 0;
+            let currentPartyCount = 0;
+            const coloredSeats = layout.seats.map((seat, i) => {
+                if (currentPartyCount >= state.data[partyIdx].values[0] && partyIdx < state.data.length - 1) {
+                    partyIdx++;
+                    currentPartyCount = 0;
+                }
+                currentPartyCount++;
+                return {
+                    ...seat,
+                    color: state.data[partyIdx].color || palette[partyIdx % palette.length],
+                    originalIndex: i
+                };
+            });
+
+            // Draw Seats
+            coloredSeats.forEach(seat => {
+                let scale = 1.0;
+                
+                // Animation Logic
+                if (state.animStyle === 'sweep') {
+                    const animWindow = 0.1;
+                    const threshold = (seat.originalIndex / totalSeats) * (1.0 - animWindow);
+                    if (progress < threshold) scale = 0;
+                    else {
+                        const localP = Math.min(1, (progress - threshold) / animWindow);
+                        scale = Math.sin(localP * Math.PI / 2); 
+                    }
+                } else if (state.animStyle === 'fade') {
+                    scale = progress;
+                } else if (state.animStyle === 'pop') {
+                    // pseudo-random threshold based on index hash
+                    const animWindow = 0.15;
+                    const hash = (seat.originalIndex * 137) % totalSeats;
+                    const threshold = (hash / totalSeats) * (1.0 - animWindow);
+                    if (progress < threshold) scale = 0;
+                    else {
+                        const localP = Math.min(1, (progress - threshold) / animWindow);
+                        // elastic pop effect
+                        scale = localP < 0.5 ? localP * 2 * 1.2 : 1.2 - ((localP - 0.5) * 2 * 0.2); 
+                    }
+                }
+
+                if (scale > 0) {
+                    const px = cx + (seat.r * maxOuterRadius) * Math.cos(seat.angle);
+                    const py = cy - (seat.r * maxOuterRadius) * Math.sin(seat.angle);
+                    
+                    tCtx.beginPath();
+                    tCtx.arc(px, py, dotRadius * scale, 0, Math.PI * 2);
+                    tCtx.fillStyle = seat.color;
+                    tCtx.fill();
+                    
+                    // Subtle stroke for definition on dark/light BGs
+                    tCtx.lineWidth = 1;
+                    tCtx.strokeStyle = state.bgColor;
+                    tCtx.stroke();
+                }
+            });
+
+            // Draw Total Count in Center (Scales with Chart Scale)
+            if (state.showCount && progress > 0.3) {
+                tCtx.globalAlpha = Math.min(1, (progress - 0.3) * 2);
+                tCtx.textAlign = 'center';
+                
+                // Value
+                tCtx.textBaseline = 'bottom';
+                tCtx.font = `800 ${Math.floor(64 * state.chartScale)}px "${fontBase}"`;
+                tCtx.fillStyle = textColor;
+                tCtx.fillText(Math.floor(totalSeats * (progress > 0.8 ? 1 : progress)), cx, cy - (10 * state.chartScale));
+                
+                // Label
+                tCtx.textBaseline = 'top';
+                tCtx.font = `700 ${Math.floor(18 * state.chartScale)}px "${fontBase}"`;
+                tCtx.fillStyle = textColor;
+                tCtx.globalAlpha *= 0.7;
+                tCtx.fillText("TOTAL SEATS", cx, cy + (5 * state.chartScale));
+                tCtx.globalAlpha = 1.0;
+            }
+        }
+
+        function drawLegend(tCtx, W, H, textColor, palette, fontBase, progress) {
+            tCtx.textAlign = 'left';
+            tCtx.textBaseline = 'middle';
+            tCtx.font = `700 ${state.legendSize}px "${fontBase}"`;
+            
+            const legendY = state.showSource ? H - 110 : H - 70;
+            const boxSize = state.legendSize * 0.8;
+            const itemPadding = state.legendSize * 1.5;
+            const maxWidth = W - 160;
+
+            // Compute widths based on FINAL label state so items don't shift during animation
+            const items = state.data.map((item, idx) => {
+                let targetValue = item.values[0] || 0;
+                let displayValue = Math.floor(targetValue * (progress > 0.8 ? 1 : progress));
+                
+                let currentLabel = item.label;
+                let finalLabel = item.label;
+                
+                if (state.showLegendCounts) {
+                    currentLabel += ` (${displayValue})`;
+                    finalLabel += ` (${targetValue})`;
+                }
+
+                return {
+                    label: currentLabel,
+                    color: item.color || palette[idx % palette.length],
+                    width: boxSize + (state.legendSize * 0.5) + tCtx.measureText(finalLabel).width + itemPadding
+                };
+            });
+
+            let rows = [[]];
+            let currentRowWidth = 0;
+
+            items.forEach(item => {
+                if (currentRowWidth + item.width > maxWidth && rows[rows.length - 1].length > 0) {
+                    rows.push([]);
+                    currentRowWidth = 0;
+                }
+                rows[rows.length - 1].push(item);
+                currentRowWidth += item.width;
+            });
+
+            // Draw rows centered
+            const rowSpacing = state.legendSize * 1.75;
+            const startY = legendY - ((rows.length - 1) * rowSpacing);
+            
+            rows.forEach((row, rIdx) => {
+                let rowWidth = row.reduce((sum, item) => sum + item.width, 0) - itemPadding;
+                let currentX = (W - rowWidth) / 2;
+                const y = startY + (rIdx * rowSpacing);
+
+                row.forEach(item => {
+                    tCtx.fillStyle = item.color;
+                    tCtx.beginPath();
+                    tCtx.arc(currentX + boxSize/2, y, boxSize/2, 0, Math.PI * 2);
+                    tCtx.fill();
+
+                    tCtx.fillStyle = textColor;
+                    tCtx.fillText(item.label, currentX + boxSize + (state.legendSize * 0.5), y + 2);
+                    currentX += item.width;
+                });
+            });
+        }
+
+        // --- Interaction & Update Loops ---
+        function updateAndRender(rebuildGrid = true) {
+            updateStateFromUI(rebuildGrid);
+            renderFrame(1.0, canvas, 1.0, false); 
+        }
+
+        document.querySelectorAll('.template-btn').forEach(btn => {
+            btn.addEventListener('click', () => {
+                const template = btn.getAttribute('data-template');
+                if (templates[template]) {
+                    uiTitle.value = templates[template].title;
+                    uiSubtitle.value = templates[template].subtitle;
+                    uiSource.value = templates[template].source;
+                    dataInput.value = templates[template].csv;
+                    
+                    uiBgColor.value = '#ffffff';
+                    uiTitleColor.value = '#111827';
+                    uiTextColor.value = '#4b5563';
+                    
+                    updateAndRender(true);
+                }
+            });
+        });
+
+        const inputs = [uiTitle, uiSubtitle, uiSource, uiBgColor, uiTitleColor, uiTextColor];
+        inputs.forEach(el => el.addEventListener('input', () => updateAndRender(false)));
+        
+        dataInput.addEventListener('input', () => updateAndRender(true));
+
+        [uiShowTitle, uiShowSubtitle, uiShowSource, legendCheck, showCountCheck, uiShowLegendCounts].forEach(el => el.addEventListener('change', () => updateAndRender(false)));
+        
+        [uiTitleSize, uiLegendSize, uiSeatSize, uiArchThickness, uiChartScale].forEach(el => el.addEventListener('input', () => {
+            if(el.id === 'seat-size') document.getElementById('seat-size-val').textContent = el.value + 'x';
+            if(el.id === 'chart-scale') document.getElementById('chart-scale-val').textContent = el.value + 'x';
+            updateAndRender(false);
+        }));
+        
+        [fontSelect, paletteSelect, animStyleSelect].forEach(el => el.addEventListener('change', () => updateAndRender(true)));
+        
+        durationSlider.addEventListener('input', (e) => { 
+            state.duration = parseFloat(e.target.value) * 1000;
+            document.getElementById('duration-val').textContent = e.target.value + 's';
+        });
+
+        // Initialize
+        updateAndRender(true);
+
+        // --- Header Actions & Export Logic ---
+        const btnPreview = document.getElementById('btn-header-preview');
+        const btnExport = document.getElementById('btn-header-export');
+        const exportFmt = document.getElementById('export-fmt');
+        const exportRes = document.getElementById('export-res');
+        const transparentToggle = document.getElementById('header-transparent');
+        const overlay = document.getElementById('recording-overlay');
+        const recordingText = document.getElementById('recording-text');
+        const iconPlay = document.getElementById('icon-play');
+        const textPlay = document.getElementById('text-play');
+
+        btnPreview.addEventListener('click', () => {
+            if (state.isRecording) return;
+            if (state.isAnimating) {
+                state.isAnimating = false;
+            } else {
+                runAnimation();
+            }
+        });
+
+        btnExport.addEventListener('click', async () => {
+            if (state.isAnimating || state.isRecording) return;
+            
+            const fmt = exportFmt.value;
+            const targetWidth = parseInt(exportRes.value);
+            const exportScale = targetWidth / 1920;
+            const isTransparent = transparentToggle.checked && (fmt === 'png' || fmt === 'gif'); 
+
+            if (fmt === 'png') {
+                exportSnapshot(targetWidth, exportScale, isTransparent);
+            } else if (fmt === 'gif') {
+                exportGIF(targetWidth, exportScale, isTransparent);
+            } else {
+                exportVideo(targetWidth, exportScale);
+            }
+        });
+
+        function runAnimation() {
+            state.isAnimating = true;
+            btnPreview.classList.add('bg-white/40');
+            btnPreview.classList.remove('bg-white/20');
+            iconPlay.classList.replace('ph-play', 'ph-stop');
+            textPlay.innerText = 'Stop';
+            btnExport.disabled = true;
+
+            // Show canvas ad when preview starts
+            const adOverlay = document.getElementById('canvas-ad-overlay');
+            if (adOverlay) adOverlay.classList.remove('translate-y-32', 'opacity-0', 'pointer-events-none');
+
+            updateStateFromUI(false); 
+
+            const startTime = performance.now();
+            const durationMs = state.duration;
+
+            function animLoop(currentTime) {
+                if (!state.isAnimating) {
+                    resetPreviewBtn();
+                    return;
+                }
+
+                const elapsed = Math.max(0, currentTime - startTime);
+                let p = durationMs > 0 ? elapsed / durationMs : 1.0;
+                p = Math.max(0, Math.min(1, p));
+                
+                state.progress = p;
+                renderFrame(p, canvas, 1.0, false);
+
+                if (p < 1.0) {
+                    requestAnimationFrame(animLoop);
+                } else {
+                    state.isAnimating = false;
+                    resetPreviewBtn();
+                }
+            }
+            requestAnimationFrame(animLoop);
+        }
+
+        function resetPreviewBtn() {
+            btnPreview.classList.remove('bg-white/40');
+            btnPreview.classList.add('bg-white/20');
+            iconPlay.classList.replace('ph-stop', 'ph-play');
+            textPlay.innerText = 'Preview';
+            btnExport.disabled = false;
+            
+            // Hide canvas ad when preview stops
+            const adOverlay = document.getElementById('canvas-ad-overlay');
+            if (adOverlay) adOverlay.classList.add('translate-y-32', 'opacity-0', 'pointer-events-none');
+        }
+
+        function exportSnapshot(targetWidth, exportScale, isTransparent) {
+            const targetHeight = targetWidth * (1080/1920);
+            const expCanvas = document.createElement('canvas');
+            expCanvas.width = targetWidth;
+            expCanvas.height = targetHeight;
+            
+            updateStateFromUI(false);
+            renderFrame(1.0, expCanvas, exportScale, isTransparent);
+
+            const url = expCanvas.toDataURL("image/png");
+            const a = document.createElement('a');
+            a.href = url;
+            const bgStatus = isTransparent ? 'transparent' : 'solid';
+            a.download = `parliament-animator-snap-${targetWidth}w-${bgStatus}-${Date.now()}.png`;
+            a.click();
+            showToast('Snapshot exported successfully!', 'success');
+        }
+
+        function exportGIF(targetWidth, exportScale, isTransparent) {
+            if (!gifWorkerUrl) return showToast('GIF encoder initializing. Try again in a moment.', 'info');
+            
+            const targetHeight = targetWidth * (1080/1920);
+            const expCanvas = document.createElement('canvas');
+            expCanvas.width = targetWidth;
+            expCanvas.height = targetHeight;
+            const eCtx = expCanvas.getContext('2d', { willReadFrequently: true });
+
+            const gif = new GIF({
+                workers: 2,
+                quality: 10,
+                width: targetWidth,
+                height: targetHeight,
+                workerScript: gifWorkerUrl,
+                transparent: isTransparent ? 'rgba(0,0,0,0)' : null
+            });
+
+            state.isRecording = true;
+            btnPreview.disabled = true;
+            btnExport.disabled = true;
+            
+            overlay.classList.remove('-translate-y-32');
+            overlay.classList.add('translate-y-4');
+            recordingText.innerText = 'Preparing GIF...';
+
+            updateStateFromUI(false);
+            
+            const fps = 15;
+            const totalTimeSec = state.duration / 1000;
+            const totalFrames = Math.ceil(totalTimeSec * fps);
+            let currentFrame = 0;
+
+            function renderNextFrame() {
+                if (!state.isRecording) return;
+
+                let p = currentFrame / totalFrames;
+                p = Math.max(0, Math.min(1, p));
+                
+                state.progress = p;
+                
+                renderFrame(p, expCanvas, exportScale, isTransparent);
+                
+                if (isTransparent) {
+                    gif.addFrame(eCtx, {copy: true, delay: 1000 / fps, dispose: 2});
+                } else {
+                    gif.addFrame(eCtx, {copy: true, delay: 1000 / fps});
+                }
+                
+                renderFrame(p, canvas, 1.0, false);
+
+                let pct = Math.round((currentFrame / totalFrames) * 50); 
+                recordingText.innerText = `Rendering Frames ${pct}%`;
+
+                currentFrame++;
+                if (currentFrame <= totalFrames) {
+                    requestAnimationFrame(renderNextFrame);
+                } else {
+                    recordingText.innerText = `Encoding GIF... (This takes a while)`;
+                    gif.render();
+                }
+            }
+
+            gif.on('finished', function(blob) {
+                const url = URL.createObjectURL(blob);
+                const a = document.createElement('a');
+                a.style.display = 'none';
+                a.href = url;
+                const bgStatus = isTransparent ? 'transparent' : 'solid';
+                a.download = `parliament-animator-${targetWidth}w-${bgStatus}-${Date.now()}.gif`;
+                document.body.appendChild(a);
+                a.click();
+                
+                setTimeout(() => {
+                    document.body.removeChild(a);
+                    URL.revokeObjectURL(url);
+                }, 100);
+
+                overlay.classList.remove('translate-y-4');
+                overlay.classList.add('-translate-y-32');
+                state.isRecording = false;
+                state.progress = 1.0;
+                renderFrame(1.0, canvas, 1.0, false); 
+                btnPreview.disabled = false;
+                btnExport.disabled = false;
+                recordingText.innerText = 'Rendering Design...';
+                showToast('GIF exported successfully!', 'success');
+            });
+
+            renderNextFrame();
+        }
+
+        async function exportVideo(targetWidth, exportScale) {
+            const targetHeight = targetWidth * (1080/1920);
+            const expCanvas = document.createElement('canvas');
+            expCanvas.width = targetWidth;
+            expCanvas.height = targetHeight;
+
+            let mediaRecorder;
+            let recordedChunks = [];
+            state.isRecording = true;
+            
+            try {
+                const stream = expCanvas.captureStream(60);
+                
+                let options = { mimeType: 'video/webm;codecs=vp9' };
+                if (!MediaRecorder.isTypeSupported(options.mimeType)) {
+                    options = { mimeType: 'video/webm;codecs=vp8' };
+                    if (!MediaRecorder.isTypeSupported(options.mimeType)) {
+                        options = { mimeType: 'video/webm' };
+                    }
+                }
+
+                options.videoBitsPerSecond = 20000000;
+
+                mediaRecorder = new MediaRecorder(stream, options);
+
+                mediaRecorder.ondataavailable = (e) => {
+                    if (e.data.size > 0) recordedChunks.push(e.data);
+                };
+
+                mediaRecorder.onstop = () => {
+                    const blob = new Blob(recordedChunks, { type: options.mimeType.split(';')[0] });
+                    const url = URL.createObjectURL(blob);
+                    
+                    const a = document.createElement('a');
+                    a.style.display = 'none';
+                    a.href = url;
+                    a.download = `parliament-animator-${targetWidth}w-${Date.now()}.webm`;
+                    document.body.appendChild(a);
+                    a.click();
+                    
+                    setTimeout(() => {
+                        document.body.removeChild(a);
+                        window.URL.revokeObjectURL(url);
+                    }, 100);
+
+                    overlay.classList.remove('translate-y-4');
+                    overlay.classList.add('-translate-y-32');
+                    state.isRecording = false;
+                    state.progress = 1.0;
+                    renderFrame(1.0, canvas, 1.0, false); 
+                    btnPreview.disabled = false;
+                    btnExport.disabled = false;
+                    recordingText.innerText = 'Rendering Design...';
+                    showToast('Video exported successfully!', 'success');
+                };
+
+                overlay.classList.remove('-translate-y-32');
+                overlay.classList.add('translate-y-4');
+                recordingText.innerText = 'Rendering Video...';
+
+                mediaRecorder.start();
+
+                btnPreview.disabled = true;
+                btnExport.disabled = true;
+                updateStateFromUI(false);
+                
+                const startTime = performance.now();
+                const durationMs = state.duration;
+
+                function animLoop(currentTime) {
+                    if (!state.isRecording) return;
+                    
+                    const elapsed = Math.max(0, currentTime - startTime);
+                    let p = durationMs > 0 ? elapsed / durationMs : 1.0;
+                    p = Math.max(0, Math.min(1, p));
+                    
+                    state.progress = p;
+                    
+                    renderFrame(p, expCanvas, exportScale, false);
+                    renderFrame(p, canvas, 1.0, false);
+
+                    if (p < 1.0) {
+                        requestAnimationFrame(animLoop);
+                    } else {
+                        recordingText.innerText = 'Finalizing...';
+                        setTimeout(() => {
+                            if(mediaRecorder.state !== 'inactive') mediaRecorder.stop();
+                        }, 500);
+                    }
+                }
+                requestAnimationFrame(animLoop);
+
+            } catch (err) {
+                console.error("Recording failed:", err);
+                showToast('Recording failed. Browser might not support it.', 'error');
+                overlay.classList.remove('translate-y-4');
+                overlay.classList.add('-translate-y-32');
+                state.isRecording = false;
+                btnPreview.disabled = false;
+                btnExport.disabled = false;
+                renderFrame(1.0, canvas, 1.0, false);
+            }
+        }
+
+    </script>
+</body>
+</html>

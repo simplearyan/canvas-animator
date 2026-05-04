@@ -1,0 +1,1036 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Canvas Animators Library — YT Style</title>
+    <meta name="description" content="A professional canvas animation library featuring mock video previews, performance optimizations, and responsive design.">
+    
+    <!-- Resource Hints -->
+    <link rel="dns-prefetch" href="https://fonts.googleapis.com">
+    <link rel="dns-prefetch" href="https://fonts.gstatic.com">
+    <link rel="dns-prefetch" href="https://pagead2.googlesyndication.com">
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+
+    <!-- Lazy Google AdSense -->
+    <script>
+        function loadAdSense() {
+            const script = document.createElement('script');
+            script.src = "https://pagead2.googlesyndication.com/pagead/js/adsbygoogle.js?client=ca-pub-7993314093599705";
+            script.async = true;
+            script.crossOrigin = "anonymous";
+            document.head.appendChild(script);
+        }
+        window.addEventListener('load', () => setTimeout(loadAdSense, 3500));
+    </script>
+
+    <!-- Tailwind CSS -->
+    <script src="https://cdn.tailwindcss.com"></script>
+    <!-- Lucide Icons -->
+    <script src="https://unpkg.com/lucide@latest"></script>
+    <!-- Google Fonts -->
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&display=swap" rel="stylesheet">
+    
+    <script>
+        tailwind.config = {
+            darkMode: 'class', // Enable class-based dark mode
+            theme: {
+                extend: {
+                    fontFamily: {
+                        sans: ['Inter', 'sans-serif'],
+                    },
+                    colors: {
+                        brand: {
+                            50: '#f5f3ff',
+                            100: '#ede9fe',
+                            500: '#8b5cf6',
+                            600: '#7c3aed',
+                            700: '#6d28d9',
+                        }
+                    }
+                }
+            }
+        }
+    </script>
+    <style>
+        /* Custom Scrollbar */
+        .custom-scrollbar::-webkit-scrollbar {
+            width: 5px;
+            height: 5px;
+        }
+        .custom-scrollbar::-webkit-scrollbar-track {
+            background: transparent;
+        }
+        .custom-scrollbar::-webkit-scrollbar-thumb {
+            background: #e5e7eb;
+            border-radius: 10px;
+        }
+        .custom-scrollbar:hover::-webkit-scrollbar-thumb {
+            background: #d1d5db;
+        }
+        
+        /* Dark Mode Scrollbar */
+        .dark .custom-scrollbar::-webkit-scrollbar-thumb {
+            background: #3f3f46; /* zinc-700 */
+        }
+        .dark .custom-scrollbar:hover::-webkit-scrollbar-thumb {
+            background: #52525b; /* zinc-600 */
+        }
+
+        /* Animations */
+        @keyframes pulse-slow {
+            0%, 100% { opacity: 1; }
+            50% { opacity: 0.8; }
+        }
+        .animate-preview {
+            animation: pulse-slow 4s cubic-bezier(0.4, 0, 0.6, 1) infinite;
+        }
+        @keyframes fade-in {
+            from { opacity: 0; transform: translateY(8px); }
+            to { opacity: 1; transform: translateY(0); }
+        }
+        .animate-fade-in {
+            animation: fade-in 0.3s ease-out forwards;
+        }
+
+        /* Push Sidebar Base Styles */
+        #sidebarPush .nav-link {
+            display: flex;
+            align-items: center;
+            gap: 0.75rem;
+            padding: 0.625rem 0.75rem;
+            border-radius: 0.75rem;
+            text-decoration: none;
+        }
+        #sidebarPush .nav-text {
+            font-size: 0.875rem;
+            font-weight: 500;
+            white-space: nowrap;
+        }
+
+        /* Push Sidebar Mini State */
+        #sidebarPush.is-mini .nav-link {
+            flex-direction: column;
+            justify-content: center;
+            gap: 0.375rem;
+            padding: 0.75rem 0.25rem;
+        }
+        #sidebarPush.is-mini .nav-text {
+            font-size: 0.65rem;
+            line-height: 1.1;
+            text-align: center;
+            white-space: normal;
+            display: -webkit-box;
+            -webkit-line-clamp: 1;
+            -webkit-box-orient: vertical;
+            overflow: hidden;
+            text-overflow: ellipsis;
+            width: 100%;
+        }
+        #sidebarPush.is-mini .nav-divider {
+            margin-left: 0.5rem;
+            margin-right: 0.5rem;
+        }
+
+        /* Editor Transparency Grid */
+        .bg-checker {
+            background-color: #f3f4f6;
+            background-image: linear-gradient(45deg, #e5e7eb 25%, transparent 25%), 
+                              linear-gradient(-45deg, #e5e7eb 25%, transparent 25%), 
+                              linear-gradient(45deg, transparent 75%, #e5e7eb 75%), 
+                              linear-gradient(-45deg, transparent 75%, #e5e7eb 75%);
+            background-size: 20px 20px;
+            background-position: 0 0, 0 10px, 10px -10px, -10px 0px;
+        }
+        /* Dark Mode Editor Grid */
+        .dark .bg-checker {
+            background-color: #18181b; /* zinc-900 */
+            background-image: linear-gradient(45deg, #27272a 25%, transparent 25%),
+                              linear-gradient(-45deg, #27272a 25%, transparent 25%),
+                              linear-gradient(45deg, transparent 75%, #27272a 75%),
+                              linear-gradient(-45deg, transparent 75%, #27272a 75%);
+        }
+
+        /* Timeline Ruler */
+        .timeline-ruler {
+            background-image: linear-gradient(90deg, #e5e7eb 1px, transparent 1px);
+        }
+        .dark .timeline-ruler {
+            background-image: linear-gradient(90deg, #27272a 1px, transparent 1px);
+        }
+        
+        /* Initialization for dark mode to prevent flash */
+        html.dark { background-color: #09090b; }
+    </style>
+    <!-- Dark Mode Init Script -->
+    <script>
+        if (localStorage.getItem('theme') === 'dark' || (!('theme' in localStorage) && window.matchMedia('(prefers-color-scheme: dark)').matches)) {
+            document.documentElement.classList.add('dark');
+        } else {
+            document.documentElement.classList.remove('dark');
+        }
+    </script>
+</head>
+<body class="bg-white dark:bg-zinc-950 text-gray-900 dark:text-zinc-100 h-screen flex flex-col overflow-hidden antialiased transition-colors duration-200">
+
+    <!-- Header -->
+    <header id="mainHeader" class="h-16 border-b border-gray-200 dark:border-zinc-800 bg-white dark:bg-zinc-900 flex items-center justify-between px-4 lg:px-6 relative z-50 flex-shrink-0 transition-all duration-300">
+        <div class="flex items-center gap-4">
+            <!-- Menu Toggle -->
+            <button id="mainToggleBtn" class="p-2 rounded-md text-gray-500 dark:text-zinc-400 hover:bg-gray-100 dark:hover:bg-zinc-800 focus:outline-none transition-colors">
+                <i data-lucide="menu" class="w-5 h-5"></i>
+            </button>
+            
+            <!-- Logo -->
+            <a href="#" class="flex items-center gap-2 group">
+                <div class="w-8 h-8 bg-brand-600 rounded-lg flex items-center justify-center text-white group-hover:bg-brand-700 transition-colors">
+                    <i data-lucide="aperture" class="w-5 h-5"></i>
+                </div>
+                <span class="font-bold text-xl tracking-tight hidden sm:block text-gray-900 dark:text-white">AnimCanvas</span>
+            </a>
+        </div>
+
+        <!-- Search Bar -->
+        <div id="headerSearch" class="flex-1 max-w-2xl px-4 lg:px-12 transition-opacity duration-300">
+            <div class="relative group">
+                <div class="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none text-gray-400 group-focus-within:text-brand-600 dark:group-focus-within:text-brand-500">
+                    <i data-lucide="search" class="w-4 h-4"></i>
+                </div>
+                <input 
+                    type="text" 
+                    id="searchInput"
+                    class="block w-full pl-10 pr-3 py-2 border border-transparent dark:border-zinc-800 rounded-full leading-5 bg-gray-100 dark:bg-zinc-950/50 text-gray-900 dark:text-zinc-100 placeholder-gray-500 dark:placeholder-zinc-500 focus:outline-none focus:bg-white dark:focus:bg-zinc-900 focus:border-brand-500 dark:focus:border-brand-500 focus:ring-1 focus:ring-brand-500 dark:focus:ring-brand-500 sm:text-sm transition-all duration-200" 
+                    placeholder="Search animations, templates, or creators..."
+                >
+            </div>
+        </div>
+
+        <!-- Right Actions -->
+        <div class="flex items-center gap-2 sm:gap-4">
+            <button class="hidden sm:flex items-center gap-2 text-sm font-medium text-gray-700 dark:text-zinc-300 hover:text-gray-900 dark:hover:text-white px-3 py-2 rounded-md hover:bg-gray-50 dark:hover:bg-zinc-800 transition-colors">
+                <i data-lucide="plus-circle" class="w-4 h-4"></i> Create
+            </button>
+            <!-- Premium Dark Mode Toggle -->
+            <button class="theme-toggle-btn w-9 h-9 rounded-full flex items-center justify-center text-gray-500 dark:text-zinc-400 hover:bg-gray-100 dark:hover:bg-zinc-800 transition-colors focus:outline-none ring-2 ring-transparent dark:ring-zinc-800 shadow-sm dark:shadow-none">
+                <span class="dark:hidden flex items-center justify-center"><i data-lucide="moon" class="w-5 h-5"></i></span>
+                <span class="hidden dark:flex items-center justify-center"><i data-lucide="sun" class="w-5 h-5"></i></span>
+            </button>
+        </div>
+    </header>
+
+    <!-- Main Layout -->
+    <div class="flex flex-1 overflow-hidden relative bg-white dark:bg-zinc-950 transition-colors duration-200">
+        
+        <!-- 1. PUSH SIDEBAR (Hidden on mobile, Mini on tablet, Toggles on desktop) -->
+        <aside id="sidebarPush" class="hidden md:flex flex-col border-r border-gray-200 dark:border-zinc-800 overflow-hidden transition-all duration-300 w-20 xl:w-64 flex-shrink-0 z-10 bg-white dark:bg-zinc-900">
+            <nav id="navMenuPush" class="flex-1 overflow-y-auto custom-scrollbar px-2 xl:px-3 pb-4 pt-4 space-y-1">
+                <!-- Nav items generated by JS -->
+            </nav>
+        </aside>
+
+        <!-- Main Content (Handles switching between standard views and Editor view) -->
+        <main class="flex-1 flex flex-col bg-white dark:bg-zinc-950 relative w-full overflow-hidden transition-colors duration-200">
+            
+            <!-- Standard Views Wrapper (Scrollable) -->
+            <div id="standardViewsWrapper" class="flex-1 overflow-y-auto custom-scrollbar w-full relative">
+                <div class="max-w-7xl mx-auto p-6 md:p-10 lg:p-12">
+                    
+                    <!-- Gallery View -->
+                    <div id="galleryView" class="animate-fade-in">
+                        <!-- Page Header -->
+                        <div class="mb-10 max-w-3xl">
+                            <h1 id="pageTitle" class="text-4xl md:text-5xl font-extrabold tracking-tight text-gray-900 dark:text-zinc-50 mb-4 leading-tight transition-colors">
+                                Free animated background templates
+                            </h1>
+                            <p id="pageDesc" class="text-lg text-gray-600 dark:text-zinc-400 leading-relaxed transition-colors">
+                                <strong class="font-semibold text-gray-900 dark:text-zinc-100">Elevate your designs</strong> with our collection of free, user-friendly animated background templates ready for your canvas.
+                            </p>
+                        </div>
+
+                        <!-- Grid -->
+                        <div id="cardGrid" class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-x-8 gap-y-12">
+                            <!-- Cards generated by JS -->
+                        </div>
+
+                        <!-- Empty State -->
+                        <div id="emptyState" class="hidden flex-col items-center justify-center py-20 text-center">
+                            <div class="w-16 h-16 bg-gray-100 dark:bg-zinc-900 rounded-full flex items-center justify-center text-gray-400 dark:text-zinc-500 mb-4 transition-colors">
+                                <i data-lucide="search-x" class="w-8 h-8"></i>
+                            </div>
+                            <h3 class="text-lg font-medium text-gray-900 dark:text-zinc-100 transition-colors">No templates found</h3>
+                            <p class="text-gray-500 dark:text-zinc-400 mt-1 transition-colors">Try adjusting your search term.</p>
+                        </div>
+                    </div>
+
+                    <!-- Detail View -->
+                    <div id="detailView" class="hidden flex-col gap-6 lg:gap-8 animate-fade-in">
+                        <!-- Breadcrumb -->
+                        <button id="backToGalleryBtn" class="flex items-center gap-2 text-sm font-medium text-gray-500 dark:text-zinc-400 hover:text-gray-900 dark:hover:text-zinc-100 transition-colors w-fit group">
+                            <i data-lucide="arrow-left" class="w-4 h-4 group-hover:-translate-x-1 transition-transform"></i> 
+                            <span id="backBtnText">Back</span>
+                        </button>
+
+                        <div class="flex flex-col lg:flex-row gap-8 lg:gap-12">
+                            <!-- Left: Preview Canvas -->
+                            <div class="flex-1 flex flex-col gap-4">
+                                <div id="detailCanvas" class="w-full aspect-video rounded-2xl shadow-sm dark:shadow-none border border-gray-100 dark:border-zinc-800 flex items-center justify-center overflow-hidden relative transition-colors">
+                                    <!-- Dynamic Content injected here -->
+                                </div>
+                                
+                                <!-- Player Controls Bar -->
+                                <div class="flex items-center justify-between text-sm text-gray-500 dark:text-zinc-400 px-2 transition-colors">
+                                    <div class="flex items-center gap-4">
+                                        <button class="w-8 h-8 flex items-center justify-center rounded-full hover:bg-gray-100 dark:hover:bg-zinc-800 text-gray-700 dark:text-zinc-300 transition-colors">
+                                            <i data-lucide="play" class="w-4 h-4 fill-current"></i>
+                                        </button>
+                                        <div class="h-1.5 w-32 md:w-64 bg-gray-200 dark:bg-zinc-800 rounded-full overflow-hidden transition-colors">
+                                            <div class="h-full bg-brand-500 dark:bg-brand-600 w-1/3"></div>
+                                        </div>
+                                        <span class="font-medium text-gray-600 dark:text-zinc-400">0:01 / 0:03</span>
+                                    </div>
+                                    <div class="hidden sm:flex items-center gap-3">
+                                        <span>1080 × 1080</span>
+                                        <span>•</span>
+                                        <span>60 fps</span>
+                                    </div>
+                                </div>
+                            </div>
+
+                            <!-- Right: Details & Config -->
+                            <div class="w-full lg:w-[380px] shrink-0 flex flex-col gap-8">
+                                <div>
+                                    <div class="flex items-center gap-2 mb-3">
+                                        <span id="detailCategory" class="text-[11px] font-bold uppercase tracking-wider text-brand-700 dark:text-brand-300 bg-brand-50 dark:bg-brand-500/20 px-2.5 py-1 rounded-md border border-brand-100 dark:border-brand-500/30 transition-colors">Category</span>
+                                    </div>
+                                    <h1 id="detailTitle" class="text-3xl font-extrabold text-gray-900 dark:text-zinc-50 mb-3 tracking-tight transition-colors">Template Title</h1>
+                                    <p class="text-gray-500 dark:text-zinc-400 leading-relaxed text-[15px] transition-colors">A fully customizable, clean animation designed to give your project a dynamic edge. Easy to adapt to your brand.</p>
+                                </div>
+
+                                <button id="openEditorBtn" class="w-full bg-gray-900 dark:bg-zinc-100 hover:bg-black dark:hover:bg-white text-white dark:text-zinc-900 font-semibold py-3.5 px-4 rounded-xl shadow-sm transition-transform active:scale-[0.98] flex items-center justify-center gap-2">
+                                    <i data-lucide="layout-template" class="w-5 h-5"></i> Open in Editor
+                                </button>
+
+                                <!-- Mock Adjustments -->
+                                <div class="border-t border-gray-100 dark:border-zinc-800 pt-6 transition-colors">
+                                    <h3 class="font-semibold text-gray-900 dark:text-zinc-100 mb-5 flex items-center gap-2 transition-colors">
+                                        <i data-lucide="sliders" class="w-4 h-4 text-gray-400 dark:text-zinc-500"></i> Quick Adjustments
+                                    </h3>
+                                    <div class="space-y-5">
+                                        <div>
+                                            <label class="block text-xs font-bold text-gray-500 dark:text-zinc-400 uppercase tracking-wide mb-2 transition-colors">Primary Text</label>
+                                            <input type="text" id="detailTextInput" value="MORPH" class="w-full bg-gray-50 dark:bg-zinc-900/50 border border-gray-200 dark:border-zinc-700 rounded-xl px-4 py-2.5 text-sm font-medium text-gray-900 dark:text-zinc-100 focus:outline-none focus:ring-2 focus:ring-brand-500/20 dark:focus:ring-brand-500/40 focus:border-brand-500 transition-all">
+                                        </div>
+                                        <div class="grid grid-cols-2 gap-4">
+                                            <div>
+                                                <label class="block text-xs font-bold text-gray-500 dark:text-zinc-400 uppercase tracking-wide mb-2 transition-colors">Accent</label>
+                                                <button class="w-full flex items-center gap-3 bg-white dark:bg-zinc-900 border border-gray-200 dark:border-zinc-700 rounded-xl px-3 py-2.5 hover:bg-gray-50 dark:hover:bg-zinc-800 transition-colors text-gray-700 dark:text-zinc-300">
+                                                    <div id="detailAccentColor" class="w-5 h-5 rounded-md shadow-inner bg-[#00c2ff]"></div>
+                                                    <span class="text-sm font-medium">#00C2FF</span>
+                                                </button>
+                                            </div>
+                                            <div>
+                                                <label class="block text-xs font-bold text-gray-500 dark:text-zinc-400 uppercase tracking-wide mb-2 transition-colors">Background</label>
+                                                <button class="w-full flex items-center gap-3 bg-white dark:bg-zinc-900 border border-gray-200 dark:border-zinc-700 rounded-xl px-3 py-2.5 hover:bg-gray-50 dark:hover:bg-zinc-800 transition-colors text-gray-700 dark:text-zinc-300">
+                                                    <div id="detailBgColor" class="w-5 h-5 rounded-md shadow-inner bg-[#12122b]"></div>
+                                                    <span class="text-sm font-medium">#12122B</span>
+                                                </button>
+                                            </div>
+                                        </div>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Editor View (Fixed Layout) -->
+            <div id="editorView" class="hidden flex-1 flex-col bg-gray-50 dark:bg-zinc-950 z-20 w-full h-full overflow-hidden animate-fade-in absolute inset-0 transition-colors duration-200">
+                
+                <!-- Editor Topbar (Functions as the single header for the Editor) -->
+                <div class="h-16 border-b border-gray-200 dark:border-zinc-800 bg-white dark:bg-zinc-900 flex items-center justify-between px-4 lg:px-6 shrink-0 shadow-sm dark:shadow-none z-10 transition-colors">
+                    <div class="flex items-center gap-2 sm:gap-4">
+                        <!-- Menu Toggle for Editor -->
+                        <button id="editorToggleBtn" class="p-2 rounded-md text-gray-500 dark:text-zinc-400 hover:bg-gray-100 dark:hover:bg-zinc-800 focus:outline-none transition-colors">
+                            <i data-lucide="menu" class="w-5 h-5"></i>
+                        </button>
+                        <button id="editorBackBtn" class="p-2 hover:bg-gray-100 dark:hover:bg-zinc-800 rounded-lg text-gray-500 dark:text-zinc-400 transition-colors group" title="Back to Details">
+                            <i data-lucide="arrow-left" class="w-5 h-5 group-hover:-translate-x-0.5 transition-transform"></i>
+                        </button>
+                        <div class="h-6 w-px bg-gray-200 dark:bg-zinc-700 hidden sm:block ml-2 transition-colors"></div>
+                        <span id="editorTitle" class="font-semibold text-gray-900 dark:text-zinc-100 text-[15px] hidden sm:block pl-2 transition-colors">Template Editor</span>
+                        <span class="px-2 py-0.5 bg-gray-100 dark:bg-zinc-800 text-gray-500 dark:text-zinc-400 text-[10px] font-bold uppercase tracking-wide rounded hidden sm:block transition-colors">Saved</span>
+                    </div>
+                    <div class="flex items-center gap-2 sm:gap-3">
+                        <button class="p-2 hover:bg-gray-100 dark:hover:bg-zinc-800 rounded-lg text-gray-500 dark:text-zinc-400 hidden sm:block transition-colors" title="Undo"><i data-lucide="undo" class="w-4 h-4"></i></button>
+                        <button class="p-2 hover:bg-gray-100 dark:hover:bg-zinc-800 rounded-lg text-gray-500 dark:text-zinc-400 hidden sm:block transition-colors" title="Redo"><i data-lucide="redo" class="w-4 h-4"></i></button>
+                        <button class="p-2 hover:bg-gray-100 dark:hover:bg-zinc-800 rounded-lg text-gray-500 dark:text-zinc-400 sm:hidden transition-colors" title="Settings"><i data-lucide="more-vertical" class="w-4 h-4"></i></button>
+                        <button class="bg-brand-600 hover:bg-brand-700 text-white px-4 py-2 rounded-lg text-sm font-medium shadow-sm transition-colors flex items-center gap-2">
+                            <i data-lucide="download" class="w-4 h-4"></i> <span class="hidden sm:inline">Export</span>
+                        </button>
+                        <!-- Dark Mode Toggle for Editor -->
+                        <button class="theme-toggle-btn w-9 h-9 ml-1 sm:ml-2 rounded-full flex items-center justify-center text-gray-500 dark:text-zinc-400 hover:bg-gray-100 dark:hover:bg-zinc-800 transition-colors focus:outline-none ring-2 ring-transparent dark:ring-zinc-800">
+                            <span class="dark:hidden flex items-center justify-center"><i data-lucide="moon" class="w-5 h-5"></i></span>
+                            <span class="hidden dark:flex items-center justify-center"><i data-lucide="sun" class="w-5 h-5"></i></span>
+                        </button>
+                    </div>
+                </div>
+
+                <!-- Editor Main Workspace -->
+                <div class="flex flex-1 overflow-hidden relative">
+                    
+                    <!-- Left Toolbar -->
+                    <div class="w-16 border-r border-gray-200 dark:border-zinc-800 bg-white dark:bg-zinc-900 flex flex-col items-center py-4 gap-2 shrink-0 z-10 transition-colors">
+                        <button class="p-2.5 bg-brand-50 dark:bg-brand-500/20 text-brand-600 dark:text-brand-400 rounded-xl transition-colors tooltip" title="Select">
+                            <i data-lucide="mouse-pointer-2" class="w-5 h-5"></i>
+                        </button>
+                        <button class="p-2.5 hover:bg-gray-100 dark:hover:bg-zinc-800 text-gray-500 dark:text-zinc-400 rounded-xl transition-colors tooltip" title="Add Text">
+                            <i data-lucide="type" class="w-5 h-5"></i>
+                        </button>
+                        <button class="p-2.5 hover:bg-gray-100 dark:hover:bg-zinc-800 text-gray-500 dark:text-zinc-400 rounded-xl transition-colors tooltip" title="Add Shape">
+                            <i data-lucide="square" class="w-5 h-5"></i>
+                        </button>
+                        <button class="p-2.5 hover:bg-gray-100 dark:hover:bg-zinc-800 text-gray-500 dark:text-zinc-400 rounded-xl transition-colors tooltip" title="Add Media">
+                            <i data-lucide="image" class="w-5 h-5"></i>
+                        </button>
+                        <div class="w-8 h-px bg-gray-200 dark:bg-zinc-700 my-2 transition-colors"></div>
+                        <button class="p-2.5 hover:bg-gray-100 dark:hover:bg-zinc-800 text-gray-500 dark:text-zinc-400 rounded-xl transition-colors tooltip" title="Layers">
+                            <i data-lucide="layers" class="w-5 h-5"></i>
+                        </button>
+                    </div>
+
+                    <!-- Center Canvas Area -->
+                    <div class="flex-1 bg-checker overflow-auto relative custom-scrollbar flex transition-colors duration-200" id="editorCanvasWrapper">
+                        <div class="m-auto p-8 lg:p-16 flex items-center justify-center min-w-full min-h-full">
+                            <!-- The actual Canvas -->
+                            <div id="editorCanvas" class="shadow-lg ring-1 ring-black/5 dark:ring-white/5 relative overflow-hidden flex items-center justify-center rounded-sm" style="width: 800px; height: 450px; transition: transform 0.2s;">
+                                <!-- Template content injected here -->
+                            </div>
+                        </div>
+                        
+                        <!-- Zoom Controls -->
+                        <div class="absolute bottom-4 right-4 bg-white dark:bg-zinc-800 shadow-md border border-gray-200 dark:border-zinc-700 rounded-lg flex items-center p-1 z-10 transition-colors">
+                            <button class="p-1.5 hover:bg-gray-100 dark:hover:bg-zinc-700 text-gray-600 dark:text-zinc-300 rounded-md transition-colors"><i data-lucide="minus" class="w-4 h-4"></i></button>
+                            <span class="text-xs font-medium text-gray-600 dark:text-zinc-300 px-3 min-w-[3rem] text-center transition-colors">100%</span>
+                            <button class="p-1.5 hover:bg-gray-100 dark:hover:bg-zinc-700 text-gray-600 dark:text-zinc-300 rounded-md transition-colors"><i data-lucide="plus" class="w-4 h-4"></i></button>
+                        </div>
+                    </div>
+
+                    <!-- Right Properties Panel -->
+                    <div class="w-64 lg:w-72 border-l border-gray-200 dark:border-zinc-800 bg-white dark:bg-zinc-900 flex flex-col shrink-0 overflow-y-auto custom-scrollbar z-10 hidden sm:flex transition-colors">
+                        <div class="p-5 border-b border-gray-200 dark:border-zinc-800 transition-colors">
+                            <h3 class="text-[11px] font-bold text-gray-500 dark:text-zinc-400 uppercase tracking-wider mb-4 flex items-center gap-2 transition-colors">
+                                <i data-lucide="settings-2" class="w-3.5 h-3.5"></i> Canvas Properties
+                            </h3>
+                            <div class="space-y-5">
+                                
+                                <!-- Background Color -->
+                                <div>
+                                    <label class="text-xs font-semibold text-gray-700 dark:text-zinc-300 mb-1.5 block transition-colors">Background</label>
+                                    <div class="flex items-center gap-2">
+                                        <div id="editorPanelBgPreview" class="w-8 h-8 rounded-md border border-gray-200 dark:border-zinc-700 shadow-inner bg-black cursor-pointer transition-colors"></div>
+                                        <input type="text" id="editorPanelBgInput" class="text-sm font-medium border border-gray-200 dark:border-zinc-700 rounded-md px-3 py-1.5 flex-1 focus:ring-2 focus:ring-brand-500/20 focus:border-brand-500 focus:outline-none bg-transparent text-gray-900 dark:text-zinc-100 transition-colors" value="#12122b">
+                                    </div>
+                                </div>
+                                
+                                <!-- Dimensions -->
+                                <div>
+                                    <label class="text-xs font-semibold text-gray-700 dark:text-zinc-300 mb-1.5 block transition-colors">Dimensions (px)</label>
+                                    <div class="flex items-center gap-2">
+                                        <div class="flex-1 flex items-center border border-gray-200 dark:border-zinc-700 rounded-md focus-within:ring-2 focus-within:ring-brand-500/20 focus-within:border-brand-500 transition-all bg-gray-50 dark:bg-zinc-950/50">
+                                            <span class="text-gray-400 dark:text-zinc-500 pl-3 text-xs transition-colors">W</span>
+                                            <input type="number" class="w-full text-sm font-medium bg-transparent text-gray-900 dark:text-zinc-100 px-2 py-1.5 focus:outline-none transition-colors" value="1920">
+                                        </div>
+                                        <i data-lucide="link" class="w-3 h-3 text-gray-400 dark:text-zinc-500 transition-colors"></i>
+                                        <div class="flex-1 flex items-center border border-gray-200 dark:border-zinc-700 rounded-md focus-within:ring-2 focus-within:ring-brand-500/20 focus-within:border-brand-500 transition-all bg-gray-50 dark:bg-zinc-950/50">
+                                            <span class="text-gray-400 dark:text-zinc-500 pl-3 text-xs transition-colors">H</span>
+                                            <input type="number" class="w-full text-sm font-medium bg-transparent text-gray-900 dark:text-zinc-100 px-2 py-1.5 focus:outline-none transition-colors" value="1080">
+                                        </div>
+                                    </div>
+                                </div>
+                                
+                                <!-- Duration -->
+                                <div>
+                                    <label class="text-xs font-semibold text-gray-700 dark:text-zinc-300 mb-1.5 block transition-colors">Duration</label>
+                                    <div class="flex items-center gap-2">
+                                        <input type="text" class="w-20 text-sm font-medium border border-gray-200 dark:border-zinc-700 rounded-md px-3 py-1.5 focus:ring-2 focus:ring-brand-500/20 focus:border-brand-500 focus:outline-none bg-transparent text-gray-900 dark:text-zinc-100 transition-colors" value="3s">
+                                        <span class="text-xs text-gray-400 dark:text-zinc-500 transition-colors">at 60fps</span>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+
+                        <!-- Active Layer Mock -->
+                        <div class="p-5 flex-1">
+                            <h3 class="text-[11px] font-bold text-gray-500 dark:text-zinc-400 uppercase tracking-wider mb-4 flex items-center gap-2 transition-colors">
+                                <i data-lucide="type" class="w-3.5 h-3.5"></i> Text Properties
+                            </h3>
+                            <div class="space-y-5 opacity-50 pointer-events-none">
+                                <div>
+                                    <label class="text-xs font-semibold text-gray-700 dark:text-zinc-300 mb-1.5 block transition-colors">Content</label>
+                                    <input type="text" class="w-full text-sm font-medium border border-gray-200 dark:border-zinc-700 rounded-md px-3 py-1.5 bg-gray-50 dark:bg-zinc-950/50 text-gray-900 dark:text-zinc-100 transition-colors" value="MORPH" readonly>
+                                </div>
+                                <div class="grid grid-cols-2 gap-3">
+                                    <div>
+                                        <label class="text-xs font-semibold text-gray-700 dark:text-zinc-300 mb-1.5 block transition-colors">Font</label>
+                                        <select class="w-full text-sm border border-gray-200 dark:border-zinc-700 rounded-md px-2 py-1.5 bg-gray-50 dark:bg-zinc-950/50 text-gray-900 dark:text-zinc-100 transition-colors">
+                                            <option>Impact</option>
+                                        </select>
+                                    </div>
+                                    <div>
+                                        <label class="text-xs font-semibold text-gray-700 dark:text-zinc-300 mb-1.5 block transition-colors">Size</label>
+                                        <input type="text" class="w-full text-sm border border-gray-200 dark:border-zinc-700 rounded-md px-3 py-1.5 bg-gray-50 dark:bg-zinc-950/50 text-gray-900 dark:text-zinc-100 transition-colors" value="120px">
+                                    </div>
+                                </div>
+                                <div class="p-3 bg-gray-50 dark:bg-zinc-800/50 rounded-lg border border-gray-100 dark:border-zinc-700/50 text-xs text-gray-500 dark:text-zinc-400 text-center mt-4 transition-colors">
+                                    Select a layer to edit
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Bottom Timeline Panel -->
+                <div class="h-48 lg:h-56 border-t border-gray-200 dark:border-zinc-800 bg-white dark:bg-zinc-900 shrink-0 flex flex-col z-10 hidden sm:flex transition-colors">
+                    <!-- Timeline Controls -->
+                    <div class="h-10 border-b border-gray-100 dark:border-zinc-800 flex items-center justify-between px-4 bg-gray-50/50 dark:bg-zinc-950/50 transition-colors">
+                        <div class="flex items-center gap-2">
+                            <button class="p-1.5 hover:bg-gray-200 dark:hover:bg-zinc-700 rounded text-gray-600 dark:text-zinc-400 transition-colors"><i data-lucide="skip-back" class="w-4 h-4"></i></button>
+                            <button class="p-1.5 hover:bg-gray-200 dark:hover:bg-zinc-700 rounded text-gray-600 dark:text-zinc-400 transition-colors"><i data-lucide="play" class="w-4 h-4 fill-current"></i></button>
+                            <div class="h-4 w-px bg-gray-300 dark:bg-zinc-700 mx-1 transition-colors"></div>
+                            <span class="text-xs font-medium font-mono text-gray-600 dark:text-zinc-300 bg-white dark:bg-zinc-800 px-2 py-0.5 rounded border border-gray-200 dark:border-zinc-700 transition-colors">00:00:00 / 00:00:03</span>
+                        </div>
+                        <div class="flex items-center gap-3 text-xs font-medium text-gray-400 dark:text-zinc-500 transition-colors">
+                            <i data-lucide="zoom-in" class="w-3.5 h-3.5"></i> Timeline Zoom
+                        </div>
+                    </div>
+                    
+                    <!-- Timeline Tracks -->
+                    <div class="flex-1 flex overflow-hidden">
+                        <!-- Track Labels -->
+                        <div class="w-48 lg:w-64 border-r border-gray-200 dark:border-zinc-800 flex flex-col overflow-y-auto custom-scrollbar bg-gray-50 dark:bg-zinc-950 shrink-0 transition-colors">
+                            <div class="h-8 border-b border-gray-200 dark:border-zinc-800 flex items-center px-4 transition-colors"></div> <!-- Header spacer -->
+                            <div class="h-10 flex items-center px-4 gap-3 border-b border-gray-100 dark:border-zinc-800/50 bg-white dark:bg-zinc-900 group cursor-pointer hover:bg-gray-50 dark:hover:bg-zinc-800/50 transition-colors">
+                                <i data-lucide="type" class="w-3.5 h-3.5 text-blue-500"></i>
+                                <span class="text-xs font-medium text-gray-700 dark:text-zinc-300 truncate flex-1 transition-colors">Text Layer</span>
+                                <i data-lucide="eye" class="w-3 h-3 text-gray-400 opacity-0 group-hover:opacity-100 transition-opacity"></i>
+                            </div>
+                            <div class="h-10 flex items-center px-4 gap-3 border-b border-gray-100 dark:border-zinc-800/50 bg-white dark:bg-zinc-900 group cursor-pointer hover:bg-gray-50 dark:hover:bg-zinc-800/50 transition-colors">
+                                <i data-lucide="square" class="w-3.5 h-3.5 text-purple-500"></i>
+                                <span class="text-xs font-medium text-gray-700 dark:text-zinc-300 truncate flex-1 transition-colors">Background Layer</span>
+                                <i data-lucide="eye" class="w-3 h-3 text-gray-400 opacity-0 group-hover:opacity-100 transition-opacity"></i>
+                            </div>
+                        </div>
+                        
+                        <!-- Timeline Grid & Clips -->
+                        <div class="flex-1 relative overflow-auto custom-scrollbar bg-white dark:bg-zinc-900 transition-colors">
+                            <!-- Playhead (Red line) -->
+                            <div class="absolute top-0 bottom-0 left-32 w-px bg-red-500 z-20 pointer-events-none"></div>
+                            <!-- Playhead handle -->
+                            <div class="absolute top-0 w-2.5 h-3 bg-red-500 -translate-x-[5px] left-32 z-20 cursor-ew-resize rounded-b-sm"></div>
+                            
+                            <!-- Timeline Ruler -->
+                            <div class="h-8 border-b border-gray-200 dark:border-zinc-800 flex items-end pb-1 relative transition-colors" style="width: 1000px;">
+                                <div class="absolute left-0 text-[10px] text-gray-400 dark:text-zinc-500 pl-1 transition-colors">0s</div>
+                                <div class="absolute left-[300px] text-[10px] text-gray-400 dark:text-zinc-500 pl-1 transition-colors">1s</div>
+                                <div class="absolute left-[600px] text-[10px] text-gray-400 dark:text-zinc-500 pl-1 transition-colors">2s</div>
+                                <div class="absolute left-[900px] text-[10px] text-gray-400 dark:text-zinc-500 pl-1 transition-colors">3s</div>
+                                
+                                <!-- Tick marks (handled via CSS class) -->
+                                <div class="w-full h-2 timeline-ruler"></div>
+                            </div>
+                            
+                            <!-- Tracks Container -->
+                            <div class="relative" style="width: 1000px;">
+                                <!-- Track 1 -->
+                                <div class="h-10 border-b border-gray-50 dark:border-zinc-800/30 flex items-center relative group transition-colors">
+                                    <!-- Hover highlight -->
+                                    <div class="absolute inset-0 bg-gray-50/50 dark:bg-zinc-800/50 opacity-0 group-hover:opacity-100 pointer-events-none transition-colors"></div>
+                                    <!-- Clip -->
+                                    <div class="absolute h-6 left-[10px] right-[100px] bg-blue-100 dark:bg-blue-900/40 rounded border border-blue-300 dark:border-blue-700 flex items-center px-2 cursor-pointer hover:bg-blue-200 dark:hover:bg-blue-800/50 transition-colors">
+                                        <span class="text-[10px] font-semibold text-blue-700 dark:text-blue-300 truncate transition-colors">Text Anim</span>
+                                    </div>
+                                </div>
+                                <!-- Track 2 -->
+                                <div class="h-10 border-b border-gray-50 dark:border-zinc-800/30 flex items-center relative group transition-colors">
+                                    <div class="absolute inset-0 bg-gray-50/50 dark:bg-zinc-800/50 opacity-0 group-hover:opacity-100 pointer-events-none transition-colors"></div>
+                                    <!-- Clip -->
+                                    <div class="absolute h-6 left-0 right-[100px] bg-purple-100 dark:bg-purple-900/40 rounded border border-purple-300 dark:border-purple-700 flex items-center px-2 cursor-pointer hover:bg-purple-200 dark:hover:bg-purple-800/50 transition-colors">
+                                        <span class="text-[10px] font-semibold text-purple-700 dark:text-purple-300 truncate transition-colors">Background Fill</span>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+            
+        </main>
+    </div>
+
+    <!-- 2. DRAWER SIDEBAR (Floating overlay for mobile/tablet toggles) -->
+    <div id="sidebarOverlay" class="fixed inset-0 bg-gray-900/50 z-[60] hidden transition-opacity opacity-0"></div>
+    <aside id="sidebarDrawer" class="fixed inset-y-0 left-0 z-[70] w-[280px] bg-white dark:bg-zinc-900 shadow-2xl transform -translate-x-full transition-transform duration-300 flex flex-col">
+        <!-- Drawer Header (matches main header) -->
+        <div class="h-16 border-b border-gray-200 dark:border-zinc-800 flex items-center px-4 gap-4 flex-shrink-0 transition-colors">
+            <button id="drawerToggleBtn" class="p-2 rounded-md text-gray-500 dark:text-zinc-400 hover:bg-gray-100 dark:hover:bg-zinc-800 focus:outline-none transition-colors">
+                <i data-lucide="menu" class="w-5 h-5"></i>
+            </button>
+            <a href="#" class="flex items-center gap-2 group">
+                <div class="w-8 h-8 bg-brand-600 rounded-lg flex items-center justify-center text-white group-hover:bg-brand-700 transition-colors">
+                    <i data-lucide="aperture" class="w-5 h-5"></i>
+                </div>
+                <span class="font-bold text-xl tracking-tight text-gray-900 dark:text-white transition-colors">AnimCanvas</span>
+            </a>
+        </div>
+        <nav id="navMenuDrawer" class="flex-1 overflow-y-auto custom-scrollbar px-3 pb-4 pt-4 space-y-1">
+            <!-- Nav items generated by JS -->
+        </nav>
+    </aside>
+
+    <script>
+        // --- THEME TOGGLE LOGIC ---
+        function toggleTheme() {
+            const htmlClass = document.documentElement.classList;
+            htmlClass.toggle('dark');
+            
+            if (htmlClass.contains('dark')) {
+                localStorage.setItem('theme', 'dark');
+            } else {
+                localStorage.setItem('theme', 'light');
+            }
+        }
+
+        // Attach event listener to all theme toggle buttons
+        document.querySelectorAll('.theme-toggle-btn').forEach(btn => {
+            btn.addEventListener('click', toggleTheme);
+        });
+
+
+        // --- DATA ---
+        const navItems = [
+            { id: 'templates', label: 'Templates', icon: 'layout-template' },
+            { id: 'community', label: 'Community', icon: 'users' },
+            { divider: true },
+            { id: 'new', label: 'New', icon: 'sparkles' },
+            { id: 'devices', label: 'Devices', icon: 'smartphone' },
+            { id: 'logos', label: 'Logos', icon: 'box' },
+            { id: 'social', label: 'Social media', icon: 'message-circle' },
+            { id: 'video', label: 'Video titles', icon: 'play-square' },
+            { id: 'ads', label: 'Ads', icon: 'megaphone' },
+            { id: 'websites', label: 'Websites', icon: 'globe' },
+            { id: 'ui', label: 'UI elements', icon: 'layout' },
+            { id: 'charts', label: 'Charts', icon: 'bar-chart-2' },
+            { id: 'icons', label: 'Icons', icon: 'smile' },
+            { id: 'buttons', label: 'Buttons', icon: 'mouse-pointer-click' },
+            { id: 'text', label: 'Text', icon: 'type' },
+            { id: 'backgrounds', label: 'Backgrounds', icon: 'image', active: true },
+            { id: 'showreels', label: 'Showreels', icon: 'film' },
+        ];
+
+        // Adjusted some mock template classes slightly so they respond well to dark mode
+        const templatesData = [
+            // Preview Video and Image Cards
+            { id: 101, title: 'Parliament Pro (Barlow)', category: 'showreels', color: 'bg-gray-100 dark:bg-[#181818]', bgHex: '#181818', videoSrc: '../_demos/previews/v0.5-font-families.webm', thumbnail: 'thumbnails/v0.5-font-families.webp', content: '' },
+            { id: 102, title: 'Ads Integration (v0.8)', category: 'ads', color: 'bg-gray-100 dark:bg-[#181818]', bgHex: '#181818', videoSrc: '../_demos/previews/v0.8-ads-integration.webm', thumbnail: 'thumbnails/v0.8-ads-integration.webp', content: '' },
+            { id: 103, title: 'Ads Integration (v0.3)', category: 'ads', color: 'bg-gray-100 dark:bg-[#181818]', bgHex: '#181818', videoSrc: '../_demos/previews/v0.3-ads-integration.webm', thumbnail: 'thumbnails/v0.3-ads-integration.webp', content: '' },
+            { id: 104, title: 'Stock Market Dashboard', category: 'charts', color: 'bg-gray-100 dark:bg-[#181818]', bgHex: '#181818', videoSrc: 'mock-animation/16-9/editorial-chart (2).webm', thumbnail: 'thumbnails/editorial-chart (2).webp', content: '' },
+            { id: 105, title: 'Animated Typography Brutalist', category: 'text', color: 'bg-gray-100 dark:bg-[#181818]', bgHex: '#181818', videoSrc: 'mock-animation/16-9/annotation-pro-2560w-solid-1777291438316.webm', thumbnail: 'thumbnails/annotation-pro-2560w-solid-1777291438316.webp', content: '' },
+            
+            // Mock Cards for Design Concept
+            { id: 1, title: 'Animated Search Bar', category: 'ui', color: 'bg-gray-100 dark:bg-zinc-800', bgHex: '#f3f4f6', videoSrc: 'mock-animation/16-9/editorial-chart.webm', content: '<div class="w-3/4 max-w-sm bg-white dark:bg-zinc-900 rounded-full h-10 shadow-sm flex items-center px-4 gap-2 border border-gray-200 dark:border-zinc-700 transition-colors"><i data-lucide="search" class="w-4 h-4 text-gray-400 dark:text-zinc-500"></i><div class="h-2 w-32 bg-gray-200 dark:bg-zinc-700 rounded animate-pulse"></div></div>' },
+            { id: 2, title: 'Simple Notification [iOS]', category: 'ui', color: 'bg-gray-100 dark:bg-zinc-800', bgHex: '#f3f4f6', videoSrc: 'mock-animation/16-9/editorial-chart (1).webm', content: '<div class="bg-white/80 dark:bg-zinc-900/80 backdrop-blur-md p-4 rounded-2xl shadow-sm flex gap-3 items-start w-64 border border-gray-100 dark:border-zinc-700 transition-colors"><div class="w-10 h-10 bg-green-500 rounded-xl flex-shrink-0"></div><div class="space-y-1.5 pt-1"><div class="h-2.5 w-20 bg-gray-800 dark:bg-zinc-200 rounded"></div><div class="h-2 w-24 bg-gray-400 dark:bg-zinc-500 rounded"></div></div></div>' },
+            { id: 3, title: 'Morph: Inflating Text', category: 'text', color: 'bg-[#12122b]', bgHex: '#12122b', videoSrc: 'mock-animation/16-9/annotation-pro-2560w-solid-1777291438316.webm', content: '<div class="text-[#00c2ff] font-black text-5xl tracking-tighter transform scale-110 animate-preview" style="font-family: impact, sans-serif;">MORPH</div>' },
+            { id: 4, title: 'The Track: Personal Record', category: 'social', color: 'bg-[#6b0000]', bgHex: '#6b0000', videoSrc: 'mock-animation/16-9/editorial-chart (2).webm', content: '<div class="relative w-32 h-40 bg-red-600 rounded-lg overflow-hidden flex items-center justify-center shadow-lg"><div class="absolute inset-0 bg-black/20"></div><div class="relative bg-white/10 backdrop-blur p-3 rounded border border-white/20 w-11/12"><div class="text-white text-[10px] font-bold">Congratulations!</div><div class="text-white text-sm font-black mt-1">100m in 11.2s</div></div></div>' },
+            { id: 5, title: 'Gradients: Haze', category: 'backgrounds', color: 'bg-gradient-to-br from-pink-200 via-purple-200 to-indigo-200 animate-preview', bgHex: '#e9d5ff', content: '' },
+            { id: 6, title: 'Circle Cascade', category: 'backgrounds', color: 'bg-[#f42c5e]', bgHex: '#f42c5e', content: '<div class="relative w-full h-full flex items-center justify-center overflow-hidden"><div class="w-32 h-32 border-[8px] border-[#d8f070] rounded-full absolute"></div><div class="w-20 h-20 border-[8px] border-[#d8f070] rounded-full absolute"></div><div class="w-8 h-8 bg-[#d8f070] rounded-full absolute"></div></div>' },
+            { id: 7, title: 'Floating Devices Mockup', category: 'devices', color: 'bg-indigo-50 dark:bg-indigo-950', bgHex: '#eef2ff', content: '<div class="w-24 h-40 bg-white dark:bg-zinc-900 rounded-xl shadow-xl border-4 border-gray-800 dark:border-zinc-700 animate-bounce transition-colors" style="animation-duration: 3s;"></div>' },
+            { id: 8, title: 'Retro Grid Synthwave', category: 'backgrounds', color: 'bg-purple-900', bgHex: '#581c87', content: '<div class="w-full h-full" style="background-image: linear-gradient(0deg, transparent 24%, rgba(255, 255, 255, .1) 25%, rgba(255, 255, 255, .1) 26%, transparent 27%, transparent 74%, rgba(255, 255, 255, .1) 75%, rgba(255, 255, 255, .1) 76%, transparent 77%, transparent), linear-gradient(90deg, transparent 24%, rgba(255, 255, 255, .1) 25%, rgba(255, 255, 255, .1) 26%, transparent 27%, transparent 74%, rgba(255, 255, 255, .1) 75%, rgba(255, 255, 255, .1) 76%, transparent 77%, transparent); background-size: 30px 30px; transform: perspective(500px) rotateX(60deg);"></div>' },
+            { id: 9, title: 'Minimalist Line Chart', category: 'charts', color: 'bg-white dark:bg-zinc-800 border border-gray-100 dark:border-zinc-700', bgHex: '#ffffff', videoSrc: 'mock-animation/16-9/editorial-chart.webm', content: '<svg class="w-full h-full text-blue-500" viewBox="0 0 100 50" preserveAspectRatio="none"><path d="M0,40 Q20,20 40,30 T80,10 T100,20" fill="none" stroke="currentColor" stroke-width="3" stroke-linecap="round"/></svg>' },
+        ];
+
+        // --- STATE & CONSTANTS ---
+        const BREAKPOINT_XL = 1280; // Desktop breakpoint
+        const BREAKPOINT_MD = 768;  // Tablet breakpoint
+
+        let currentCategory = 'backgrounds';
+        let searchQuery = '';
+        
+        let activeTemplate = null;     // Stores the currently selected template
+        let isDesktopPushMini = false; // State for Desktop Push Sidebar
+        let isDrawerOpen = false;      // State for Floating Drawer Overlay
+        let isViewingDetail = false;   // State: Detail view active
+        let isViewingEditor = false;   // State: Editor view active
+
+        // --- DOM ELEMENTS ---
+        const navMenuPush = document.getElementById('navMenuPush');
+        const navMenuDrawer = document.getElementById('navMenuDrawer');
+        const cardGridEl = document.getElementById('cardGrid');
+        const pageTitleEl = document.getElementById('pageTitle');
+        const pageDescEl = document.getElementById('pageDesc');
+        const emptyStateEl = document.getElementById('emptyState');
+        const searchInput = document.getElementById('searchInput');
+        const headerSearch = document.getElementById('headerSearch');
+        const mainHeader = document.getElementById('mainHeader'); 
+        
+        // Layout Wrappers & Views
+        const standardViewsWrapper = document.getElementById('standardViewsWrapper');
+        const galleryView = document.getElementById('galleryView');
+        const detailView = document.getElementById('detailView');
+        const editorView = document.getElementById('editorView');
+        
+        // Buttons
+        const backToGalleryBtn = document.getElementById('backToGalleryBtn');
+        const backBtnText = document.getElementById('backBtnText');
+        const openEditorBtn = document.getElementById('openEditorBtn');
+        const editorBackBtn = document.getElementById('editorBackBtn');
+
+        // Sidebars & Toggles
+        const sidebarPush = document.getElementById('sidebarPush');
+        const sidebarDrawer = document.getElementById('sidebarDrawer');
+        const sidebarOverlay = document.getElementById('sidebarOverlay');
+        const mainToggleBtn = document.getElementById('mainToggleBtn');
+        const drawerToggleBtn = document.getElementById('drawerToggleBtn');
+        const editorToggleBtn = document.getElementById('editorToggleBtn'); 
+
+        // --- RENDER FUNCTIONS ---
+
+        function renderNav() {
+            navMenuPush.innerHTML = '';
+            navMenuDrawer.innerHTML = '';
+            
+            navItems.forEach(item => {
+                if (item.divider) {
+                    navMenuPush.insertAdjacentHTML('beforeend', `<div class="nav-divider my-4 border-t border-gray-100 dark:border-zinc-800 mx-4 transition-colors"></div>`);
+                    navMenuDrawer.insertAdjacentHTML('beforeend', `<div class="my-4 border-t border-gray-100 dark:border-zinc-800 mx-4 transition-colors"></div>`);
+                    return;
+                }
+
+                const isActive = item.id === currentCategory;
+                const activeClass = isActive ? 'bg-brand-50 dark:bg-brand-500/10 text-brand-700 dark:text-brand-400' : 'text-gray-600 dark:text-zinc-400 hover:bg-gray-100 dark:hover:bg-zinc-800/50 hover:text-gray-900 dark:hover:text-zinc-100';
+                const iconClass = isActive ? 'text-brand-600 dark:text-brand-400' : 'text-gray-400 dark:text-zinc-500';
+
+                // Render into Push Sidebar 
+                const linkPush = document.createElement('a');
+                linkPush.href = '#';
+                linkPush.className = `nav-link transition-all duration-200 ${activeClass}`;
+                linkPush.onclick = (e) => { e.preventDefault(); setCategory(item.id, item.label); };
+                linkPush.innerHTML = `
+                    <i data-lucide="${item.icon}" class="w-5 h-5 flex-shrink-0 ${iconClass} transition-colors"></i>
+                    <span class="nav-text transition-colors">${item.label}</span>
+                `;
+                navMenuPush.appendChild(linkPush);
+
+                // Render into Drawer Sidebar
+                const linkDrawer = document.createElement('a');
+                linkDrawer.href = '#';
+                linkDrawer.className = `flex items-center gap-3 px-3 py-2.5 rounded-xl transition-all duration-200 ${activeClass}`;
+                linkDrawer.onclick = (e) => { e.preventDefault(); setCategory(item.id, item.label); };
+                linkDrawer.innerHTML = `
+                    <i data-lucide="${item.icon}" class="w-5 h-5 flex-shrink-0 ${iconClass} transition-colors"></i>
+                    <span class="text-[14px] font-medium whitespace-nowrap transition-colors">${item.label}</span>
+                `;
+                navMenuDrawer.appendChild(linkDrawer);
+            });
+            lucide.createIcons();
+        }
+
+        function renderCards() {
+            cardGridEl.innerHTML = '';
+            
+            let filteredData = templatesData;
+            
+            if (searchQuery) {
+                filteredData = filteredData.filter(item => 
+                    item.title.toLowerCase().includes(searchQuery.toLowerCase())
+                );
+            } else if (currentCategory !== 'templates') {
+                const categoryMatch = filteredData.filter(item => item.category === currentCategory);
+                if (categoryMatch.length > 0) {
+                    filteredData = categoryMatch;
+                } else {
+                    filteredData = templatesData.slice(0, 4);
+                }
+            }
+
+            if (filteredData.length === 0) {
+                cardGridEl.classList.add('hidden');
+                emptyStateEl.classList.remove('hidden');
+                emptyStateEl.classList.add('flex');
+            } else {
+                cardGridEl.classList.remove('hidden');
+                emptyStateEl.classList.add('hidden');
+                emptyStateEl.classList.remove('flex');
+
+                filteredData.forEach(item => {
+                    const card = document.createElement('div');
+                    card.className = 'group cursor-pointer flex flex-col gap-3';
+                    card.innerHTML = `
+                        <!-- Canvas/Image Area -->
+                        <div class="w-full aspect-[4/3] rounded-xl overflow-hidden flex items-center justify-center relative transition-transform duration-300 group-hover:-translate-y-1 group-hover:shadow-lg ${item.color}">
+                            <!-- Placeholder Content -->
+                            <div class="placeholder-preview absolute inset-0 flex items-center justify-center transition-opacity duration-300 z-0 bg-white dark:bg-zinc-900">
+                                ${item.thumbnail ? `<img src="${item.thumbnail}" alt="${item.title}" class="w-full h-full object-cover">` : item.content}
+                            </div>
+                            
+                            <!-- Video Slot -->
+                            <div class="video-slot absolute inset-0 opacity-0 transition-opacity duration-300 z-10 bg-gray-100 dark:bg-zinc-900 pointer-events-none"></div>
+
+                            <!-- Hover Details overlay -->
+                            <div class="absolute inset-0 bg-black/0 group-hover:bg-black/5 dark:group-hover:bg-white/5 transition-colors duration-300 flex items-center justify-center z-20 pointer-events-none">
+                                <div class="opacity-0 group-hover:opacity-100 transform translate-y-2 group-hover:translate-y-0 transition-all duration-300 bg-white dark:bg-zinc-800 text-gray-900 dark:text-zinc-100 text-sm font-semibold py-2 px-4 rounded-full shadow-md pointer-events-none">
+                                    Preview
+                                </div>
+                            </div>
+                        </div>
+                        <!-- Title -->
+                        <div>
+                            <h3 class="text-[15px] font-semibold text-gray-900 dark:text-zinc-100 leading-snug group-hover:text-brand-600 dark:group-hover:text-brand-400 transition-colors">${item.title}</h3>
+                        </div>
+                    `;
+
+                    // YouTube Mock Video Preview Logic
+                    if (item.videoSrc) {
+                        card.addEventListener('mouseenter', () => {
+                            const slot = card.querySelector('.video-slot');
+                            const placeholder = card.querySelector('.placeholder-preview');
+                            let video = slot.querySelector('video');
+                            
+                            if (!video) {
+                                video = document.createElement('video');
+                                video.src = item.videoSrc + '#t=0.1';
+                                video.className = 'w-full h-full object-cover transition-transform duration-500 group-hover:scale-105';
+                                video.muted = true; video.loop = true; video.playsinline = true;
+                                video.onloadeddata = () => {
+                                    slot.classList.replace('opacity-0', 'opacity-100');
+                                    if (placeholder) placeholder.classList.add('opacity-0');
+                                };
+                                slot.appendChild(video);
+                            } else {
+                                // If video already exists, ensure it becomes visible again
+                                slot.classList.replace('opacity-0', 'opacity-100');
+                                if (placeholder) placeholder.classList.add('opacity-0');
+                            }
+                            video.play().catch(()=>{});
+                        });
+                        card.addEventListener('mouseleave', () => {
+                            const v = card.querySelector('video');
+                            if (v) { v.pause(); v.currentTime = 0.1; }
+                            const slot = card.querySelector('.video-slot');
+                            const placeholder = card.querySelector('.placeholder-preview');
+                            slot.classList.replace('opacity-100', 'opacity-0');
+                            if (placeholder) placeholder.classList.remove('opacity-0');
+                        });
+                    }
+
+                    card.addEventListener('click', () => showDetailView(item));
+                    cardGridEl.appendChild(card);
+                });
+                lucide.createIcons();
+            }
+        }
+
+        // --- LAYOUT LOGIC ---
+
+        function updateLayout() {
+            const width = window.innerWidth;
+            const isFocusMode = isViewingDetail || isViewingEditor;
+
+            if (isFocusMode) {
+                sidebarPush.style.display = 'none';
+            } else {
+                sidebarPush.style.display = '';
+
+                if (width >= BREAKPOINT_XL) {
+                    closeDrawer();
+                    if (isDesktopPushMini) {
+                        sidebarPush.classList.remove('xl:w-64');
+                        sidebarPush.classList.add('xl:w-20', 'is-mini');
+                    } else {
+                        sidebarPush.classList.remove('xl:w-20', 'is-mini');
+                        sidebarPush.classList.add('xl:w-64');
+                    }
+                } else if (width >= BREAKPOINT_MD) {
+                    sidebarPush.classList.remove('xl:w-64');
+                    sidebarPush.classList.add('xl:w-20', 'is-mini');
+                    if (!isDrawerOpen) closeDrawer();
+                } else {
+                    if (!isDrawerOpen) closeDrawer();
+                }
+            }
+        }
+
+        function handleHamburgerClick() {
+            const width = window.innerWidth;
+            const isFocusMode = isViewingDetail || isViewingEditor;
+
+            if (isFocusMode) {
+                if (isDrawerOpen) closeDrawer(); else openDrawer();
+            } else if (width >= BREAKPOINT_XL) {
+                isDesktopPushMini = !isDesktopPushMini;
+                updateLayout();
+            } else {
+                if (isDrawerOpen) closeDrawer(); else openDrawer();
+            }
+        }
+
+        function openDrawer() {
+            isDrawerOpen = true;
+            sidebarDrawer.classList.remove('-translate-x-full');
+            sidebarOverlay.classList.remove('hidden');
+            setTimeout(() => sidebarOverlay.classList.remove('opacity-0'), 10);
+        }
+
+        function closeDrawer() {
+            isDrawerOpen = false;
+            sidebarDrawer.classList.add('-translate-x-full');
+            sidebarOverlay.classList.add('opacity-0');
+            setTimeout(() => sidebarOverlay.classList.add('hidden'), 300);
+        }
+
+        // --- ACTIONS ---
+
+        function showDetailView(item) {
+            activeTemplate = item; 
+            
+            mainHeader.classList.remove('hidden'); 
+            galleryView.classList.add('hidden');
+            editorView.classList.add('hidden');
+            
+            standardViewsWrapper.classList.remove('hidden');
+            detailView.classList.remove('hidden');
+            detailView.classList.add('flex');
+            headerSearch.classList.remove('opacity-0', 'pointer-events-none');
+            
+            isViewingEditor = false;
+            isViewingDetail = true;
+            closeDrawer();
+            updateLayout();
+            
+            const canvas = document.getElementById('detailCanvas');
+            canvas.className = `w-full aspect-video rounded-2xl shadow-sm dark:shadow-none border border-gray-100 dark:border-zinc-800 flex items-center justify-center overflow-hidden relative ${item.color} transition-colors`;
+            canvas.innerHTML = `<div class="transform scale-125 md:scale-150 origin-center">${item.content}</div>`;
+            
+            document.getElementById('detailTitle').innerText = item.title;
+            document.getElementById('detailCategory').innerText = item.category;
+            
+            // Adjust mock hex colors for dark mode logic visually
+            const isDarkThemeActive = document.documentElement.classList.contains('dark');
+            const bgToUse = (isDarkThemeActive && item.category === 'charts') ? '#27272a' : item.bgHex;
+            document.getElementById('detailBgColor').style.backgroundColor = bgToUse;
+            document.getElementById('detailAccentColor').style.backgroundColor = item.category === 'text' ? '#00c2ff' : '#8b5cf6';
+
+            const currentNav = navItems.find(i => i.id === currentCategory) || { label: 'Templates' };
+            backBtnText.innerText = `Back to ${currentNav.label}`;
+            
+            if(standardViewsWrapper) standardViewsWrapper.scrollTo({ top: 0, behavior: 'smooth' });
+        }
+
+        function showEditorView() {
+            if (!activeTemplate) return;
+            
+            mainHeader.classList.add('hidden'); 
+            standardViewsWrapper.classList.add('hidden');
+            editorView.classList.remove('hidden');
+            editorView.classList.add('flex');
+            
+            headerSearch.classList.add('opacity-0', 'pointer-events-none');
+            
+            isViewingDetail = false;
+            isViewingEditor = true;
+            closeDrawer();
+            updateLayout();
+            
+            document.getElementById('editorTitle').innerText = activeTemplate.title;
+            
+            const eCanvas = document.getElementById('editorCanvas');
+            eCanvas.className = `shadow-lg ring-1 ring-black/5 dark:ring-white/5 relative overflow-hidden flex items-center justify-center rounded-sm ${activeTemplate.color}`;
+            eCanvas.style.width = '800px';
+            eCanvas.style.height = '450px';
+            eCanvas.innerHTML = `<div class="transform scale-150 origin-center">${activeTemplate.content}</div>`;
+            
+            const isDarkThemeActive = document.documentElement.classList.contains('dark');
+            const bgToUse = (isDarkThemeActive && activeTemplate.category === 'charts') ? '#27272a' : activeTemplate.bgHex;
+            
+            document.getElementById('editorPanelBgPreview').style.backgroundColor = bgToUse;
+            document.getElementById('editorPanelBgInput').value = bgToUse;
+            
+            lucide.createIcons();
+        }
+
+        function hideDetailView() {
+            detailView.classList.add('hidden');
+            detailView.classList.remove('flex');
+            galleryView.classList.remove('hidden');
+            
+            isViewingDetail = false;
+            isViewingEditor = false;
+            closeDrawer(); 
+            updateLayout();
+            
+            if(standardViewsWrapper) standardViewsWrapper.scrollTo({ top: 0, behavior: 'smooth' });
+        }
+
+        function hideEditorView() {
+            showDetailView(activeTemplate);
+        }
+
+        function setCategory(id, label) {
+            hideDetailView();
+            closeDrawer(); 
+            
+            currentCategory = id;
+            searchInput.value = '';
+            searchQuery = '';
+            
+            if(id === 'templates') {
+                pageTitleEl.innerText = 'All Templates';
+                pageDescEl.innerHTML = 'Browse our complete collection of high-quality templates.';
+            } else {
+                pageTitleEl.innerText = `Free animated ${label.toLowerCase()} templates`;
+                pageDescEl.innerHTML = `<strong class="font-semibold text-gray-900 dark:text-zinc-100 transition-colors">Elevate your designs</strong> with our collection of free, user-friendly animated ${label.toLowerCase()} templates.`;
+            }
+            
+            renderNav();
+            renderCards();
+        }
+
+        // --- EVENT LISTENERS ---
+
+        searchInput.addEventListener('input', (e) => {
+            hideDetailView(); 
+            searchQuery = e.target.value;
+            if(searchQuery) {
+                pageTitleEl.innerText = `Search results for "${searchQuery}"`;
+                pageDescEl.innerHTML = 'Find exactly what you need for your next animation.';
+            } else {
+                const currentNavItem = navItems.find(i => i.id === currentCategory);
+                setCategory(currentCategory, currentNavItem ? currentNavItem.label : 'backgrounds');
+                return;
+            }
+            renderCards();
+        });
+
+        // Navigation Toggles
+        mainToggleBtn.addEventListener('click', handleHamburgerClick);
+        drawerToggleBtn.addEventListener('click', closeDrawer);
+        editorToggleBtn.addEventListener('click', handleHamburgerClick); 
+        sidebarOverlay.addEventListener('click', closeDrawer);
+        
+        // View Transitions
+        backToGalleryBtn.addEventListener('click', hideDetailView);
+        openEditorBtn.addEventListener('click', showEditorView);
+        editorBackBtn.addEventListener('click', hideEditorView);
+        
+        // Window Resize
+        window.addEventListener('resize', updateLayout);
+
+        // --- INIT ---
+        renderNav();
+        renderCards();
+        updateLayout(); 
+
+    </script>
+</body>
+</html>

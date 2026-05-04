@@ -1,0 +1,1957 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+    <title>Editorial Chart Animator Pro - v0.9 Chart Customization</title>
+    
+    <!-- Google AdSense -->
+    <script
+        async
+        src="https://pagead2.googlesyndication.com/pagead/js/adsbygoogle.js?client=ca-pub-7993314093599705"
+        crossorigin="anonymous"></script>
+
+    <!-- Google Fonts -->
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Carrois+Gothic&family=Caveat:wght@600;700&family=Inter:wght@400;500;600;700;800;900&family=JetBrains+Mono:wght@400;500;700&family=Playfair+Display:wght@600;700&family=Roboto:wght@400;500;700;900&display=swap" rel="stylesheet">
+
+    <!-- Tailwind CSS -->
+    <script src="https://cdn.tailwindcss.com"></script>
+    <script>
+        tailwind.config = {
+            theme: {
+                extend: {
+                    fontFamily: {
+                        sans: ['Inter', 'sans-serif'],
+                        mono: ['JetBrains Mono', 'monospace'],
+                    },
+                    colors: {
+                        blueprint: {
+                            50: '#f0f4f8',
+                            100: '#d9e2ec',
+                            200: '#bcccdc',
+                            300: '#9fb3c8',
+                            800: '#102a43',
+                            900: '#003366', // Deep structural blue
+                        },
+                        brand: {
+                            red: '#ef4444',
+                            blue: '#3b82f6'
+                        }
+                    }
+                }
+            }
+        }
+    </script>
+
+    <!-- Phosphor Icons -->
+    <script src="https://unpkg.com/@phosphor-icons/web"></script>
+    <!-- GIF.js for GIF Export capabilities -->
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/gif.js/0.2.0/gif.js"></script>
+
+    <style>
+        body {
+            overscroll-behavior-y: none;
+        }
+        
+        /* Blueprint Grid Background */
+        .blueprint-bg {
+            background-color: #f4f7fa;
+            background-image: 
+                linear-gradient(rgba(0, 51, 102, 0.08) 1px, transparent 1px),
+                linear-gradient(90deg, rgba(0, 51, 102, 0.08) 1px, transparent 1px);
+            background-size: 24px 24px;
+            background-position: center center;
+        }
+
+        /* Custom ranges for toolbar (Light Theme) */
+        input[type=range] {
+            -webkit-appearance: none;
+            width: 100%;
+            background: transparent;
+        }
+        input[type=range]::-webkit-slider-thumb {
+            -webkit-appearance: none;
+            height: 16px;
+            width: 16px;
+            border-radius: 50%;
+            background: #003366;
+            cursor: pointer;
+            margin-top: -6px;
+            box-shadow: 0 1px 3px rgba(0,0,0,0.3);
+        }
+        input[type=range]::-webkit-slider-runnable-track {
+            width: 100%;
+            height: 4px;
+            cursor: pointer;
+            background: #cbd5e1;
+            border-radius: 2px;
+        }
+        input[type=range]:focus::-webkit-slider-runnable-track {
+            background: #94a3b8;
+        }
+
+        /* Custom scrollbars (Light Theme) */
+        ::-webkit-scrollbar { width: 8px; height: 8px; }
+        ::-webkit-scrollbar-track { background: transparent; }
+        ::-webkit-scrollbar-thumb { background: #cbd5e1; border-radius: 0px; border: 1px solid #f4f7fa; }
+        ::-webkit-scrollbar-thumb:hover { background: #94a3b8; }
+
+        /* Color inputs */
+        input[type="color"] {
+            -webkit-appearance: none;
+            border: none;
+            width: 100%;
+            height: 100%;
+            padding: 0;
+            cursor: pointer;
+            background: transparent;
+        }
+        input[type="color"]::-webkit-color-swatch-wrapper { padding: 0; }
+        input[type="color"]::-webkit-color-swatch { border: none; }
+
+        /* Structural shadows */
+        .blueprint-shadow {
+            box-shadow: 6px 6px 0px rgba(0, 51, 102, 0.1);
+        }
+    </style>
+</head>
+<body class="blueprint-bg text-slate-800 h-screen flex flex-col overflow-hidden">
+
+    <!-- HEADER (Blueprint Structural) -->
+    <header class="h-16 bg-white border-b border-blueprint-900 flex items-center justify-between px-4 sm:px-8 flex-shrink-0 z-20">
+        
+        <!-- Logo block matching image reference -->
+        <div class="flex items-center gap-4">
+            <div class="border-2 border-blueprint-900 px-3 py-1 flex items-center bg-white blueprint-shadow select-none">
+                <span class="text-xl sm:text-2xl font-black text-blueprint-900 tracking-tighter uppercase">Chart</span>
+                <span class="text-xl sm:text-2xl font-black text-brand-red tracking-tighter uppercase">Animator</span>
+            </div>
+            <div class="hidden md:flex gap-2 text-[10px] font-bold text-blueprint-900 uppercase tracking-widest mt-1">
+                <span class="border border-blueprint-200 px-2 py-0.5 bg-blueprint-50">Toolkit</span>
+                <span class="border border-blueprint-200 px-2 py-0.5 bg-blueprint-50">Pro Studio</span>
+            </div>
+        </div>
+
+        <div class="flex items-center justify-end gap-3 shrink-0">
+            <!-- Transparent Toggle -->
+            <label class="hidden md:flex items-center gap-1.5 cursor-pointer bg-white hover:bg-slate-50 px-2.5 py-1.5 border border-blueprint-200 transition" title="Export as transparent PNG or GIF">
+                <input type="checkbox" id="header-transparent" class="w-3.5 h-3.5 accent-blueprint-900 rounded-none cursor-pointer">
+                <span class="text-[11px] font-bold text-blueprint-800 uppercase tracking-wide">Transparent</span>
+            </label>
+
+            <button id="btn-header-preview" class="flex items-center gap-2 px-4 py-1.5 bg-white hover:bg-slate-50 text-blueprint-900 font-bold transition-colors border-2 border-blueprint-900 text-xs shadow-[2px_2px_0px_#003366] hover:shadow-none hover:translate-x-[2px] hover:translate-y-[2px] uppercase">
+                <i class="ph-bold ph-play-circle text-lg" id="icon-play"></i>
+                <span id="text-play" class="hidden sm:inline tracking-wider">Preview</span>
+            </button>
+            
+            <div class="flex bg-blueprint-900 border-2 border-blueprint-900 shadow-[2px_2px_0px_rgba(0,51,102,0.5)]">
+                <select id="export-res" class="bg-white text-blueprint-900 font-bold pl-3 pr-2 py-1.5 outline-none cursor-pointer appearance-none text-xs border-r-2 border-blueprint-900 hidden sm:block uppercase">
+                    <option value="640">360p GIF</option>
+                    <option value="854">480p GIF</option>
+                    <option value="1920" selected>HD 1080p</option>
+                    <option value="2560">2K 1440p</option>
+                    <option value="3840">4K 2160p</option>
+                </select>
+                <select id="export-fmt" class="bg-white text-blueprint-900 font-bold pl-3 pr-2 py-1.5 outline-none cursor-pointer appearance-none text-xs uppercase" onchange="document.getElementById('text-export').innerText = this.value.toUpperCase()">
+                    <option value="webm" selected>WebM</option>
+                    <option value="gif">GIF</option>
+                    <option value="png">PNG</option>
+                </select>
+                <button id="btn-header-export" class="flex items-center gap-2 px-4 py-1.5 text-white font-black hover:bg-blueprint-800 transition-colors text-xs uppercase tracking-widest">
+                    <i class="ph-bold ph-download text-sm"></i>
+                    <span class="hidden sm:inline" id="text-export">WEBM</span>
+                </button>
+            </div>
+        </div>
+    </header>
+
+    <!-- MAIN APP AREA -->
+    <main class="flex-1 flex flex-col md:flex-row overflow-hidden relative">
+        
+        <!-- Recording Overlay -->
+        <div id="recording-overlay" class="fixed top-6 left-1/2 -translate-x-1/2 -translate-y-24 bg-white blueprint-shadow border-4 border-blueprint-900 px-8 py-4 flex items-center gap-4 transition-all duration-500 z-[60]">
+            <div class="w-4 h-4 rounded-full bg-brand-red animate-pulse"></div>
+            <span id="recording-text" class="text-sm font-black text-blueprint-900 uppercase tracking-widest">Recording Animation...</span>
+        </div>
+
+        <div id="video-export-ad-overlay" class="fixed inset-0 z-[100] bg-slate-900/95 backdrop-blur-md hidden flex flex-col items-center justify-center p-6 transition-all duration-300 opacity-0">
+            <div class="max-w-5xl w-full bg-white shadow-2xl border-4 border-blueprint-900 flex flex-col gap-8 p-12 blueprint-shadow">
+                <div class="flex items-center justify-between border-b-2 border-blueprint-900 pb-6">
+                    <div class="flex flex-col">
+                        <h2 class="text-3xl font-black text-blueprint-900 uppercase tracking-tighter">Exporting <span class="text-brand-red">Video</span></h2>
+                        <p class="text-sm font-bold text-slate-500 uppercase tracking-widest" id="video-export-pct">Rendering Masterpiece: 0%</p>
+                    </div>
+                    <div class="w-12 h-12 border-4 border-blueprint-100 border-t-blueprint-900 rounded-full animate-spin"></div>
+                </div>
+
+                <!-- Large Ad Container -->
+                <div class="w-full bg-blueprint-50 border-4 border-double border-blueprint-200 flex flex-col items-center p-12 min-h-[520px]">
+                    <p class="text-[10px] font-black text-blueprint-400 uppercase tracking-[0.5em] mb-12">Premium Editorial Sponsor</p>
+                    
+                    <div class="w-full flex items-center justify-center bg-white shadow-2xl border border-blueprint-100 p-8 max-w-4xl mx-auto">
+                        <ins class="adsbygoogle"
+                             style="display:block; width:100%; min-width:300px; max-width:800px; height:auto;"
+                             data-ad-client="ca-pub-7993314093599705"
+                             data-ad-slot="9342323532"
+                             data-ad-format="auto"
+                             data-full-width-responsive="true"></ins>
+                    </div>
+
+                    <p class="text-[10px] text-blueprint-400 mt-12 font-bold uppercase tracking-widest italic">Supporting Professional Data Journalism</p>
+                </div>
+
+                <div class="flex flex-col gap-4">
+                    <p class="text-base font-medium text-slate-600 leading-relaxed text-center">
+                        Your professional-grade data visualization is being processed at peak quality. 
+                        Thank you for supporting <span class="font-bold text-blueprint-900 underline decoration-brand-red">Editorial Animator Pro</span>.
+                    </p>
+                    <div class="w-full bg-slate-100 h-3 rounded-full overflow-hidden mt-2 border border-slate-200">
+                        <div id="video-export-progress-bar" class="bg-blueprint-900 h-full w-0 transition-all duration-300"></div>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- TOOLBAR / SIDEBAR (Light Blueprint Style) -->
+        <aside class="w-full md:w-[420px] bg-white border-b md:border-b-0 md:border-r border-blueprint-900 p-5 md:p-6 flex flex-col gap-6 overflow-y-auto z-10 flex-shrink-0 h-[50vh] md:h-full order-2 md:order-1 shadow-[0_-4px_10px_rgba(0,0,0,0.05)] md:shadow-none">
+            
+            <div class="text-[10px] font-black text-blueprint-900 uppercase tracking-widest bg-blueprint-100 px-2 py-1 inline-block w-max mb-[-12px]">Tool Properties</div>
+
+            <!-- Quick Templates -->
+            <div class="flex flex-col gap-2 flex-shrink-0">
+                <h2 class="text-[11px] font-bold uppercase tracking-widest text-slate-500 flex items-center gap-2">
+                    <i class="ph-fill ph-folder-open text-yellow-500 text-lg"></i> Quick Templates
+                </h2>
+                <div class="grid grid-cols-2 gap-2 mt-1">
+                    <button class="template-btn py-2 bg-white border border-blueprint-200 hover:border-blueprint-900 hover:bg-blueprint-50 text-xs font-semibold text-slate-700 transition truncate px-3 text-left" data-template="energy">📚 Energy (Stacked)</button>
+                    <button class="template-btn py-2 bg-white border border-blueprint-200 hover:border-blueprint-900 hover:bg-blueprint-50 text-xs font-semibold text-slate-700 transition truncate px-3 text-left" data-template="consoles">📈 Consoles (Multi)</button>
+                    <button class="template-btn py-2 bg-white border border-blueprint-200 hover:border-blueprint-900 hover:bg-blueprint-50 text-xs font-semibold text-slate-700 transition truncate px-3 text-left" data-template="sp500">📉 S&P 500 (Single)</button>
+                    <button class="template-btn py-2 bg-white border border-blueprint-200 hover:border-blueprint-900 hover:bg-blueprint-50 text-xs font-semibold text-slate-700 transition truncate px-3 text-left" data-template="social">🍩 Social (Pie)</button>
+                    <button class="template-btn py-2 bg-white border border-blueprint-200 hover:border-blueprint-900 hover:bg-blueprint-50 text-xs font-semibold text-slate-700 transition truncate px-3 text-left" data-template="tech">📊 Tech Giants</button>
+                    <button class="template-btn py-2 bg-white border border-blueprint-200 hover:border-blueprint-900 hover:bg-brand-red hover:text-brand-red hover:border-brand-red text-xs font-semibold text-slate-700 transition truncate px-3 text-left shadow-[2px_2px_0px_rgba(0,0,0,0.1)]" data-template="preview">🌟 Preview Hero</button>
+                </div>
+            </div>
+
+            <div class="w-full border-b border-dashed border-blueprint-300"></div>
+
+            <!-- Content Editor -->
+            <div class="flex flex-col gap-3 flex-shrink-0">
+                <h2 class="text-[11px] font-bold uppercase tracking-widest text-slate-500">Chart Metadata</h2>
+                
+                <div class="flex items-center gap-3">
+                    <input type="checkbox" id="show-title" checked class="w-4 h-4 accent-blueprint-900 cursor-pointer" title="Toggle Title">
+                    <input type="text" id="chart-title" value="Global Electricity Generation (TWh)" class="flex-1 px-3 py-2 bg-slate-50 border border-blueprint-200 text-sm text-slate-900 font-semibold outline-none focus:ring-1 focus:ring-blueprint-900 focus:border-blueprint-900 transition-all placeholder:font-normal" placeholder="Chart Title">
+                </div>
+                <div class="flex items-center gap-3">
+                    <input type="checkbox" id="show-subtitle" checked class="w-4 h-4 accent-blueprint-900 cursor-pointer" title="Toggle Subtitle">
+                    <input type="text" id="chart-subtitle" value="The transition to renewable energy sources." class="flex-1 px-3 py-2 bg-slate-50 border border-blueprint-200 text-sm text-slate-700 outline-none focus:ring-1 focus:ring-blueprint-900 focus:border-blueprint-900 transition-all" placeholder="Chart Subtitle">
+                </div>
+                <div class="flex items-center gap-3">
+                    <input type="checkbox" id="show-source" checked class="w-4 h-4 accent-blueprint-900 cursor-pointer" title="Toggle Source">
+                    <input type="text" id="chart-source" value="SOURCE: EMBER CLIMATE" class="flex-1 px-3 py-2 bg-slate-50 border border-blueprint-200 text-xs text-slate-500 uppercase font-medium outline-none focus:ring-1 focus:ring-blueprint-900 focus:border-blueprint-900 transition-all" placeholder="Source Attribution">
+                </div>
+            </div>
+
+            <div class="w-full border-b border-dashed border-blueprint-300"></div>
+
+            <!-- Enhanced Data Editor -->
+            <div class="flex flex-col gap-3 flex-1 min-h-[240px]">
+                <div class="flex items-center justify-between">
+                    <h2 class="text-[11px] font-bold uppercase tracking-widest text-slate-500">Chart Data</h2>
+                    <!-- View Toggle -->
+                    <div class="flex bg-slate-100 p-1 border border-blueprint-200">
+                        <button id="tab-grid" class="px-3 py-1 text-[10px] font-bold text-white bg-blueprint-900 transition shadow-[1px_1px_0px_#000]">Grid View</button>
+                        <button id="tab-csv" class="px-3 py-1 text-[10px] font-bold text-slate-500 hover:text-slate-800 transition">Raw CSV</button>
+                    </div>
+                </div>
+
+                <!-- Grid View -->
+                <div id="view-grid" class="flex flex-col gap-2 flex-1 overflow-hidden">
+                    <div class="flex text-[10px] font-bold text-blueprint-900 px-1 uppercase tracking-wider bg-blueprint-50 py-1 border border-blueprint-100">
+                        <div class="flex-[2] pl-1">Label</div>
+                        <div class="flex-[2]">Values (Comma Sep)</div>
+                        <div class="w-10 text-center">Color</div>
+                        <div class="w-6"></div>
+                    </div>
+                    <div id="data-grid-rows" class="flex flex-col gap-2 overflow-y-auto flex-1 pr-1 pb-1">
+                        <!-- Rows injected via JS -->
+                    </div>
+                    <button id="btn-add-row" class="w-full py-2 bg-slate-50 border border-blueprint-300 border-dashed text-xs font-bold uppercase tracking-wider text-blueprint-900 hover:bg-blueprint-100 transition flex items-center justify-center gap-2 mt-1">
+                        <i class="ph-bold ph-plus"></i> Add Row
+                    </button>
+                </div>
+
+                <!-- CSV View -->
+                <div id="view-csv" class="hidden flex-col gap-2 flex-1">
+                    <p class="text-[10px] text-slate-500 font-medium">Format: Label, Series1, Series2..., #Color (optional).</p>
+                    <textarea id="data-input" class="w-full flex-1 p-3 border-2 border-blueprint-200 bg-slate-50 text-[12px] text-slate-800 font-mono outline-none focus:border-blueprint-900 resize-none whitespace-pre transition-colors leading-relaxed" spellcheck="false">
+Label,Fossil,Nuclear,Renewables
+2018,16800,2700,6600
+2019,16600,2800,7000
+2020,15900,2700,7500
+2021,16800,2800,8000
+2022,17000,2700,8600
+2023,17100,2700,9200</textarea>
+                </div>
+            </div>
+
+            <div class="w-full border-b border-dashed border-blueprint-300"></div>
+
+            <!-- Appearance Settings -->
+            <div class="flex flex-col gap-5 flex-shrink-0">
+                <h2 class="text-[11px] font-bold uppercase tracking-widest text-slate-500">Layout & Style</h2>
+                
+                <!-- Advanced Show/Hide Toggles -->
+                <div class="grid grid-cols-2 sm:grid-cols-3 gap-y-3 gap-x-2 mt-1 mb-2 bg-slate-50 border border-blueprint-100 p-3">
+                    <label class="flex items-center gap-2 cursor-pointer">
+                        <input type="checkbox" id="show-grid" checked class="w-4 h-4 accent-blueprint-900 border-blueprint-300">
+                        <span class="text-[11px] font-bold text-slate-700 uppercase tracking-wider">Grid</span>
+                    </label>
+                    <label class="flex items-center gap-2 cursor-pointer">
+                        <input type="checkbox" id="show-legend" checked class="w-4 h-4 accent-blueprint-900 border-blueprint-300">
+                        <span class="text-[11px] font-bold text-slate-700 uppercase tracking-wider">Legend</span>
+                    </label>
+                    <label class="flex items-center gap-2 cursor-pointer">
+                        <input type="checkbox" id="show-values" checked class="w-4 h-4 accent-blueprint-900 border-blueprint-300">
+                        <span class="text-[11px] font-bold text-slate-700 uppercase tracking-wider">Values</span>
+                    </label>
+                    <label class="flex items-center gap-2 cursor-pointer">
+                        <input type="checkbox" id="show-x-axis" checked class="w-4 h-4 accent-blueprint-900 border-blueprint-300">
+                        <span class="text-[11px] font-bold text-slate-700 uppercase tracking-wider">X-Axis</span>
+                    </label>
+                    <label class="flex items-center gap-2 cursor-pointer">
+                        <input type="checkbox" id="show-y-axis" checked class="w-4 h-4 accent-blueprint-900 border-blueprint-300">
+                        <span class="text-[11px] font-bold text-slate-700 uppercase tracking-wider">Y-Axis</span>
+                    </label>
+                </div>
+
+                <!-- Chart Type & Palette -->
+                <div class="grid grid-cols-2 gap-4">
+                    <div>
+                        <label class="block text-[10px] font-bold uppercase tracking-wider text-blueprint-900 mb-1.5">Chart Type</label>
+                        <select id="chart-type" class="w-full px-3 py-2 bg-slate-50 border border-blueprint-200 text-xs text-slate-800 font-medium outline-none focus:border-blueprint-900 appearance-none cursor-pointer">
+                            <option value="vertical">Vertical Bar</option>
+                            <option value="horizontal">Horizontal Bar</option>
+                            <option value="multiline">Multi-Line Trend</option>
+                            <option value="stacked" selected>Stacked Bar</option>
+                            <option value="pie">Pie Chart</option>
+                        </select>
+                    </div>
+                    <div>
+                        <label class="block text-[10px] font-bold uppercase tracking-wider text-blueprint-900 mb-1.5">Color Palette</label>
+                        <select id="color-palette" class="w-full px-3 py-2 bg-slate-50 border border-blueprint-200 text-xs text-slate-800 font-medium outline-none focus:border-blueprint-900 appearance-none cursor-pointer">
+                            <option value="vibrant">Vibrant</option>
+                            <option value="pastel">Pastel Colors</option>
+                            <option value="neon">Cyberpunk Neon</option>
+                            <option value="sunset">Sunset Glow</option>
+                            <option value="ocean">Deep Ocean</option>
+                        </select>
+                    </div>
+                </div>
+
+                <!-- Custom Colors -->
+                <div class="grid grid-cols-3 gap-4">
+                    <div>
+                        <label class="block text-[10px] font-bold uppercase tracking-wider text-blueprint-900 mb-1.5">Canvas BG</label>
+                        <div class="relative w-full h-8 border border-blueprint-200 overflow-hidden">
+                            <input type="color" id="bg-color" value="#ffffff">
+                        </div>
+                    </div>
+                    <div>
+                        <label class="block text-[10px] font-bold uppercase tracking-wider text-blueprint-900 mb-1.5">Title Color</label>
+                        <div class="relative w-full h-8 border border-blueprint-200 overflow-hidden">
+                            <input type="color" id="title-color" value="#18181b">
+                        </div>
+                    </div>
+                    <div>
+                        <label class="block text-[10px] font-bold uppercase tracking-wider text-blueprint-900 mb-1.5">Text Color</label>
+                        <div class="relative w-full h-8 border border-blueprint-200 overflow-hidden">
+                            <input type="color" id="text-color" value="#64748b">
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Font Select & Value Format -->
+                <div class="grid grid-cols-2 gap-4">
+                    <div>
+                        <label class="block text-[10px] font-bold uppercase tracking-wider text-blueprint-900 mb-1.5">Font Family</label>
+                        <select id="font-family" class="w-full px-3 py-2 bg-slate-50 border border-blueprint-200 text-xs text-slate-800 font-medium outline-none focus:border-blueprint-900 appearance-none cursor-pointer">
+                            <option value="Inter">Inter (Modern)</option>
+                            <option value="Carrois Gothic">Carrois Gothic (Editorial)</option>
+                            <option value="Roboto">Roboto (Clean)</option>
+                            <option value="JetBrains Mono">JetBrains (Code)</option>
+                            <option value="Playfair Display">Playfair (Serif)</option>
+                            <option value="Caveat">Caveat (Handdrawn)</option>
+                        </select>
+                    </div>
+                    <div>
+                        <label class="block text-[10px] font-bold uppercase tracking-wider text-blueprint-900 mb-1.5">Value Format</label>
+                        <select id="value-format" class="w-full px-3 py-2 bg-slate-50 border border-blueprint-200 text-xs text-slate-800 font-medium outline-none focus:border-blueprint-900 appearance-none cursor-pointer">
+                            <option value="number">Plain Number</option>
+                            <option value="currency">$ Currency</option>
+                            <option value="percent">% Percentage</option>
+                        </select>
+                    </div>
+                </div>
+
+                <!-- Font Sizes -->
+                <div class="grid grid-cols-3 gap-4">
+                    <div>
+                        <div class="flex justify-between items-center mb-2">
+                            <label class="block text-[10px] font-bold text-slate-500 uppercase tracking-wider">Title Size</label>
+                        </div>
+                        <input type="range" id="title-size" min="30" max="100" step="2" value="64">
+                    </div>
+                    <div>
+                        <div class="flex justify-between items-center mb-2">
+                            <label class="block text-[10px] font-bold text-slate-500 uppercase tracking-wider">Sub Size</label>
+                        </div>
+                        <input type="range" id="subtitle-size" min="16" max="60" step="2" value="38">
+                    </div>
+                    <div>
+                        <div class="flex justify-between items-center mb-2">
+                            <label class="block text-[10px] font-bold text-slate-500 uppercase tracking-wider">Src Size</label>
+                        </div>
+                        <input type="range" id="source-size" min="10" max="40" step="2" value="20">
+                    </div>
+                </div>
+
+                <!-- Duration & Glow -->
+                <div class="grid grid-cols-2 gap-4 mt-2">
+                    <div>
+                        <div class="flex justify-between items-center mb-2">
+                            <label class="block text-[10px] font-bold text-slate-500 uppercase tracking-wider">Duration</label>
+                            <span id="duration-val" class="text-[10px] text-blueprint-900 font-bold">2.0s</span>
+                        </div>
+                        <input type="range" id="anim-duration" min="0.5" max="5" step="0.5" value="2.0">
+                    </div>
+                    <div>
+                        <div class="flex justify-between items-center mb-2">
+                            <label class="block text-[10px] font-bold text-slate-500 uppercase tracking-wider">Line Glow</label>
+                            <span id="glow-val" class="text-[10px] text-blueprint-900 font-bold">High</span>
+                        </div>
+                        <input type="range" id="line-glow" min="0" max="30" step="5" value="15">
+                    </div>
+                </div>
+
+                <!-- Zoom & Pan -->
+                <div class="flex flex-col mt-2 p-3 bg-slate-50 border border-blueprint-100">
+                    <div class="flex justify-between items-center mb-4">
+                        <label class="block text-[10px] font-bold uppercase tracking-widest text-blueprint-900">Zoom & Pan View</label>
+                        <button id="btn-reset-view" class="text-[10px] font-bold text-brand-blue hover:text-blue-800 flex items-center gap-1 transition uppercase"><i class="ph-bold ph-arrows-in"></i> Reset</button>
+                    </div>
+                    <div class="grid grid-cols-3 gap-4">
+                        <div>
+                            <div class="flex justify-between items-center mb-2">
+                                <label class="block text-[10px] font-bold text-slate-500 uppercase tracking-wider">Zoom</label>
+                                <span id="zoom-val" class="text-[10px] text-blueprint-900 font-bold">1.0x</span>
+                            </div>
+                            <input type="range" id="chart-zoom" min="0.5" max="3" step="0.1" value="1.0">
+                        </div>
+                        <div>
+                            <div class="flex justify-between items-center mb-2">
+                                <label class="block text-[10px] font-bold text-slate-500 uppercase tracking-wider">Pan X</label>
+                                <span id="pan-x-val" class="text-[10px] text-blueprint-900 font-bold">0</span>
+                            </div>
+                            <input type="range" id="chart-pan-x" min="-1000" max="1000" step="10" value="0">
+                        </div>
+                        <div>
+                            <div class="flex justify-between items-center mb-2">
+                                <label class="block text-[10px] font-bold text-slate-500 uppercase tracking-wider">Pan Y</label>
+                                <span id="pan-y-val" class="text-[10px] text-blueprint-900 font-bold">0</span>
+                            </div>
+                            <input type="range" id="chart-pan-y" min="-1000" max="1000" step="10" value="0">
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </aside>
+
+        <!-- CANVAS AREA -->
+        <section id="canvas-container" class="flex-1 relative overflow-hidden flex items-center justify-center p-4 sm:p-12 order-1 md:order-2">
+            <!-- Fixed Base Layout Canvas (scales visually via CSS) -->
+            <div class="relative p-2 bg-white border-2 border-blueprint-900 blueprint-shadow">
+                <canvas id="export-canvas" class="w-full max-w-[1200px] aspect-video bg-white"></canvas>
+            </div>
+        </section>
+
+    </main>
+
+    <script>
+        // --- Fetch GIF.js Worker to guarantee CORS safety ---
+        let gifWorkerUrl = null;
+        fetch('https://cdnjs.cloudflare.com/ajax/libs/gif.js/0.2.0/gif.worker.js')
+            .then(res => res.text())
+            .then(text => {
+                const blob = new Blob([text], { type: 'application/javascript' });
+                gifWorkerUrl = URL.createObjectURL(blob);
+            })
+            .catch(err => console.error('Failed to load GIF worker:', err));
+
+        // --- Template Data ---
+        const templates = {
+            'preview': {
+                title: 'PREVIEW HERO',
+                subtitle: '',
+                source: '',
+                type: 'stacked',
+                theme: 'light',
+                csv: `Label,Group A,Group B,Group C\n2022,40,80,20\n2023,50,90,30\n2024,80,40,50`,
+                options: {
+                    showTitle: false,
+                    showSubtitle: false,
+                    showSource: false,
+                    showXAxis: false,
+                    showYAxis: false,
+                    showGrid: false,
+                    showLegend: false,
+                    showValues: true,
+                    colorPalette: 'vibrant',
+                    fontFamily: 'JetBrains Mono',
+                    bgColor: '#ffffff'
+                }
+            },
+            'tech': {
+                title: 'Tech Giants Revenue ($B)',
+                subtitle: 'Annual revenue over the past decade.',
+                source: 'SOURCE: COMPANY EARNINGS REPORTS',
+                type: 'horizontal',
+                theme: 'light', 
+                csv: `Label,Value,Color\nApple,383,#94a3b8\nAmazon,574,#f59e0b\nGoogle,305,#3b82f6\nMicrosoft,211,#10b981`
+            },
+            'energy': {
+                title: 'Global Electricity Generation (TWh)',
+                subtitle: 'The transition to renewable energy sources.',
+                source: 'SOURCE: EMBER CLIMATE',
+                type: 'stacked',
+                theme: 'light',
+                csv: `Label,Fossil,Nuclear,Renewables\n2018,16800,2700,6600\n2019,16600,2800,7000\n2020,15900,2700,7500\n2021,16800,2800,8000\n2022,17000,2700,8600\n2023,17100,2700,9200`
+            },
+            'consoles': {
+                title: 'Gaming Console Sales (Millions)',
+                subtitle: 'Annual hardware shipments for current generation.',
+                source: 'SOURCE: VGCHARTZ / COMPANY REPORTS',
+                type: 'multiline',
+                theme: 'light',
+                csv: `Label,PS5,Switch,Xbox Series\n2020,4.5,23.5,3.3\n2021,12.8,24.3,8.4\n2022,13.7,19.0,9.2\n2023,22.6,15.5,7.6\n2024,18.0,12.0,6.0`
+            },
+            'sp500': {
+                title: 'S&P 500 Index Growth',
+                subtitle: 'Historical performance over a 5-year period.',
+                source: 'SOURCE: YAHOO FINANCE',
+                type: 'multiline',
+                theme: 'light',
+                csv: `Label,Close Price\n2019,3230\n2020,3756\n2021,4766\n2022,3839\n2023,4769\n2024,5200`
+            },
+            'crypto': {
+                title: 'Cryptocurrency Market Cap ($B)',
+                subtitle: 'The meteoric rise of digital assets.',
+                source: 'SOURCE: COINMARKETCAP',
+                type: 'vertical',
+                theme: 'light',
+                csv: `Label,Value,Color\nBitcoin,1200,#f59e0b\nEthereum,400,#a855f7\nTether,100,#10b981\nBNB,95,#eab308\nSolana,60,#8b5cf6`
+            },
+            'social': {
+                title: 'Social Media MAUs (Millions)',
+                subtitle: 'Monthly Active Users across platforms.',
+                source: 'SOURCE: STATISTA',
+                type: 'pie',
+                theme: 'light',
+                csv: `Label,Value,Color\nFacebook,3030,#3b82f6\nYouTube,2500,#ef4444\nWhatsApp,2000,#22c55e\nInstagram,2000,#ec4899\nTikTok,1500,#0f172a`
+            },
+            'climate': {
+                title: 'Global Temperature Anomaly (°C)',
+                subtitle: 'Deviation from the 20th-century average.',
+                source: 'SOURCE: NOAA CLIMATE AT A GLANCE',
+                type: 'vertical',
+                theme: 'light', 
+                csv: `Label,Value,Color\n2019,0.95,#f43f5e\n2020,1.02,#e11d48\n2021,0.85,#fb923c\n2022,0.86,#f97316\n2023,1.18,#9f1239`
+            }
+        };
+
+        // --- App State & Data ---
+        const state = {
+            data: [], 
+            seriesNames: [],
+            maxVal: 0,
+            minVal: 0,
+            maxStackedVal: 0,
+            
+            progress: 1.0,
+            isAnimating: false,
+            isRecording: false,
+            
+            title: '',
+            subtitle: '',
+            source: '',
+            
+            showTitle: true,
+            showSubtitle: true,
+            showSource: true,
+            
+            fontFamily: 'Inter',
+            titleSize: 64,
+            subtitleSize: 38,
+            sourceSize: 20,
+            titleColor: '#1e293b',
+            textColor: '#64748b',
+            bgColor: '#ffffff',
+            colorPalette: 'vibrant',
+            zoom: 1.0,
+            panX: 0,
+            panY: 0,
+            
+            type: 'stacked', 
+            format: 'number',
+            duration: 2000,
+            glow: 15,
+            
+            showLegend: true,
+            showGrid: true,
+            showXAxis: true,
+            showYAxis: true,
+            showValues: true
+        };
+
+        // Color Palettes
+        const palettes = {
+            vibrant: ['#ef4444', '#3b82f6', '#10b981', '#f59e0b', '#a855f7', '#ec4899', '#06b6d4', '#eab308'],
+            pastel: ['#fca5a5', '#93c5fd', '#6ee7b7', '#fcd34d', '#d8b4fe', '#f9a8d4', '#67e8f9', '#fde047'],
+            neon: ['#ff00ff', '#00ffff', '#00ff00', '#ffff00', '#ff0000', '#0000ff'],
+            sunset: ['#f43f5e', '#f97316', '#eab308', '#8b5cf6', '#d946ef'],
+            ocean: ['#0369a1', '#0ea5e9', '#38bdf8', '#7dd3fc', '#0284c7']
+        };
+
+        // Visual Canvas Setup
+        const canvas = document.getElementById('export-canvas');
+        canvas.width = 1920;
+        canvas.height = 1080;
+
+        // DOM Elements
+        const uiTitle = document.getElementById('chart-title');
+        const uiSubtitle = document.getElementById('chart-subtitle');
+        const uiSource = document.getElementById('chart-source');
+        
+        const uiShowTitle = document.getElementById('show-title');
+        const uiShowSubtitle = document.getElementById('show-subtitle');
+        const uiShowSource = document.getElementById('show-source');
+        
+        const uiTitleSize = document.getElementById('title-size');
+        const uiSubtitleSize = document.getElementById('subtitle-size');
+        const uiSourceSize = document.getElementById('source-size');
+        
+        const uiTitleColor = document.getElementById('title-color');
+        const uiTextColor = document.getElementById('text-color');
+        const uiBgColor = document.getElementById('bg-color');
+
+        const dataInput = document.getElementById('data-input');
+        const formatSelect = document.getElementById('value-format');
+        const fontSelect = document.getElementById('font-family');
+        const paletteSelect = document.getElementById('color-palette');
+        const typeSelect = document.getElementById('chart-type');
+        
+        const durationSlider = document.getElementById('anim-duration');
+        const glowSlider = document.getElementById('line-glow');
+        const zoomSlider = document.getElementById('chart-zoom');
+        const panXSlider = document.getElementById('chart-pan-x');
+        const panYSlider = document.getElementById('chart-pan-y');
+        const btnResetView = document.getElementById('btn-reset-view');
+        
+        const legendCheck = document.getElementById('show-legend');
+        const showGridCheck = document.getElementById('show-grid');
+        const uiShowXAxis = document.getElementById('show-x-axis');
+        const uiShowYAxis = document.getElementById('show-y-axis');
+        const uiShowValues = document.getElementById('show-values');
+
+        // Editor Tabs
+        let currentDataMode = 'grid';
+        const tabGrid = document.getElementById('tab-grid');
+        const tabCsv = document.getElementById('tab-csv');
+        const viewGrid = document.getElementById('view-grid');
+        const viewCsv = document.getElementById('view-csv');
+        const gridRowsContainer = document.getElementById('data-grid-rows');
+        const btnAddRow = document.getElementById('btn-add-row');
+
+        // --- Custom Toast System ---
+        function showToast(message, type = 'info') {
+            let container = document.getElementById('toast-container');
+            if (!container) {
+                container = document.createElement('div');
+                container.id = 'toast-container';
+                container.className = 'fixed top-20 right-6 z-[60] flex flex-col gap-3 pointer-events-none';
+                document.body.appendChild(container);
+            }
+            const toast = document.createElement('div');
+            // Styled to match the blueprint / crisp aesthetic
+            toast.className = `bg-white border-l-4 text-slate-800 px-5 py-4 shadow-xl flex items-center gap-3 transform transition-all -translate-y-4 opacity-0 z-50`;
+            
+            let icon = 'info';
+            let borderColor = 'border-blueprint-900';
+            let iconColor = 'text-blueprint-900';
+            
+            if (type === 'success') {
+                icon = 'check-circle';
+                borderColor = 'border-green-500';
+                iconColor = 'text-green-500';
+            } else if (type === 'error') {
+                icon = 'warning';
+                borderColor = 'border-brand-red';
+                iconColor = 'text-brand-red';
+            }
+
+            toast.classList.add(borderColor);
+            
+            toast.innerHTML = `<i class="ph-fill ph-${icon} text-xl ${iconColor}"></i> <span class="text-sm font-bold tracking-wide uppercase">${message}</span>`;
+            container.appendChild(toast); 
+            requestAnimationFrame(() => toast.classList.remove('-translate-y-4', 'opacity-0'));
+            setTimeout(() => { toast.classList.add('-translate-y-4', 'opacity-0'); setTimeout(() => toast.remove(), 300); }, 3000);
+        }
+
+        // --- Utility Functions ---
+        function isDarkColor(hexColor) {
+            const hex = hexColor.replace('#', '');
+            if(hex.length === 6) {
+                const r = parseInt(hex.substr(0, 2), 16);
+                const g = parseInt(hex.substr(2, 2), 16);
+                const b = parseInt(hex.substr(4, 2), 16);
+                return (r * 0.299 + g * 0.587 + b * 0.114) < 128;
+            }
+            return false;
+        }
+
+        // --- Data Parsing & Management ---
+
+        function parseCSVtoState(csvString) {
+            const lines = csvString.split('\n');
+            state.data = [];
+            state.seriesNames = [];
+            state.maxVal = 0;
+            state.minVal = 0;
+            state.maxStackedVal = 0;
+            
+            let startIdx = 0;
+            if (lines.length > 0) {
+                const headerRow = lines[0].split(',').map(c => c.trim());
+                if (headerRow.length >= 2 && isNaN(parseFloat(headerRow[1]))) {
+                    startIdx = 1;
+                    state.seriesNames = headerRow.slice(1);
+                    if (state.seriesNames.length > 0 && state.seriesNames[state.seriesNames.length - 1].toLowerCase() === 'color') {
+                        state.seriesNames.pop();
+                    }
+                } else {
+                    state.seriesNames = ['Value']; 
+                }
+            }
+
+            for (let i = startIdx; i < lines.length; i++) {
+                const row = lines[i].split(',').map(c => c.trim());
+                if (row.length < 2) continue;
+                
+                const label = row[0];
+                let color = null;
+                const values = [];
+                
+                for(let j = 1; j < row.length; j++) {
+                    if (row[j].startsWith('#')) {
+                        color = row[j];
+                    } else {
+                        values.push(parseFloat(row[j]) || 0);
+                    }
+                }
+                
+                state.data.push({ label, values, color }); 
+                
+                let sum = 0;
+                values.forEach(v => {
+                    if (v > state.maxVal) state.maxVal = v;
+                    if (v < state.minVal) state.minVal = v;
+                    sum += v;
+                });
+                if (sum > state.maxStackedVal) state.maxStackedVal = sum;
+            }
+
+            if (state.maxVal > 0) {
+                const magnitude = Math.pow(10, Math.floor(Math.log10(Math.max(0.1, state.maxVal))));
+                let norm = state.maxVal / magnitude;
+                if (norm <= 1.5) norm = 1.5;
+                else if (norm <= 2) norm = 2;
+                else if (norm <= 5) norm = 5;
+                else norm = 10;
+                state.maxVal = norm * magnitude;
+            }
+
+            if (state.maxStackedVal > 0) {
+                const magnitude = Math.pow(10, Math.floor(Math.log10(Math.max(0.1, state.maxStackedVal))));
+                let norm = state.maxStackedVal / magnitude;
+                if (norm <= 1.5) norm = 1.5;
+                else if (norm <= 2) norm = 2;
+                else if (norm <= 5) norm = 5;
+                else norm = 10;
+                state.maxStackedVal = norm * magnitude;
+            }
+
+            if (state.minVal < 0) {
+                 const magnitude = Math.pow(10, Math.floor(Math.log10(Math.abs(state.minVal))));
+                 state.minVal = Math.floor(state.minVal / magnitude) * magnitude;
+            }
+        }
+
+        function generateCSVFromState() {
+            let csv = `Label,${state.seriesNames.join(',')},Color\n`;
+            csv += state.data.map(d => `${d.label},${d.values.join(',')},${d.color || ''}`).join('\n');
+            return csv;
+        }
+
+        function buildGridFromState() {
+            gridRowsContainer.innerHTML = '';
+            state.data.forEach((item, index) => {
+                const row = document.createElement('div');
+                row.className = 'flex items-center gap-2';
+                
+                // Label Input
+                const lblInput = document.createElement('input');
+                lblInput.type = 'text';
+                lblInput.value = item.label;
+                lblInput.className = 'flex-[2] min-w-0 px-2 py-1.5 bg-white border border-blueprint-200 text-xs text-slate-800 focus:border-blueprint-900 outline-none transition-colors';
+                lblInput.oninput = (e) => {
+                    state.data[index].label = e.target.value;
+                    syncFromGrid();
+                };
+
+                // Values Input
+                const valInput = document.createElement('input');
+                valInput.type = 'text';
+                valInput.value = item.values.join(', ');
+                valInput.className = 'flex-[2] min-w-0 px-2 py-1.5 bg-white border border-blueprint-200 text-xs text-slate-800 focus:border-blueprint-900 outline-none transition-colors';
+                valInput.oninput = (e) => {
+                    state.data[index].values = e.target.value.split(',').map(v => parseFloat(v.trim()) || 0);
+                    syncFromGrid();
+                };
+
+                // Color Picker
+                const colWrapper = document.createElement('div');
+                colWrapper.className = 'relative w-10 h-8 overflow-hidden border border-blueprint-200 shrink-0 bg-white';
+                const colInput = document.createElement('input');
+                colInput.type = 'color';
+                colInput.value = item.color || palettes[state.colorPalette][index % palettes[state.colorPalette].length];
+                colInput.className = 'absolute -top-2 -left-2 w-14 h-12 cursor-pointer';
+                colInput.oninput = (e) => {
+                    state.data[index].color = e.target.value;
+                    syncFromGrid();
+                };
+                colWrapper.appendChild(colInput);
+
+                // Delete Button
+                const delBtn = document.createElement('button');
+                delBtn.className = 'w-6 h-8 flex items-center justify-center text-slate-400 hover:text-brand-red transition shrink-0';
+                delBtn.innerHTML = '<i class="ph-bold ph-trash"></i>';
+                delBtn.onclick = () => {
+                    state.data.splice(index, 1);
+                    buildGridFromState();
+                    syncFromGrid();
+                };
+
+                row.appendChild(lblInput);
+                row.appendChild(valInput);
+                row.appendChild(colWrapper);
+                row.appendChild(delBtn);
+                
+                gridRowsContainer.appendChild(row);
+            });
+        }
+
+        // Add Row Handler
+        btnAddRow.addEventListener('click', () => {
+            const emptyVals = Array(state.seriesNames.length).fill(10);
+            state.data.push({ label: 'New Item', values: emptyVals, color: null });
+            buildGridFromState();
+            syncFromGrid();
+            gridRowsContainer.scrollTop = gridRowsContainer.scrollHeight;
+        });
+
+        function syncFromGrid() {
+            dataInput.value = generateCSVFromState();
+            updateAndRender(false);
+        }
+
+        // Tab Handling
+        tabGrid.addEventListener('click', () => {
+            currentDataMode = 'grid';
+            tabGrid.classList.add('bg-blueprint-900', 'text-white', 'shadow-[1px_1px_0px_#000]');
+            tabGrid.classList.remove('text-slate-500', 'hover:text-slate-800');
+            tabCsv.classList.remove('bg-blueprint-900', 'text-white', 'shadow-[1px_1px_0px_#000]');
+            tabCsv.classList.add('text-slate-500', 'hover:text-slate-800');
+            viewGrid.classList.remove('hidden');
+            viewGrid.classList.add('flex');
+            viewCsv.classList.add('hidden');
+            viewCsv.classList.remove('flex');
+            buildGridFromState();
+        });
+
+        tabCsv.addEventListener('click', () => {
+            currentDataMode = 'csv';
+            tabCsv.classList.add('bg-blueprint-900', 'text-white', 'shadow-[1px_1px_0px_#000]');
+            tabCsv.classList.remove('text-slate-500', 'hover:text-slate-800');
+            tabGrid.classList.remove('bg-blueprint-900', 'text-white', 'shadow-[1px_1px_0px_#000]');
+            tabGrid.classList.add('text-slate-500', 'hover:text-slate-800');
+            viewCsv.classList.remove('hidden');
+            viewCsv.classList.add('flex');
+            viewGrid.classList.add('hidden');
+            viewGrid.classList.remove('flex');
+            dataInput.value = generateCSVFromState();
+        });
+
+        function updateStateFromUI(rebuildGrid = true) {
+            state.title = uiTitle.value;
+            state.subtitle = uiSubtitle.value;
+            state.source = uiSource.value;
+            
+            state.showTitle = uiShowTitle.checked;
+            state.showSubtitle = uiShowSubtitle.checked;
+            state.showSource = uiShowSource.checked;
+            
+            state.titleSize = parseInt(uiTitleSize.value);
+            state.subtitleSize = parseInt(uiSubtitleSize.value);
+            state.sourceSize = parseInt(uiSourceSize.value);
+            
+            state.titleColor = uiTitleColor.value;
+            state.textColor = uiTextColor.value;
+            state.bgColor = uiBgColor.value;
+            state.zoom = parseFloat(zoomSlider.value);
+            state.panX = parseInt(panXSlider.value);
+            state.panY = parseInt(panYSlider.value);
+            
+            state.fontFamily = fontSelect.value;
+            state.colorPalette = paletteSelect.value;
+            state.type = typeSelect.value;
+            state.format = formatSelect.value;
+            
+            state.showLegend = legendCheck.checked;
+            state.showGrid = showGridCheck.checked;
+            state.showXAxis = uiShowXAxis.checked;
+            state.showYAxis = uiShowYAxis.checked;
+            state.showValues = uiShowValues.checked;
+            
+            const raw = dataInput.value.trim();
+            if (raw) parseCSVtoState(raw);
+
+            if (rebuildGrid && currentDataMode === 'grid') {
+                buildGridFromState();
+            }
+        }
+
+        function formatValue(val) {
+            const rounded = Math.abs(state.maxVal - state.minVal) < 5 ? val.toFixed(2) : Math.round(val);
+            if (state.format === 'currency') return '$' + Number(rounded).toLocaleString();
+            if (state.format === 'percent') return Number(rounded).toLocaleString() + '%';
+            return Number(rounded).toLocaleString();
+        }
+
+        function easeOutQuint(x) {
+            return 1 - Math.pow(1 - x, 5);
+        }
+
+        // --- Core Scaling Rendering Engine ---
+        function renderFrame(progress, targetCanvas = canvas, exportScale = 1.0, isTransparent = false) {
+            const tCtx = targetCanvas.getContext('2d', { alpha: isTransparent });
+            const easeP = easeOutQuint(progress);
+
+            const isDarkBg = isDarkColor(state.bgColor);
+            const gridColor = isDarkBg ? 'rgba(255,255,255,0.15)' : 'rgba(0,0,0,0.15)';
+            const fontBase = state.fontFamily;
+            const activePalette = palettes[state.colorPalette];
+
+            const W = 1920;
+            const H = 1080;
+
+            tCtx.save();
+            tCtx.scale(exportScale, exportScale);
+
+            if (isTransparent) {
+                tCtx.clearRect(0, 0, W, H);
+            } else {
+                tCtx.fillStyle = state.bgColor;
+                tCtx.fillRect(0, 0, W, H);
+            }
+
+            tCtx.translate(W / 2 + state.panX, H / 2 + state.panY);
+            tCtx.scale(state.zoom, state.zoom);
+            tCtx.translate(-W / 2, -H / 2);
+
+            tCtx.textAlign = 'left';
+            
+            // Dynamic area calculation to give chart max space
+            let currentY = 70; // Top padding
+
+            if (state.showTitle) {
+                tCtx.textBaseline = 'top';
+                tCtx.font = `800 ${state.titleSize}px "${fontBase}"`;
+                tCtx.fillStyle = state.titleColor;
+                tCtx.fillText(state.title, 80, currentY);
+                currentY += state.titleSize + 16;
+            }
+
+            if (state.showSubtitle) {
+                tCtx.textBaseline = 'top';
+                tCtx.font = `400 ${state.subtitleSize}px "${fontBase}"`;
+                tCtx.fillStyle = state.textColor;
+                tCtx.fillText(state.subtitle, 80, currentY);
+                currentY += state.subtitleSize + 16;
+            }
+
+            let bottomY = H - 40; // Bottom padding
+
+            if (state.showSource) {
+                tCtx.textBaseline = 'bottom';
+                tCtx.font = `600 ${state.sourceSize}px "${fontBase}"`;
+                tCtx.fillStyle = state.textColor;
+                tCtx.fillText(state.source, 80, bottomY);
+                bottomY -= (state.sourceSize + 20);
+            }
+
+            if (state.showLegend) {
+                drawLegend(tCtx, W, bottomY - 20, state.textColor, activePalette, fontBase);
+                bottomY -= 80;
+            }
+
+            if (state.data.length === 0) {
+                tCtx.restore();
+                return;
+            }
+
+            const chartArea = {
+                x: 120,
+                y: currentY + 40,
+                w: W - 240,
+                h: Math.max(100, bottomY - (currentY + 40)) // ensure it has height
+            };
+
+            if (state.type === 'vertical') {
+                drawVerticalChart(tCtx, chartArea, easeP, state.textColor, gridColor, activePalette, fontBase);
+            } else if (state.type === 'horizontal') {
+                drawHorizontalChart(tCtx, chartArea, easeP, state.textColor, gridColor, activePalette, fontBase);
+            } else if (state.type === 'pie') {
+                drawPieChart(tCtx, chartArea, easeP, state.textColor, activePalette, fontBase);
+            } else if (state.type === 'multiline') {
+                drawMultiLineChart(tCtx, chartArea, easeP, state.textColor, gridColor, activePalette, fontBase);
+            } else if (state.type === 'stacked') {
+                drawStackedChart(tCtx, chartArea, easeP, state.textColor, gridColor, activePalette, fontBase);
+            }
+
+            tCtx.restore();
+        }
+
+        function drawLegend(tCtx, W, legendCenterY, textColor, palette, fontBase) {
+            tCtx.textAlign = 'left';
+            tCtx.textBaseline = 'middle';
+            tCtx.font = `700 24px "${fontBase}"`;
+            
+            let totalWidth = 0;
+            const itemPadding = 40;
+            const boxSize = 20;
+
+            const isMultiSeries = (state.type === 'multiline' || state.type === 'stacked') && state.seriesNames.length > 0;
+            
+            if (isMultiSeries) {
+                state.seriesNames.forEach((name) => {
+                    totalWidth += boxSize + 10 + tCtx.measureText(name).width + itemPadding;
+                });
+            } else {
+                state.data.forEach(item => {
+                    totalWidth += boxSize + 10 + tCtx.measureText(item.label).width + itemPadding;
+                });
+            }
+            totalWidth -= itemPadding; 
+
+            let currentX = (W - totalWidth) / 2;
+
+            if (isMultiSeries) {
+                state.seriesNames.forEach((name, idx) => {
+                    const color = palette[idx % palette.length];
+                    tCtx.fillStyle = color;
+                    tCtx.beginPath();
+                    tCtx.roundRect(currentX, legendCenterY - boxSize/2, boxSize, boxSize, 4);
+                    tCtx.fill();
+
+                    tCtx.fillStyle = textColor;
+                    tCtx.fillText(name, currentX + boxSize + 10, legendCenterY + 2);
+                    currentX += boxSize + 10 + tCtx.measureText(name).width + itemPadding;
+                });
+            } else {
+                state.data.forEach((item, idx) => {
+                    const color = item.color || palette[idx % palette.length];
+                    tCtx.fillStyle = color;
+                    tCtx.beginPath();
+                    tCtx.roundRect(currentX, legendCenterY - boxSize/2, boxSize, boxSize, 4);
+                    tCtx.fill();
+
+                    tCtx.fillStyle = textColor;
+                    tCtx.fillText(item.label, currentX + boxSize + 10, legendCenterY + 2);
+                    currentX += boxSize + 10 + tCtx.measureText(item.label).width + itemPadding;
+                });
+            }
+        }
+
+        function drawVerticalChart(tCtx, area, progress, textColor, gridColor, palette, fontBase) {
+            const steps = 4;
+            const valueRange = state.maxVal - state.minVal;
+            const leftPad = state.showYAxis ? 100 : 20;
+            
+            tCtx.textAlign = 'right';
+            tCtx.textBaseline = 'middle';
+            tCtx.font = `600 20px "${fontBase}"`;
+            tCtx.fillStyle = textColor;
+
+            for (let i = 0; i <= steps; i++) {
+                const val = state.minVal + (valueRange / steps) * i;
+                const y = area.y + area.h - ((val - state.minVal) / valueRange) * area.h;
+
+                if (state.showGrid) {
+                    tCtx.beginPath();
+                    tCtx.setLineDash([8, 8]);
+                    tCtx.moveTo(area.x + leftPad - 20, y);
+                    tCtx.lineTo(area.x + area.w, y);
+                    tCtx.strokeStyle = gridColor;
+                    tCtx.lineWidth = 2;
+                    tCtx.stroke();
+                    tCtx.setLineDash([]);
+                }
+                
+                if (state.showYAxis) {
+                    if (i > 0 || state.minVal < 0) { 
+                        tCtx.fillText(formatValue(val), area.x + leftPad - 40, y);
+                    } else {
+                        tCtx.fillText("0", area.x + leftPad - 40, y);
+                    }
+                }
+            }
+
+            const zeroY = state.minVal < 0 ? area.y + area.h - ((0 - state.minVal) / valueRange) * area.h : area.y + area.h;
+            
+            if (state.showXAxis || state.showYAxis) {
+                tCtx.beginPath();
+                tCtx.moveTo(area.x + leftPad - 20, zeroY);
+                tCtx.lineTo(area.x + area.w, zeroY);
+                tCtx.strokeStyle = gridColor;
+                tCtx.lineWidth = 3;
+                tCtx.stroke();
+            }
+
+            const numBars = state.data.length;
+            const slotWidth = (area.w - leftPad) / numBars;
+            const barWidth = slotWidth * 0.8;
+            
+            tCtx.textAlign = 'center';
+
+            state.data.forEach((item, index) => {
+                const x = area.x + leftPad + (index * slotWidth) + (slotWidth - barWidth)/2;
+                
+                const startY = zeroY;
+                const actualValue = item.values[0] || 0;
+                const targetPixelHeight = (actualValue / valueRange) * area.h;
+                const currentPixelHeight = targetPixelHeight * progress;
+                const y = startY - currentPixelHeight;
+                const color = item.color || palette[index % palette.length];
+
+                tCtx.fillStyle = color;
+                tCtx.fillRect(x, y, barWidth, currentPixelHeight);
+
+                tCtx.textBaseline = 'top';
+                tCtx.font = `700 24px "${fontBase}"`;
+                tCtx.fillStyle = textColor;
+                tCtx.globalAlpha = Math.min(1, progress * 2); 
+                const lblY = state.minVal < 0 ? area.y + area.h + 15 : zeroY + 15;
+                
+                if (state.showXAxis) {
+                    tCtx.fillText(item.label, x + barWidth/2, lblY);
+                }
+
+                if (state.showValues && progress > 0.1) {
+                    tCtx.textBaseline = actualValue >= 0 ? 'bottom' : 'top';
+                    tCtx.font = `800 28px "${fontBase === 'Caveat' || fontBase === 'Playfair Display' ? fontBase : 'JetBrains Mono'}"`;
+                    const valYOffset = actualValue >= 0 ? -10 : 10;
+                    tCtx.fillText(formatValue(actualValue * progress), x + barWidth/2, y + valYOffset);
+                }
+                tCtx.globalAlpha = 1.0;
+            });
+        }
+
+        function drawHorizontalChart(tCtx, area, progress, textColor, gridColor, palette, fontBase) {
+            const labelSpace = state.showYAxis ? 250 : 20;
+            const rightPad = 40;
+            const actualAreaW = area.w - labelSpace - rightPad;
+            const valueRange = state.maxVal - state.minVal;
+
+            const steps = 4;
+            tCtx.textAlign = 'center';
+            tCtx.textBaseline = 'top';
+            tCtx.font = `600 20px "${fontBase}"`;
+            tCtx.fillStyle = textColor;
+
+            for (let i = 0; i <= steps; i++) {
+                const val = state.minVal + (valueRange / steps) * i;
+                const x = area.x + labelSpace + ((val - state.minVal) / valueRange) * actualAreaW;
+
+                if (state.showGrid) {
+                    tCtx.beginPath();
+                    tCtx.setLineDash([8, 8]);
+                    tCtx.moveTo(x, area.y);
+                    tCtx.lineTo(x, area.y + area.h - (state.showXAxis ? 40 : 0));
+                    tCtx.strokeStyle = gridColor;
+                    tCtx.lineWidth = 2;
+                    tCtx.stroke();
+                    tCtx.setLineDash([]);
+                }
+
+                if (state.showXAxis) {
+                    tCtx.fillText(formatValue(val), x, area.y + area.h - 25);
+                }
+            }
+
+            const zeroX = state.minVal < 0 ? area.x + labelSpace + ((0 - state.minVal) / valueRange) * actualAreaW : area.x + labelSpace;
+            
+            if (state.showXAxis || state.showYAxis) {
+                tCtx.beginPath();
+                tCtx.moveTo(zeroX, area.y);
+                tCtx.lineTo(zeroX, area.y + area.h - (state.showXAxis ? 40 : 0));
+                tCtx.strokeStyle = gridColor;
+                tCtx.lineWidth = 3;
+                tCtx.stroke();
+            }
+
+            const numBars = state.data.length;
+            const totalH = area.h - (state.showXAxis ? 40 : 0);
+            const slotHeight = totalH / numBars;
+            const barHeight = slotHeight * 0.75;
+            
+            tCtx.textBaseline = 'middle';
+
+            state.data.forEach((item, index) => {
+                const actualValue = item.values[0] || 0;
+                const targetPixelWidth = (actualValue / valueRange) * actualAreaW;
+                const currentPixelWidth = targetPixelWidth * progress;
+                const y = area.y + (index * slotHeight) + (slotHeight - barHeight)/2;
+                const color = item.color || palette[index % palette.length];
+
+                tCtx.globalAlpha = Math.min(1, progress * 2);
+                if (state.showYAxis) {
+                    tCtx.textAlign = 'right';
+                    tCtx.font = `800 24px "${fontBase}"`;
+                    tCtx.fillStyle = textColor;
+                    tCtx.fillText(item.label, area.x + labelSpace - 20, y + barHeight/2);
+                }
+
+                tCtx.fillStyle = color;
+                tCtx.globalAlpha = 1.0;
+                tCtx.fillRect(zeroX, y, currentPixelWidth, barHeight);
+
+                if (state.showValues && progress > 0.1) {
+                    tCtx.textAlign = actualValue >= 0 ? 'left' : 'right';
+                    tCtx.font = `800 28px "${fontBase === 'Caveat' || fontBase === 'Playfair Display' ? fontBase : 'JetBrains Mono'}"`;
+                    tCtx.fillStyle = textColor;
+                    
+                    const valXOffset = actualValue >= 0 ? 15 : -15;
+                    tCtx.fillText(formatValue(actualValue * progress), zeroX + currentPixelWidth + valXOffset, y + barHeight/2);
+                }
+            });
+        }
+
+        function drawPieChart(tCtx, area, progress, textColor, palette, fontBase) {
+            const total = state.data.reduce((sum, item) => sum + (item.values[0] || 0), 0);
+            if (total === 0) return;
+            
+            const centerX = area.x + area.w / 2; 
+            const centerY = area.y + area.h / 2;
+            const radius = Math.min(area.w, area.h) * 0.45;
+
+            const targetTotalRadian = Math.PI * 2 * progress;
+            let currentRadian = -Math.PI / 2; 
+
+            state.data.forEach((item, index) => {
+                const actualValue = item.values[0] || 0;
+                const sliceAngle = (actualValue / total) * targetTotalRadian;
+                const color = item.color || palette[index % palette.length];
+                
+                tCtx.beginPath();
+                tCtx.moveTo(centerX, centerY);
+                tCtx.arc(centerX, centerY, radius, currentRadian, currentRadian + sliceAngle);
+                tCtx.closePath();
+                
+                tCtx.fillStyle = color;
+                tCtx.fill();
+                
+                tCtx.lineWidth = 3;
+                tCtx.strokeStyle = state.bgColor;
+                tCtx.stroke();
+
+                currentRadian += sliceAngle;
+            });
+        }
+
+        function drawMultiLineChart(tCtx, area, progress, textColor, gridColor, palette, fontBase) {
+            const numPoints = state.data.length;
+            if (numPoints < 2) return;
+            const numSeries = state.seriesNames.length;
+            
+            const valueRange = state.maxVal - state.minVal;
+            const leftPad = state.showYAxis ? 100 : 40;
+            const rightPad = 40;
+            const xStep = (area.w - leftPad - rightPad) / (numPoints - 1);
+            const currentXProg = area.x + leftPad + progress * (area.w - leftPad - rightPad);
+            
+            tCtx.textAlign = 'right';
+            tCtx.textBaseline = 'middle';
+            tCtx.font = `600 20px "${fontBase}"`;
+            tCtx.fillStyle = textColor;
+
+            // Y Axis
+            const steps = 4;
+            for (let i = 0; i <= steps; i++) {
+                const val = state.minVal + (valueRange / steps) * i;
+                const y = area.y + area.h - ((val - state.minVal) / valueRange) * area.h;
+
+                if (state.showGrid) {
+                    tCtx.beginPath();
+                    tCtx.setLineDash([8, 8]);
+                    tCtx.moveTo(area.x + leftPad - 20, y);
+                    tCtx.lineTo(area.x + area.w, y);
+                    tCtx.strokeStyle = gridColor;
+                    tCtx.lineWidth = 2;
+                    tCtx.stroke();
+                    tCtx.setLineDash([]);
+                }
+                
+                if (state.showYAxis) {
+                    tCtx.fillText(formatValue(val), area.x + leftPad - 40, y);
+                }
+            }
+            
+            const zeroY = state.minVal < 0 ? area.y + area.h - ((0 - state.minVal) / valueRange) * area.h : area.y + area.h;
+            if (state.showXAxis || state.showYAxis) {
+                tCtx.beginPath();
+                tCtx.moveTo(area.x + leftPad - 20, zeroY);
+                tCtx.lineTo(area.x + area.w, zeroY);
+                tCtx.strokeStyle = gridColor;
+                tCtx.lineWidth = 3;
+                tCtx.stroke();
+            }
+
+            // X Axis Labels
+            tCtx.textAlign = 'center';
+            tCtx.textBaseline = 'top';
+            
+            state.data.forEach((item, idx) => {
+                const x = area.x + leftPad + idx * xStep;
+                if (state.showGrid) {
+                    tCtx.beginPath();
+                    tCtx.setLineDash([4, 4]);
+                    tCtx.moveTo(x, area.y);
+                    tCtx.lineTo(x, area.y + area.h);
+                    tCtx.strokeStyle = gridColor;
+                    tCtx.lineWidth = 1;
+                    tCtx.stroke();
+                    tCtx.setLineDash([]);
+                }
+                if (state.showXAxis) {
+                    tCtx.globalAlpha = Math.min(1, progress * 2);
+                    tCtx.fillText(item.label, x, area.y + area.h + 15);
+                    tCtx.globalAlpha = 1.0;
+                }
+            });
+
+            // Lines
+            for (let s = 0; s < numSeries; s++) {
+                const color = palette[s % palette.length];
+                
+                tCtx.beginPath();
+                tCtx.strokeStyle = color;
+                tCtx.lineWidth = 6;
+                tCtx.lineJoin = 'round';
+                tCtx.lineCap = 'round';
+                
+                if (state.glow > 0) {
+                    tCtx.shadowColor = color;
+                    tCtx.shadowBlur = state.glow;
+                }
+                
+                let lastX = 0, lastY = 0;
+                
+                for (let i = 0; i < numPoints; i++) {
+                    const item = state.data[i];
+                    const val = item.values[s] !== undefined ? item.values[s] : 0;
+                    const x = area.x + leftPad + i * xStep;
+                    const y = area.y + area.h - ((val - state.minVal) / valueRange) * area.h;
+                    
+                    if (i === 0) {
+                        tCtx.moveTo(x, y);
+                        lastX = x; lastY = y;
+                    } else {
+                        if (x <= currentXProg) {
+                            tCtx.lineTo(x, y);
+                            lastX = x; lastY = y;
+                        } else if (lastX < currentXProg) {
+                            const fraction = (currentXProg - lastX) / (x - lastX);
+                            const interpY = lastY + (y - lastY) * fraction;
+                            tCtx.lineTo(currentXProg, interpY);
+                            lastX = currentXProg;
+                            lastY = interpY;
+                            break;
+                        }
+                    }
+                }
+                tCtx.stroke();
+                tCtx.shadowBlur = 0; 
+                
+                if (progress > 0) {
+                    tCtx.beginPath();
+                    tCtx.arc(lastX, lastY, 8, 0, Math.PI * 2);
+                    tCtx.fillStyle = color;
+                    tCtx.fill();
+                    tCtx.strokeStyle = state.bgColor;
+                    tCtx.lineWidth = 3;
+                    tCtx.stroke();
+                    
+                    if (state.showValues) {
+                        tCtx.textAlign = 'left';
+                        tCtx.textBaseline = 'middle';
+                        tCtx.font = `800 24px "${fontBase === 'Caveat' || fontBase === 'Playfair Display' ? fontBase : 'JetBrains Mono'}"`;
+                        tCtx.fillStyle = textColor;
+                        
+                        const interpVal = state.minVal + ((area.y + area.h - lastY) / area.h) * valueRange;
+                        tCtx.fillText(formatValue(interpVal), lastX + 15, lastY);
+                    }
+                }
+            }
+        }
+
+        function drawStackedChart(tCtx, area, progress, textColor, gridColor, palette, fontBase) {
+            const steps = 4;
+            const maxVal = state.maxStackedVal > 0 ? state.maxStackedVal : 1;
+            const valueRange = maxVal;
+            const leftPad = state.showYAxis ? 100 : 20;
+            
+            tCtx.textAlign = 'right';
+            tCtx.textBaseline = 'middle';
+            tCtx.font = `600 20px "${fontBase}"`;
+            tCtx.fillStyle = textColor;
+
+            for (let i = 0; i <= steps; i++) {
+                const val = (valueRange / steps) * i;
+                const y = area.y + area.h - (val / valueRange) * area.h;
+
+                if (state.showGrid) {
+                    tCtx.beginPath();
+                    tCtx.setLineDash([8, 8]);
+                    tCtx.moveTo(area.x + leftPad - 20, y);
+                    tCtx.lineTo(area.x + area.w, y);
+                    tCtx.strokeStyle = gridColor;
+                    tCtx.lineWidth = 2;
+                    tCtx.stroke();
+                    tCtx.setLineDash([]);
+                }
+                if (state.showYAxis) {
+                    tCtx.fillText(formatValue(val), area.x + leftPad - 40, y);
+                }
+            }
+
+            const zeroY = area.y + area.h;
+            
+            if (state.showXAxis || state.showYAxis) {
+                tCtx.beginPath();
+                tCtx.moveTo(area.x + leftPad - 20, zeroY);
+                tCtx.lineTo(area.x + area.w, zeroY);
+                tCtx.strokeStyle = gridColor;
+                tCtx.lineWidth = 3;
+                tCtx.stroke();
+            }
+
+            const numBars = state.data.length;
+            const slotWidth = (area.w - leftPad) / numBars;
+            const barWidth = slotWidth * 0.7;
+            const numSeries = state.seriesNames.length;
+            
+            tCtx.textAlign = 'center';
+
+            state.data.forEach((item, index) => {
+                const x = area.x + leftPad + (index * slotWidth) + (slotWidth - barWidth)/2;
+                let currentY = zeroY;
+                
+                if (state.showXAxis) {
+                    tCtx.textBaseline = 'top';
+                    tCtx.font = `700 24px "${fontBase}"`;
+                    tCtx.fillStyle = textColor;
+                    tCtx.globalAlpha = Math.min(1, progress * 2);
+                    tCtx.fillText(item.label, x + barWidth/2, zeroY + 15);
+                    tCtx.globalAlpha = 1.0;
+                }
+                
+                let stackTotal = 0;
+
+                for (let s = 0; s < numSeries; s++) {
+                    const val = item.values[s] || 0;
+                    stackTotal += val;
+                    const targetPixelHeight = (val / valueRange) * area.h;
+                    const currentPixelHeight = targetPixelHeight * progress;
+                    const y = currentY - currentPixelHeight;
+                    const color = palette[s % palette.length];
+
+                    tCtx.fillStyle = color;
+                    tCtx.fillRect(x, y, barWidth, currentPixelHeight);
+                    
+                    if (state.showValues && currentPixelHeight > 30 && progress > 0.5) {
+                        tCtx.fillStyle = '#ffffff';
+                        if (!isDarkColor(color)) tCtx.fillStyle = '#1e293b';
+                        
+                        tCtx.textBaseline = 'middle';
+                        tCtx.font = `800 18px "${fontBase === 'Caveat' || fontBase === 'Playfair Display' ? fontBase : 'JetBrains Mono'}"`;
+                        tCtx.fillText(formatValue(val * progress), x + barWidth/2, y + currentPixelHeight/2);
+                    }
+
+                    currentY = y;
+                }
+                
+                if (state.showValues && progress > 0.1) {
+                    tCtx.fillStyle = textColor;
+                    tCtx.textBaseline = 'bottom';
+                    tCtx.font = `800 26px "${fontBase === 'Caveat' || fontBase === 'Playfair Display' ? fontBase : 'JetBrains Mono'}"`;
+                    tCtx.fillText(formatValue(stackTotal * progress), x + barWidth/2, currentY - 10);
+                }
+            });
+        }
+
+        // --- Interaction & Update Loops ---
+        function updateAndRender(rebuildGrid = true) {
+            updateStateFromUI(rebuildGrid);
+            renderFrame(1.0, canvas, 1.0, false); 
+        }
+
+        document.querySelectorAll('.template-btn').forEach(btn => {
+            btn.addEventListener('click', () => {
+                const template = btn.getAttribute('data-template');
+                if (templates[template]) {
+                    uiTitle.value = templates[template].title;
+                    uiSubtitle.value = templates[template].subtitle;
+                    uiSource.value = templates[template].source;
+                    typeSelect.value = templates[template].type;
+                    dataInput.value = templates[template].csv;
+                    
+                    if (templates[template].options) {
+                        const opts = templates[template].options;
+                        uiShowTitle.checked = opts.showTitle !== undefined ? opts.showTitle : true;
+                        uiShowSubtitle.checked = opts.showSubtitle !== undefined ? opts.showSubtitle : true;
+                        uiShowSource.checked = opts.showSource !== undefined ? opts.showSource : true;
+                        uiShowXAxis.checked = opts.showXAxis !== undefined ? opts.showXAxis : true;
+                        uiShowYAxis.checked = opts.showYAxis !== undefined ? opts.showYAxis : true;
+                        showGridCheck.checked = opts.showGrid !== undefined ? opts.showGrid : true;
+                        legendCheck.checked = opts.showLegend !== undefined ? opts.showLegend : true;
+                        uiShowValues.checked = opts.showValues !== undefined ? opts.showValues : true;
+                        if(opts.colorPalette) paletteSelect.value = opts.colorPalette;
+                        if(opts.fontFamily) fontSelect.value = opts.fontFamily;
+                        if(opts.bgColor) uiBgColor.value = opts.bgColor;
+                        
+                        uiTitleColor.value = '#1e293b';
+                        uiTextColor.value = '#64748b';
+                    } else {
+                        // Reset defaults for standard templates
+                        uiShowTitle.checked = true;
+                        uiShowSubtitle.checked = true;
+                        uiShowSource.checked = true;
+                        uiShowXAxis.checked = true;
+                        uiShowYAxis.checked = true;
+                        showGridCheck.checked = true;
+                        legendCheck.checked = true;
+                        uiShowValues.checked = true;
+                        paletteSelect.value = 'vibrant';
+                        
+                        uiBgColor.value = '#ffffff';
+                        uiTitleColor.value = '#1e293b';
+                        uiTextColor.value = '#64748b';
+                    }
+                    
+                    updateAndRender(true);
+                }
+            });
+        });
+
+        const inputs = [uiTitle, uiSubtitle, uiSource, uiBgColor, uiTitleColor, uiTextColor];
+        inputs.forEach(el => el.addEventListener('input', () => updateAndRender(false)));
+        
+        dataInput.addEventListener('input', () => updateAndRender(true));
+
+        [uiShowTitle, uiShowSubtitle, uiShowSource, legendCheck, showGridCheck, uiShowXAxis, uiShowYAxis, uiShowValues].forEach(el => el.addEventListener('change', () => updateAndRender(false)));
+        [uiTitleSize, uiSubtitleSize, uiSourceSize].forEach(el => el.addEventListener('input', () => updateAndRender(false)));
+        
+        [typeSelect, fontSelect, paletteSelect, formatSelect].forEach(el => el.addEventListener('change', () => updateAndRender(true)));
+        
+        durationSlider.addEventListener('input', (e) => { 
+            state.duration = parseFloat(e.target.value) * 1000;
+            document.getElementById('duration-val').textContent = e.target.value + 's';
+        });
+        
+        glowSlider.addEventListener('input', (e) => { 
+            state.glow = parseInt(e.target.value);
+            const valLabel = state.glow === 0 ? 'None' : (state.glow > 20 ? 'High' : 'Med');
+            document.getElementById('glow-val').textContent = valLabel;
+            renderFrame(state.progress);
+        });
+
+        zoomSlider.addEventListener('input', (e) => { 
+            state.zoom = parseFloat(e.target.value);
+            document.getElementById('zoom-val').textContent = state.zoom.toFixed(1) + 'x';
+            renderFrame(state.progress);
+        });
+
+        panXSlider.addEventListener('input', (e) => { 
+            state.panX = parseInt(e.target.value);
+            document.getElementById('pan-x-val').textContent = state.panX;
+            renderFrame(state.progress);
+        });
+
+        panYSlider.addEventListener('input', (e) => { 
+            state.panY = parseInt(e.target.value);
+            document.getElementById('pan-y-val').textContent = state.panY;
+            renderFrame(state.progress);
+        });
+
+        btnResetView.addEventListener('click', () => {
+            zoomSlider.value = 1.0;
+            panXSlider.value = 0;
+            panYSlider.value = 0;
+            state.zoom = 1.0;
+            state.panX = 0;
+            state.panY = 0;
+            document.getElementById('zoom-val').textContent = '1.0x';
+            document.getElementById('pan-x-val').textContent = '0';
+            document.getElementById('pan-y-val').textContent = '0';
+            renderFrame(state.progress);
+        });
+
+        // Initialize
+        updateAndRender(true);
+
+        // --- Header Actions & Export Logic ---
+        const btnPreview = document.getElementById('btn-header-preview');
+        const btnExport = document.getElementById('btn-header-export');
+        const exportFmt = document.getElementById('export-fmt');
+        const exportRes = document.getElementById('export-res');
+        const transparentToggle = document.getElementById('header-transparent');
+        const overlay = document.getElementById('recording-overlay');
+        const recordingText = document.getElementById('recording-text');
+        const iconPlay = document.getElementById('icon-play');
+        const textPlay = document.getElementById('text-play');
+
+        btnPreview.addEventListener('click', () => {
+            if (state.isRecording) return;
+            if (state.isAnimating) {
+                state.isAnimating = false;
+            } else {
+                runAnimation();
+            }
+        });
+
+        btnExport.addEventListener('click', async () => {
+            if (state.isAnimating || state.isRecording) return;
+            
+            const fmt = exportFmt.value;
+            const targetWidth = parseInt(exportRes.value);
+            const exportScale = targetWidth / 1920;
+            const isTransparent = transparentToggle.checked && (fmt === 'png' || fmt === 'gif'); 
+
+            if (fmt === 'png') {
+                exportSnapshot(targetWidth, exportScale, isTransparent);
+            } else if (fmt === 'gif') {
+                exportGIF(targetWidth, exportScale, isTransparent);
+            } else {
+                exportVideo(targetWidth, exportScale);
+            }
+        });
+
+        function runAnimation() {
+            state.isAnimating = true;
+            btnPreview.classList.add('bg-red-100', 'text-brand-red', 'border-brand-red');
+            btnPreview.classList.remove('bg-white', 'text-blueprint-900', 'border-blueprint-900');
+            iconPlay.classList.replace('ph-play-circle', 'ph-stop-circle');
+            textPlay.innerText = 'Stop';
+            btnExport.disabled = true;
+
+            updateStateFromUI(false); 
+
+            const startTime = performance.now();
+            const durationMs = state.duration;
+
+            function animLoop(currentTime) {
+                if (!state.isAnimating) {
+                    resetPreviewBtn();
+                    return;
+                }
+
+                const elapsed = Math.max(0, currentTime - startTime);
+                let p = durationMs > 0 ? elapsed / durationMs : 1.0;
+                p = Math.max(0, Math.min(1, p));
+                
+                state.progress = p;
+                renderFrame(p, canvas, 1.0, false);
+
+                if (p < 1.0) {
+                    requestAnimationFrame(animLoop);
+                } else {
+                    state.isAnimating = false;
+                    resetPreviewBtn();
+                }
+            }
+            requestAnimationFrame(animLoop);
+        }
+
+        function resetPreviewBtn() {
+            btnPreview.classList.remove('bg-red-100', 'text-brand-red', 'border-brand-red');
+            btnPreview.classList.add('bg-white', 'text-blueprint-900', 'border-blueprint-900');
+            iconPlay.classList.replace('ph-stop-circle', 'ph-play-circle');
+            textPlay.innerText = 'Preview';
+            btnExport.disabled = false;
+        }
+
+        function exportSnapshot(targetWidth, exportScale, isTransparent) {
+            const targetHeight = targetWidth * (1080/1920);
+            const expCanvas = document.createElement('canvas');
+            expCanvas.width = targetWidth;
+            expCanvas.height = targetHeight;
+            
+            updateStateFromUI(false);
+            renderFrame(1.0, expCanvas, exportScale, isTransparent);
+
+            const url = expCanvas.toDataURL("image/png");
+            const a = document.createElement('a');
+            a.href = url;
+            const bgStatus = isTransparent ? 'transparent' : 'solid';
+            a.download = `editorial-chart-snap-${targetWidth}w-${bgStatus}-${Date.now()}.png`;
+            a.click();
+            showToast('Snapshot exported successfully!', 'success');
+        }
+
+        function exportGIF(targetWidth, exportScale, isTransparent) {
+            if (!gifWorkerUrl) return showToast('GIF encoder initializing. Try again in a moment.', 'info');
+            
+            const targetHeight = targetWidth * (1080/1920);
+            const expCanvas = document.createElement('canvas');
+            expCanvas.width = targetWidth;
+            expCanvas.height = targetHeight;
+            const eCtx = expCanvas.getContext('2d', { willReadFrequently: true });
+
+            const gif = new GIF({
+                workers: 2,
+                quality: 10,
+                width: targetWidth,
+                height: targetHeight,
+                workerScript: gifWorkerUrl,
+                transparent: isTransparent ? 'rgba(0,0,0,0)' : null
+            });
+
+            state.isRecording = true;
+            btnPreview.disabled = true;
+            btnExport.disabled = true;
+            
+            overlay.classList.remove('-translate-y-24');
+            overlay.classList.add('translate-y-4');
+            recordingText.innerText = 'Preparing GIF...';
+
+            updateStateFromUI(false);
+            
+            const fps = 15;
+            const totalTimeSec = state.duration / 1000;
+            const totalFrames = Math.ceil(totalTimeSec * fps);
+            let currentFrame = 0;
+
+            function renderNextFrame() {
+                if (!state.isRecording) return;
+
+                let p = currentFrame / totalFrames;
+                p = Math.max(0, Math.min(1, p));
+                
+                state.progress = p;
+                
+                renderFrame(p, expCanvas, exportScale, isTransparent);
+                
+                if (isTransparent) {
+                    gif.addFrame(eCtx, {copy: true, delay: 1000 / fps, dispose: 2});
+                } else {
+                    gif.addFrame(eCtx, {copy: true, delay: 1000 / fps});
+                }
+                
+                renderFrame(p, canvas, 1.0, false);
+
+                let pct = Math.round((currentFrame / totalFrames) * 50); 
+                recordingText.innerText = `Rendering Frames ${pct}%`;
+
+                currentFrame++;
+                if (currentFrame <= totalFrames) {
+                    requestAnimationFrame(renderNextFrame);
+                } else {
+                    recordingText.innerText = `Encoding GIF... (This takes a while)`;
+                    gif.render();
+                }
+            }
+
+            gif.on('finished', function(blob) {
+                const url = URL.createObjectURL(blob);
+                const a = document.createElement('a');
+                a.style.display = 'none';
+                a.href = url;
+                const bgStatus = isTransparent ? 'transparent' : 'solid';
+                a.download = `editorial-chart-anim-${targetWidth}w-${bgStatus}-${Date.now()}.gif`;
+                document.body.appendChild(a);
+                a.click();
+                
+                setTimeout(() => {
+                    document.body.removeChild(a);
+                    URL.revokeObjectURL(url);
+                }, 100);
+
+                overlay.classList.remove('translate-y-4');
+                overlay.classList.add('-translate-y-24');
+                state.isRecording = false;
+                state.progress = 1.0;
+                renderFrame(1.0, canvas, 1.0, false); 
+                btnPreview.disabled = false;
+                btnExport.disabled = false;
+                recordingText.innerText = 'Recording Animation...';
+                showToast('GIF exported successfully!', 'success');
+            });
+
+            renderNextFrame();
+        }
+
+        async function exportVideo(targetWidth, exportScale) {
+            const targetHeight = targetWidth * (1080/1920);
+            const expCanvas = document.createElement('canvas');
+            expCanvas.width = targetWidth;
+            expCanvas.height = targetHeight;
+
+            const adOverlay = document.getElementById('video-export-ad-overlay');
+            const adPct = document.getElementById('video-export-pct');
+            const adBar = document.getElementById('video-export-progress-bar');
+
+            let mediaRecorder;
+            let recordedChunks = [];
+            state.isRecording = true;
+            
+            try {
+                const stream = expCanvas.captureStream(60);
+                
+                let options = { mimeType: 'video/webm;codecs=vp9' };
+                if (!MediaRecorder.isTypeSupported(options.mimeType)) {
+                    options = { mimeType: 'video/webm;codecs=vp8' };
+                    if (!MediaRecorder.isTypeSupported(options.mimeType)) {
+                        options = { mimeType: 'video/webm' };
+                    }
+                }
+
+                options.videoBitsPerSecond = 20000000;
+
+                mediaRecorder = new MediaRecorder(stream, options);
+
+                mediaRecorder.ondataavailable = (e) => {
+                    if (e.data.size > 0) recordedChunks.push(e.data);
+                };
+
+                mediaRecorder.onstop = () => {
+                    const blob = new Blob(recordedChunks, { type: options.mimeType.split(';')[0] });
+                    const url = URL.createObjectURL(blob);
+                    
+                    const a = document.createElement('a');
+                    a.style.display = 'none';
+                    a.href = url;
+                    a.download = `editorial-chart-anim-${targetWidth}w-${Date.now()}.webm`;
+                    document.body.appendChild(a);
+                    a.click();
+                    
+                    setTimeout(() => {
+                        document.body.removeChild(a);
+                        window.URL.revokeObjectURL(url);
+                    }, 100);
+
+                    // Hide Ad Overlay
+                    adOverlay.classList.remove('opacity-100');
+                    setTimeout(() => adOverlay.classList.add('hidden'), 300);
+
+                    overlay.classList.remove('translate-y-4');
+                    overlay.classList.add('-translate-y-24');
+                    state.isRecording = false;
+                    state.progress = 1.0;
+                    renderFrame(1.0, canvas, 1.0, false); 
+                    btnPreview.disabled = false;
+                    btnExport.disabled = false;
+                    recordingText.innerText = 'Recording Animation...';
+                    showToast('Video exported successfully!', 'success');
+                };
+
+                // Show Ad Overlay
+                adOverlay.classList.remove('hidden');
+                setTimeout(() => {
+                    adOverlay.classList.add('opacity-100');
+                    // Push single large ad after transition
+                    try {
+                        (window.adsbygoogle = window.adsbygoogle || []).push({});
+                    } catch (e) { console.error("AdSense trigger error:", e); }
+                }, 100);
+
+                overlay.classList.remove('-translate-y-24');
+                overlay.classList.add('translate-y-4');
+                recordingText.innerText = 'Rendering Video...';
+
+                mediaRecorder.start();
+
+                btnPreview.disabled = true;
+                btnExport.disabled = true;
+                updateStateFromUI(false);
+                
+                const startTime = performance.now();
+                const durationMs = state.duration;
+
+                function animLoop(currentTime) {
+                    if (!state.isRecording) return;
+                    
+                    const elapsed = Math.max(0, currentTime - startTime);
+                    let p = durationMs > 0 ? elapsed / durationMs : 1.0;
+                    p = Math.max(0, Math.min(1, p));
+                    
+                    state.progress = p;
+                    
+                    renderFrame(p, expCanvas, exportScale, false);
+                    renderFrame(p, canvas, 1.0, false);
+
+                    // Update Ad Progress
+                    adPct.innerText = `Rendering Masterpiece: ${Math.round(p * 100)}%`;
+                    adBar.style.width = `${p * 100}%`;
+
+                    if (p < 1.0) {
+                        requestAnimationFrame(animLoop);
+                    } else {
+                        recordingText.innerText = 'Finalizing...';
+                        setTimeout(() => {
+                            if(mediaRecorder.state !== 'inactive') mediaRecorder.stop();
+                        }, 500);
+                    }
+                }
+                requestAnimationFrame(animLoop);
+
+            } catch (err) {
+                console.error("Recording failed:", err);
+                showToast('Recording failed. Browser might not support it.', 'error');
+                
+                adOverlay.classList.remove('opacity-100');
+                setTimeout(() => adOverlay.classList.add('hidden'), 300);
+
+                overlay.classList.remove('translate-y-4');
+                overlay.classList.add('-translate-y-24');
+                state.isRecording = false;
+                btnPreview.disabled = false;
+                btnExport.disabled = false;
+                renderFrame(1.0, canvas, 1.0, false);
+            }
+        }
+
+    </script>
+</body>
+</html>
