@@ -1,0 +1,1498 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+    <title>Parliament Animator Pro</title>
+    
+    <!-- Google Fonts -->
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Barlow+Condensed:wght@400;500;600;700&family=Carrois+Gothic&family=Caveat:wght@600;700&family=Fira+Code:wght@400;500;600;700&family=Inter:wght@400;500;600;700;800;900&family=JetBrains+Mono:wght@400;500;700&family=Montserrat:wght@400;500;600;700;800;900&family=Outfit:wght@400;500;600;700;800;900&family=Playfair+Display:wght@600;700&family=Plus+Jakarta+Sans:wght@400;500;600;700;800&family=Roboto:wght@400;500;700;900&family=Rubik:wght@400;500;600;700;800;900&display=swap" rel="stylesheet">
+
+    <!-- Tailwind CSS -->
+    <script src="https://cdn.tailwindcss.com"></script>
+    <script>
+        tailwind.config = {
+            theme: {
+                extend: {
+                    fontFamily: {
+                        sans: ['Inter', 'sans-serif'],
+                        mono: ['JetBrains Mono', 'monospace'],
+                    },
+                    colors: {
+                        blueprint: {
+                            50: '#f0f4f8',
+                            100: '#d9e2ec',
+                            200: '#bcccdc',
+                            300: '#9fb3c8',
+                            800: '#102a43',
+                            900: '#003366', // Deep structural blue
+                        },
+                        brand: {
+                            red: '#ef4444',
+                            blue: '#3b82f6'
+                        }
+                    }
+                }
+            }
+        }
+    </script>
+
+    <!-- Phosphor Icons -->
+    <script src="https://unpkg.com/@phosphor-icons/web"></script>
+    <!-- GIF.js for GIF Export capabilities -->
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/gif.js/0.2.0/gif.js"></script>
+
+    <style>
+        body {
+            overscroll-behavior-y: none;
+        }
+        
+        /* Blueprint Grid Background */
+        .blueprint-bg {
+            background-color: #f4f7fa;
+            background-image: 
+                linear-gradient(rgba(0, 51, 102, 0.08) 1px, transparent 1px),
+                linear-gradient(90deg, rgba(0, 51, 102, 0.08) 1px, transparent 1px);
+            background-size: 24px 24px;
+            background-position: center center;
+        }
+
+        /* Custom ranges for toolbar (Light Theme) */
+        input[type=range] {
+            -webkit-appearance: none;
+            width: 100%;
+            background: transparent;
+        }
+        input[type=range]::-webkit-slider-thumb {
+            -webkit-appearance: none;
+            height: 16px;
+            width: 16px;
+            border-radius: 50%;
+            background: #003366;
+            cursor: pointer;
+            margin-top: -6px;
+            box-shadow: 0 1px 3px rgba(0,0,0,0.3);
+        }
+        input[type=range]::-webkit-slider-runnable-track {
+            width: 100%;
+            height: 4px;
+            cursor: pointer;
+            background: #cbd5e1;
+            border-radius: 2px;
+        }
+        input[type=range]:focus::-webkit-slider-runnable-track {
+            background: #94a3b8;
+        }
+
+        /* Custom scrollbars (Light Theme) */
+        ::-webkit-scrollbar { width: 8px; height: 8px; }
+        ::-webkit-scrollbar-track { background: transparent; }
+        ::-webkit-scrollbar-thumb { background: #cbd5e1; border-radius: 0px; border: 1px solid #f4f7fa; }
+        ::-webkit-scrollbar-thumb:hover { background: #94a3b8; }
+
+        /* Color inputs */
+        input[type="color"] {
+            -webkit-appearance: none;
+            border: none;
+            width: 100%;
+            height: 100%;
+            padding: 0;
+            cursor: pointer;
+            background: transparent;
+        }
+        input[type="color"]::-webkit-color-swatch-wrapper { padding: 0; }
+        input[type="color"]::-webkit-color-swatch { border: none; }
+
+        /* Structural shadows */
+        .blueprint-shadow {
+            box-shadow: 6px 6px 0px rgba(0, 51, 102, 0.1);
+        }
+    </style>
+</head>
+<body class="blueprint-bg text-slate-800 h-screen flex flex-col overflow-hidden">
+
+    <!-- HEADER (Blueprint Structural) -->
+    <header class="h-16 bg-white border-b border-blueprint-900 flex items-center justify-between px-4 sm:px-8 flex-shrink-0 z-20">
+        
+        <!-- Logo block matching image reference -->
+        <div class="flex items-center gap-4">
+            <div class="border-2 border-blueprint-900 px-3 py-1 flex items-center bg-white blueprint-shadow select-none">
+                <span class="text-xl sm:text-2xl font-black text-blueprint-900 tracking-tighter uppercase">Parliament</span>
+                <span class="text-xl sm:text-2xl font-black text-brand-red tracking-tighter uppercase">Animator</span>
+            </div>
+            <div class="hidden md:flex gap-2 text-[10px] font-bold text-blueprint-900 uppercase tracking-widest mt-1">
+                <span class="border border-blueprint-200 px-2 py-0.5 bg-blueprint-50">Toolkit</span>
+                <span class="border border-blueprint-200 px-2 py-0.5 bg-blueprint-50">Pro Studio</span>
+            </div>
+        </div>
+
+        <div class="flex items-center justify-end gap-3 shrink-0">
+            <!-- Transparent Toggle -->
+            <label class="hidden md:flex items-center gap-1.5 cursor-pointer bg-white hover:bg-slate-50 px-2.5 py-1.5 border border-blueprint-200 transition" title="Export as transparent PNG or GIF">
+                <input type="checkbox" id="header-transparent" class="w-3.5 h-3.5 accent-blueprint-900 rounded-none cursor-pointer">
+                <span class="text-[11px] font-bold text-blueprint-800 uppercase tracking-wide">Transparent</span>
+            </label>
+
+            <button id="btn-header-preview" class="flex items-center gap-2 px-4 py-1.5 bg-white hover:bg-slate-50 text-blueprint-900 font-bold transition-colors border-2 border-blueprint-900 text-xs shadow-[2px_2px_0px_#003366] hover:shadow-none hover:translate-x-[2px] hover:translate-y-[2px] uppercase">
+                <i class="ph-bold ph-play-circle text-lg" id="icon-play"></i>
+                <span id="text-play" class="hidden sm:inline tracking-wider">Preview</span>
+            </button>
+            
+            <div class="flex bg-blueprint-900 border-2 border-blueprint-900 shadow-[2px_2px_0px_rgba(0,51,102,0.5)]">
+                <select id="export-res" class="bg-white text-blueprint-900 font-bold pl-3 pr-2 py-1.5 outline-none cursor-pointer appearance-none text-xs border-r-2 border-blueprint-900 hidden sm:block uppercase">
+                    <option value="640">360p GIF</option>
+                    <option value="854">480p GIF</option>
+                    <option value="1920" selected>HD 1080p</option>
+                    <option value="2560">2K 1440p</option>
+                    <option value="3840">4K 2160p</option>
+                </select>
+                <select id="export-fmt" class="bg-white text-blueprint-900 font-bold pl-3 pr-2 py-1.5 outline-none cursor-pointer appearance-none text-xs uppercase" onchange="document.getElementById('text-export').innerText = this.value.toUpperCase()">
+                    <option value="webm" selected>WebM</option>
+                    <option value="gif">GIF</option>
+                    <option value="png">PNG</option>
+                </select>
+                <button id="btn-header-export" class="flex items-center gap-2 px-4 py-1.5 text-white font-black hover:bg-blueprint-800 transition-colors text-xs uppercase tracking-widest">
+                    <i class="ph-bold ph-download text-sm"></i>
+                    <span class="hidden sm:inline" id="text-export">WEBM</span>
+                </button>
+            </div>
+        </div>
+    </header>
+
+    <!-- MAIN APP AREA -->
+    <main class="flex-1 flex flex-col md:flex-row overflow-hidden relative">
+        
+        <!-- Recording Overlay -->
+        <div id="recording-overlay" class="absolute top-6 left-1/2 -translate-x-1/2 bg-white border-2 border-brand-red text-brand-red px-6 py-3 font-bold text-sm flex items-center gap-3 shadow-[4px_4px_0px_#ef4444] z-50 transition-transform duration-300 transform -translate-y-24 uppercase tracking-widest">
+            <div class="w-2.5 h-2.5 bg-brand-red rounded-full animate-pulse"></div>
+            <span id="recording-text">Rendering Video...</span>
+        </div>
+
+        <!-- TOOLBAR / SIDEBAR (Light Blueprint Style) -->
+        <aside class="w-full md:w-[420px] bg-white border-b md:border-b-0 md:border-r border-blueprint-900 p-5 md:p-6 flex flex-col gap-6 overflow-y-auto z-10 flex-shrink-0 h-[50vh] md:h-full order-2 md:order-1 shadow-[0_-4px_10px_rgba(0,0,0,0.05)] md:shadow-none">
+            
+            <div class="text-[10px] font-black text-blueprint-900 uppercase tracking-widest bg-blueprint-100 px-2 py-1 inline-block w-max mb-[-12px]">Tool Properties</div>
+
+            <!-- Quick Templates -->
+            <div class="flex flex-col gap-2 flex-shrink-0">
+                <h2 class="text-[11px] font-bold uppercase tracking-widest text-slate-500 flex items-center gap-2">
+                    <i class="ph-fill ph-folder-open text-yellow-500 text-lg"></i> Quick Templates
+                </h2>
+                <div class="grid grid-cols-2 gap-2 mt-1">
+                    <button class="template-btn py-2 bg-white border border-blueprint-200 hover:border-blueprint-900 hover:bg-blueprint-50 text-xs font-semibold text-slate-700 transition truncate px-3 text-left" data-template="india">🇮🇳 India (Lok Sabha)</button>
+                    <button class="template-btn py-2 bg-white border border-blueprint-200 hover:border-blueprint-900 hover:bg-blueprint-50 text-xs font-semibold text-slate-700 transition truncate px-3 text-left" data-template="europe">🇪🇺 Europe (Parliament)</button>
+                    <button class="template-btn py-2 bg-white border border-blueprint-200 hover:border-blueprint-900 hover:bg-blueprint-50 text-xs font-semibold text-slate-700 transition truncate px-3 text-left" data-template="usa">🇺🇸 USA (House of Reps)</button>
+                    <button class="template-btn py-2 bg-white border border-blueprint-200 hover:border-blueprint-900 hover:bg-blueprint-50 text-xs font-semibold text-slate-700 transition truncate px-3 text-left" data-template="france">🇫🇷 France (Assembly)</button>
+                    <button class="template-btn py-2 bg-white border border-blueprint-200 hover:border-blueprint-900 hover:bg-blueprint-50 text-xs font-semibold text-slate-700 transition truncate px-3 text-left" data-template="china">🇨🇳 China (NPC)</button>
+                    <button class="template-btn py-2 bg-white border border-blueprint-200 hover:border-blueprint-900 hover:bg-blueprint-50 text-xs font-semibold text-slate-700 transition truncate px-3 text-left" data-template="demo">🏢 Demo (Clean)</button>
+                </div>
+            </div>
+
+            <div class="w-full border-b border-dashed border-blueprint-300"></div>
+
+            <!-- Content Editor -->
+            <div class="flex flex-col gap-3 flex-shrink-0">
+                <h2 class="text-[11px] font-bold uppercase tracking-widest text-slate-500">Chart Metadata</h2>
+                
+                <div class="flex items-center gap-3">
+                    <input type="checkbox" id="show-title" checked class="w-4 h-4 accent-blueprint-900 cursor-pointer" title="Toggle Title">
+                    <input type="text" id="chart-title" value="European Parliament Composition" class="flex-1 px-3 py-2 bg-slate-50 border border-blueprint-200 text-sm text-slate-900 font-semibold outline-none focus:ring-1 focus:ring-blueprint-900 focus:border-blueprint-900 transition-all placeholder:font-normal" placeholder="Chart Title">
+                </div>
+                <div class="flex items-center gap-3">
+                    <input type="checkbox" id="show-subtitle" checked class="w-4 h-4 accent-blueprint-900 cursor-pointer" title="Toggle Subtitle">
+                    <input type="text" id="chart-subtitle" value="Projection of seats by political group (720 Seats)" class="flex-1 px-3 py-2 bg-slate-50 border border-blueprint-200 text-sm text-slate-700 outline-none focus:ring-1 focus:ring-blueprint-900 focus:border-blueprint-900 transition-all" placeholder="Chart Subtitle">
+                </div>
+                <div class="flex items-center gap-3">
+                    <input type="checkbox" id="show-source" checked class="w-4 h-4 accent-blueprint-900 cursor-pointer" title="Toggle Source">
+                    <input type="text" id="chart-source" value="SOURCE: EUROPEAN PARLIAMENT" class="flex-1 px-3 py-2 bg-slate-50 border border-blueprint-200 text-xs text-slate-500 uppercase font-medium outline-none focus:ring-1 focus:ring-blueprint-900 focus:border-blueprint-900 transition-all" placeholder="Source Attribution">
+                </div>
+            </div>
+
+            <div class="w-full border-b border-dashed border-blueprint-300"></div>
+
+            <!-- Enhanced Data Editor -->
+            <div class="flex flex-col gap-3 flex-1 min-h-[240px]">
+                <div class="flex items-center justify-between">
+                    <h2 class="text-[11px] font-bold uppercase tracking-widest text-slate-500">Chart Data</h2>
+                    <!-- View Toggle -->
+                    <div class="flex bg-slate-100 p-1 border border-blueprint-200">
+                        <button id="tab-grid" class="px-3 py-1 text-[10px] font-bold text-white bg-blueprint-900 transition shadow-[1px_1px_0px_#000]">Grid View</button>
+                        <button id="tab-csv" class="px-3 py-1 text-[10px] font-bold text-slate-500 hover:text-slate-800 transition">Raw CSV</button>
+                    </div>
+                </div>
+
+                <!-- Grid View -->
+                <div id="view-grid" class="flex flex-col gap-2 flex-1 overflow-hidden">
+                    <div class="flex text-[10px] font-bold text-blueprint-900 px-1 uppercase tracking-wider bg-blueprint-50 py-1 border border-blueprint-100">
+                        <div class="flex-[3] pl-1">Party / Label</div>
+                        <div class="flex-[2]">Seats</div>
+                        <div class="w-10 text-center">Color</div>
+                        <div class="w-6"></div>
+                    </div>
+                    <div id="data-grid-rows" class="flex flex-col gap-2 overflow-y-auto flex-1 pr-1 pb-1">
+                        <!-- Rows injected via JS -->
+                    </div>
+                    <button id="btn-add-row" class="w-full py-2 bg-slate-50 border border-blueprint-300 border-dashed text-xs font-bold uppercase tracking-wider text-blueprint-900 hover:bg-blueprint-100 transition flex items-center justify-center gap-2 mt-1">
+                        <i class="ph-bold ph-plus"></i> Add Row
+                    </button>
+                </div>
+
+                <!-- CSV View -->
+                <div id="view-csv" class="hidden flex-col gap-2 flex-1">
+                    <p class="text-[10px] text-slate-500 font-medium">Format: Label, Seats, #Color (optional).</p>
+                    <textarea id="data-input" class="w-full flex-1 p-3 border-2 border-blueprint-200 bg-slate-50 text-[12px] text-slate-800 font-mono outline-none focus:border-blueprint-900 resize-none whitespace-pre transition-colors leading-relaxed" spellcheck="false">
+Label,Seats,Color
+The Left,46,#b91c1c
+S&D,136,#ef4444
+Greens/EFA,53,#22c55e
+Renew,74,#eab308
+EPP,188,#3b82f6
+ECR,83,#1e3a8a
+ID,58,#172554
+NI/Others,82,#94a3b8</textarea>
+                </div>
+            </div>
+
+            <div class="w-full border-b border-dashed border-blueprint-300"></div>
+
+            <!-- Appearance Settings -->
+            <div class="flex flex-col gap-5 flex-shrink-0">
+                <h2 class="text-[11px] font-bold uppercase tracking-widest text-slate-500">Layout & Style</h2>
+                
+                <!-- Anim Style & Palette -->
+                <div class="grid grid-cols-2 gap-4">
+                    <div>
+                        <label class="block text-[10px] font-bold uppercase tracking-wider text-blueprint-900 mb-1.5">Color Palette</label>
+                        <select id="color-palette" class="w-full px-3 py-2 bg-slate-50 border border-blueprint-200 text-xs text-slate-800 font-medium outline-none focus:border-blueprint-900 appearance-none cursor-pointer">
+                            <option value="vibrant">Vibrant</option>
+                            <option value="pastel">Pastel Colors</option>
+                            <option value="neon">Cyberpunk Neon</option>
+                            <option value="sunset">Sunset Glow</option>
+                            <option value="ocean">Deep Ocean</option>
+                        </select>
+                    </div>
+                    <!-- Custom Colors Embedded in Palette Row to save space -->
+                    <div class="flex gap-2">
+                        <div class="flex-1">
+                            <label class="block text-[9px] font-bold uppercase tracking-wider text-blueprint-900 mb-1.5 truncate">BG</label>
+                            <div class="relative w-full h-8 border border-blueprint-200 overflow-hidden"><input type="color" id="bg-color" value="#ffffff"></div>
+                        </div>
+                        <div class="flex-1">
+                            <label class="block text-[9px] font-bold uppercase tracking-wider text-blueprint-900 mb-1.5 truncate">Title</label>
+                            <div class="relative w-full h-8 border border-blueprint-200 overflow-hidden"><input type="color" id="title-color" value="#18181b"></div>
+                        </div>
+                        <div class="flex-1">
+                            <label class="block text-[9px] font-bold uppercase tracking-wider text-blueprint-900 mb-1.5 truncate">Text</label>
+                            <div class="relative w-full h-8 border border-blueprint-200 overflow-hidden"><input type="color" id="text-color" value="#64748b"></div>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Font Select & Anim Style -->
+                <div class="grid grid-cols-2 gap-4">
+                    <div>
+                        <label class="block text-[10px] font-bold uppercase tracking-wider text-blueprint-900 mb-1.5">Font Family</label>
+                        <select id="font-family" class="w-full px-3 py-2 bg-slate-50 border border-blueprint-200 text-xs text-slate-800 font-medium outline-none focus:border-blueprint-900 appearance-none cursor-pointer">
+                            <option value="Inter">Inter (Modern)</option>
+                            <option value="Plus Jakarta Sans">Plus Jakarta Sans</option>
+                            <option value="Outfit">Outfit</option>
+                            <option value="Rubik">Rubik</option>
+                            <option value="Montserrat">Montserrat</option>
+                            <option value="Carrois Gothic">Carrois Gothic (Editorial)</option>
+                            <option value="Barlow Condensed">Barlow Condensed</option>
+                            <option value="Roboto">Roboto (Clean)</option>
+                            <option value="JetBrains Mono">JetBrains Mono (Code)</option>
+                            <option value="Fira Code">Fira Code (Code)</option>
+                            <option value="monospace">Monospace</option>
+                            <option value="Playfair Display">Playfair (Serif)</option>
+                            <option value="Caveat">Caveat (Handdrawn)</option>
+                        </select>
+                    </div>
+                    <div>
+                        <label class="block text-[10px] font-bold uppercase tracking-wider text-blueprint-900 mb-1.5">Anim Style</label>
+                        <select id="anim-style" class="w-full px-3 py-2 bg-slate-50 border border-blueprint-200 text-xs text-slate-800 font-medium outline-none focus:border-blueprint-900 appearance-none cursor-pointer">
+                            <option value="sweep" selected>Sweep Left to Right</option>
+                            <option value="fade">Fade In Global</option>
+                            <option value="pop">Random Pop In</option>
+                        </select>
+                    </div>
+                </div>
+
+                <!-- Sizes Row 1 -->
+                <div class="grid grid-cols-3 gap-4">
+                    <div>
+                        <div class="flex justify-between items-center mb-2">
+                            <label class="block text-[10px] font-bold text-slate-500 uppercase tracking-wider">Title Size</label>
+                        </div>
+                        <input type="range" id="title-size" min="30" max="100" step="2" value="64">
+                    </div>
+                    <div>
+                        <div class="flex justify-between items-center mb-2">
+                            <label class="block text-[10px] font-bold text-slate-500 uppercase tracking-wider">Legend</label>
+                        </div>
+                        <input type="range" id="legend-size" min="12" max="40" step="1" value="20">
+                    </div>
+                    <div>
+                        <div class="flex justify-between items-center mb-2">
+                            <label class="block text-[10px] font-bold text-slate-500 uppercase tracking-wider">Seat Size</label>
+                            <span id="seat-size-val" class="text-[10px] text-blueprint-900 font-bold">1.0x</span>
+                        </div>
+                        <input type="range" id="seat-size" min="0.5" max="2.0" step="0.1" value="1.0">
+                    </div>
+                </div>
+
+                <!-- Sizes Row 2 -->
+                <div class="grid grid-cols-3 gap-4">
+                    <div>
+                        <div class="flex justify-between items-center mb-2">
+                            <label class="block text-[10px] font-bold text-slate-500 uppercase tracking-wider">Arch Thick</label>
+                        </div>
+                        <input type="range" id="arch-thickness" min="0.2" max="0.8" step="0.05" value="0.4">
+                    </div>
+                    <div>
+                        <div class="flex justify-between items-center mb-2">
+                            <label class="block text-[10px] font-bold text-slate-500 uppercase tracking-wider">Chart Scale</label>
+                            <span id="chart-scale-val" class="text-[10px] text-blueprint-900 font-bold">1.0x</span>
+                        </div>
+                        <input type="range" id="chart-scale" min="0.5" max="2.5" step="0.05" value="1.0">
+                    </div>
+                    <div>
+                        <div class="flex justify-between items-center mb-2">
+                            <label class="block text-[10px] font-bold text-slate-500 uppercase tracking-wider">Duration</label>
+                            <span id="duration-val" class="text-[10px] text-blueprint-900 font-bold">2.0s</span>
+                        </div>
+                        <input type="range" id="anim-duration" min="0.5" max="5" step="0.5" value="2.0">
+                    </div>
+                </div>
+
+                <!-- Zoom & Pan -->
+                <div class="flex flex-col mt-1 p-3 bg-slate-50 border border-blueprint-100">
+                    <div class="flex justify-between items-center mb-4">
+                        <label class="block text-[10px] font-bold uppercase tracking-widest text-blueprint-900">Zoom & Pan View</label>
+                        <button id="btn-reset-view" class="text-[10px] font-bold text-brand-blue hover:text-blue-800 flex items-center gap-1 transition uppercase"><i class="ph-bold ph-arrows-in"></i> Reset</button>
+                    </div>
+                    <div class="grid grid-cols-3 gap-4">
+                        <div>
+                            <div class="flex justify-between items-center mb-2">
+                                <label class="block text-[10px] font-bold text-slate-500 uppercase tracking-wider">Zoom</label>
+                                <span id="zoom-val" class="text-[10px] text-blueprint-900 font-bold">1.0x</span>
+                            </div>
+                            <input type="range" id="chart-zoom" min="0.5" max="3" step="0.1" value="1.0">
+                        </div>
+                        <div>
+                            <div class="flex justify-between items-center mb-2">
+                                <label class="block text-[10px] font-bold text-slate-500 uppercase tracking-wider">Pan X</label>
+                                <span id="pan-x-val" class="text-[10px] text-blueprint-900 font-bold">0</span>
+                            </div>
+                            <input type="range" id="chart-pan-x" min="-1000" max="1000" step="10" value="0">
+                        </div>
+                        <div>
+                            <div class="flex justify-between items-center mb-2">
+                                <label class="block text-[10px] font-bold text-slate-500 uppercase tracking-wider">Pan Y</label>
+                                <span id="pan-y-val" class="text-[10px] text-blueprint-900 font-bold">0</span>
+                            </div>
+                            <input type="range" id="chart-pan-y" min="-1000" max="1000" step="10" value="0">
+                        </div>
+                    </div>
+                </div>
+                
+                <div class="flex flex-wrap items-center gap-x-5 gap-y-3 mt-1 mb-2">
+                    <label class="flex items-center gap-2 cursor-pointer">
+                        <input type="checkbox" id="show-grid" checked class="w-4 h-4 accent-blueprint-900 border-blueprint-300">
+                        <span class="text-[11px] font-bold text-slate-700 uppercase tracking-wider">Total Count</span>
+                    </label>
+                    <label class="flex items-center gap-2 cursor-pointer">
+                        <input type="checkbox" id="show-legend" checked class="w-4 h-4 accent-blueprint-900 border-blueprint-300">
+                        <span class="text-[11px] font-bold text-slate-700 uppercase tracking-wider">Show Legend</span>
+                    </label>
+                    <label class="flex items-center gap-2 cursor-pointer">
+                        <input type="checkbox" id="show-legend-counts" checked class="w-4 h-4 accent-blueprint-900 border-blueprint-300">
+                        <span class="text-[11px] font-bold text-slate-700 uppercase tracking-wider">Legend Counts</span>
+                    </label>
+                </div>
+            </div>
+        </aside>
+
+        <!-- CANVAS AREA -->
+        <section id="canvas-container" class="flex-1 relative overflow-hidden flex items-center justify-center p-4 sm:p-12 order-1 md:order-2">
+            <!-- Fixed Base Layout Canvas (scales visually via CSS) -->
+            <div class="relative p-2 bg-white border-2 border-blueprint-900 blueprint-shadow">
+                <canvas id="export-canvas" class="w-full max-w-[1200px] aspect-video bg-white"></canvas>
+            </div>
+        </section>
+
+    </main>
+
+    <script>
+        // --- Fetch GIF.js Worker to guarantee CORS safety ---
+        let gifWorkerUrl = null;
+        fetch('https://cdnjs.cloudflare.com/ajax/libs/gif.js/0.2.0/gif.worker.js')
+            .then(res => res.text())
+            .then(text => {
+                const blob = new Blob([text], { type: 'application/javascript' });
+                gifWorkerUrl = URL.createObjectURL(blob);
+            })
+            .catch(err => console.error('Failed to load GIF worker:', err));
+
+        // --- Template Data ---
+        const templates = {
+            'europe': {
+                title: 'European Parliament Composition',
+                subtitle: 'Projection of seats by political group (720 Seats)',
+                source: 'SOURCE: EUROPEAN PARLIAMENT 2024',
+                csv: `Label,Seats,Color\nThe Left,46,#b91c1c\nS&D,136,#ef4444\nGreens/EFA,53,#22c55e\nRenew,74,#eab308\nEPP,188,#3b82f6\nECR,83,#1e3a8a\nID,58,#172554\nNI/Others,82,#94a3b8`
+            },
+            'india': {
+                title: 'Lok Sabha Seat Distribution (2024)',
+                subtitle: '543 total seats representing the lower house of India.',
+                source: 'SOURCE: ELECTION COMMISSION OF INDIA',
+                csv: `Label,Seats,Color\nBJP,240,#f97316\nINC,99,#0ea5e9\nSP,37,#ef4444\nTMC,29,#22c55e\nDMK,22,#dc2626\nTDP,16,#eab308\nJDU,12,#16a34a\nOthers,88,#94a3b8`
+            },
+            'usa': {
+                title: 'US House of Representatives',
+                subtitle: 'Current composition of the 118th Congress (435 Seats)',
+                source: 'SOURCE: HOUSE.GOV',
+                csv: `Label,Seats,Color\nDemocrats,213,#3b82f6\nRepublicans,220,#ef4444\nVacant,2,#cbd5e1`
+            },
+            'france': {
+                title: 'French National Assembly (2024)',
+                subtitle: 'Seat distribution following the snap legislative elections.',
+                source: 'SOURCE: MINISTÈRE DE L\'INTÉRIEUR',
+                csv: `Label,Seats,Color\nNFP,193,#ef4444\nEnsemble,166,#eab308\nLR/DVD,68,#3b82f6\nRN/UXD,142,#1e3a8a\nOthers,8,#cbd5e1`
+            },
+            'china': {
+                title: 'National People\'s Congress (China)',
+                subtitle: 'Composition of the 14th NPC (2,977 Delegates)',
+                source: 'SOURCE: NPC.GOV.CN',
+                csv: `Label,Seats,Color\nCommunist Party,2091,#e11d48\nUnited Front / Others,886,#fca5a5`
+            },
+            'demo': {
+                title: 'Corporate Board Shareholder Votes',
+                subtitle: 'Distribution of voting power among major stakeholders.',
+                source: 'SOURCE: COMPANY SEC FILINGS',
+                csv: `Label,Seats,Color\nFounders,45,#10b981\nInstitutional A,30,#3b82f6\nInstitutional B,15,#a855f7\nRetail / Public,10,#94a3b8`
+            }
+        };
+
+        // --- App State & Data ---
+        const state = {
+            data: [], 
+            seriesNames: [],
+            
+            progress: 1.0,
+            isAnimating: false,
+            isRecording: false,
+            
+            title: 'European Parliament Composition',
+            subtitle: 'Projection of seats by political group (720 Seats)',
+            source: 'SOURCE: EUROPEAN PARLIAMENT 2024',
+            
+            showTitle: true,
+            showSubtitle: true,
+            showSource: true,
+            showLegendCounts: true,
+            
+            fontFamily: 'Inter',
+            titleSize: 64,
+            legendSize: 20,
+            seatSize: 1.0,
+            archThickness: 0.4,
+            chartScale: 1.0,
+            
+            titleColor: '#1e293b',
+            textColor: '#64748b',
+            bgColor: '#ffffff',
+            colorPalette: 'vibrant',
+            zoom: 1.0,
+            panX: 0,
+            panY: 0,
+            
+            animStyle: 'sweep', 
+            duration: 2000,
+            showLegend: true,
+            showCount: true
+        };
+
+        // Color Palettes
+        const palettes = {
+            vibrant: ['#ef4444', '#3b82f6', '#10b981', '#f59e0b', '#a855f7', '#ec4899', '#06b6d4', '#eab308'],
+            pastel: ['#fca5a5', '#93c5fd', '#6ee7b7', '#fcd34d', '#d8b4fe', '#f9a8d4', '#67e8f9', '#fde047'],
+            neon: ['#ff00ff', '#00ffff', '#00ff00', '#ffff00', '#ff0000', '#0000ff'],
+            sunset: ['#f43f5e', '#f97316', '#eab308', '#8b5cf6', '#d946ef'],
+            ocean: ['#0369a1', '#0ea5e9', '#38bdf8', '#7dd3fc', '#0284c7']
+        };
+
+        // Visual Canvas Setup
+        const canvas = document.getElementById('export-canvas');
+        canvas.width = 1920;
+        canvas.height = 1080;
+
+        // DOM Elements
+        const uiTitle = document.getElementById('chart-title');
+        const uiSubtitle = document.getElementById('chart-subtitle');
+        const uiSource = document.getElementById('chart-source');
+        
+        const uiShowTitle = document.getElementById('show-title');
+        const uiShowSubtitle = document.getElementById('show-subtitle');
+        const uiShowSource = document.getElementById('show-source');
+        const uiShowLegendCounts = document.getElementById('show-legend-counts');
+        
+        const uiTitleSize = document.getElementById('title-size');
+        const uiLegendSize = document.getElementById('legend-size');
+        const uiSeatSize = document.getElementById('seat-size');
+        const uiArchThickness = document.getElementById('arch-thickness');
+        const uiChartScale = document.getElementById('chart-scale');
+        
+        const uiTitleColor = document.getElementById('title-color');
+        const uiTextColor = document.getElementById('text-color');
+        const uiBgColor = document.getElementById('bg-color');
+
+        const dataInput = document.getElementById('data-input');
+        const animStyleSelect = document.getElementById('anim-style');
+        const fontSelect = document.getElementById('font-family');
+        const paletteSelect = document.getElementById('color-palette');
+        
+        const durationSlider = document.getElementById('anim-duration');
+        const zoomSlider = document.getElementById('chart-zoom');
+        const panXSlider = document.getElementById('chart-pan-x');
+        const panYSlider = document.getElementById('chart-pan-y');
+        const btnResetView = document.getElementById('btn-reset-view');
+        const legendCheck = document.getElementById('show-legend');
+        const showCountCheck = document.getElementById('show-grid'); // reused id for Total Count
+
+        // Editor Tabs
+        let currentDataMode = 'grid';
+        const tabGrid = document.getElementById('tab-grid');
+        const tabCsv = document.getElementById('tab-csv');
+        const viewGrid = document.getElementById('view-grid');
+        const viewCsv = document.getElementById('view-csv');
+        const gridRowsContainer = document.getElementById('data-grid-rows');
+        const btnAddRow = document.getElementById('btn-add-row');
+
+        // --- Custom Toast System ---
+        function showToast(message, type = 'info') {
+            let container = document.getElementById('toast-container');
+            if (!container) {
+                container = document.createElement('div');
+                container.id = 'toast-container';
+                container.className = 'fixed top-20 right-6 z-[60] flex flex-col gap-3 pointer-events-none';
+                document.body.appendChild(container);
+            }
+            const toast = document.createElement('div');
+            toast.className = `bg-white border-l-4 text-slate-800 px-5 py-4 shadow-xl flex items-center gap-3 transform transition-all -translate-y-4 opacity-0 z-50`;
+            
+            let icon = 'info';
+            let borderColor = 'border-blueprint-900';
+            let iconColor = 'text-blueprint-900';
+            
+            if (type === 'success') {
+                icon = 'check-circle';
+                borderColor = 'border-green-500';
+                iconColor = 'text-green-500';
+            } else if (type === 'error') {
+                icon = 'warning';
+                borderColor = 'border-brand-red';
+                iconColor = 'text-brand-red';
+            }
+
+            toast.classList.add(borderColor);
+            toast.innerHTML = `<i class="ph-fill ph-${icon} text-xl ${iconColor}"></i> <span class="text-sm font-bold tracking-wide uppercase">${message}</span>`;
+            container.appendChild(toast); 
+            requestAnimationFrame(() => toast.classList.remove('-translate-y-4', 'opacity-0'));
+            setTimeout(() => { toast.classList.add('-translate-y-4', 'opacity-0'); setTimeout(() => toast.remove(), 300); }, 3000);
+        }
+
+        function isDarkColor(hexColor) {
+            const hex = hexColor.replace('#', '');
+            if(hex.length === 6) {
+                const r = parseInt(hex.substr(0, 2), 16);
+                const g = parseInt(hex.substr(2, 2), 16);
+                const b = parseInt(hex.substr(4, 2), 16);
+                return (r * 0.299 + g * 0.587 + b * 0.114) < 128;
+            }
+            return false;
+        }
+
+        // --- Data Parsing & Management ---
+        function parseCSVtoState(csvString) {
+            const lines = csvString.split('\n');
+            state.data = [];
+            state.seriesNames = [];
+            
+            let startIdx = 0;
+            if (lines.length > 0) {
+                const headerRow = lines[0].split(',').map(c => c.trim());
+                if (headerRow.length >= 2 && isNaN(parseFloat(headerRow[1]))) {
+                    startIdx = 1;
+                    state.seriesNames = ['Seats']; 
+                } else {
+                    state.seriesNames = ['Seats']; 
+                }
+            }
+
+            for (let i = startIdx; i < lines.length; i++) {
+                const row = lines[i].split(',').map(c => c.trim());
+                if (row.length < 2) continue;
+                
+                const label = row[0];
+                let color = null;
+                const values = [];
+                
+                for(let j = 1; j < row.length; j++) {
+                    if (row[j].startsWith('#')) {
+                        color = row[j];
+                    } else {
+                        values.push(parseInt(row[j]) || 0);
+                    }
+                }
+                
+                state.data.push({ label, values: [values[0] || 0], color }); 
+            }
+        }
+
+        function generateCSVFromState() {
+            let csv = `Label,Seats,Color\n`;
+            csv += state.data.map(d => `${d.label},${d.values[0]},${d.color || ''}`).join('\n');
+            return csv;
+        }
+
+        function buildGridFromState() {
+            gridRowsContainer.innerHTML = '';
+            state.data.forEach((item, index) => {
+                const row = document.createElement('div');
+                row.className = 'flex items-center gap-2';
+                
+                // Label Input
+                const lblInput = document.createElement('input');
+                lblInput.type = 'text';
+                lblInput.value = item.label;
+                lblInput.className = 'flex-[3] min-w-0 px-2 py-1.5 bg-white border border-blueprint-200 text-xs text-slate-800 focus:border-blueprint-900 outline-none transition-colors';
+                lblInput.oninput = (e) => {
+                    state.data[index].label = e.target.value;
+                    syncFromGrid();
+                };
+
+                // Values Input
+                const valInput = document.createElement('input');
+                valInput.type = 'number';
+                valInput.value = item.values[0];
+                valInput.className = 'flex-[2] min-w-0 px-2 py-1.5 bg-white border border-blueprint-200 text-xs text-slate-800 focus:border-blueprint-900 outline-none transition-colors';
+                valInput.oninput = (e) => {
+                    state.data[index].values = [parseInt(e.target.value) || 0];
+                    syncFromGrid();
+                };
+
+                // Color Picker
+                const colWrapper = document.createElement('div');
+                colWrapper.className = 'relative w-10 h-8 overflow-hidden border border-blueprint-200 shrink-0 bg-white';
+                const colInput = document.createElement('input');
+                colInput.type = 'color';
+                colInput.value = item.color || palettes[state.colorPalette][index % palettes[state.colorPalette].length];
+                colInput.className = 'absolute -top-2 -left-2 w-14 h-12 cursor-pointer';
+                colInput.oninput = (e) => {
+                    state.data[index].color = e.target.value;
+                    syncFromGrid();
+                };
+                colWrapper.appendChild(colInput);
+
+                // Delete Button
+                const delBtn = document.createElement('button');
+                delBtn.className = 'w-6 h-8 flex items-center justify-center text-slate-400 hover:text-brand-red transition shrink-0';
+                delBtn.innerHTML = '<i class="ph-bold ph-trash"></i>';
+                delBtn.onclick = () => {
+                    state.data.splice(index, 1);
+                    buildGridFromState();
+                    syncFromGrid();
+                };
+
+                row.appendChild(lblInput);
+                row.appendChild(valInput);
+                row.appendChild(colWrapper);
+                row.appendChild(delBtn);
+                
+                gridRowsContainer.appendChild(row);
+            });
+        }
+
+        // Add Row Handler
+        btnAddRow.addEventListener('click', () => {
+            state.data.push({ label: 'New Party', values: [10], color: null });
+            buildGridFromState();
+            syncFromGrid();
+            gridRowsContainer.scrollTop = gridRowsContainer.scrollHeight;
+        });
+
+        function syncFromGrid() {
+            dataInput.value = generateCSVFromState();
+            updateAndRender(false);
+        }
+
+        // Tab Handling
+        tabGrid.addEventListener('click', () => {
+            currentDataMode = 'grid';
+            tabGrid.classList.add('bg-blueprint-900', 'text-white', 'shadow-[1px_1px_0px_#000]');
+            tabGrid.classList.remove('text-slate-500', 'hover:text-slate-800');
+            tabCsv.classList.remove('bg-blueprint-900', 'text-white', 'shadow-[1px_1px_0px_#000]');
+            tabCsv.classList.add('text-slate-500', 'hover:text-slate-800');
+            viewGrid.classList.remove('hidden');
+            viewGrid.classList.add('flex');
+            viewCsv.classList.add('hidden');
+            viewCsv.classList.remove('flex');
+            buildGridFromState();
+        });
+
+        tabCsv.addEventListener('click', () => {
+            currentDataMode = 'csv';
+            tabCsv.classList.add('bg-blueprint-900', 'text-white', 'shadow-[1px_1px_0px_#000]');
+            tabCsv.classList.remove('text-slate-500', 'hover:text-slate-800');
+            tabGrid.classList.remove('bg-blueprint-900', 'text-white', 'shadow-[1px_1px_0px_#000]');
+            tabGrid.classList.add('text-slate-500', 'hover:text-slate-800');
+            viewCsv.classList.remove('hidden');
+            viewCsv.classList.add('flex');
+            viewGrid.classList.add('hidden');
+            viewGrid.classList.remove('flex');
+            dataInput.value = generateCSVFromState();
+        });
+
+        function updateStateFromUI(rebuildGrid = true) {
+            state.title = uiTitle.value;
+            state.subtitle = uiSubtitle.value;
+            state.source = uiSource.value;
+            
+            state.showTitle = uiShowTitle.checked;
+            state.showSubtitle = uiShowSubtitle.checked;
+            state.showSource = uiShowSource.checked;
+            state.showLegendCounts = uiShowLegendCounts.checked;
+            
+            state.titleSize = parseInt(uiTitleSize.value);
+            state.legendSize = parseInt(uiLegendSize.value);
+            state.seatSize = parseFloat(uiSeatSize.value);
+            state.archThickness = parseFloat(uiArchThickness.value);
+            state.chartScale = parseFloat(uiChartScale.value);
+            
+            state.titleColor = uiTitleColor.value;
+            state.textColor = uiTextColor.value;
+            state.bgColor = uiBgColor.value;
+            state.zoom = parseFloat(zoomSlider.value);
+            state.panX = parseInt(panXSlider.value);
+            state.panY = parseInt(panYSlider.value);
+            
+            state.fontFamily = fontSelect.value;
+            state.colorPalette = paletteSelect.value;
+            state.animStyle = animStyleSelect.value;
+            
+            state.showLegend = legendCheck.checked;
+            state.showCount = showCountCheck.checked;
+            
+            const raw = dataInput.value.trim();
+            if (raw) parseCSVtoState(raw);
+
+            if (rebuildGrid && currentDataMode === 'grid') {
+                buildGridFromState();
+            }
+        }
+
+        function easeOutQuint(x) {
+            return 1 - Math.pow(1 - x, 5);
+        }
+
+        // --- Core Scaling Rendering Engine ---
+        function renderFrame(progress, targetCanvas = canvas, exportScale = 1.0, isTransparent = false) {
+            const tCtx = targetCanvas.getContext('2d', { alpha: isTransparent });
+            const easeP = easeOutQuint(progress);
+
+            const isDarkBg = isDarkColor(state.bgColor);
+            const gridColor = isDarkBg ? 'rgba(255,255,255,0.15)' : 'rgba(0,0,0,0.15)';
+            const fontBase = state.fontFamily;
+            const activePalette = palettes[state.colorPalette];
+
+            const W = 1920;
+            const H = 1080;
+
+            tCtx.save();
+            tCtx.scale(exportScale, exportScale);
+
+            if (isTransparent) {
+                tCtx.clearRect(0, 0, W, H);
+            } else {
+                tCtx.fillStyle = state.bgColor;
+                tCtx.fillRect(0, 0, W, H);
+            }
+
+            tCtx.translate(W / 2 + state.panX, H / 2 + state.panY);
+            tCtx.scale(state.zoom, state.zoom);
+            tCtx.translate(-W / 2, -H / 2);
+
+            tCtx.textAlign = 'left';
+            let currentY = 80; // Default Top Padding
+            
+            if (state.showTitle) {
+                tCtx.textBaseline = 'top';
+                tCtx.font = `800 ${state.titleSize}px "${fontBase}"`;
+                tCtx.fillStyle = state.titleColor;
+                tCtx.fillText(state.title, 80, currentY);
+                currentY += state.titleSize + 16;
+            }
+
+            if (state.showSubtitle) {
+                tCtx.textBaseline = 'top';
+                tCtx.font = `400 38px "${fontBase}"`;
+                tCtx.fillStyle = state.textColor;
+                tCtx.fillText(state.subtitle, 80, currentY);
+                currentY += 38 + 16;
+            }
+
+            if (state.showTitle || state.showSubtitle) {
+                tCtx.beginPath();
+                tCtx.moveTo(80, currentY + 10);
+                tCtx.lineTo(W - 80, currentY + 10);
+                tCtx.strokeStyle = gridColor;
+                tCtx.lineWidth = 2;
+                tCtx.stroke();
+                currentY += 40; // extra padding after the separator line
+            } else {
+                currentY = 80; // Keep space if no headers
+            }
+
+            if (state.showSource) {
+                tCtx.textBaseline = 'bottom';
+                tCtx.font = `600 20px "${fontBase}"`;
+                tCtx.fillStyle = state.textColor;
+                tCtx.textAlign = 'right';
+                tCtx.fillText(state.source, W - 80, H - 40);
+                tCtx.textAlign = 'left';
+            }
+
+            // Dynamic Chart Bounds Reservation (adjusts if legend is massive)
+            let bottomReserved = 40;
+            if (state.showSource) bottomReserved = 60;
+            if (state.showLegend) bottomReserved += (state.legendSize * 3);
+
+            const chartArea = {
+                x: 80,
+                y: currentY,
+                w: W - 160,
+                h: H - currentY - bottomReserved
+            };
+
+            if (state.data.length > 0) {
+                drawParliamentChart(tCtx, chartArea, progress, state.textColor, activePalette, fontBase);
+                
+                if (state.showLegend) {
+                    drawLegend(tCtx, W, H, state.textColor, activePalette, fontBase, progress);
+                }
+            }
+
+            tCtx.restore();
+        }
+
+        // --- Parliament Layout Algorithm ---
+        function calculateSeats(totalSeats, innerR) {
+            if (totalSeats <= 0) return [];
+            
+            // Adjust rows based on total seats to maintain aesthetic density
+            let baseRows = Math.max(3, Math.ceil(Math.sqrt(totalSeats) * 0.6));
+            if (totalSeats > 1000) baseRows = Math.max(10, Math.ceil(Math.sqrt(totalSeats) * 0.5));
+            const numRows = baseRows;
+
+            const rowRadii = [];
+            for (let i = 0; i < numRows; i++) {
+                rowRadii.push(innerR + (1 - innerR) * (i / (Math.max(1, numRows - 1))));
+            }
+            const rowLengths = rowRadii.map(r => Math.PI * r);
+            const totalLen = rowLengths.reduce((a, b) => a + b, 0);
+            
+            let seatsPerRow = rowLengths.map(l => Math.floor(totalSeats * (l / totalLen)));
+            let currentTotal = seatsPerRow.reduce((a, b) => a + b, 0);
+            
+            // Distribute remainder optimally
+            while (currentTotal < totalSeats) {
+                let maxFraction = -1;
+                let maxIndex = 0;
+                for (let i = 0; i < numRows; i++) {
+                    const frac = (totalSeats * (rowLengths[i] / totalLen)) - seatsPerRow[i];
+                    if (frac > maxFraction) {
+                        maxFraction = frac;
+                        maxIndex = i;
+                    }
+                }
+                seatsPerRow[maxIndex]++;
+                currentTotal++;
+            }
+            while (currentTotal > totalSeats) {
+                let maxVal = -1;
+                let maxIndex = 0;
+                for(let i=0; i<numRows; i++) {
+                     if (seatsPerRow[i] > maxVal) {
+                          maxVal = seatsPerRow[i];
+                          maxIndex = i;
+                     }
+                }
+                seatsPerRow[maxIndex]--;
+                currentTotal--;
+            }
+
+            const seats = [];
+            for (let i = 0; i < numRows; i++) {
+                const numInRow = seatsPerRow[i];
+                if (numInRow === 0) continue;
+                for (let j = 0; j < numInRow; j++) {
+                    const angle = numInRow === 1 ? Math.PI/2 : Math.PI - (j / (numInRow - 1)) * Math.PI;
+                    seats.push({
+                        angle: angle,
+                        r: rowRadii[i]
+                    });
+                }
+            }
+            
+            // Sort to fill from left (PI) to right (0) across all rows
+            seats.sort((a, b) => {
+                if (Math.abs(a.angle - b.angle) > 0.0001) return b.angle - a.angle;
+                return a.r - b.r;
+            });
+            
+            return { seats, numRows, totalLen, rowLengths, seatsPerRow };
+        }
+
+        function drawParliamentChart(tCtx, area, progress, textColor, palette, fontBase) {
+            const totalSeats = state.data.reduce((sum, item) => sum + (item.values[0] || 0), 0);
+            if (totalSeats === 0) return;
+
+            // Geometry fully respects dynamically resized chart area bounds AND Chart Scale slider
+            const cx = area.x + area.w / 2;
+            const cy = area.y + area.h * 0.85; 
+            const maxOuterRadius = Math.min(area.w / 2, area.h * 0.85) * 0.95 * state.chartScale;
+            
+            const layout = calculateSeats(totalSeats, state.archThickness);
+            
+            // Calculate optimal dot size
+            const outerRowLen = Math.PI * 1.0; // normalized
+            const dotsInOuter = layout.seatsPerRow[layout.numRows - 1] || 1;
+            const normalizedDotDiameter = (outerRowLen / Math.max(1, dotsInOuter - 1));
+            
+            // Apply radius mapping and user scaling
+            const dotRadius = (normalizedDotDiameter * maxOuterRadius * 0.4) * state.seatSize;
+
+            // Map Colors
+            let partyIdx = 0;
+            let currentPartyCount = 0;
+            const coloredSeats = layout.seats.map((seat, i) => {
+                if (currentPartyCount >= state.data[partyIdx].values[0] && partyIdx < state.data.length - 1) {
+                    partyIdx++;
+                    currentPartyCount = 0;
+                }
+                currentPartyCount++;
+                return {
+                    ...seat,
+                    color: state.data[partyIdx].color || palette[partyIdx % palette.length],
+                    originalIndex: i
+                };
+            });
+
+            // Draw Seats
+            coloredSeats.forEach(seat => {
+                let scale = 1.0;
+                
+                // Animation Logic
+                if (state.animStyle === 'sweep') {
+                    const animWindow = 0.1;
+                    const threshold = (seat.originalIndex / totalSeats) * (1.0 - animWindow);
+                    if (progress < threshold) scale = 0;
+                    else {
+                        const localP = Math.min(1, (progress - threshold) / animWindow);
+                        scale = Math.sin(localP * Math.PI / 2); 
+                    }
+                } else if (state.animStyle === 'fade') {
+                    scale = progress;
+                } else if (state.animStyle === 'pop') {
+                    // pseudo-random threshold based on index hash
+                    const animWindow = 0.15;
+                    const hash = (seat.originalIndex * 137) % totalSeats;
+                    const threshold = (hash / totalSeats) * (1.0 - animWindow);
+                    if (progress < threshold) scale = 0;
+                    else {
+                        const localP = Math.min(1, (progress - threshold) / animWindow);
+                        // elastic pop effect
+                        scale = localP < 0.5 ? localP * 2 * 1.2 : 1.2 - ((localP - 0.5) * 2 * 0.2); 
+                    }
+                }
+
+                if (scale > 0) {
+                    const px = cx + (seat.r * maxOuterRadius) * Math.cos(seat.angle);
+                    const py = cy - (seat.r * maxOuterRadius) * Math.sin(seat.angle);
+                    
+                    tCtx.beginPath();
+                    tCtx.arc(px, py, dotRadius * scale, 0, Math.PI * 2);
+                    tCtx.fillStyle = seat.color;
+                    tCtx.fill();
+                    
+                    // Subtle stroke for definition on dark/light BGs
+                    tCtx.lineWidth = 1;
+                    tCtx.strokeStyle = state.bgColor;
+                    tCtx.stroke();
+                }
+            });
+
+            // Draw Total Count in Center (Scales with Chart Scale)
+            if (state.showCount && progress > 0.3) {
+                tCtx.globalAlpha = Math.min(1, (progress - 0.3) * 2);
+                tCtx.textAlign = 'center';
+                
+                // Value
+                tCtx.textBaseline = 'bottom';
+                tCtx.font = `800 ${Math.floor(64 * state.chartScale)}px "${fontBase}"`;
+                tCtx.fillStyle = textColor;
+                tCtx.fillText(Math.floor(totalSeats * (progress > 0.8 ? 1 : progress)), cx, cy - (10 * state.chartScale));
+                
+                // Label
+                tCtx.textBaseline = 'top';
+                tCtx.font = `700 ${Math.floor(18 * state.chartScale)}px "${fontBase}"`;
+                tCtx.fillStyle = textColor;
+                tCtx.globalAlpha *= 0.7;
+                tCtx.fillText("TOTAL SEATS", cx, cy + (5 * state.chartScale));
+                tCtx.globalAlpha = 1.0;
+            }
+        }
+
+        function drawLegend(tCtx, W, H, textColor, palette, fontBase, progress) {
+            tCtx.textAlign = 'left';
+            tCtx.textBaseline = 'middle';
+            tCtx.font = `700 ${state.legendSize}px "${fontBase}"`;
+            
+            const legendY = state.showSource ? H - 110 : H - 70;
+            const boxSize = state.legendSize * 0.8;
+            const itemPadding = state.legendSize * 1.5;
+            const maxWidth = W - 160;
+
+            // Compute widths based on FINAL label state so items don't shift during animation
+            const items = state.data.map((item, idx) => {
+                let targetValue = item.values[0] || 0;
+                let displayValue = Math.floor(targetValue * (progress > 0.8 ? 1 : progress));
+                
+                let currentLabel = item.label;
+                let finalLabel = item.label;
+                
+                if (state.showLegendCounts) {
+                    currentLabel += ` (${displayValue})`;
+                    finalLabel += ` (${targetValue})`;
+                }
+
+                return {
+                    label: currentLabel,
+                    color: item.color || palette[idx % palette.length],
+                    width: boxSize + (state.legendSize * 0.5) + tCtx.measureText(finalLabel).width + itemPadding
+                };
+            });
+
+            let rows = [[]];
+            let currentRowWidth = 0;
+
+            items.forEach(item => {
+                if (currentRowWidth + item.width > maxWidth && rows[rows.length - 1].length > 0) {
+                    rows.push([]);
+                    currentRowWidth = 0;
+                }
+                rows[rows.length - 1].push(item);
+                currentRowWidth += item.width;
+            });
+
+            // Draw rows centered
+            const rowSpacing = state.legendSize * 1.75;
+            const startY = legendY - ((rows.length - 1) * rowSpacing);
+            
+            rows.forEach((row, rIdx) => {
+                let rowWidth = row.reduce((sum, item) => sum + item.width, 0) - itemPadding;
+                let currentX = (W - rowWidth) / 2;
+                const y = startY + (rIdx * rowSpacing);
+
+                row.forEach(item => {
+                    tCtx.fillStyle = item.color;
+                    tCtx.beginPath();
+                    tCtx.arc(currentX + boxSize/2, y, boxSize/2, 0, Math.PI * 2);
+                    tCtx.fill();
+
+                    tCtx.fillStyle = textColor;
+                    tCtx.fillText(item.label, currentX + boxSize + (state.legendSize * 0.5), y + 2);
+                    currentX += item.width;
+                });
+            });
+        }
+
+        // --- Interaction & Update Loops ---
+        function updateAndRender(rebuildGrid = true) {
+            updateStateFromUI(rebuildGrid);
+            renderFrame(1.0, canvas, 1.0, false); 
+        }
+
+        document.querySelectorAll('.template-btn').forEach(btn => {
+            btn.addEventListener('click', () => {
+                const template = btn.getAttribute('data-template');
+                if (templates[template]) {
+                    uiTitle.value = templates[template].title;
+                    uiSubtitle.value = templates[template].subtitle;
+                    uiSource.value = templates[template].source;
+                    dataInput.value = templates[template].csv;
+                    
+                    uiBgColor.value = '#ffffff';
+                    uiTitleColor.value = '#1e293b';
+                    uiTextColor.value = '#64748b';
+                    
+                    updateAndRender(true);
+                }
+            });
+        });
+
+        const inputs = [uiTitle, uiSubtitle, uiSource, uiBgColor, uiTitleColor, uiTextColor];
+        inputs.forEach(el => el.addEventListener('input', () => updateAndRender(false)));
+        
+        dataInput.addEventListener('input', () => updateAndRender(true));
+
+        [uiShowTitle, uiShowSubtitle, uiShowSource, legendCheck, showCountCheck, uiShowLegendCounts].forEach(el => el.addEventListener('change', () => updateAndRender(false)));
+        
+        [uiTitleSize, uiLegendSize, uiSeatSize, uiArchThickness, uiChartScale].forEach(el => el.addEventListener('input', () => {
+            if(el.id === 'seat-size') document.getElementById('seat-size-val').textContent = el.value + 'x';
+            if(el.id === 'chart-scale') document.getElementById('chart-scale-val').textContent = el.value + 'x';
+            updateAndRender(false);
+        }));
+        
+        [fontSelect, paletteSelect, animStyleSelect].forEach(el => el.addEventListener('change', () => updateAndRender(true)));
+        
+        durationSlider.addEventListener('input', (e) => { 
+            state.duration = parseFloat(e.target.value) * 1000;
+            document.getElementById('duration-val').textContent = e.target.value + 's';
+        });
+
+        zoomSlider.addEventListener('input', (e) => { 
+            state.zoom = parseFloat(e.target.value);
+            document.getElementById('zoom-val').textContent = state.zoom.toFixed(1) + 'x';
+            renderFrame(state.progress);
+        });
+
+        panXSlider.addEventListener('input', (e) => { 
+            state.panX = parseInt(e.target.value);
+            document.getElementById('pan-x-val').textContent = state.panX;
+            renderFrame(state.progress);
+        });
+
+        panYSlider.addEventListener('input', (e) => { 
+            state.panY = parseInt(e.target.value);
+            document.getElementById('pan-y-val').textContent = state.panY;
+            renderFrame(state.progress);
+        });
+
+        btnResetView.addEventListener('click', () => {
+            zoomSlider.value = 1.0;
+            panXSlider.value = 0;
+            panYSlider.value = 0;
+            state.zoom = 1.0;
+            state.panX = 0;
+            state.panY = 0;
+            document.getElementById('zoom-val').textContent = '1.0x';
+            document.getElementById('pan-x-val').textContent = '0';
+            document.getElementById('pan-y-val').textContent = '0';
+            renderFrame(state.progress);
+        });
+
+        // Initialize
+        updateAndRender(true);
+
+        // --- Header Actions & Export Logic ---
+        const btnPreview = document.getElementById('btn-header-preview');
+        const btnExport = document.getElementById('btn-header-export');
+        const exportFmt = document.getElementById('export-fmt');
+        const exportRes = document.getElementById('export-res');
+        const transparentToggle = document.getElementById('header-transparent');
+        const overlay = document.getElementById('recording-overlay');
+        const recordingText = document.getElementById('recording-text');
+        const iconPlay = document.getElementById('icon-play');
+        const textPlay = document.getElementById('text-play');
+
+        btnPreview.addEventListener('click', () => {
+            if (state.isRecording) return;
+            if (state.isAnimating) {
+                state.isAnimating = false;
+            } else {
+                runAnimation();
+            }
+        });
+
+        btnExport.addEventListener('click', async () => {
+            if (state.isAnimating || state.isRecording) return;
+            
+            const fmt = exportFmt.value;
+            const targetWidth = parseInt(exportRes.value);
+            const exportScale = targetWidth / 1920;
+            const isTransparent = transparentToggle.checked && (fmt === 'png' || fmt === 'gif'); 
+
+            if (fmt === 'png') {
+                exportSnapshot(targetWidth, exportScale, isTransparent);
+            } else if (fmt === 'gif') {
+                exportGIF(targetWidth, exportScale, isTransparent);
+            } else {
+                exportVideo(targetWidth, exportScale);
+            }
+        });
+
+        function runAnimation() {
+            state.isAnimating = true;
+            btnPreview.classList.add('bg-red-100', 'text-brand-red', 'border-brand-red');
+            btnPreview.classList.remove('bg-white', 'text-blueprint-900', 'border-blueprint-900');
+            iconPlay.classList.replace('ph-play-circle', 'ph-stop-circle');
+            textPlay.innerText = 'Stop';
+            btnExport.disabled = true;
+
+            updateStateFromUI(false); 
+
+            const startTime = performance.now();
+            const durationMs = state.duration;
+
+            function animLoop(currentTime) {
+                if (!state.isAnimating) {
+                    resetPreviewBtn();
+                    return;
+                }
+
+                const elapsed = Math.max(0, currentTime - startTime);
+                let p = durationMs > 0 ? elapsed / durationMs : 1.0;
+                p = Math.max(0, Math.min(1, p));
+                
+                state.progress = p;
+                renderFrame(p, canvas, 1.0, false);
+
+                if (p < 1.0) {
+                    requestAnimationFrame(animLoop);
+                } else {
+                    state.isAnimating = false;
+                    resetPreviewBtn();
+                }
+            }
+            requestAnimationFrame(animLoop);
+        }
+
+        function resetPreviewBtn() {
+            btnPreview.classList.remove('bg-red-100', 'text-brand-red', 'border-brand-red');
+            btnPreview.classList.add('bg-white', 'text-blueprint-900', 'border-blueprint-900');
+            iconPlay.classList.replace('ph-stop-circle', 'ph-play-circle');
+            textPlay.innerText = 'Preview';
+            btnExport.disabled = false;
+        }
+
+        function exportSnapshot(targetWidth, exportScale, isTransparent) {
+            const targetHeight = targetWidth * (1080/1920);
+            const expCanvas = document.createElement('canvas');
+            expCanvas.width = targetWidth;
+            expCanvas.height = targetHeight;
+            
+            updateStateFromUI(false);
+            renderFrame(1.0, expCanvas, exportScale, isTransparent);
+
+            const url = expCanvas.toDataURL("image/png");
+            const a = document.createElement('a');
+            a.href = url;
+            const bgStatus = isTransparent ? 'transparent' : 'solid';
+            a.download = `parliament-animator-snap-${targetWidth}w-${bgStatus}-${Date.now()}.png`;
+            a.click();
+            showToast('Snapshot exported successfully!', 'success');
+        }
+
+        function exportGIF(targetWidth, exportScale, isTransparent) {
+            if (!gifWorkerUrl) return showToast('GIF encoder initializing. Try again in a moment.', 'info');
+            
+            const targetHeight = targetWidth * (1080/1920);
+            const expCanvas = document.createElement('canvas');
+            expCanvas.width = targetWidth;
+            expCanvas.height = targetHeight;
+            const eCtx = expCanvas.getContext('2d', { willReadFrequently: true });
+
+            const gif = new GIF({
+                workers: 2,
+                quality: 10,
+                width: targetWidth,
+                height: targetHeight,
+                workerScript: gifWorkerUrl,
+                transparent: isTransparent ? 'rgba(0,0,0,0)' : null
+            });
+
+            state.isRecording = true;
+            btnPreview.disabled = true;
+            btnExport.disabled = true;
+            
+            overlay.classList.remove('-translate-y-24');
+            overlay.classList.add('translate-y-4');
+            recordingText.innerText = 'Preparing GIF...';
+
+            updateStateFromUI(false);
+            
+            const fps = 15;
+            const totalTimeSec = state.duration / 1000;
+            const totalFrames = Math.ceil(totalTimeSec * fps);
+            let currentFrame = 0;
+
+            function renderNextFrame() {
+                if (!state.isRecording) return;
+
+                let p = currentFrame / totalFrames;
+                p = Math.max(0, Math.min(1, p));
+                
+                state.progress = p;
+                
+                renderFrame(p, expCanvas, exportScale, isTransparent);
+                
+                if (isTransparent) {
+                    gif.addFrame(eCtx, {copy: true, delay: 1000 / fps, dispose: 2});
+                } else {
+                    gif.addFrame(eCtx, {copy: true, delay: 1000 / fps});
+                }
+                
+                renderFrame(p, canvas, 1.0, false);
+
+                let pct = Math.round((currentFrame / totalFrames) * 50); 
+                recordingText.innerText = `Rendering Frames ${pct}%`;
+
+                currentFrame++;
+                if (currentFrame <= totalFrames) {
+                    requestAnimationFrame(renderNextFrame);
+                } else {
+                    recordingText.innerText = `Encoding GIF... (This takes a while)`;
+                    gif.render();
+                }
+            }
+
+            gif.on('finished', function(blob) {
+                const url = URL.createObjectURL(blob);
+                const a = document.createElement('a');
+                a.style.display = 'none';
+                a.href = url;
+                const bgStatus = isTransparent ? 'transparent' : 'solid';
+                a.download = `parliament-animator-${targetWidth}w-${bgStatus}-${Date.now()}.gif`;
+                document.body.appendChild(a);
+                a.click();
+                
+                setTimeout(() => {
+                    document.body.removeChild(a);
+                    URL.revokeObjectURL(url);
+                }, 100);
+
+                overlay.classList.remove('translate-y-4');
+                overlay.classList.add('-translate-y-24');
+                state.isRecording = false;
+                state.progress = 1.0;
+                renderFrame(1.0, canvas, 1.0, false); 
+                btnPreview.disabled = false;
+                btnExport.disabled = false;
+                recordingText.innerText = 'Recording Animation...';
+                showToast('GIF exported successfully!', 'success');
+            });
+
+            renderNextFrame();
+        }
+
+        async function exportVideo(targetWidth, exportScale) {
+            const targetHeight = targetWidth * (1080/1920);
+            const expCanvas = document.createElement('canvas');
+            expCanvas.width = targetWidth;
+            expCanvas.height = targetHeight;
+
+            let mediaRecorder;
+            let recordedChunks = [];
+            state.isRecording = true;
+            
+            try {
+                const stream = expCanvas.captureStream(60);
+                
+                let options = { mimeType: 'video/webm;codecs=vp9' };
+                if (!MediaRecorder.isTypeSupported(options.mimeType)) {
+                    options = { mimeType: 'video/webm;codecs=vp8' };
+                    if (!MediaRecorder.isTypeSupported(options.mimeType)) {
+                        options = { mimeType: 'video/webm' };
+                    }
+                }
+
+                options.videoBitsPerSecond = 20000000;
+
+                mediaRecorder = new MediaRecorder(stream, options);
+
+                mediaRecorder.ondataavailable = (e) => {
+                    if (e.data.size > 0) recordedChunks.push(e.data);
+                };
+
+                mediaRecorder.onstop = () => {
+                    const blob = new Blob(recordedChunks, { type: options.mimeType.split(';')[0] });
+                    const url = URL.createObjectURL(blob);
+                    
+                    const a = document.createElement('a');
+                    a.style.display = 'none';
+                    a.href = url;
+                    a.download = `parliament-animator-${targetWidth}w-${Date.now()}.webm`;
+                    document.body.appendChild(a);
+                    a.click();
+                    
+                    setTimeout(() => {
+                        document.body.removeChild(a);
+                        window.URL.revokeObjectURL(url);
+                    }, 100);
+
+                    overlay.classList.remove('translate-y-4');
+                    overlay.classList.add('-translate-y-24');
+                    state.isRecording = false;
+                    state.progress = 1.0;
+                    renderFrame(1.0, canvas, 1.0, false); 
+                    btnPreview.disabled = false;
+                    btnExport.disabled = false;
+                    recordingText.innerText = 'Recording Animation...';
+                    showToast('Video exported successfully!', 'success');
+                };
+
+                overlay.classList.remove('-translate-y-24');
+                overlay.classList.add('translate-y-4');
+                recordingText.innerText = 'Rendering Video...';
+
+                mediaRecorder.start();
+
+                btnPreview.disabled = true;
+                btnExport.disabled = true;
+                updateStateFromUI(false);
+                
+                const startTime = performance.now();
+                const durationMs = state.duration;
+
+                function animLoop(currentTime) {
+                    if (!state.isRecording) return;
+                    
+                    const elapsed = Math.max(0, currentTime - startTime);
+                    let p = durationMs > 0 ? elapsed / durationMs : 1.0;
+                    p = Math.max(0, Math.min(1, p));
+                    
+                    state.progress = p;
+                    
+                    renderFrame(p, expCanvas, exportScale, false);
+                    renderFrame(p, canvas, 1.0, false);
+
+                    if (p < 1.0) {
+                        requestAnimationFrame(animLoop);
+                    } else {
+                        recordingText.innerText = 'Finalizing...';
+                        setTimeout(() => {
+                            if(mediaRecorder.state !== 'inactive') mediaRecorder.stop();
+                        }, 500);
+                    }
+                }
+                requestAnimationFrame(animLoop);
+
+            } catch (err) {
+                console.error("Recording failed:", err);
+                showToast('Recording failed. Browser might not support it.', 'error');
+                overlay.classList.remove('translate-y-4');
+                overlay.classList.add('-translate-y-24');
+                state.isRecording = false;
+                btnPreview.disabled = false;
+                btnExport.disabled = false;
+                renderFrame(1.0, canvas, 1.0, false);
+            }
+        }
+
+    </script>
+</body>
+</html>
