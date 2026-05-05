@@ -3,13 +3,32 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Canvas Animators Library — YT Style</title>
-    <meta name="description" content="A professional canvas animation library featuring mock video previews, performance optimizations, and responsive design.">
+    <title>Canvas Labs — High-Performance Animation Studio</title>
+    <meta name="description" content="Discover Canvas Labs, the professional animation studio for creative engineers. Browse, preview, and customize high-fidelity canvas templates with instant interactions and a premium macOS-inspired interface.">
+    <meta name="keywords" content="canvas animation, web studio, creative coding, javascript templates, professional UI, macOS design, high performance web, animation library">
+    <meta name="author" content="Canvas Labs Team">
+    
+    <!-- Open Graph / Facebook -->
+    <meta property="og:type" content="website">
+    <meta property="og:url" content="https://canvaslabs.studio/">
+    <meta property="og:title" content="Canvas Labs — High-Performance Animation Studio">
+    <meta property="og:description" content="Elevate your web projects with premium canvas animation templates. Built for speed, designed for pros.">
+    <meta property="og:image" content="canvas_labs_og_image_1777948397323.png">
+
+    <!-- Twitter -->
+    <meta property="twitter:card" content="summary_large_image">
+    <meta property="twitter:url" content="https://canvaslabs.studio/">
+    <meta property="twitter:title" content="Canvas Labs — High-Performance Animation Studio">
+    <meta property="twitter:description" content="Elevate your web projects with premium canvas animation templates. Built for speed, designed for pros.">
+    <meta property="twitter:image" content="canvas_labs_og_image_1777948397323.png">
+
+    <!-- Favicon (Dynamic JS-controlled) -->
+    <link id="favicon" rel="icon" type="image/svg+xml" href="">
+    <link rel="canonical" href="https://canvaslabs.studio/">
     
     <!-- Resource Hints -->
     <link rel="dns-prefetch" href="https://fonts.googleapis.com">
     <link rel="dns-prefetch" href="https://fonts.gstatic.com">
-    <link rel="dns-prefetch" href="https://pagead2.googlesyndication.com">
     <link rel="preconnect" href="https://fonts.googleapis.com">
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
 
@@ -668,7 +687,7 @@
     </div>
 
     <!-- 2. DRAWER SIDEBAR (Floating overlay for mobile/tablet toggles) -->
-    <div id="sidebarOverlay" class="fixed inset-0 bg-black/60 backdrop-blur-[2px] z-[60] hidden"></div>
+    <div id="sidebarOverlay" class="fixed inset-0 bg-black/60 z-[60] hidden"></div>
     <aside id="sidebarDrawer" class="fixed inset-y-0 left-0 z-[120] w-[280px] bg-white dark:bg-zinc-900 shadow-2xl transform -translate-x-full flex flex-col">
         <div class="h-16 border-b border-gray-200 dark:border-zinc-800 flex items-center px-6 gap-4 flex-shrink-0 transition-colors">
             <a href="#" class="flex items-center gap-3 group">
@@ -687,6 +706,19 @@
     </aside>
 
     <script>
+        // --- FAVICON DYNAMIC LOGIC ---
+        function updateFavicon() {
+            const isDark = document.documentElement.classList.contains('dark');
+            // Use different emojis based on theme
+            const emoji = isDark ? '⭐' : '👉';
+            const svg = `
+                <svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'>
+                    <text y='.9em' font-size='90'>${emoji}</text>
+                </svg>
+            `.trim();
+            document.getElementById('favicon').href = `data:image/svg+xml,${encodeURIComponent(svg)}`;
+        }
+
         // --- THEME TOGGLE LOGIC ---
         function toggleTheme() {
             const htmlClass = document.documentElement.classList;
@@ -697,12 +729,16 @@
             } else {
                 localStorage.setItem('theme', 'light');
             }
+            updateFavicon();
             if (typeof updateThemeIcon === 'function') updateThemeIcon();
         }
 
         document.querySelectorAll('.theme-toggle-btn').forEach(btn => {
             btn.addEventListener('click', toggleTheme);
         });
+        
+        // Initial call
+        updateFavicon();
 
 
         // --- DATA ---
@@ -892,7 +928,8 @@
 
                 filteredData.forEach(item => {
                     const card = document.createElement('div');
-                    card.className = 'group cursor-pointer flex flex-col gap-2';
+                    card.className = 'template-card-item group cursor-pointer flex flex-col gap-2';
+                    card.dataset.id = item.id;
                     card.innerHTML = `
                         <!-- Canvas/Image Area -->
                         <div class="template-card-container w-full aspect-[4/3] flex items-center justify-center relative bg-white dark:bg-zinc-900/40 border border-gray-100 dark:border-zinc-800/50 rounded-md p-6 md:p-8 shadow-[0_2px_10px_-3px_rgba(0,0,0,0.07)] dark:shadow-none transition-all duration-300">
@@ -941,7 +978,7 @@
                         });
                     }
 
-                    card.addEventListener('click', () => showDetailView(item));
+                    card.addEventListener('click', () => showDetailView(item, card));
                     cardGridEl.appendChild(card);
                 });
                 lucide.createIcons();
@@ -1035,40 +1072,60 @@
 
         // --- ACTIONS ---
 
-        function showDetailView(item) {
+        function showDetailView(item, cardEl) {
             activeTemplate = item; 
             
-            mainHeader.classList.remove('hidden'); 
-            galleryView.classList.add('hidden');
-            editorView.classList.add('hidden');
-            
-            standardViewsWrapper.classList.remove('hidden');
-            detailView.classList.remove('hidden');
-            detailView.classList.add('flex');
-            headerSearch.classList.remove('opacity-0', 'pointer-events-none');
-            
-            isViewingEditor = false;
-            isViewingDetail = true;
-            closeDrawer();
-            updateLayout();
-            
-            const canvas = document.getElementById('detailCanvas');
-            canvas.className = `w-full aspect-video rounded-2xl shadow-sm dark:shadow-none border border-gray-100 dark:border-zinc-800 flex items-center justify-center overflow-hidden relative ${item.color} transition-colors`;
-            canvas.innerHTML = `<div class="transform scale-125 md:scale-150 origin-center">${item.content}</div>`;
-            
-            document.getElementById('detailTitle').innerText = item.title;
-            document.getElementById('detailCategory').innerText = item.category;
-            
-            // Adjust mock hex colors for dark mode logic visually
-            const isDarkThemeActive = document.documentElement.classList.contains('dark');
-            const bgToUse = (isDarkThemeActive && item.category === 'charts') ? '#27272a' : item.bgHex;
-            document.getElementById('detailBgColor').style.backgroundColor = bgToUse;
-            document.getElementById('detailAccentColor').style.backgroundColor = item.category === 'text' ? '#00c2ff' : '#8b5cf6';
+            const performTransition = () => {
+                mainHeader.classList.remove('hidden'); 
+                galleryView.classList.add('hidden');
+                editorView.classList.add('hidden');
+                
+                standardViewsWrapper.classList.remove('hidden');
+                detailView.classList.remove('hidden');
+                detailView.classList.add('flex');
+                headerSearch.classList.remove('opacity-0', 'pointer-events-none');
+                
+                isViewingEditor = false;
+                isViewingDetail = true;
+                closeDrawer();
+                updateLayout();
+                
+                const canvas = document.getElementById('detailCanvas');
+                canvas.className = `w-full aspect-video rounded-2xl shadow-sm dark:shadow-none border border-gray-100 dark:border-zinc-800 flex items-center justify-center overflow-hidden relative ${item.color} transition-colors`;
+                canvas.innerHTML = `<div class="transform scale-125 md:scale-150 origin-center">${item.content}</div>`;
+                
+                // Set the target for the view transition
+                canvas.style.viewTransitionName = 'active-card-morph';
+                
+                document.getElementById('detailTitle').innerText = item.title;
+                document.getElementById('detailCategory').innerText = item.category;
+                
+                const isDarkThemeActive = document.documentElement.classList.contains('dark');
+                const bgToUse = (isDarkThemeActive && item.category === 'charts') ? '#27272a' : item.bgHex;
+                document.getElementById('detailBgColor').style.backgroundColor = bgToUse;
+                document.getElementById('detailAccentColor').style.backgroundColor = item.category === 'text' ? '#00c2ff' : '#8b5cf6';
 
-            const currentNav = navItems.find(i => i.id === currentCategory) || { label: 'Templates' };
-            backBtnText.innerText = `Back to ${currentNav.label}`;
-            
-            if(standardViewsWrapper) standardViewsWrapper.scrollTo({ top: 0, behavior: 'smooth' });
+                const currentNav = navItems.find(i => i.id === currentCategory) || { label: 'Templates' };
+                backBtnText.innerText = `Back to ${currentNav.label}`;
+                
+                if(standardViewsWrapper) standardViewsWrapper.scrollTo({ top: 0, behavior: 'instant' });
+            };
+
+            if (document.startViewTransition && cardEl) {
+                // Target the specific container inside the card for the morph
+                const container = cardEl.querySelector('.template-card-container');
+                container.style.viewTransitionName = 'active-card-morph';
+                
+                const transition = document.startViewTransition(() => {
+                    performTransition();
+                });
+
+                transition.finished.finally(() => {
+                    if (container) container.style.viewTransitionName = '';
+                });
+            } else {
+                performTransition();
+            }
         }
 
         function showEditorView() {
@@ -1104,16 +1161,27 @@
         }
 
         function hideDetailView() {
-            detailView.classList.add('hidden');
-            detailView.classList.remove('flex');
-            galleryView.classList.remove('hidden');
-            
-            isViewingDetail = false;
-            isViewingEditor = false;
-            closeDrawer(); 
-            updateLayout();
-            
-            if(standardViewsWrapper) standardViewsWrapper.scrollTo({ top: 0, behavior: 'smooth' });
+            const performTransition = () => {
+                detailView.classList.add('hidden');
+                detailView.classList.remove('flex');
+                galleryView.classList.remove('hidden');
+                
+                isViewingDetail = false;
+                isViewingEditor = false;
+                closeDrawer(); 
+                updateLayout();
+                document.getElementById('detailCanvas').style.viewTransitionName = '';
+                
+                if(standardViewsWrapper) standardViewsWrapper.scrollTo({ top: 0, behavior: 'instant' });
+            };
+
+            if (document.startViewTransition) {
+                document.startViewTransition(() => {
+                    performTransition();
+                });
+            } else {
+                performTransition();
+            }
         }
 
         function hideEditorView() {
