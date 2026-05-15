@@ -1,0 +1,697 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+    <title>Data Thesis - Content Command Center</title>
+    
+    <!-- Google Fonts -->
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800;900&family=JetBrains+Mono:wght@400;500;700&display=swap" rel="stylesheet">
+
+    <!-- Tailwind CSS -->
+    <script src="https://cdn.tailwindcss.com"></script>
+    <script>
+        tailwind.config = {
+            theme: {
+                extend: {
+                    fontFamily: {
+                        sans: ['Inter', 'sans-serif'],
+                        mono: ['JetBrains Mono', 'monospace'],
+                    },
+                    colors: {
+                        blueprint: {
+                            50: '#f0f4f8',
+                            100: '#d9e2ec',
+                            200: '#bcccdc',
+                            300: '#9fb3c8',
+                            800: '#102a43',
+                            900: '#003366',
+                        },
+                        brand: {
+                            red: '#ef4444',
+                            blue: '#3b82f6'
+                        }
+                    }
+                }
+            }
+        }
+    </script>
+
+    <!-- Phosphor Icons -->
+    <script src="https://unpkg.com/@phosphor-icons/web"></script>
+
+    <style>
+        body { overscroll-behavior-y: none; }
+        
+        .blueprint-bg {
+            background-color: #f4f7fa;
+            background-image: 
+                linear-gradient(rgba(0, 51, 102, 0.05) 1px, transparent 1px),
+                linear-gradient(90deg, rgba(0, 51, 102, 0.05) 1px, transparent 1px);
+            background-size: 24px 24px;
+            background-position: center center;
+        }
+
+        /* Custom scrollbars */
+        ::-webkit-scrollbar { width: 6px; height: 6px; }
+        ::-webkit-scrollbar-track { background: transparent; }
+        ::-webkit-scrollbar-thumb { background: #cbd5e1; border-radius: 4px; }
+        ::-webkit-scrollbar-thumb:hover { background: #94a3b8; }
+
+        .loader {
+            border: 3px solid #f3f3f3;
+            border-top: 3px solid #003366;
+            border-radius: 50%;
+            width: 20px;
+            height: 20px;
+            animation: spin 1s linear infinite;
+        }
+        @keyframes spin { 0% { transform: rotate(0deg); } 100% { transform: rotate(360deg); } }
+    </style>
+</head>
+<body class="blueprint-bg text-slate-800 h-screen flex flex-col overflow-hidden">
+
+    <!-- HEADER -->
+    <header class="h-16 bg-white border-b border-blueprint-900 flex items-center justify-between px-4 sm:px-6 flex-shrink-0 z-20 shadow-sm">
+        <div class="flex items-center gap-3">
+            <div class="border-2 border-blueprint-900 px-2 py-1 flex items-center bg-white shadow-[3px_3px_0px_rgba(0,51,102,0.1)] select-none">
+                <span class="text-lg font-black text-blueprint-900 tracking-tighter uppercase">Data</span>
+                <span class="text-lg font-black text-brand-red tracking-tighter uppercase">Thesis</span>
+            </div>
+            <div class="hidden lg:flex gap-2 text-[10px] font-bold text-blueprint-900 uppercase tracking-widest mt-1">
+                <span class="border border-blueprint-200 px-2 py-0.5 bg-blueprint-50">Content Hub</span>
+            </div>
+        </div>
+
+        <div class="flex items-center gap-2 sm:gap-4">
+            <button onclick="exportWorkflow()" class="text-[10px] sm:text-xs font-bold text-blueprint-600 hover:text-blueprint-900 transition flex items-center gap-1 uppercase tracking-wider bg-blueprint-50 px-2 sm:px-3 py-1.5 rounded border border-blueprint-200">
+                <i class="ph-bold ph-download-simple"></i> <span class="hidden sm:inline">Export Backup</span>
+            </button>
+            <div class="w-px h-6 bg-blueprint-200"></div>
+            <button onclick="clearAllData()" class="text-[10px] sm:text-xs font-bold text-slate-400 hover:text-brand-red transition flex items-center gap-1 uppercase tracking-wider">
+                <i class="ph-bold ph-trash"></i> <span class="hidden sm:inline">Clear Board</span>
+            </button>
+        </div>
+    </header>
+
+    <main class="flex-1 flex flex-col lg:flex-row overflow-hidden relative">
+        
+        <!-- SIDEBAR: GOOGLE TRENDS FEED -->
+        <aside class="w-full lg:w-[380px] bg-white border-b lg:border-b-0 lg:border-r border-blueprint-900 flex flex-col z-10 flex-shrink-0 h-[45vh] lg:h-full order-1 shadow-[0_0_15px_rgba(0,0,0,0.05)]">
+            
+            <div class="p-4 border-b border-blueprint-100 bg-blueprint-50 flex flex-col gap-3">
+                <div class="flex items-center justify-between">
+                    <h2 class="text-xs font-black uppercase tracking-widest text-blueprint-900 flex items-center gap-2">
+                        <i class="ph-fill ph-trend-up text-brand-red text-lg"></i> Live Search Trends
+                    </h2>
+                    <div class="flex items-center gap-2">
+                        <span id="cache-indicator" class="text-[9px] text-slate-400 font-bold uppercase tracking-wider">Cached</span>
+                        <button onclick="fetchTrends(true)" class="text-blueprint-600 hover:text-blueprint-900 bg-white p-1 rounded border border-blueprint-200 shadow-sm" title="Force Refresh API">
+                            <i class="ph-bold ph-arrows-clockwise text-sm"></i>
+                        </button>
+                    </div>
+                </div>
+                
+                <div class="flex items-center gap-2">
+                    <select id="country-select" class="flex-1 bg-white border border-blueprint-200 text-xs font-bold text-slate-700 px-3 py-2 rounded outline-none focus:border-blueprint-900 cursor-pointer" onchange="fetchTrends(false)">
+                        <option value="US">🇺🇸 United States</option>
+                        <option value="GB">🇬🇧 United Kingdom</option>
+                        <option value="IN">🇮🇳 India</option>
+                        <option value="CA">🇨🇦 Canada</option>
+                        <option value="AU">🇦🇺 Australia</option>
+                        <option value="DE">🇩🇪 Germany</option>
+                    </select>
+                </div>
+
+                <!-- Topic Filter for Data Thesis -->
+                <div class="relative">
+                    <i class="ph-bold ph-magnifying-glass absolute left-3 top-1/2 -translate-y-1/2 text-slate-400"></i>
+                    <input type="text" id="trend-filter" placeholder="Filter topics (e.g., war, election, economy)..." class="w-full bg-white border border-blueprint-200 text-xs text-slate-700 pl-8 pr-3 py-2 rounded outline-none focus:border-blueprint-900 transition" oninput="applyFilter()">
+                </div>
+            </div>
+
+            <!-- Trends List -->
+            <div id="trends-container" class="flex-1 overflow-y-auto p-4 flex flex-col gap-3 custom-scrollbar relative">
+                <!-- Loader -->
+                <div id="trends-loader" class="absolute inset-0 bg-white/90 z-10 flex flex-col items-center justify-center gap-3">
+                    <div class="loader"></div>
+                    <span class="text-xs font-bold text-slate-500 uppercase tracking-widest">Fetching Trends...</span>
+                </div>
+                
+                <!-- Items injected here -->
+                <div id="trends-list" class="flex flex-col gap-3"></div>
+            </div>
+        </aside>
+
+        <!-- KANBAN WORKFLOW BOARD -->
+        <section class="flex-1 overflow-y-auto lg:overflow-x-auto lg:overflow-y-hidden bg-transparent p-4 sm:p-6 order-2 custom-scrollbar">
+            
+            <div class="flex flex-col lg:flex-row h-auto lg:h-full gap-4 sm:gap-6 lg:min-w-[900px]">
+                
+                <!-- COLUMN: IDEAS -->
+                <div class="flex-1 flex flex-col bg-slate-50/80 border-2 border-blueprint-200 rounded-lg overflow-hidden lg:flex-shrink-0 w-full lg:w-[300px] h-[400px] lg:h-auto">
+                    <div class="bg-blueprint-100 p-3 border-b-2 border-blueprint-200 flex justify-between items-center sticky top-0 z-10">
+                        <h3 class="text-[11px] font-black uppercase tracking-widest text-blueprint-900 flex items-center gap-2"><i class="ph-bold ph-lightbulb text-yellow-600 text-lg"></i> Ideas Inbox</h3>
+                        <span id="count-idea" class="text-[10px] font-bold bg-white px-2 py-0.5 rounded text-slate-600">0</span>
+                    </div>
+                    <div id="col-idea" class="flex-1 overflow-y-auto p-3 flex flex-col gap-3 custom-scrollbar"></div>
+                </div>
+
+                <!-- COLUMN: SCRIPTING -->
+                <div class="flex-1 flex flex-col bg-slate-50/80 border-2 border-blueprint-200 rounded-lg overflow-hidden lg:flex-shrink-0 w-full lg:w-[300px] h-[400px] lg:h-auto">
+                    <div class="bg-blue-100 p-3 border-b-2 border-blue-200 flex justify-between items-center sticky top-0 z-10">
+                        <h3 class="text-[11px] font-black uppercase tracking-widest text-blue-900 flex items-center gap-2"><i class="ph-bold ph-pencil-line text-blue-600 text-lg"></i> Scripting (AI)</h3>
+                        <span id="count-scripting" class="text-[10px] font-bold bg-white px-2 py-0.5 rounded text-slate-600">0</span>
+                    </div>
+                    <div id="col-scripting" class="flex-1 overflow-y-auto p-3 flex flex-col gap-3 custom-scrollbar"></div>
+                </div>
+
+                <!-- COLUMN: READY FOR ANIMATION -->
+                <div class="flex-1 flex flex-col bg-slate-50/80 border-2 border-blueprint-200 rounded-lg overflow-hidden lg:flex-shrink-0 w-full lg:w-[300px] h-[400px] lg:h-auto">
+                    <div class="bg-green-100 p-3 border-b-2 border-green-200 flex justify-between items-center sticky top-0 z-10">
+                        <h3 class="text-[11px] font-black uppercase tracking-widest text-green-900 flex items-center gap-2"><i class="ph-bold ph-magic-wand text-green-600 text-lg"></i> Ready for Animator</h3>
+                        <span id="count-ready" class="text-[10px] font-bold bg-white px-2 py-0.5 rounded text-slate-600">0</span>
+                    </div>
+                    <div id="col-ready" class="flex-1 overflow-y-auto p-3 flex flex-col gap-3 custom-scrollbar"></div>
+                </div>
+
+            </div>
+
+        </section>
+
+    </main>
+
+    <!-- SCRIPT EDITOR MODAL -->
+    <div id="modal-editor" class="fixed inset-0 bg-blueprint-900/60 backdrop-blur-sm z-[100] hidden flex-col items-center justify-center p-2 sm:p-6 opacity-0 transition-opacity">
+        <div class="bg-white w-full max-w-5xl h-full max-h-[900px] flex flex-col rounded-xl shadow-2xl border border-blueprint-200 overflow-hidden transform scale-95 transition-transform duration-200" id="modal-content">
+            
+            <!-- Header -->
+            <div class="p-4 border-b border-blueprint-100 flex justify-between items-center bg-slate-50">
+                <div class="flex flex-col">
+                    <h2 class="text-[10px] font-black text-blueprint-900 uppercase tracking-widest">Script & Data Editor</h2>
+                    <p id="editor-topic-title" class="text-base sm:text-xl font-bold text-slate-800 tracking-tight mt-0.5 line-clamp-1">Topic Name</p>
+                </div>
+                <button onclick="closeEditor()" class="w-8 h-8 flex items-center justify-center rounded hover:bg-slate-200 text-slate-500 transition shrink-0">
+                    <i class="ph-bold ph-x text-lg"></i>
+                </button>
+            </div>
+
+            <!-- Body -->
+            <div class="flex-1 flex flex-col md:flex-row overflow-hidden">
+                
+                <!-- Left: AI Prompt Helper -->
+                <div class="w-full md:w-[350px] border-b md:border-b-0 md:border-r border-blueprint-100 bg-slate-50 flex flex-col flex-shrink-0 h-[40vh] md:h-full">
+                    <div class="p-4 border-b border-blueprint-100">
+                        <h3 class="text-[10px] font-black text-slate-500 uppercase tracking-widest mb-2 flex items-center gap-1"><i class="ph-fill ph-sparkle text-purple-500"></i> AI Studio Helper</h3>
+                        
+                        <label class="block text-[10px] font-bold text-slate-700 uppercase tracking-wider mb-1 mt-3">Select Story Angle</label>
+                        <select id="editor-story-angle" class="w-full bg-white border border-blueprint-200 text-xs text-slate-700 px-3 py-2 rounded outline-none focus:border-blueprint-900 mb-4 cursor-pointer">
+                            <option value="mythbuster">🕵️ The Mythbuster (Expectation vs Reality)</option>
+                            <option value="conflict">⚔️ Conflict & War (Timelines & Casualties)</option>
+                            <option value="economy">💰 Economic Scale (Wealth & Disparity)</option>
+                            <option value="politics">🏛️ Politics & Power (Demographics & Shifts)</option>
+                            <option value="general">📊 General Data Timeline</option>
+                        </select>
+
+                        <button onclick="generateAIPrompt()" class="w-full py-2 bg-purple-600 hover:bg-purple-700 text-white text-xs font-bold rounded shadow-sm transition flex items-center justify-center gap-2">
+                            <i class="ph-bold ph-copy"></i> Copy Prompt for AI
+                        </button>
+                    </div>
+                    <div class="p-4 flex-1 overflow-y-auto custom-scrollbar">
+                        <h3 class="text-[10px] font-bold text-slate-500 uppercase tracking-widest mb-2">Topic Context</h3>
+                        <div class="bg-white p-3 border border-blueprint-100 rounded text-xs text-slate-700 mb-4 font-mono whitespace-pre-wrap" id="editor-context"></div>
+                    </div>
+                </div>
+
+                <!-- Right: Script & Data Entry -->
+                <div class="w-full flex-1 flex flex-col bg-white overflow-hidden">
+                    <div class="p-4 flex-1 flex flex-col gap-4 overflow-y-auto custom-scrollbar">
+                        <div class="flex-1 flex flex-col min-h-[150px]">
+                            <label class="text-[10px] font-bold text-slate-500 uppercase tracking-widest mb-1">Voiceover Script (For Shorts)</label>
+                            <textarea id="editor-script" class="flex-1 w-full p-3 border border-blueprint-200 rounded outline-none focus:border-blueprint-900 resize-none text-sm leading-relaxed" placeholder="Write or paste your AI-generated script here..."></textarea>
+                        </div>
+                        <div class="flex-1 flex flex-col min-h-[150px]">
+                            <label class="text-[10px] font-bold text-slate-500 uppercase tracking-widest mb-1 flex justify-between items-center">
+                                <span>CSV Data (For Animator)</span>
+                                <button onclick="copyCSV()" class="text-[10px] text-blue-600 hover:underline flex items-center gap-1"><i class="ph-bold ph-copy"></i> Copy CSV</button>
+                            </label>
+                            <textarea id="editor-csv" class="flex-1 w-full p-3 border border-blueprint-200 rounded outline-none focus:border-blueprint-900 resize-none font-mono text-xs bg-slate-50 whitespace-pre" spellcheck="false" placeholder="Date,Entity1,Entity2&#10;2020,100,50"></textarea>
+                        </div>
+                    </div>
+                    
+                    <div class="p-4 border-t border-blueprint-100 bg-slate-50 flex justify-end gap-3 shrink-0">
+                        <button onclick="closeEditor()" class="px-5 py-2 text-sm font-bold text-slate-600 hover:bg-slate-200 rounded transition">Cancel</button>
+                        <button onclick="saveEditorData()" class="px-5 py-2 text-sm font-bold bg-blueprint-900 text-white hover:bg-blueprint-800 rounded transition shadow-md">Save Changes</button>
+                    </div>
+                </div>
+
+            </div>
+        </div>
+    </div>
+
+    <!-- Toast Container -->
+    <div id="toast-container" class="fixed top-20 left-1/2 -translate-x-1/2 sm:left-auto sm:translate-x-0 sm:right-6 z-[200] flex flex-col gap-3 pointer-events-none w-11/12 sm:w-auto"></div>
+
+    <script>
+        // --- APP STATE ---
+        let workflowData = [];
+        let lastFetchedTrends = []; // Store fetched trends for filtering and UI updates without re-fetching
+        let editingId = null;
+
+        // --- INIT ---
+        window.onload = () => {
+            loadWorkflow();
+            fetchTrends(false); // fetch with cache enabled
+        };
+
+        // --- TRENDS API FETCH WITH CACHING ---
+        async function fetchTrends(forceRefresh = false) {
+            const loader = document.getElementById('trends-loader');
+            const geo = document.getElementById('country-select').value;
+            const cacheIndicator = document.getElementById('cache-indicator');
+            const cacheKey = `dataThesis_trends_${geo}`;
+
+            // Check Cache
+            if (!forceRefresh) {
+                const cached = localStorage.getItem(cacheKey);
+                if (cached) {
+                    try {
+                        const parsed = JSON.parse(cached);
+                        // Cache valid for 60 minutes
+                        if (Date.now() - parsed.timestamp < 60 * 60 * 1000) {
+                            lastFetchedTrends = parsed.items;
+                            cacheIndicator.innerText = `Updated ${Math.round((Date.now() - parsed.timestamp)/60000)}m ago`;
+                            applyFilter(); // Renders trends
+                            return;
+                        }
+                    } catch (e) { console.warn("Cache parse failed."); }
+                }
+            }
+
+            loader.classList.remove('hidden');
+            cacheIndicator.innerText = "Fetching...";
+
+            try {
+                const rssUrl = `https://trends.google.com/trends/trendingsearches/daily/rss?geo=${geo}`;
+                const apiUrl = `https://api.allorigins.win/get?url=${encodeURIComponent(rssUrl)}`;
+                
+                const response = await fetch(apiUrl);
+                if (!response.ok) throw new Error("Network response was not ok");
+                
+                const data = await response.json();
+                if (!data.contents) throw new Error("Empty contents from proxy");
+
+                const parser = new DOMParser();
+                const xmlDoc = parser.parseFromString(data.contents, "text/xml");
+                
+                if (xmlDoc.getElementsByTagName("parsererror").length > 0) throw new Error("XML parsing failed");
+
+                const items = Array.from(xmlDoc.querySelectorAll("item")).map(item => {
+                    const title = item.querySelector("title")?.textContent || "Unknown Trend";
+                    
+                    let traffic = "Trending";
+                    const trafficNode = item.getElementsByTagName("ht:approx_traffic")[0];
+                    if (trafficNode) traffic = trafficNode.textContent + " searches";
+
+                    let newsSnippet = title;
+                    const newsNode = item.getElementsByTagName("ht:news_item")[0];
+                    if (newsNode) {
+                        const snippetNode = newsNode.getElementsByTagName("ht:news_item_snippet")[0] || newsNode.getElementsByTagName("ht:news_item_title")[0];
+                        if (snippetNode) newsSnippet = snippetNode.textContent.replace(/(<([^>]+)>)/gi, "").trim();
+                    } else {
+                        const descNode = item.querySelector("description");
+                        if (descNode) {
+                             const match = descNode.textContent.match(/<div class="snippet">(.*?)<\/div>/s);
+                             if (match) newsSnippet = match[1].replace(/(<([^>]+)>)/gi, "").trim();
+                        }
+                    }
+
+                    return { title, traffic, newsSnippet };
+                });
+
+                if (items.length > 0) {
+                    lastFetchedTrends = items;
+                    // Save to cache
+                    localStorage.setItem(cacheKey, JSON.stringify({ timestamp: Date.now(), items: items }));
+                    cacheIndicator.innerText = "Just updated";
+                    applyFilter();
+                } else {
+                    throw new Error("No items found");
+                }
+
+            } catch (error) {
+                console.warn("API Failed, loading mock data.", error);
+                cacheIndicator.innerText = "Demo Data";
+                loadMockTrends();
+            } finally {
+                loader.classList.add('hidden');
+            }
+        }
+
+        // --- SEARCH FILTERING ---
+        function applyFilter() {
+            const query = document.getElementById('trend-filter').value.toLowerCase().trim();
+            const list = document.getElementById('trends-list');
+            list.innerHTML = '';
+
+            const filtered = lastFetchedTrends.filter(item => {
+                return item.title.toLowerCase().includes(query) || item.newsSnippet.toLowerCase().includes(query);
+            });
+
+            if(filtered.length === 0) {
+                list.innerHTML = `<div class="p-4 text-center text-xs font-medium text-slate-500 italic">No trends match your data filter.</div>`;
+                return;
+            }
+
+            renderTrends(filtered);
+        }
+
+        function renderTrends(items) {
+            const list = document.getElementById('trends-list');
+            list.innerHTML = '';
+
+            items.forEach((item, index) => {
+                const el = document.createElement('div');
+                el.className = 'p-3 bg-white border border-blueprint-200 rounded shadow-sm hover:border-blueprint-900 transition group';
+                
+                const isAdded = workflowData.some(w => w.title.toLowerCase() === item.title.toLowerCase());
+                
+                el.innerHTML = `
+                    <div class="flex justify-between items-start mb-2">
+                        <div class="flex gap-2 items-start">
+                            <span class="text-[10px] font-black text-slate-400 mt-0.5">#${index + 1}</span>
+                            <h3 class="text-sm font-bold text-blueprint-900 leading-tight">${item.title}</h3>
+                        </div>
+                    </div>
+                    <p class="text-[11px] text-slate-500 mb-3 line-clamp-2 leading-relaxed">${item.newsSnippet}</p>
+                    <div class="flex justify-between items-center">
+                        <span class="inline-block px-2 py-0.5 bg-red-50 text-brand-red text-[10px] font-bold uppercase tracking-wider rounded border border-red-100">${item.traffic}</span>
+                        ${isAdded ? 
+                            `<span class="text-[10px] font-bold text-green-600 bg-green-50 px-2 py-1 rounded border border-green-200"><i class="ph-bold ph-check"></i> In Workflow</span>` :
+                            `<button onclick="addTrendToWorkflow('${escapeStr(item.title)}', '${escapeStr(item.traffic)}', '${escapeStr(item.newsSnippet)}')" class="text-[10px] font-bold text-white bg-blueprint-900 px-3 py-1.5 rounded hover:bg-blueprint-800 transition shadow-sm uppercase tracking-wider group-hover:scale-105 transform">Add to Board</button>`
+                        }
+                    </div>
+                `;
+                list.appendChild(el);
+            });
+        }
+
+        function loadMockTrends() {
+            lastFetchedTrends = [
+                { title: "Nvidia Earnings", traffic: "500,000+ searches", newsSnippet: "Nvidia posts record revenue driven by AI chip demand, surpassing market expectations." },
+                { title: "Global Election Results", traffic: "200,000+ searches", newsSnippet: "Historical voter turnout seen in latest elections shifting geopolitical landscapes." },
+                { title: "SpaceX Launch", traffic: "100,000+ searches", newsSnippet: "Starship completes successful orbital test flight, opening doors for Mars missions." },
+                { title: "Interest Rate Cuts", traffic: "50,000+ searches", newsSnippet: "Central banks signal impending cuts, shifting global economic forecasts." }
+            ];
+            applyFilter();
+        }
+
+        // --- WORKFLOW MANAGEMENT ---
+        function loadWorkflow() {
+            const stored = localStorage.getItem('dataThesisWorkflow');
+            if (stored) {
+                try { workflowData = JSON.parse(stored); } catch(e) { workflowData = []; }
+            }
+            renderWorkflow();
+        }
+
+        function saveWorkflow() {
+            localStorage.setItem('dataThesisWorkflow', JSON.stringify(workflowData));
+            renderWorkflow();
+        }
+
+        function escapeStr(str) {
+            return str.replace(/'/g, "\\'").replace(/"/g, '&quot;');
+        }
+
+        function addTrendToWorkflow(title, traffic, newsSource) {
+            if (workflowData.some(w => w.title === title)) {
+                showToast('Topic already in workflow', 'info');
+                return;
+            }
+
+            const newItem = {
+                id: Date.now().toString(),
+                title: title,
+                traffic: traffic,
+                newsSource: newsSource,
+                script: '',
+                csv: '',
+                status: 'idea',
+                dateAdded: new Date().toLocaleDateString()
+            };
+
+            workflowData.push(newItem);
+            saveWorkflow();
+            showToast('Added to Ideas Inbox!', 'success');
+            
+            // Re-render UI from cache immediately (fixes API rate limit spam)
+            applyFilter(); 
+        }
+
+        function moveItem(id, direction) {
+            const item = workflowData.find(w => w.id === id);
+            if (!item) return;
+
+            if (direction === 'forward') {
+                if (item.status === 'idea') item.status = 'scripting';
+                else if (item.status === 'scripting') item.status = 'ready';
+            } else {
+                if (item.status === 'ready') item.status = 'scripting';
+                else if (item.status === 'scripting') item.status = 'idea';
+            }
+            saveWorkflow();
+        }
+
+        function deleteItem(id) {
+            if(confirm("Delete this topic from workflow?")) {
+                workflowData = workflowData.filter(w => w.id !== id);
+                saveWorkflow();
+                applyFilter(); // update buttons in trends feed
+            }
+        }
+
+        function clearAllData() {
+            if(confirm("WARNING: Clear entire board and delete all scripts? This cannot be undone.")) {
+                workflowData = [];
+                saveWorkflow();
+                applyFilter();
+                showToast('Board cleared.', 'info');
+            }
+        }
+
+        function exportWorkflow() {
+            if(workflowData.length === 0) return showToast("Nothing to export. Board is empty.", "error");
+
+            const dataStr = "data:text/json;charset=utf-8," + encodeURIComponent(JSON.stringify(workflowData, null, 2));
+            const downloadAnchorNode = document.createElement('a');
+            downloadAnchorNode.setAttribute("href", dataStr);
+            downloadAnchorNode.setAttribute("download", `data_thesis_workflow_${Date.now()}.json`);
+            document.body.appendChild(downloadAnchorNode);
+            downloadAnchorNode.click();
+            downloadAnchorNode.remove();
+            
+            showToast('Workflow JSON Exported!', 'success');
+        }
+
+        function renderWorkflow() {
+            const cols = {
+                'idea': document.getElementById('col-idea'),
+                'scripting': document.getElementById('col-scripting'),
+                'ready': document.getElementById('col-ready')
+            };
+
+            Object.values(cols).forEach(col => col.innerHTML = '');
+            const counts = { idea: 0, scripting: 0, ready: 0 };
+
+            workflowData.forEach(item => {
+                counts[item.status]++;
+                
+                const card = document.createElement('div');
+                card.className = 'bg-white p-3 border border-blueprint-200 rounded shadow-sm relative group cursor-pointer hover:border-blueprint-900 hover:shadow-md transition-all duration-200';
+                
+                let borderTopColor = item.status === 'idea' ? 'border-t-yellow-400' : (item.status === 'scripting' ? 'border-t-blue-400' : 'border-t-green-400');
+                card.classList.add('border-t-4', borderTopColor);
+
+                let actionHtml = '';
+                if(item.status === 'idea') {
+                    actionHtml = `<button onclick="event.stopPropagation(); moveItem('${item.id}', 'forward')" class="w-full mt-2 py-1.5 bg-blue-50 text-blue-700 text-[10px] font-bold uppercase rounded hover:bg-blue-100 transition flex justify-center items-center gap-1">Start Scripting <i class="ph-bold ph-arrow-right"></i></button>`;
+                } else if(item.status === 'scripting') {
+                    actionHtml = `
+                        <div class="flex gap-1 mt-2">
+                            <button onclick="event.stopPropagation(); moveItem('${item.id}', 'backward')" class="flex-1 py-1.5 bg-slate-100 text-slate-600 text-[10px] font-bold uppercase rounded hover:bg-slate-200 transition"><i class="ph-bold ph-arrow-left"></i></button>
+                            <button onclick="event.stopPropagation(); moveItem('${item.id}', 'forward')" class="flex-[3] py-1.5 bg-green-50 text-green-700 text-[10px] font-bold uppercase rounded hover:bg-green-100 transition flex justify-center items-center gap-1">Mark Ready <i class="ph-bold ph-arrow-right"></i></button>
+                        </div>`;
+                } else {
+                    actionHtml = `
+                        <div class="flex gap-1 mt-2">
+                            <button onclick="event.stopPropagation(); moveItem('${item.id}', 'backward')" class="flex-[3] py-1.5 bg-slate-100 text-slate-600 text-[10px] font-bold uppercase rounded hover:bg-slate-200 transition flex justify-center items-center gap-1"><i class="ph-bold ph-arrow-left"></i> Back to edit</button>
+                            <button onclick="event.stopPropagation(); deleteItem('${item.id}')" class="flex-1 py-1.5 bg-red-50 text-red-600 text-[10px] font-bold uppercase rounded hover:bg-red-100 transition"><i class="ph-bold ph-check-circle text-base"></i></button>
+                        </div>`;
+                }
+
+                card.innerHTML = `
+                    <div class="flex justify-between items-start mb-1">
+                        <span class="text-[9px] font-bold text-slate-400 uppercase tracking-widest">${item.dateAdded}</span>
+                        <button onclick="event.stopPropagation(); deleteItem('${item.id}')" class="text-slate-300 hover:text-red-500 opacity-0 group-hover:opacity-100 transition"><i class="ph-bold ph-x"></i></button>
+                    </div>
+                    <h4 class="text-sm font-bold text-slate-800 leading-tight mb-2">${item.title}</h4>
+                    <div class="flex items-center gap-1 mb-2">
+                        <i class="ph-fill ph-fire text-orange-500 text-xs"></i>
+                        <span class="text-[10px] font-medium text-slate-500">${item.traffic}</span>
+                    </div>
+                    ${actionHtml}
+                `;
+
+                card.onclick = () => openEditor(item.id);
+                cols[item.status].appendChild(card);
+            });
+
+            document.getElementById('count-idea').innerText = counts.idea;
+            document.getElementById('count-scripting').innerText = counts.scripting;
+            document.getElementById('count-ready').innerText = counts.ready;
+
+            Object.keys(cols).forEach(key => {
+                if(counts[key] === 0) {
+                    cols[key].innerHTML = `<div class="flex-1 flex flex-col items-center justify-center text-center p-4 opacity-50"><i class="ph-bold ph-tray text-3xl text-slate-400 mb-2"></i><p class="text-xs text-slate-500 font-medium">No items here</p></div>`;
+                }
+            });
+        }
+
+        // --- EDITOR MODAL ---
+        function openEditor(id) {
+            const item = workflowData.find(w => w.id === id);
+            if (!item) return;
+            
+            editingId = id;
+            
+            document.getElementById('editor-topic-title').innerText = item.title;
+            document.getElementById('editor-context').innerText = item.newsSource || "No additional context provided.";
+            document.getElementById('editor-script').value = item.script || '';
+            document.getElementById('editor-csv').value = item.csv || '';
+
+            const modal = document.getElementById('modal-editor');
+            const content = document.getElementById('modal-content');
+            
+            modal.classList.remove('hidden');
+            modal.classList.add('flex');
+            
+            requestAnimationFrame(() => {
+                modal.classList.remove('opacity-0');
+                content.classList.remove('scale-95');
+            });
+        }
+
+        function closeEditor() {
+            const modal = document.getElementById('modal-editor');
+            const content = document.getElementById('modal-content');
+            
+            modal.classList.add('opacity-0');
+            content.classList.add('scale-95');
+            
+            setTimeout(() => {
+                modal.classList.remove('flex');
+                modal.classList.add('hidden');
+                editingId = null;
+            }, 200);
+        }
+
+        function saveEditorData() {
+            if(!editingId) return;
+            const item = workflowData.find(w => w.id === editingId);
+            if(item) {
+                item.script = document.getElementById('editor-script').value;
+                item.csv = document.getElementById('editor-csv').value;
+                
+                if(item.status === 'idea' && (item.script.length > 10 || item.csv.length > 10)) {
+                    item.status = 'scripting';
+                }
+
+                saveWorkflow();
+                showToast('Changes saved!', 'success');
+                closeEditor();
+            }
+        }
+
+        // Data Thesis Story Instructions Engine
+        const STORY_ANGLES = {
+            'mythbuster': 'Focus on what the public generally believes about this topic versus what the actual data proves. Expose a misconception.',
+            'conflict': 'Focus on the timeline of escalation, comparing resources, geopolitical impact, or historical casualties. Maintain an objective, journalistic tone.',
+            'economy': 'Focus on the massive scale of the numbers. Compare wealth disparity, market capitalization shifts, and how it affects the average citizen.',
+            'politics': 'Focus on voting demographics, campaign spending, historical shifts in political power, and data-driven election forecasts.',
+            'general': 'Focus on the timeline of events, highlighting the most surprising peaks and valleys in the data.'
+        };
+
+        function generateAIPrompt() {
+            if(!editingId) return;
+            const item = workflowData.find(w => w.id === editingId);
+            const angleKey = document.getElementById('editor-story-angle').value;
+            const angleInstruction = STORY_ANGLES[angleKey];
+            
+            const prompt = `Act as an expert data journalist and YouTube Shorts scriptwriter for a channel called "Data Thesis".
+
+Topic: ${item.title}
+Context: ${item.newsSource}
+
+Story Angle Instruction: ${angleInstruction}
+
+Task 1: Write a high-retention, 30-second voiceover script about this topic. Start with a strong hook, use data to tell the story, and end with an engaging statement. Format it clearly.
+
+Task 2: Generate realistic or historical data for this topic formatted EXACTLY as a CSV so I can paste it into my Chart Animator. 
+Format rules:
+- First row must be headers. First column must be "Label" or "Date".
+- Next columns should be the entities (e.g. companies, countries, categories).
+- Keep it to a maximum of 5 entities and 8 rows of data to keep it punchy for a short video.
+
+Provide ONLY the script text and the raw CSV text block.`;
+
+            navigator.clipboard.writeText(prompt).then(() => {
+                showToast('Prompt copied! Paste into Google AI Studio.', 'success');
+            });
+        }
+
+        function copyCSV() {
+            const csv = document.getElementById('editor-csv').value;
+            if(!csv.trim()) return showToast('CSV is empty', 'error');
+            
+            navigator.clipboard.writeText(csv).then(() => {
+                showToast('CSV Copied! Ready to paste into Animator.', 'success');
+            });
+        }
+
+        // --- TOAST SYSTEM ---
+        function showToast(message, type = 'info') {
+            let container = document.getElementById('toast-container');
+            const toast = document.createElement('div');
+            toast.className = `bg-white border-l-4 text-slate-800 px-4 py-3 shadow-xl flex items-center gap-3 transform transition-all -translate-y-4 opacity-0 rounded w-full sm:w-auto`;
+            
+            let icon = 'info';
+            let borderColor = 'border-blueprint-900';
+            let iconColor = 'text-blueprint-900';
+            
+            if (type === 'success') {
+                icon = 'check-circle';
+                borderColor = 'border-green-500';
+                iconColor = 'text-green-500';
+            } else if (type === 'error') {
+                icon = 'warning';
+                borderColor = 'border-brand-red';
+                iconColor = 'text-brand-red';
+            }
+
+            toast.classList.add(borderColor);
+            toast.innerHTML = `<i class="ph-fill ph-${icon} text-lg ${iconColor} shrink-0"></i> <span class="text-xs font-bold uppercase tracking-wide truncate">${message}</span>`;
+            
+            container.appendChild(toast); 
+            requestAnimationFrame(() => toast.classList.remove('-translate-y-4', 'opacity-0'));
+            setTimeout(() => { 
+                toast.classList.add('-translate-y-4', 'opacity-0'); 
+                setTimeout(() => toast.remove(), 300); 
+            }, 3000);
+        }
+
+    </script>
+</body>
+</html>

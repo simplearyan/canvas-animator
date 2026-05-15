@@ -1,0 +1,1057 @@
+<!DOCTYPE html>
+<html lang="en" class="dark">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+    <title>Kinetic Studio - Text & Image Animator</title>
+    
+    <!-- Google Fonts for Typography & Ransom Effects -->
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Anton&family=Bebas+Neue&family=Caveat:wght@700&family=Courier+Prime:wght@700&family=Inter:wght@400;600;800;900&family=Permanent+Marker&family=Playfair+Display:wght@900&family=Righteous&display=swap" rel="stylesheet">
+
+    <!-- Tailwind CSS -->
+    <script src="https://cdn.tailwindcss.com"></script>
+    <script>
+        tailwind.config = {
+            darkMode: 'class',
+            theme: {
+                extend: {
+                    fontFamily: { sans: ['Inter', 'sans-serif'] },
+                    colors: {
+                        studio: {
+                            50: '#f6f6f9',
+                            100: '#ececf1',
+                            200: '#d5d5e0',
+                            800: '#27272a',
+                            900: '#18181b',
+                            950: '#09090b',
+                        },
+                        accent: {
+                            500: '#6366f1', // Indigo
+                            600: '#4f46e5',
+                        }
+                    }
+                }
+            }
+        }
+    </script>
+
+    <!-- Phosphor Icons -->
+    <script src="https://unpkg.com/@phosphor-icons/web"></script>
+
+    <style>
+        body { overscroll-behavior-y: none; background-color: #09090b; color: #ececf1; }
+        
+        .checkerboard {
+            background-color: #18181b; 
+            background-image: 
+                linear-gradient(45deg, #27272a 25%, transparent 25%, transparent 75%, #27272a 75%, #27272a),
+                linear-gradient(45deg, #27272a 25%, transparent 25%, transparent 75%, #27272a 75%, #27272a);
+            background-size: 24px 24px;
+            background-position: 0 0, 12px 12px;
+        }
+
+        /* Custom UI Elements */
+        ::-webkit-scrollbar { width: 6px; height: 6px; }
+        ::-webkit-scrollbar-track { background: transparent; }
+        ::-webkit-scrollbar-thumb { background: #3f3f46; border-radius: 3px; }
+        ::-webkit-scrollbar-thumb:hover { background: #52525b; }
+
+        input[type=range] { -webkit-appearance: none; width: 100%; background: transparent; height: 16px; }
+        input[type=range]::-webkit-slider-thumb { -webkit-appearance: none; height: 12px; width: 12px; border-radius: 50%; background: #ececf1; cursor: pointer; margin-top: -4px; box-shadow: 0 2px 4px rgba(0,0,0,0.5); }
+        input[type=range]::-webkit-slider-runnable-track { width: 100%; height: 4px; cursor: pointer; background: #3f3f46; border-radius: 2px; }
+        input[type=range]:focus::-webkit-slider-runnable-track { background: #52525b; }
+
+        input[type="color"] { -webkit-appearance: none; border: none; width: 100%; height: 100%; padding: 0; cursor: pointer; background: transparent; }
+        input[type="color"]::-webkit-color-swatch-wrapper { padding: 0; }
+        input[type="color"]::-webkit-color-swatch { border: 1px solid rgba(255,255,255,0.1); border-radius: 6px; }
+
+        .ui-panel { background: #18181b; border: 1px solid #27272a; border-radius: 12px; }
+        .ui-input { background: #09090b; border: 1px solid #3f3f46; color: #ececf1; border-radius: 6px; padding: 6px 10px; font-size: 12px; outline: none; transition: border 0.2s; }
+        .ui-input:focus { border-color: #6366f1; }
+        
+        .layer-item.active { background: #27272a; border-left: 3px solid #6366f1; }
+
+        .timeline-scrubber::-webkit-slider-thumb { height: 16px; width: 8px; border-radius: 2px; background: #6366f1; margin-top: -6px; }
+    </style>
+</head>
+<body class="h-screen flex flex-col overflow-hidden select-none font-sans">
+
+    <!-- Preload fonts to avoid layout shift in canvas -->
+    <div style="position:absolute; width:0; height:0; overflow:hidden; opacity:0; pointer-events:none;">
+        <span style="font-family: 'Anton';">A</span><span style="font-family: 'Bebas Neue';">A</span>
+        <span style="font-family: 'Caveat';">A</span><span style="font-family: 'Courier Prime';">A</span>
+        <span style="font-family: 'Permanent Marker';">A</span><span style="font-family: 'Playfair Display';">A</span>
+        <span style="font-family: 'Righteous';">A</span><span style="font-family: 'Inter'; font-weight: 800;">A</span>
+    </div>
+
+    <!-- HEADER -->
+    <header class="h-14 bg-studio-900 border-b border-studio-800 flex items-center justify-between px-4 shrink-0 z-20">
+        <div class="flex items-center gap-3">
+            <div class="w-8 h-8 rounded bg-gradient-to-br from-accent-500 to-purple-600 flex items-center justify-center shadow-lg">
+                <i class="ph-bold ph-aperture text-white text-lg"></i>
+            </div>
+            <h1 class="font-bold tracking-tight text-white">Kinetic <span class="text-zinc-500 font-medium">Studio</span></h1>
+        </div>
+        
+        <!-- Center Controls -->
+        <div class="flex items-center gap-2">
+            <div class="flex items-center bg-studio-950 rounded-lg border border-studio-800 p-1">
+                <button onclick="setRatio('16:9')" id="btn-16-9" class="px-3 py-1 text-xs font-bold rounded bg-studio-800 text-white">16:9</button>
+                <button onclick="setRatio('9:16')" id="btn-9-16" class="px-3 py-1 text-xs font-bold rounded text-zinc-400 hover:text-white">9:16</button>
+                <button onclick="setRatio('1:1')" id="btn-1-1" class="px-3 py-1 text-xs font-bold rounded text-zinc-400 hover:text-white">1:1</button>
+            </div>
+        </div>
+
+        <div class="flex items-center gap-3">
+            <div id="rec-indicator" class="hidden items-center gap-2 text-red-500 font-bold text-xs uppercase animate-pulse">
+                <div class="w-2 h-2 rounded-full bg-red-500"></div> REC
+            </div>
+            <button onclick="exportVideo()" id="btn-export" class="flex items-center gap-2 px-4 py-1.5 bg-zinc-100 hover:bg-white text-zinc-900 rounded-lg text-xs font-bold transition-colors">
+                <i class="ph-bold ph-export"></i> Export WebM
+            </button>
+        </div>
+    </header>
+
+    <!-- MAIN WORKSPACE -->
+    <div class="flex-1 flex overflow-hidden">
+        
+        <!-- LEFT SIDEBAR: Tools & Global -->
+        <aside class="w-64 bg-studio-900 border-r border-studio-800 flex flex-col shrink-0 z-10 overflow-y-auto">
+            <div class="p-4 space-y-6">
+                <!-- Add Elements -->
+                <div>
+                    <h3 class="text-[10px] font-bold text-zinc-500 uppercase tracking-widest mb-3">Add Elements</h3>
+                    <div class="flex flex-col gap-2">
+                        <button onclick="addText()" class="w-full py-2.5 bg-studio-950 hover:bg-studio-800 border border-studio-800 rounded-lg text-xs font-bold text-zinc-200 transition flex items-center justify-center gap-2">
+                            <i class="ph-bold ph-text-t text-base"></i> Standard Text
+                        </button>
+                        <button onclick="addRansomText()" class="w-full py-2.5 bg-studio-950 hover:bg-studio-800 border border-studio-800 border-l-4 border-l-purple-500 rounded-lg text-xs font-bold text-zinc-200 transition flex items-center justify-center gap-2">
+                            <i class="ph-bold ph-scissors text-base"></i> Ransom Cutout
+                        </button>
+                        <button onclick="document.getElementById('img-upload').click()" class="w-full py-2.5 bg-studio-950 hover:bg-studio-800 border border-studio-800 rounded-lg text-xs font-bold text-zinc-200 transition flex items-center justify-center gap-2">
+                            <i class="ph-bold ph-image text-base"></i> Image Layer
+                        </button>
+                        <input type="file" id="img-upload" accept="image/*" class="hidden" onchange="handleImageUpload(event)">
+                    </div>
+                </div>
+
+                <div class="h-px w-full bg-studio-800"></div>
+
+                <!-- Global Settings -->
+                <div>
+                    <h3 class="text-[10px] font-bold text-zinc-500 uppercase tracking-widest mb-3">Canvas Global</h3>
+                    <div class="space-y-4">
+                        <div class="flex flex-col gap-1.5">
+                            <label class="text-[10px] font-semibold text-zinc-400">Background Color</label>
+                            <div class="relative w-full h-8 rounded-lg overflow-hidden border border-studio-800">
+                                <input type="color" id="bg-color" value="#09090b" oninput="state.bgColor=this.value; render();">
+                            </div>
+                        </div>
+                        <div class="flex flex-col gap-1.5">
+                            <div class="flex justify-between">
+                                <label class="text-[10px] font-semibold text-zinc-400">Total Duration (s)</label>
+                                <span id="val-dur" class="text-[10px] text-accent-500 font-mono">5.0</span>
+                            </div>
+                            <input type="range" id="global-duration" min="1" max="30" step="0.5" value="5" oninput="updateDuration(this.value)">
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </aside>
+
+        <!-- CENTER: Canvas & Timeline -->
+        <main class="flex-1 flex flex-col relative bg-studio-950">
+            <!-- Canvas Wrapper -->
+            <div class="flex-1 relative overflow-hidden flex items-center justify-center p-8" id="canvas-wrapper">
+                <div class="relative checkerboard shadow-2xl ring-1 ring-white/10 rounded-sm overflow-hidden" id="canvas-container">
+                    <canvas id="main-canvas" class="block w-full h-full cursor-crosshair"></canvas>
+                </div>
+            </div>
+            
+            <!-- Timeline -->
+            <div class="h-20 bg-studio-900 border-t border-studio-800 flex items-center px-6 gap-4 shrink-0">
+                <button id="btn-play" onclick="togglePlay()" class="w-10 h-10 flex items-center justify-center bg-accent-600 hover:bg-accent-500 text-white rounded-full transition shadow-lg shrink-0">
+                    <i id="icon-play" class="ph-fill ph-play text-lg"></i>
+                </button>
+                <div class="font-mono text-xs font-bold text-accent-500 w-12 text-right shrink-0" id="time-display">0.0s</div>
+                
+                <div class="flex-1 relative flex items-center h-full">
+                    <input type="range" id="global-timeline" min="0" max="1000" value="0" class="w-full timeline-scrubber absolute z-10" oninput="scrubTime(this.value)">
+                    <!-- Timeline Track Visualization -->
+                    <div class="w-full h-8 bg-studio-950 rounded border border-studio-800 relative overflow-hidden pointer-events-none" id="timeline-tracks">
+                        <!-- Filled dynamically -->
+                    </div>
+                </div>
+            </div>
+        </main>
+
+        <!-- RIGHT SIDEBAR: Properties & Layers -->
+        <aside class="w-72 bg-studio-900 border-l border-studio-800 flex flex-col shrink-0 z-10">
+            <!-- Tabs -->
+            <div class="flex border-b border-studio-800 bg-studio-950 shrink-0">
+                <button id="tab-props" onclick="switchTab('props')" class="flex-1 py-3 text-xs font-bold text-white border-b-2 border-accent-500 bg-studio-900 transition-colors">Properties</button>
+                <button id="tab-layers" onclick="switchTab('layers')" class="flex-1 py-3 text-xs font-bold text-zinc-500 hover:text-white border-b-2 border-transparent transition-colors">Layers Stack</button>
+            </div>
+
+            <!-- Properties Panel -->
+            <div id="panel-props" class="flex-1 overflow-y-auto p-4">
+                <div id="no-selection" class="text-center text-zinc-500 text-xs font-medium mt-10 flex flex-col items-center">
+                    <i class="ph-light ph-cursor-click text-4xl mb-3 opacity-50"></i>
+                    <p>Select an element<br>to edit its properties.</p>
+                </div>
+                <div id="prop-controls" class="hidden flex-col gap-4"></div>
+            </div>
+
+            <!-- Layers Panel -->
+            <div id="panel-layers" class="hidden flex-1 flex-col overflow-hidden bg-studio-950">
+                <div id="layers-list" class="flex-1 overflow-y-auto p-2 flex flex-col gap-1.5"></div>
+            </div>
+        </aside>
+    </div>
+
+    <!-- ========================================== -->
+    <!-- PROPERTY TEMPLATES                         -->
+    <!-- ========================================== -->
+
+    <!-- Common Sequence Template (Injected into both Text and Image) -->
+    <template id="tpl-sequence">
+        <div class="ui-panel p-3 space-y-3 border-accent-500/30 bg-accent-500/5">
+            <label class="text-[10px] font-bold text-accent-400 uppercase tracking-widest flex items-center gap-1.5">
+                <i class="ph-bold ph-clock"></i> Timeline & Animation
+            </label>
+            <div class="grid grid-cols-2 gap-2">
+                <div class="flex flex-col gap-1">
+                    <label class="text-[9px] text-zinc-400 font-semibold">Entry Time (s)</label>
+                    <input type="number" step="0.1" id="prop-time-in" class="ui-input" oninput="updateSelected('timeIn', parseFloat(this.value)||0)">
+                </div>
+                <div class="flex flex-col gap-1">
+                    <label class="text-[9px] text-zinc-400 font-semibold">Exit Time (s)</label>
+                    <input type="number" step="0.1" id="prop-time-out" class="ui-input" oninput="updateSelected('timeOut', parseFloat(this.value)||0)">
+                </div>
+            </div>
+            <div class="grid grid-cols-2 gap-2">
+                <div class="flex flex-col gap-1">
+                    <label class="text-[9px] text-zinc-400 font-semibold">In Anim</label>
+                    <select id="prop-anim-in" class="ui-input py-1.5" onchange="updateSelected('animIn', this.value)">
+                        <option value="none">Cut In</option>
+                        <option value="pop">Pop Scale</option>
+                        <option value="fade">Fade In</option>
+                        <option value="slide-up">Slide Up</option>
+                        <option value="slide-right">Slide Right</option>
+                    </select>
+                </div>
+                <div class="flex flex-col gap-1">
+                    <label class="text-[9px] text-zinc-400 font-semibold">Out Anim</label>
+                    <select id="prop-anim-out" class="ui-input py-1.5" onchange="updateSelected('animOut', this.value)">
+                        <option value="none">Cut Out</option>
+                        <option value="pop">Shrink Out</option>
+                        <option value="fade">Fade Out</option>
+                        <option value="slide-down">Slide Down</option>
+                        <option value="slide-left">Slide Left</option>
+                    </select>
+                </div>
+            </div>
+            <div class="flex flex-col gap-1" id="stagger-control">
+                <label class="text-[9px] text-zinc-400 font-semibold">Stagger Letters (s)</label>
+                <input type="number" step="0.05" id="prop-stagger" class="ui-input" oninput="updateSelected('stagger', parseFloat(this.value)||0)">
+            </div>
+        </div>
+    </template>
+
+    <!-- IMAGE PROPERTIES -->
+    <template id="tpl-image-props">
+        <div id="seq-container-img"></div>
+        
+        <div class="ui-panel p-3 space-y-3">
+            <label class="text-[10px] font-bold text-zinc-300 uppercase tracking-widest flex items-center gap-1.5">
+                <i class="ph-bold ph-image"></i> Image Settings
+            </label>
+            <div class="flex flex-col gap-1">
+                <div class="flex justify-between"><label class="text-[9px] text-zinc-400">Scale</label><span id="val-img-scale" class="text-[9px] text-zinc-300"></span></div>
+                <input type="range" id="prop-img-scale" min="0.1" max="3" step="0.05" oninput="updateSelected('scale', parseFloat(this.value)); document.getElementById('val-img-scale').innerText=this.value;">
+            </div>
+            <div class="flex flex-col gap-1">
+                <div class="flex justify-between"><label class="text-[9px] text-zinc-400">Rotation</label><span id="val-img-rot" class="text-[9px] text-zinc-300"></span></div>
+                <input type="range" id="prop-img-rot" min="-180" max="180" oninput="updateSelected('rotation', parseInt(this.value)); document.getElementById('val-img-rot').innerText=this.value+'°';">
+            </div>
+            <div class="flex flex-col gap-1">
+                <div class="flex justify-between"><label class="text-[9px] text-zinc-400">Corner Radius</label><span id="val-img-rad" class="text-[9px] text-zinc-300"></span></div>
+                <input type="range" id="prop-img-rad" min="0" max="200" oninput="updateSelected('radius', parseInt(this.value)); document.getElementById('val-img-rad').innerText=this.value+'px';">
+            </div>
+        </div>
+    </template>
+
+    <!-- TEXT PROPERTIES -->
+    <template id="tpl-text-props">
+        <div id="seq-container-txt"></div>
+
+        <div class="ui-panel p-3 space-y-3">
+            <textarea class="ui-input w-full resize-y text-sm font-semibold" rows="2" oninput="updateTextContent(this.value)" id="prop-text-val"></textarea>
+            
+            <div class="grid grid-cols-2 gap-2" id="global-text-styles">
+                <div class="flex flex-col gap-1">
+                    <label class="text-[9px] text-zinc-400 font-semibold">Font</label>
+                    <select class="ui-input py-1.5" onchange="updateSelected('fontFamily', this.value)" id="prop-font-family">
+                        <option value="Inter">Inter</option>
+                        <option value="Anton">Anton</option>
+                        <option value="Bebas Neue">Bebas Neue</option>
+                        <option value="Playfair Display">Playfair Display</option>
+                        <option value="Permanent Marker">Marker</option>
+                        <option value="Righteous">Righteous</option>
+                    </select>
+                </div>
+                <div class="flex flex-col gap-1">
+                    <label class="text-[9px] text-zinc-400 font-semibold">Color</label>
+                    <div class="relative w-full h-[28px] rounded overflow-hidden border border-studio-800"><input type="color" id="prop-fill" oninput="updateSelected('fill', this.value)"></div>
+                </div>
+            </div>
+
+            <div class="flex flex-col gap-1">
+                <div class="flex justify-between"><label class="text-[9px] text-zinc-400">Font Size</label><span id="val-font-size" class="text-[9px] text-zinc-300"></span></div>
+                <input type="range" id="prop-font-size" min="10" max="400" oninput="updateSelected('fontSize', parseInt(this.value)); document.getElementById('val-font-size').innerText=this.value;">
+            </div>
+            <div class="flex flex-col gap-1" id="rot-control">
+                <div class="flex justify-between"><label class="text-[9px] text-zinc-400">Rotation</label><span id="val-rotation" class="text-[9px] text-zinc-300"></span></div>
+                <input type="range" id="prop-rotation" min="-180" max="180" oninput="updateSelected('rotation', parseInt(this.value)); document.getElementById('val-rotation').innerText=this.value+'°';">
+            </div>
+        </div>
+
+        <!-- RANSOM EDITOR (Only shown if isRansom is true) -->
+        <div class="ui-panel p-3 space-y-3 border-purple-500/30 bg-purple-500/5 hidden" id="ransom-panel">
+            <label class="text-[10px] font-bold text-purple-400 uppercase tracking-widest flex items-center justify-between">
+                <span class="flex items-center gap-1.5"><i class="ph-bold ph-scissors"></i> Ransom Letters</span>
+                <button onclick="randomizeRansom()" class="px-2 py-0.5 bg-purple-500/20 text-purple-300 hover:bg-purple-500/40 rounded text-[9px]">Shuffle All</button>
+            </label>
+            
+            <div class="flex items-center gap-2">
+                <button onclick="prevChar()" class="p-1.5 bg-studio-800 rounded hover:bg-studio-700 text-white"><i class="ph-bold ph-caret-left"></i></button>
+                <div class="flex-1 text-center font-mono text-xs font-bold text-purple-300 bg-studio-950 py-1.5 rounded border border-studio-800" id="char-indicator">Char 1</div>
+                <button onclick="nextChar()" class="p-1.5 bg-studio-800 rounded hover:bg-studio-700 text-white"><i class="ph-bold ph-caret-right"></i></button>
+            </div>
+
+            <div class="grid grid-cols-2 gap-2 mt-2">
+                <div class="flex flex-col gap-1">
+                    <label class="text-[9px] text-zinc-400 font-semibold">Font</label>
+                    <select class="ui-input py-1" id="r-font" onchange="updateChar('fontFamily', this.value)">
+                        <option value="Inter">Inter</option>
+                        <option value="Anton">Anton</option>
+                        <option value="Bebas Neue">Bebas Neue</option>
+                        <option value="Playfair Display">Playfair Display</option>
+                        <option value="Permanent Marker">Marker</option>
+                        <option value="Caveat">Caveat</option>
+                        <option value="Courier Prime">Courier</option>
+                    </select>
+                </div>
+                <div class="flex flex-col gap-1">
+                    <div class="flex justify-between"><label class="text-[9px] text-zinc-400 font-semibold">Rotation</label><span id="r-rot-val" class="text-[9px]">0°</span></div>
+                    <input type="range" id="r-rot" min="-45" max="45" oninput="updateChar('r', parseInt(this.value)); document.getElementById('r-rot-val').innerText=this.value+'°';">
+                </div>
+            </div>
+            
+            <div class="grid grid-cols-2 gap-2">
+                <div class="flex flex-col gap-1">
+                    <label class="text-[9px] text-zinc-400 font-semibold">Text Color</label>
+                    <div class="relative w-full h-[24px] rounded overflow-hidden border border-studio-800"><input type="color" id="r-col" oninput="updateChar('fill', this.value)"></div>
+                </div>
+                <div class="flex flex-col gap-1">
+                    <label class="text-[9px] text-zinc-400 font-semibold">Bg Color</label>
+                    <div class="relative w-full h-[24px] rounded overflow-hidden border border-studio-800"><input type="color" id="r-bg" oninput="updateChar('bgFill', this.value)"></div>
+                </div>
+            </div>
+        </div>
+    </template>
+
+    <script>
+        // --- Core Math & Easings ---
+        const easeOutBack = t => { const c1 = 1.70158; const c3 = c1 + 1; return 1 + c3 * Math.pow(t - 1, 3) + c1 * Math.pow(t - 1, 2); };
+        const easeInOutQuint = t => t < .5 ? 16 * t * t * t * t * t : 1 - Math.pow(-2 * t + 2, 5) / 2;
+        const easeInQuad = t => t * t;
+
+        // Ransom Text Generation Helpers
+        const rFonts = ['Anton', 'Bebas Neue', 'Permanent Marker', 'Caveat', 'Courier Prime', 'Playfair Display', 'Inter'];
+        const rColors = ['#ffffff', '#000000', '#facc15', '#ef4444', '#3b82f6'];
+        const rBgs = ['#000000', '#ffffff', '#ef4444', '#22c55e', '#a855f7', 'transparent'];
+
+        function randomItem(arr) { return arr[Math.floor(Math.random() * arr.length)]; }
+        function createRansomStyles(text) {
+            return text.split('').map(() => {
+                let fill = randomItem(rColors);
+                let bgFill = randomItem(rBgs);
+                if(fill === bgFill) { fill = '#ffffff'; bgFill = '#000000'; } // Ensure contrast
+                return {
+                    fontFamily: randomItem(rFonts),
+                    fill: fill,
+                    bgFill: bgFill,
+                    r: (Math.random() - 0.5) * 30, // -15 to +15 deg
+                    s: 1
+                };
+            });
+        }
+
+        // --- STATE ---
+        const state = {
+            width: 1920,
+            height: 1080,
+            bgColor: '#09090b',
+            
+            elements: [],
+            selectedId: null,
+            nextId: 1,
+
+            time: 0,
+            duration: 5.0,
+            isPlaying: false,
+            lastFrameTime: 0,
+            
+            ransomCharIdx: 0 // For the editor
+        };
+
+        const canvas = document.getElementById('main-canvas');
+        const ctx = canvas.getContext('2d');
+        const canvasWrapper = document.getElementById('canvas-wrapper');
+        const canvasContainer = document.getElementById('canvas-container');
+        let zoomLevel = 1.0;
+        let renderPending = false;
+
+        // --- Canvas Setup ---
+        function setRatio(ratio) {
+            document.getElementById('btn-16-9').className = 'px-3 py-1 text-xs font-bold rounded text-zinc-400 hover:text-white';
+            document.getElementById('btn-9-16').className = 'px-3 py-1 text-xs font-bold rounded text-zinc-400 hover:text-white';
+            document.getElementById('btn-1-1').className = 'px-3 py-1 text-xs font-bold rounded text-zinc-400 hover:text-white';
+            document.getElementById('btn-' + ratio.replace(':','-')).className = 'px-3 py-1 text-xs font-bold rounded bg-studio-800 text-white';
+
+            if(ratio === '16:9') { state.width = 1920; state.height = 1080; }
+            else if(ratio === '9:16') { state.width = 1080; state.height = 1920; }
+            else if(ratio === '1:1') { state.width = 1080; state.height = 1080; }
+
+            canvas.width = state.width;
+            canvas.height = state.height;
+            fitCanvas();
+            render();
+        }
+
+        function fitCanvas() {
+            const pad = 60;
+            const availW = canvasWrapper.clientWidth - pad;
+            const availH = canvasWrapper.clientHeight - pad;
+            const scaleW = availW / state.width;
+            const scaleH = availH / state.height;
+            zoomLevel = Math.min(scaleW, scaleH, 1);
+            canvasContainer.style.width = (state.width * zoomLevel) + 'px';
+            canvasContainer.style.height = (state.height * zoomLevel) + 'px';
+        }
+
+        window.addEventListener('resize', fitCanvas);
+        setRatio('16:9');
+
+        // --- Timeline Engine ---
+        let animFrameId;
+
+        function togglePlay() {
+            state.isPlaying = !state.isPlaying;
+            document.getElementById('icon-play').className = state.isPlaying ? 'ph-fill ph-pause text-lg' : 'ph-fill ph-play text-lg';
+            if (state.isPlaying) {
+                state.lastFrameTime = performance.now();
+                animFrameId = requestAnimationFrame(animLoop);
+            } else {
+                cancelAnimationFrame(animFrameId);
+            }
+        }
+
+        function resetTime() {
+            state.isPlaying = false;
+            document.getElementById('icon-play').className = 'ph-fill ph-play text-lg';
+            cancelAnimationFrame(animFrameId);
+            state.time = 0;
+            updateUI();
+            render();
+        }
+
+        function scrubTime(val) {
+            state.time = (parseInt(val) / 1000) * state.duration;
+            updateUI(true);
+            render();
+        }
+
+        function updateDuration(val) {
+            state.duration = parseFloat(val) || 5;
+            document.getElementById('val-dur').innerText = state.duration.toFixed(1);
+            updateUI();
+            updateTracks();
+        }
+
+        function animLoop(timestamp) {
+            if(!state.isPlaying) return;
+            const dt = (timestamp - state.lastFrameTime) / 1000;
+            state.time += dt;
+            
+            if(state.time >= state.duration) {
+                if(isExporting) {
+                    state.time = state.duration;
+                    forceRender();
+                    finishExport();
+                    return;
+                }
+                state.time = 0; // Loop preview
+            }
+            
+            state.lastFrameTime = timestamp;
+            updateUI();
+            render();
+            animFrameId = requestAnimationFrame(animLoop);
+        }
+
+        function updateUI(skipSlider = false) {
+            document.getElementById('time-display').innerText = state.time.toFixed(1) + 's';
+            if(!skipSlider) document.getElementById('global-timeline').value = (state.time / state.duration) * 1000;
+        }
+
+        function updateTracks() {
+            const tracks = document.getElementById('timeline-tracks');
+            tracks.innerHTML = '';
+            state.elements.forEach(el => {
+                const inPct = (el.timeIn / state.duration) * 100;
+                const wPct = ((el.timeOut - el.timeIn) / state.duration) * 100;
+                const color = el.id === state.selectedId ? 'bg-accent-500' : 'bg-studio-700';
+                
+                const div = document.createElement('div');
+                div.className = `absolute h-[4px] rounded ${color} opacity-80`;
+                div.style.left = `${Math.max(0, inPct)}%`;
+                div.style.width = `${Math.max(0, wPct)}%`;
+                div.style.top = `${((el.id * 8) % 24) + 4}px`; // stagger vertically
+                tracks.appendChild(div);
+            });
+        }
+
+        // --- Element Creation ---
+        const baseAnimProps = {
+            timeIn: 0.0,
+            timeOut: 5.0,
+            animIn: 'pop',
+            animOut: 'fade',
+            animDur: 0.5,
+            stagger: 0.05
+        };
+
+        function addText() {
+            const el = {
+                id: state.nextId++,
+                type: 'text',
+                text: 'KINETIC',
+                isRansom: false,
+                fontFamily: 'Inter',
+                fontSize: 180,
+                fill: '#ffffff',
+                rotation: 0,
+                x: state.width / 2, y: state.height / 2,
+                ...baseAnimProps
+            };
+            state.elements.push(el);
+            selectElement(el.id);
+            updateTracks();
+            render();
+        }
+
+        function addRansomText() {
+            const txt = "RANSOM";
+            const el = {
+                id: state.nextId++,
+                type: 'text',
+                text: txt,
+                isRansom: true,
+                charStyles: createRansomStyles(txt),
+                fontSize: 160,
+                x: state.width / 2, y: state.height / 2,
+                ...baseAnimProps,
+                animIn: 'pop', stagger: 0.1
+            };
+            state.elements.push(el);
+            selectElement(el.id);
+            updateTracks();
+            render();
+        }
+
+        function handleImageUpload(e) {
+            const file = e.target.files[0];
+            if(!file) return;
+            const reader = new FileReader();
+            reader.onload = (ev) => {
+                const img = new Image();
+                img.onload = () => {
+                    const el = {
+                        id: state.nextId++,
+                        type: 'image',
+                        img: img,
+                        w: img.width, h: img.height,
+                        scale: Math.min(state.width/(img.width+200), state.height/(img.height+200), 1),
+                        rotation: 0, radius: 0,
+                        x: state.width / 2, y: state.height / 2,
+                        ...baseAnimProps, animIn: 'slide-up'
+                    };
+                    state.elements.push(el);
+                    selectElement(el.id);
+                    updateTracks();
+                    render();
+                };
+                img.src = ev.target.result;
+            };
+            reader.readAsDataURL(file);
+        }
+
+        // --- Interaction ---
+        let isDragging = false;
+        let dragOffX = 0, dragOffY = 0;
+
+        function getMousePos(e) {
+            const rect = canvas.getBoundingClientRect();
+            return { x: (e.clientX - rect.left) / zoomLevel, y: (e.clientY - rect.top) / zoomLevel };
+        }
+
+        canvas.addEventListener('mousedown', (e) => {
+            const pos = getMousePos(e);
+            let hit = null;
+            // Reverse loop for z-index
+            for(let i=state.elements.length-1; i>=0; i--) {
+                const el = state.elements[i];
+                if(state.time < el.timeIn || state.time > el.timeOut) continue; // Not visible
+
+                const dx = pos.x - el.x; const dy = pos.y - el.y;
+                const rad = -(el.rotation||0) * Math.PI/180;
+                const rx = dx * Math.cos(rad) - dy * Math.sin(rad);
+                const ry = dx * Math.sin(rad) + dy * Math.cos(rad);
+
+                let w = 0, h = 0;
+                if(el.type === 'text') {
+                    ctx.font = `${el.isRansom ? '900' : '800'} ${el.fontSize}px "${el.fontFamily||'Inter'}"`;
+                    w = ctx.measureText(el.text).width;
+                    h = el.fontSize;
+                } else if(el.type === 'image') {
+                    w = el.w * el.scale; h = el.h * el.scale;
+                }
+                
+                if(rx >= -w/2 && rx <= w/2 && ry >= -h/2 && ry <= h/2) { hit = el.id; break; }
+            }
+
+            selectElement(hit);
+            if(hit) {
+                isDragging = true;
+                const el = getSelectedEl();
+                dragOffX = pos.x - el.x; dragOffY = pos.y - el.y;
+            }
+        });
+
+        window.addEventListener('mousemove', (e) => {
+            if(!isDragging) return;
+            const pos = getMousePos(e);
+            const el = getSelectedEl();
+            el.x = pos.x - dragOffX; el.y = pos.y - dragOffY;
+            render();
+        });
+        window.addEventListener('mouseup', () => isDragging = false);
+
+        // --- UI Logic ---
+        function getSelectedEl() { return state.elements.find(e => e.id === state.selectedId); }
+
+        function switchTab(t) {
+            document.getElementById('tab-props').className = t==='props' ? 'flex-1 py-3 text-xs font-bold text-white border-b-2 border-accent-500 bg-studio-900 transition-colors' : 'flex-1 py-3 text-xs font-bold text-zinc-500 hover:text-white border-b-2 border-transparent transition-colors';
+            document.getElementById('tab-layers').className = t==='layers' ? 'flex-1 py-3 text-xs font-bold text-white border-b-2 border-accent-500 bg-studio-900 transition-colors' : 'flex-1 py-3 text-xs font-bold text-zinc-500 hover:text-white border-b-2 border-transparent transition-colors';
+            
+            document.getElementById('panel-props').classList.toggle('hidden', t!=='props');
+            document.getElementById('panel-layers').classList.toggle('hidden', t!=='layers');
+            document.getElementById('panel-layers').classList.toggle('flex', t==='layers');
+            if(t==='layers') updateLayersList();
+        }
+
+        function selectElement(id) {
+            state.selectedId = id;
+            const el = getSelectedEl();
+            const pNoSel = document.getElementById('no-selection');
+            const pCtrl = document.getElementById('prop-controls');
+            
+            if(!el) {
+                pNoSel.classList.remove('hidden'); pCtrl.classList.add('hidden');
+            } else {
+                pNoSel.classList.add('hidden'); pCtrl.classList.remove('hidden'); pCtrl.classList.add('flex');
+                pCtrl.innerHTML = '';
+
+                // Build UI based on type
+                const tpl = document.getElementById(el.type === 'text' ? 'tpl-text-props' : 'tpl-image-props');
+                pCtrl.appendChild(tpl.content.cloneNode(true));
+                
+                // Inject Sequence Settings
+                const seqContainer = document.getElementById(el.type === 'text' ? 'seq-container-txt' : 'seq-container-img');
+                seqContainer.appendChild(document.getElementById('tpl-sequence').content.cloneNode(true));
+
+                // Populate Sequence Data
+                document.getElementById('prop-time-in').value = el.timeIn;
+                document.getElementById('prop-time-out').value = el.timeOut;
+                document.getElementById('prop-anim-in').value = el.animIn;
+                document.getElementById('prop-anim-out').value = el.animOut;
+                if(el.type === 'image') document.getElementById('stagger-control').style.display = 'none';
+                else document.getElementById('prop-stagger').value = el.stagger;
+
+                // Populate Element Data
+                if(el.type === 'image') {
+                    document.getElementById('prop-img-scale').value = el.scale;
+                    document.getElementById('val-img-scale').innerText = el.scale;
+                    document.getElementById('prop-img-rot').value = el.rotation;
+                    document.getElementById('val-img-rot').innerText = el.rotation + '°';
+                    document.getElementById('prop-img-rad').value = el.radius;
+                    document.getElementById('val-img-rad').innerText = el.radius + 'px';
+                } else if(el.type === 'text') {
+                    document.getElementById('prop-text-val').value = el.text;
+                    document.getElementById('prop-font-size').value = el.fontSize;
+                    document.getElementById('val-font-size').innerText = el.fontSize;
+
+                    if(el.isRansom) {
+                        document.getElementById('global-text-styles').style.display = 'none';
+                        document.getElementById('rot-control').style.display = 'none';
+                        document.getElementById('ransom-panel').classList.remove('hidden');
+                        state.ransomCharIdx = 0;
+                        updateRansomUI();
+                    } else {
+                        document.getElementById('prop-font-family').value = el.fontFamily;
+                        document.getElementById('prop-fill').value = el.fill;
+                        document.getElementById('prop-rotation').value = el.rotation;
+                        document.getElementById('val-rotation').innerText = el.rotation + '°';
+                    }
+                }
+            }
+            updateTracks();
+            updateLayersList();
+            render();
+        }
+
+        function updateSelected(key, val) {
+            const el = getSelectedEl();
+            if(el) { el[key] = val; updateTracks(); render(); }
+        }
+
+        function updateTextContent(val) {
+            const el = getSelectedEl();
+            if(!el) return;
+            el.text = val;
+            if(el.isRansom) {
+                // Ensure charStyles array matches length
+                while(el.charStyles.length < val.length) el.charStyles.push(createRansomStyles("A")[0]);
+                if(state.ransomCharIdx >= val.length) state.ransomCharIdx = Math.max(0, val.length - 1);
+                updateRansomUI();
+            }
+            render();
+        }
+
+        function updateLayersList() {
+            const list = document.getElementById('layers-list');
+            if(!list) return;
+            list.innerHTML = '';
+            // Render backwards for z-index feel (top layer = end of array)
+            for(let i=state.elements.length-1; i>=0; i--) {
+                const el = state.elements[i];
+                const active = el.id === state.selectedId ? 'active' : '';
+                const name = el.type === 'text' ? (el.text.substring(0,10) || 'Text') : 'Image Layer';
+                const icon = el.type === 'text' ? (el.isRansom ? 'ph-scissors' : 'ph-text-t') : 'ph-image';
+                
+                const div = document.createElement('div');
+                div.className = `layer-item flex items-center justify-between p-2 rounded cursor-pointer border border-transparent hover:border-studio-700 ${active}`;
+                div.onclick = () => selectElement(el.id);
+                div.innerHTML = `
+                    <div class="flex items-center gap-2 overflow-hidden">
+                        <i class="ph-bold ${icon} text-zinc-400"></i>
+                        <span class="text-xs font-semibold text-zinc-200 truncate">${name}</span>
+                    </div>
+                    <div class="flex gap-1 shrink-0">
+                        <button onclick="event.stopPropagation(); deleteLayer(${el.id})" class="p-1 text-zinc-500 hover:text-red-500"><i class="ph-bold ph-trash"></i></button>
+                    </div>
+                `;
+                list.appendChild(div);
+            }
+        }
+
+        function deleteLayer(id) {
+            state.elements = state.elements.filter(e => e.id !== id);
+            if(state.selectedId === id) selectElement(null); else { updateLayersList(); updateTracks(); render(); }
+        }
+
+        // --- Ransom Editor Logic ---
+        function updateRansomUI() {
+            const el = getSelectedEl();
+            if(!el || !el.isRansom || el.text.length === 0) return;
+            const style = el.charStyles[state.ransomCharIdx];
+            
+            document.getElementById('char-indicator').innerText = `[${state.ransomCharIdx+1}] ${el.text[state.ransomCharIdx]}`;
+            document.getElementById('r-font').value = style.fontFamily;
+            document.getElementById('r-rot').value = Math.round(style.r);
+            document.getElementById('r-rot-val').innerText = Math.round(style.r) + '°';
+            document.getElementById('r-col').value = style.fill;
+            document.getElementById('r-bg').value = style.bgFill;
+        }
+
+        function updateChar(key, val) {
+            const el = getSelectedEl();
+            if(el && el.isRansom) { el.charStyles[state.ransomCharIdx][key] = val; render(); }
+        }
+
+        function prevChar() {
+            const el = getSelectedEl();
+            if(el && el.isRansom && state.ransomCharIdx > 0) { state.ransomCharIdx--; updateRansomUI(); }
+        }
+        function nextChar() {
+            const el = getSelectedEl();
+            if(el && el.isRansom && state.ransomCharIdx < el.text.length-1) { state.ransomCharIdx++; updateRansomUI(); }
+        }
+        function randomizeRansom() {
+            const el = getSelectedEl();
+            if(el && el.isRansom) { el.charStyles = createRansomStyles(el.text); updateRansomUI(); render(); }
+        }
+
+        // --- Render Engine ---
+        function getAnimTransform(el, localIndex = 0) {
+            let s = 1, alpha = 1, tx = 0, ty = 0;
+            const tIn = el.timeIn + (localIndex * (el.stagger || 0));
+            const tOut = el.timeOut;
+            const dur = el.animDur || 0.5;
+
+            // Before Entry
+            if (state.time < tIn) return { s:0, alpha:0, tx:0, ty:0 };
+            // After Exit
+            if (state.time > tOut) return { s:0, alpha:0, tx:0, ty:0 };
+
+            // Entry Animation
+            if (state.time < tIn + dur) {
+                const prog = (state.time - tIn) / dur;
+                if(el.animIn === 'pop') { s = easeOutBack(prog); alpha = prog*2; }
+                else if(el.animIn === 'fade') { alpha = prog; }
+                else if(el.animIn === 'slide-up') { ty = 100 * (1-easeOutBack(prog)); alpha = prog*2; }
+                else if(el.animIn === 'slide-right') { tx = -100 * (1-easeOutBack(prog)); alpha = prog*2; }
+            }
+            // Exit Animation
+            else if (state.time > tOut - dur) {
+                const prog = (state.time - (tOut - dur)) / dur; // 0 to 1
+                if(el.animOut === 'pop') { s = 1 - easeInQuad(prog); alpha = 1 - prog; }
+                else if(el.animOut === 'fade') { alpha = 1 - prog; }
+                else if(el.animOut === 'slide-down') { ty = 100 * easeInQuad(prog); alpha = 1 - prog; }
+                else if(el.animOut === 'slide-left') { tx = -100 * easeInQuad(prog); alpha = 1 - prog; }
+            }
+
+            return { s, alpha: Math.min(Math.max(alpha, 0), 1), tx, ty };
+        }
+
+        function drawElements(targetCtx, w, h) {
+            targetCtx.fillStyle = state.bgColor;
+            targetCtx.fillRect(0, 0, w, h);
+
+            state.elements.forEach(el => {
+                // Global visibility check
+                if (state.time < el.timeIn || state.time > el.timeOut) return;
+
+                targetCtx.save();
+                
+                if (el.type === 'image') {
+                    const anim = getAnimTransform(el, 0);
+                    if(anim.alpha > 0) {
+                        targetCtx.translate(el.x + anim.tx, el.y + anim.ty);
+                        targetCtx.rotate((el.rotation || 0) * Math.PI / 180);
+                        const finalScale = el.scale * anim.s;
+                        targetCtx.scale(finalScale, finalScale);
+                        targetCtx.globalAlpha = anim.alpha;
+
+                        const drawW = el.w; const drawH = el.h;
+                        
+                        targetCtx.beginPath();
+                        if (targetCtx.roundRect && el.radius > 0) {
+                            targetCtx.roundRect(-drawW/2, -drawH/2, drawW, drawH, el.radius);
+                            targetCtx.clip();
+                        }
+                        targetCtx.drawImage(el.img, -drawW/2, -drawH/2, drawW, drawH);
+                    }
+                } 
+                else if (el.type === 'text') {
+                    // Pre-calculate line widths for centering
+                    const lines = el.text.split('\n');
+                    const isBld = el.isRansom ? '900' : '800';
+                    const fontF = el.fontFamily || 'Inter';
+                    targetCtx.font = `${isBld} ${el.fontSize}px "${fontF}"`;
+                    
+                    const lineHeight = el.fontSize * 1.1;
+                    const startY = -(lines.length - 1) * lineHeight / 2;
+                    let globalIdx = 0;
+
+                    lines.forEach((line, lineIdx) => {
+                        let lineW = 0;
+                        for(let c=0; c<line.length; c++) {
+                            if(el.isRansom) targetCtx.font = `900 ${el.fontSize}px "${el.charStyles[globalIdx+c]?.fontFamily || 'Inter'}"`;
+                            lineW += targetCtx.measureText(line[c]).width;
+                        }
+                        
+                        let cursorX = -lineW / 2;
+                        const yOff = startY + (lineIdx * lineHeight);
+
+                        for(let c=0; c<line.length; c++) {
+                            const char = line[c];
+                            const anim = getAnimTransform(el, globalIdx);
+                            
+                            if (el.isRansom) targetCtx.font = `900 ${el.fontSize}px "${el.charStyles[globalIdx].fontFamily || 'Inter'}"`;
+                            const charW = targetCtx.measureText(char).width;
+
+                            if (anim.alpha > 0) {
+                                targetCtx.save();
+                                targetCtx.translate(el.x + cursorX + charW/2 + anim.tx, el.y + yOff + anim.ty);
+                                
+                                let r = el.rotation || 0;
+                                let s = anim.s;
+                                let fill = el.fill;
+
+                                if (el.isRansom) {
+                                    const st = el.charStyles[globalIdx];
+                                    r += st.r;
+                                    fill = st.fill;
+                                    
+                                    targetCtx.rotate(r * Math.PI/180);
+                                    targetCtx.scale(s, s);
+                                    targetCtx.globalAlpha = anim.alpha;
+
+                                    if(st.bgFill && st.bgFill !== 'transparent') {
+                                        targetCtx.fillStyle = st.bgFill;
+                                        // Slight organic padding variations
+                                        const px = el.fontSize * 0.15;
+                                        const py = el.fontSize * 0.1;
+                                        targetCtx.fillRect(-charW/2 - px, -el.fontSize/2 - py, charW + px*2, el.fontSize + py*2);
+                                    }
+                                } else {
+                                    targetCtx.rotate(r * Math.PI/180);
+                                    targetCtx.scale(s, s);
+                                    targetCtx.globalAlpha = anim.alpha;
+                                }
+
+                                targetCtx.fillStyle = fill;
+                                targetCtx.textAlign = 'center';
+                                targetCtx.textBaseline = 'middle';
+                                targetCtx.fillText(char, 0, 0);
+
+                                targetCtx.restore();
+                            }
+                            
+                            cursorX += charW;
+                            globalIdx++;
+                        }
+                    });
+                }
+                targetCtx.restore();
+            });
+        }
+
+        function render() {
+            if(!renderPending) {
+                renderPending = true;
+                requestAnimationFrame(() => { forceRender(); renderPending = false; });
+            }
+        }
+
+        function forceRender() {
+            ctx.clearRect(0, 0, state.width, state.height);
+            drawElements(ctx, state.width, state.height);
+
+            // Draw Selection Box (only if not playing for cleaner preview)
+            const selEl = getSelectedEl();
+            if(selEl && !state.isPlaying) {
+                ctx.save();
+                ctx.translate(selEl.x, selEl.y);
+                ctx.rotate((selEl.rotation||0) * Math.PI/180);
+                ctx.strokeStyle = '#6366f1'; // Indigo
+                ctx.lineWidth = 3 / zoomLevel;
+                
+                let bw=0, bh=0;
+                if(selEl.type === 'text') {
+                    ctx.font = `800 ${selEl.fontSize}px "${selEl.fontFamily||'Inter'}"`;
+                    const lines = selEl.text.split('\n');
+                    lines.forEach(line => {
+                        let lw = 0;
+                        for(let c=0; c<line.length; c++) lw += ctx.measureText(line[c]).width;
+                        if(lw > bw) bw = lw;
+                    });
+                    bh = lines.length * (selEl.fontSize * 1.1);
+                } else {
+                    bw = selEl.w * selEl.scale; bh = selEl.h * selEl.scale;
+                }
+
+                ctx.strokeRect(-bw/2 - 10, -bh/2 - 10, bw + 20, bh + 20);
+                // Center dot
+                ctx.fillStyle = '#6366f1';
+                ctx.beginPath(); ctx.arc(0,0, 6/zoomLevel, 0, Math.PI*2); ctx.fill();
+                ctx.restore();
+            }
+
+            if(isExporting && exportCtx) {
+                exportCtx.clearRect(0, 0, state.width, state.height);
+                drawElements(exportCtx, state.width, state.height);
+            }
+        }
+
+        // --- Export Engine ---
+        let isExporting = false;
+        let exportCanvas, exportCtx, mediaRecorder, chunks = [];
+
+        function exportVideo() {
+            if(state.elements.length === 0 || state.isPlaying || isExporting) return;
+            resetTime();
+            
+            exportCanvas = document.createElement('canvas');
+            exportCanvas.width = state.width;
+            exportCanvas.height = state.height;
+            exportCtx = exportCanvas.getContext('2d');
+            
+            // Draw first frame
+            drawElements(exportCtx, state.width, state.height);
+
+            const stream = exportCanvas.captureStream(60); // 60 FPS
+            mediaRecorder = new MediaRecorder(stream, { mimeType: 'video/webm; codecs=vp9', videoBitsPerSecond: 10000000 });
+            
+            mediaRecorder.ondataavailable = e => { if(e.data.size > 0) chunks.push(e.data); };
+            mediaRecorder.onstop = () => {
+                const blob = new Blob(chunks, { type: 'video/webm' });
+                const url = URL.createObjectURL(blob);
+                const a = document.createElement('a');
+                a.href = url;
+                a.download = `kinetic-studio-${state.width}x${state.height}-${Date.now()}.webm`;
+                a.click();
+                URL.revokeObjectURL(url);
+                
+                chunks = []; exportCanvas = null; exportCtx = null;
+                document.getElementById('rec-indicator').classList.add('hidden');
+                document.getElementById('rec-indicator').classList.remove('flex');
+                document.getElementById('btn-export').innerHTML = '<i class="ph-bold ph-export"></i> Export WebM';
+                document.getElementById('btn-export').disabled = false;
+                resetTime();
+            };
+
+            isExporting = true;
+            document.getElementById('rec-indicator').classList.remove('hidden');
+            document.getElementById('rec-indicator').classList.add('flex');
+            document.getElementById('btn-export').innerHTML = 'Processing...';
+            document.getElementById('btn-export').disabled = true;
+
+            mediaRecorder.start();
+            
+            // Hijack playback loop
+            state.isPlaying = true;
+            state.lastFrameTime = performance.now();
+            animFrameId = requestAnimationFrame(animLoop);
+        }
+
+        function finishExport() {
+            isExporting = false;
+            state.isPlaying = false;
+            if(mediaRecorder && mediaRecorder.state !== 'inactive') {
+                // Slight delay to capture the final frame
+                setTimeout(() => mediaRecorder.stop(), 100);
+            }
+        }
+
+        // Initialize empty state but force render
+        render();
+
+    </script>
+</body>
+</html>

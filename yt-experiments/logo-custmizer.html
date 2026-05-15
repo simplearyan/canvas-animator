@@ -1,0 +1,547 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Canvas Labs | Logo Customizer</title>
+    
+    <!-- Tailwind CSS -->
+    <script src="https://cdn.tailwindcss.com"></script>
+    <!-- Lucide Icons -->
+    <script src="https://unpkg.com/lucide@latest"></script>
+    <!-- HTML to Image Library -->
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/html-to-image/1.11.11/html-to-image.min.js"></script>
+    <!-- Google Fonts (with crossorigin for export compatibility) -->
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=Outfit:wght@300;400;500;700;800;900&family=Space+Grotesk:wght@500;700;900&family=Playfair+Display:ital,wght@0,700;1,700&family=JetBrains+Mono:wght@500;700;800&display=swap" rel="stylesheet" crossorigin="anonymous">
+    
+    <script>
+        tailwind.config = {
+            darkMode: 'class', 
+            theme: {
+                extend: {
+                    fontFamily: {
+                        sans: ['Inter', 'sans-serif'],
+                        outfit: ['Outfit', 'sans-serif'],
+                        grotesk: ['Space Grotesk', 'sans-serif'],
+                        playfair: ['Playfair Display', 'serif'],
+                        mono: ['JetBrains Mono', 'monospace'],
+                    },
+                    colors: {
+                        brand: {
+                            50: '#f5f3ff',
+                            100: '#ede9fe',
+                            500: '#8b5cf6',
+                            600: '#7c3aed',
+                        }
+                    }
+                }
+            }
+        }
+    </script>
+    <style>
+        .bg-checker {
+            background-color: #f3f4f6;
+            background-image: linear-gradient(45deg, #e5e7eb 25%, transparent 25%), 
+                              linear-gradient(-45deg, #e5e7eb 25%, transparent 25%), 
+                              linear-gradient(45deg, transparent 75%, #e5e7eb 75%), 
+                              linear-gradient(-45deg, transparent 75%, #e5e7eb 75%);
+            background-size: 20px 20px;
+            background-position: 0 0, 0 10px, 10px -10px, -10px 0px;
+        }
+        .dark .bg-checker {
+            background-color: #0c0c0e;
+            background-image: linear-gradient(45deg, #18181b 25%, transparent 25%),
+                              linear-gradient(-45deg, #18181b 25%, transparent 25%),
+                              linear-gradient(45deg, transparent 75%, #18181b 75%),
+                              linear-gradient(-45deg, transparent 75%, #18181b 75%);
+        }
+
+        /* macOS-style Range Slider */
+        input[type=range] {
+            -webkit-appearance: none;
+            width: 100%;
+            background: transparent;
+        }
+        input[type=range]::-webkit-slider-thumb {
+            -webkit-appearance: none;
+            height: 16px;
+            width: 16px;
+            border-radius: 50%;
+            background: #ffffff;
+            cursor: pointer;
+            margin-top: -6px;
+            border: 1px solid #d1d5db;
+            box-shadow: 0 1px 3px rgba(0,0,0,0.1);
+        }
+        .dark input[type=range]::-webkit-slider-thumb {
+            border-color: #52525b;
+            background: #e4e4e7;
+        }
+        input[type=range]::-webkit-slider-runnable-track {
+            width: 100%;
+            height: 4px;
+            cursor: pointer;
+            background: #e5e7eb;
+            border-radius: 2px;
+        }
+        .dark input[type=range]::-webkit-slider-runnable-track {
+            background: #3f3f46;
+        }
+        
+        /* Custom Color Picker Wrapper */
+        input[type="color"] {
+            -webkit-appearance: none;
+            border: none;
+            width: 32px;
+            height: 32px;
+            border-radius: 8px;
+            cursor: pointer;
+            padding: 0;
+            overflow: hidden;
+        }
+        input[type="color"]::-webkit-color-swatch-wrapper {
+            padding: 0;
+        }
+        input[type="color"]::-webkit-color-swatch {
+            border: none;
+            border-radius: 8px;
+            box-shadow: inset 0 0 0 1px rgba(0,0,0,0.1);
+        }
+        .dark input[type="color"]::-webkit-color-swatch {
+            box-shadow: inset 0 0 0 1px rgba(255,255,255,0.1);
+        }
+
+        /* Custom Scrollbar */
+        .custom-scrollbar::-webkit-scrollbar { width: 6px; }
+        .custom-scrollbar::-webkit-scrollbar-track { background: transparent; }
+        .custom-scrollbar::-webkit-scrollbar-thumb { background: #d1d5db; border-radius: 10px; }
+        .dark .custom-scrollbar::-webkit-scrollbar-thumb { background: #3f3f46; }
+
+        .property-group { border-bottom: 1px solid #e5e7eb; padding: 1.25rem 0; }
+        .dark .property-group { border-bottom-color: #27272a; }
+        .property-group:last-child { border-bottom: none; }
+    </style>
+    <script>
+        if (localStorage.getItem('theme') === 'dark' || (!('theme' in localStorage) && window.matchMedia('(prefers-color-scheme: dark)').matches)) {
+            document.documentElement.classList.add('dark');
+        }
+    </script>
+</head>
+<body class="bg-gray-50 dark:bg-[#09090b] text-gray-900 dark:text-zinc-100 h-screen flex flex-col overflow-hidden transition-colors duration-300">
+
+    <!-- Header -->
+    <header class="h-14 bg-white dark:bg-[#121212] border-b border-gray-200 dark:border-white/5 shrink-0 flex items-center justify-between px-6 z-20">
+        <div class="flex items-center gap-3">
+            <button onclick="window.history.back()" class="p-1.5 -ml-1.5 text-gray-500 hover:bg-gray-100 dark:hover:bg-zinc-800 rounded-md transition-colors">
+                <i data-lucide="arrow-left" class="w-5 h-5"></i>
+            </button>
+            <div class="h-4 w-px bg-gray-300 dark:bg-zinc-700"></div>
+            <span class="text-sm font-semibold tracking-tight ml-1">Icon Customizer Studio</span>
+        </div>
+        <div class="flex items-center gap-3">
+            <button class="theme-toggle-btn p-2 rounded-full text-gray-500 dark:text-zinc-400 hover:bg-gray-100 dark:hover:bg-zinc-800 transition-colors focus:outline-none">
+                <span class="dark:hidden flex"><i data-lucide="moon" class="w-4 h-4"></i></span>
+                <span class="hidden dark:flex"><i data-lucide="sun" class="w-4 h-4"></i></span>
+            </button>
+            <button onclick="exportLogo()" class="bg-brand-600 hover:bg-brand-700 text-white px-4 py-1.5 rounded-lg text-sm font-medium shadow-sm transition-colors flex items-center gap-2">
+                <i data-lucide="download" class="w-4 h-4"></i> Export PNG
+            </button>
+        </div>
+    </header>
+
+    <!-- Main Workspace -->
+    <main class="flex-1 flex overflow-hidden">
+        
+        <!-- Left Canvas Area -->
+        <div class="flex-1 bg-checker relative flex items-center justify-center overflow-auto custom-scrollbar">
+            
+            <!-- The Logo Container (This is what gets exported) -->
+            <div id="export-node" class="p-16 flex items-center justify-center rounded-3xl border border-transparent transition-all">
+                <div id="logo-wrapper" class="flex items-center gap-6">
+                    
+                    <!-- App Icon Box -->
+                    <div id="app-icon" class="relative flex items-center justify-center rounded-[20px] transition-all" style="width: 96px; height: 96px; background-color: #111827;">
+                        <span id="icon-text" class="font-outfit font-black text-white" style="font-size: 40px; letter-spacing: -0.05em;">CL</span>
+                        
+                        <!-- Accent Dot -->
+                        <div id="accent-dot" class="absolute -bottom-2 -right-2 w-6 h-6 rounded-full border-4 border-transparent" style="background-color: #8b5cf6;"></div>
+                    </div>
+
+                    <!-- Brand Text -->
+                    <div id="brand-text" class="font-outfit font-bold tracking-tight text-gray-900 dark:text-white transition-all" style="font-size: 48px; letter-spacing: -0.02em;">
+                        CanvasLabs
+                    </div>
+
+                </div>
+            </div>
+            
+            <!-- Export Background Helper (Hidden, used to inject bg color cleanly on export) -->
+            <div id="export-bg-helper" class="absolute inset-0 z-[-1] pointer-events-none opacity-0"></div>
+        </div>
+
+        <!-- Right Properties Panel -->
+        <aside class="w-[340px] bg-white dark:bg-[#121212] border-l border-gray-200 dark:border-white/5 flex flex-col shrink-0 shadow-[-4px_0_15px_rgba(0,0,0,0.03)] z-10">
+            <div class="p-4 border-b border-gray-200 dark:border-white/5 flex items-center gap-2 bg-gray-50/50 dark:bg-black/20">
+                <i data-lucide="sliders-horizontal" class="w-4 h-4 text-gray-500 dark:text-zinc-400"></i>
+                <span class="text-xs font-bold uppercase tracking-wider text-gray-600 dark:text-zinc-300">Inspector</span>
+            </div>
+            
+            <div class="flex-1 overflow-y-auto custom-scrollbar px-5 pb-8">
+                
+                <!-- Content & Typography -->
+                <div class="property-group">
+                    <h3 class="text-[13px] font-semibold mb-4 text-gray-900 dark:text-white">Content & Typography</h3>
+                    <div class="space-y-4">
+                        <div class="grid grid-cols-2 gap-3">
+                            <div>
+                                <label class="block text-[11px] font-medium text-gray-500 mb-1">Icon Text</label>
+                                <input type="text" id="ctrl-icon-text" value="CL" class="w-full bg-gray-50 dark:bg-zinc-900 border border-gray-200 dark:border-zinc-700 rounded-lg px-3 py-1.5 text-sm focus:ring-2 focus:ring-brand-500/50 outline-none">
+                            </div>
+                            <div>
+                                <label class="block text-[11px] font-medium text-gray-500 mb-1">Brand Text</label>
+                                <input type="text" id="ctrl-brand-text" value="CanvasLabs" class="w-full bg-gray-50 dark:bg-zinc-900 border border-gray-200 dark:border-zinc-700 rounded-lg px-3 py-1.5 text-sm focus:ring-2 focus:ring-brand-500/50 outline-none">
+                            </div>
+                        </div>
+                        <div>
+                            <label class="block text-[11px] font-medium text-gray-500 mb-1">Font Family</label>
+                            <select id="ctrl-font" class="w-full bg-gray-50 dark:bg-zinc-900 border border-gray-200 dark:border-zinc-700 rounded-lg px-3 py-1.5 text-sm focus:ring-2 focus:ring-brand-500/50 outline-none">
+                                <option value="Outfit">Outfit (Default)</option>
+                                <option value="Inter">Inter</option>
+                                <option value="Space Grotesk">Space Grotesk</option>
+                                <option value="JetBrains Mono">JetBrains Mono</option>
+                                <option value="Playfair Display">Playfair Display</option>
+                            </select>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Icon Background -->
+                <div class="property-group">
+                    <div class="flex items-center justify-between mb-4">
+                        <h3 class="text-[13px] font-semibold text-gray-900 dark:text-white">Icon Background</h3>
+                        <div class="flex bg-gray-100 dark:bg-zinc-800 rounded-lg p-0.5">
+                            <button id="bg-type-solid" class="px-2.5 py-1 text-[10px] font-semibold rounded-md bg-white dark:bg-zinc-600 shadow-sm transition-all">Solid</button>
+                            <button id="bg-type-grad" class="px-2.5 py-1 text-[10px] font-medium text-gray-500 dark:text-zinc-400 rounded-md hover:text-gray-900 dark:hover:text-white transition-all">Gradient</button>
+                        </div>
+                    </div>
+                    
+                    <div id="solid-controls" class="flex items-center gap-3 mb-4">
+                        <input type="color" id="ctrl-bg-color1" value="#111827">
+                        <span class="text-xs font-mono text-gray-500" id="hex-bg-color1">#111827</span>
+                    </div>
+                    
+                    <div id="grad-controls" class="hidden space-y-3 mb-4">
+                        <div class="flex items-center gap-3">
+                            <input type="color" id="ctrl-bg-color-g1" value="#8b5cf6">
+                            <span class="text-xs text-gray-500 w-12">Start</span>
+                            <input type="color" id="ctrl-bg-color-g2" value="#22d3ee">
+                            <span class="text-xs text-gray-500">End</span>
+                        </div>
+                        <div>
+                            <div class="flex justify-between mb-1"><label class="text-[10px] text-gray-500">Angle</label><span id="val-bg-angle" class="text-[10px] text-gray-400">135°</span></div>
+                            <input type="range" id="ctrl-bg-angle" min="0" max="360" value="135">
+                        </div>
+                    </div>
+                    
+                    <div>
+                        <div class="flex justify-between mb-1"><label class="text-[10px] text-gray-500">Border Radius</label><span id="val-radius" class="text-[10px] text-gray-400">20px</span></div>
+                        <input type="range" id="ctrl-radius" min="0" max="48" value="20">
+                    </div>
+                </div>
+
+                <!-- Colors & Accent -->
+                <div class="property-group">
+                    <h3 class="text-[13px] font-semibold mb-4 text-gray-900 dark:text-white">Colors & Accent</h3>
+                    <div class="grid grid-cols-3 gap-2">
+                        <div class="flex flex-col items-center gap-2">
+                            <label class="text-[10px] text-gray-500 text-center">Icon Text</label>
+                            <input type="color" id="ctrl-color-icontext" value="#ffffff">
+                        </div>
+                        <div class="flex flex-col items-center gap-2">
+                            <label class="text-[10px] text-gray-500 text-center">Brand Text</label>
+                            <input type="color" id="ctrl-color-brandtext" value="#111827"> <!-- Will swap on dark mode init -->
+                        </div>
+                        <div class="flex flex-col items-center gap-2">
+                            <label class="text-[10px] text-gray-500 text-center">Accent Dot</label>
+                            <input type="color" id="ctrl-color-dot" value="#8b5cf6">
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Spacing & Sizing -->
+                <div class="property-group">
+                    <h3 class="text-[13px] font-semibold mb-4 text-gray-900 dark:text-white">Spacing & Layout</h3>
+                    <div class="space-y-4">
+                        <div>
+                            <div class="flex justify-between mb-1"><label class="text-[10px] text-gray-500">Icon Letter Spacing</label><span id="val-space-icon" class="text-[10px] text-gray-400">-0.05em</span></div>
+                            <input type="range" id="ctrl-space-icon" min="-0.15" max="0.2" step="0.01" value="-0.05">
+                        </div>
+                        <div>
+                            <div class="flex justify-between mb-1"><label class="text-[10px] text-gray-500">Brand Letter Spacing</label><span id="val-space-brand" class="text-[10px] text-gray-400">-0.02em</span></div>
+                            <input type="range" id="ctrl-space-brand" min="-0.1" max="0.3" step="0.01" value="-0.02">
+                        </div>
+                        <div>
+                            <div class="flex justify-between mb-1"><label class="text-[10px] text-gray-500">Gap (Icon to Text)</label><span id="val-gap" class="text-[10px] text-gray-400">24px</span></div>
+                            <input type="range" id="ctrl-gap" min="0" max="64" value="24">
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Icon Shadows -->
+                <div class="property-group border-none">
+                    <h3 class="text-[13px] font-semibold mb-4 text-gray-900 dark:text-white">Icon Shadows</h3>
+                    
+                    <div class="space-y-4">
+                        <!-- Drop Shadow -->
+                        <div class="bg-gray-50 dark:bg-zinc-900/50 p-3 rounded-lg border border-gray-100 dark:border-zinc-800">
+                            <label class="block text-[11px] font-semibold text-gray-700 dark:text-zinc-300 mb-3">Drop Shadow</label>
+                            <div class="space-y-3">
+                                <div>
+                                    <div class="flex justify-between mb-1"><label class="text-[9px] text-gray-500 uppercase">Y Offset</label><span id="val-ds-y" class="text-[9px] text-gray-400">0px</span></div>
+                                    <input type="range" id="ctrl-ds-y" min="-20" max="40" value="0">
+                                </div>
+                                <div>
+                                    <div class="flex justify-between mb-1"><label class="text-[9px] text-gray-500 uppercase">Blur</label><span id="val-ds-b" class="text-[9px] text-gray-400">0px</span></div>
+                                    <input type="range" id="ctrl-ds-b" min="0" max="50" value="0">
+                                </div>
+                                <div>
+                                    <div class="flex justify-between mb-1"><label class="text-[9px] text-gray-500 uppercase">Opacity</label><span id="val-ds-o" class="text-[9px] text-gray-400">20%</span></div>
+                                    <input type="range" id="ctrl-ds-o" min="0" max="100" value="20">
+                                </div>
+                            </div>
+                        </div>
+
+                        <!-- Inner Shadow -->
+                        <div class="bg-gray-50 dark:bg-zinc-900/50 p-3 rounded-lg border border-gray-100 dark:border-zinc-800">
+                            <label class="block text-[11px] font-semibold text-gray-700 dark:text-zinc-300 mb-3">Inner Shadow</label>
+                            <div class="space-y-3">
+                                <div>
+                                    <div class="flex justify-between mb-1"><label class="text-[9px] text-gray-500 uppercase">Y Offset</label><span id="val-is-y" class="text-[9px] text-gray-400">0px</span></div>
+                                    <input type="range" id="ctrl-is-y" min="-20" max="20" value="0">
+                                </div>
+                                <div>
+                                    <div class="flex justify-between mb-1"><label class="text-[9px] text-gray-500 uppercase">Blur</label><span id="val-is-b" class="text-[9px] text-gray-400">0px</span></div>
+                                    <input type="range" id="ctrl-is-b" min="0" max="40" value="0">
+                                </div>
+                                <div>
+                                    <div class="flex justify-between mb-1"><label class="text-[9px] text-gray-500 uppercase">Opacity</label><span id="val-is-o" class="text-[9px] text-gray-400">10%</span></div>
+                                    <input type="range" id="ctrl-is-o" min="0" max="100" value="10">
+                                </div>
+                                <div class="flex items-center gap-2 mt-2 pt-2 border-t border-gray-200 dark:border-zinc-700">
+                                    <label class="text-[10px] text-gray-500">Color</label>
+                                    <div class="flex gap-2">
+                                        <label class="flex items-center gap-1 text-[10px] cursor-pointer"><input type="radio" name="is-color" value="black" checked> Black</label>
+                                        <label class="flex items-center gap-1 text-[10px] cursor-pointer"><input type="radio" name="is-color" value="white"> White</label>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+
+                    </div>
+                </div>
+
+            </div>
+        </aside>
+    </main>
+
+    <script>
+        // DOM Elements
+        const appIcon = document.getElementById('app-icon');
+        const iconText = document.getElementById('icon-text');
+        const brandText = document.getElementById('brand-text');
+        const accentDot = document.getElementById('accent-dot');
+        const logoWrapper = document.getElementById('logo-wrapper');
+        const exportNode = document.getElementById('export-node');
+
+        // State & Controls
+        let isGradient = false;
+        
+        const controls = {
+            iconText: document.getElementById('ctrl-icon-text'),
+            brandText: document.getElementById('ctrl-brand-text'),
+            font: document.getElementById('ctrl-font'),
+            
+            bgColor1: document.getElementById('ctrl-bg-color1'),
+            bgColorG1: document.getElementById('ctrl-bg-color-g1'),
+            bgColorG2: document.getElementById('ctrl-bg-color-g2'),
+            bgAngle: document.getElementById('ctrl-bg-angle'),
+            radius: document.getElementById('ctrl-radius'),
+            
+            colorIconText: document.getElementById('ctrl-color-icontext'),
+            colorBrandText: document.getElementById('ctrl-color-brandtext'),
+            colorDot: document.getElementById('ctrl-color-dot'),
+            
+            spaceIcon: document.getElementById('ctrl-space-icon'),
+            spaceBrand: document.getElementById('ctrl-space-brand'),
+            gap: document.getElementById('ctrl-gap'),
+            
+            dsY: document.getElementById('ctrl-ds-y'),
+            dsB: document.getElementById('ctrl-ds-b'),
+            dsO: document.getElementById('ctrl-ds-o'),
+            
+            isY: document.getElementById('ctrl-is-y'),
+            isB: document.getElementById('ctrl-is-b'),
+            isO: document.getElementById('ctrl-is-o'),
+            isColor: document.getElementsByName('is-color')
+        };
+
+        // Initialize brand text color based on system theme to ensure it's visible initially
+        if (document.documentElement.classList.contains('dark')) {
+            controls.colorBrandText.value = "#ffffff";
+        }
+
+        function updateUI() {
+            // Content
+            iconText.innerText = controls.iconText.value;
+            brandText.innerText = controls.brandText.value;
+            
+            // Typography
+            const fontMap = {
+                'Outfit': 'font-outfit',
+                'Inter': 'font-sans',
+                'Space Grotesk': 'font-grotesk',
+                'Playfair Display': 'font-playfair',
+                'JetBrains Mono': 'font-mono'
+            };
+            
+            iconText.className = `${fontMap[controls.font.value]} font-black text-white`;
+            brandText.className = `${fontMap[controls.font.value]} font-bold tracking-tight transition-all`;
+            
+            iconText.style.color = controls.colorIconText.value;
+            brandText.style.color = controls.colorBrandText.value;
+            
+            // Spacing
+            iconText.style.letterSpacing = `${controls.spaceIcon.value}em`;
+            document.getElementById('val-space-icon').innerText = `${controls.spaceIcon.value}em`;
+            
+            brandText.style.letterSpacing = `${controls.spaceBrand.value}em`;
+            document.getElementById('val-space-brand').innerText = `${controls.spaceBrand.value}em`;
+            
+            logoWrapper.style.gap = `${controls.gap.value}px`;
+            document.getElementById('val-gap').innerText = `${controls.gap.value}px`;
+
+            // Background
+            appIcon.style.borderRadius = `${controls.radius.value}px`;
+            document.getElementById('val-radius').innerText = `${controls.radius.value}px`;
+            
+            if (isGradient) {
+                appIcon.style.background = `linear-gradient(${controls.bgAngle.value}deg, ${controls.bgColorG1.value}, ${controls.bgColorG2.value})`;
+                document.getElementById('val-bg-angle').innerText = `${controls.bgAngle.value}°`;
+            } else {
+                appIcon.style.background = controls.bgColor1.value;
+                document.getElementById('hex-bg-color1').innerText = controls.bgColor1.value.toUpperCase();
+            }
+
+            // Accent Dot
+            accentDot.style.backgroundColor = controls.colorDot.value;
+            // Match the border of the dot to the background behind it (transparent works, but explicit color looks better if requested. For now, transparent border makes it float nicely over background if we add box-shadow to it).
+            accentDot.style.borderColor = document.documentElement.classList.contains('dark') ? '#0c0c0e' : '#f3f4f6';
+
+            // Shadows
+            const dropShadow = `0px ${controls.dsY.value}px ${controls.dsB.value}px rgba(0,0,0,${controls.dsO.value / 100})`;
+            
+            let isColorRgb = Array.from(controls.isColor).find(r => r.checked).value === 'black' ? '0,0,0' : '255,255,255';
+            const innerShadow = `inset 0px ${controls.isY.value}px ${controls.isB.value}px rgba(${isColorRgb},${controls.isO.value / 100})`;
+            
+            // Only apply strings if they aren't zeroed out completely to keep DOM clean
+            const shadows = [];
+            if (controls.dsO.value > 0 && (controls.dsY.value != 0 || controls.dsB.value != 0)) shadows.push(dropShadow);
+            if (controls.isO.value > 0 && (controls.isY.value != 0 || controls.isB.value != 0)) shadows.push(innerShadow);
+            
+            appIcon.style.boxShadow = shadows.length > 0 ? shadows.join(', ') : 'none';
+
+            // Update UI Labels
+            document.getElementById('val-ds-y').innerText = `${controls.dsY.value}px`;
+            document.getElementById('val-ds-b').innerText = `${controls.dsB.value}px`;
+            document.getElementById('val-ds-o').innerText = `${controls.dsO.value}%`;
+            
+            document.getElementById('val-is-y').innerText = `${controls.isY.value}px`;
+            document.getElementById('val-is-b').innerText = `${controls.isB.value}px`;
+            document.getElementById('val-is-o').innerText = `${controls.isO.value}%`;
+        }
+
+        // Attach listeners
+        Object.values(controls).forEach(control => {
+            if (control instanceof NodeList) { // Radio node list
+                control.forEach(r => r.addEventListener('change', updateUI));
+            } else if (control) {
+                control.addEventListener('input', updateUI);
+            }
+        });
+
+        // Background Type Toggle
+        const btnSolid = document.getElementById('bg-type-solid');
+        const btnGrad = document.getElementById('bg-type-grad');
+        const divSolid = document.getElementById('solid-controls');
+        const divGrad = document.getElementById('grad-controls');
+
+        function setBgMode(mode) {
+            isGradient = mode === 'gradient';
+            if (isGradient) {
+                btnGrad.className = "px-2.5 py-1 text-[10px] font-semibold rounded-md bg-white dark:bg-zinc-600 shadow-sm transition-all text-gray-900 dark:text-white";
+                btnSolid.className = "px-2.5 py-1 text-[10px] font-medium text-gray-500 dark:text-zinc-400 rounded-md hover:text-gray-900 dark:hover:text-white transition-all bg-transparent shadow-none";
+                divGrad.classList.remove('hidden');
+                divSolid.classList.add('hidden');
+            } else {
+                btnSolid.className = "px-2.5 py-1 text-[10px] font-semibold rounded-md bg-white dark:bg-zinc-600 shadow-sm transition-all text-gray-900 dark:text-white";
+                btnGrad.className = "px-2.5 py-1 text-[10px] font-medium text-gray-500 dark:text-zinc-400 rounded-md hover:text-gray-900 dark:hover:text-white transition-all bg-transparent shadow-none";
+                divSolid.classList.remove('hidden');
+                divGrad.classList.add('hidden');
+            }
+            updateUI();
+        }
+
+        btnSolid.addEventListener('click', () => setBgMode('solid'));
+        btnGrad.addEventListener('click', () => setBgMode('gradient'));
+
+        // Theme Toggle
+        function toggleTheme() {
+            document.documentElement.classList.toggle('dark');
+            const isDark = document.documentElement.classList.contains('dark');
+            localStorage.setItem('theme', isDark ? 'dark' : 'light');
+            
+            // Adjust brand text color automatically if user hasn't explicitly changed it heavily
+            if (controls.colorBrandText.value === "#111827" && isDark) {
+                controls.colorBrandText.value = "#ffffff";
+            } else if (controls.colorBrandText.value === "#ffffff" && !isDark) {
+                controls.colorBrandText.value = "#111827";
+            }
+            
+            updateUI();
+        }
+        document.querySelector('.theme-toggle-btn').addEventListener('click', toggleTheme);
+
+        // Export Functionality
+        function exportLogo() {
+            const isDark = document.documentElement.classList.contains('dark');
+            
+            // Add a temporary solid background to export node to ensure crisp edges and no checkerboard bleed
+            exportNode.style.backgroundColor = isDark ? '#0c0c0e' : '#f3f4f6';
+            
+            const config = {
+                quality: 1,
+                pixelRatio: 3, 
+                backgroundColor: isDark ? '#0c0c0e' : '#f3f4f6',
+            };
+
+            htmlToImage.toPng(exportNode, config)
+                .then(dataUrl => {
+                    const link = document.createElement('a');
+                    link.download = `Custom-CanvasLabs-Logo.png`;
+                    link.href = dataUrl;
+                    link.click();
+                    
+                    // Cleanup
+                    exportNode.style.backgroundColor = 'transparent';
+                })
+                .catch(err => {
+                    console.error('Export failed', err);
+                    exportNode.style.backgroundColor = 'transparent';
+                });
+        }
+
+        lucide.createIcons();
+        updateUI(); // Initial render
+    </script>
+</body>
+</html>

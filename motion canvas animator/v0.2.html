@@ -1,0 +1,921 @@
+<!DOCTYPE html>
+<html lang="en" class="dark">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>MotionCanvas Pro - Text & Audio Animator</title>
+    <!-- Tailwind CSS -->
+    <script src="https://cdn.tailwindcss.com"></script>
+    <!-- Lucide Icons -->
+    <script src="https://unpkg.com/lucide@latest"></script>
+    <script>
+        tailwind.config = {
+            darkMode: 'class',
+            theme: {
+                extend: {
+                    colors: {
+                        mac: {
+                            dark: '#1e1e1e',
+                            panel: '#2d2d2d',
+                            border: '#3e3e42',
+                            blue: '#0a84ff',
+                            text: '#f5f5f6'
+                        }
+                    },
+                    fontFamily: {
+                        sans: ['-apple-system', 'BlinkMacSystemFont', '"Segoe UI"', 'Roboto', 'Helvetica', 'Arial', 'sans-serif'],
+                    }
+                }
+            }
+        }
+    </script>
+    <style>
+        /* macOS style scrollbars */
+        ::-webkit-scrollbar {
+            width: 8px;
+            height: 8px;
+        }
+        ::-webkit-scrollbar-track {
+            background: rgba(0,0,0,0.1);
+        }
+        ::-webkit-scrollbar-thumb {
+            background: #555;
+            border-radius: 4px;
+        }
+        ::-webkit-scrollbar-thumb:hover {
+            background: #777;
+        }
+        
+        /* Glassmorphism utilities */
+        .glass-panel {
+            background: rgba(45, 45, 45, 0.7);
+            backdrop-filter: blur(12px);
+            -webkit-backdrop-filter: blur(12px);
+            border: 1px solid rgba(255, 255, 255, 0.1);
+        }
+
+        /* Timeline grid background */
+        .timeline-grid {
+            background-image: linear-gradient(to right, rgba(255,255,255,0.08) 1px, transparent 1px);
+        }
+
+        input[type="range"] {
+            accent-color: #0a84ff;
+        }
+        
+        /* Hide number input arrows */
+        input[type=number]::-webkit-inner-spin-button, 
+        input[type=number]::-webkit-outer-spin-button { 
+            -webkit-appearance: none; 
+            margin: 0; 
+        }
+
+        .track-block {
+            transition: ring 0.1s ease;
+        }
+        
+        /* Grab cursors for block dragging */
+        .cursor-grab { cursor: grab; }
+        .cursor-grabbing { cursor: grabbing; }
+    </style>
+</head>
+<body class="bg-mac-dark text-mac-text h-screen overflow-hidden flex flex-col font-sans select-none">
+
+    <!-- Top Navigation -->
+    <header class="h-14 glass-panel border-b border-mac-border flex items-center justify-between px-4 z-20 shrink-0">
+        <div class="flex items-center gap-2">
+            <div class="w-3 h-3 rounded-full bg-red-500"></div>
+            <div class="w-3 h-3 rounded-full bg-yellow-500"></div>
+            <div class="w-3 h-3 rounded-full bg-green-500"></div>
+            <h1 class="ml-4 font-semibold text-sm tracking-wide text-gray-200"><i data-lucide="clapperboard" class="inline w-4 h-4 mr-2 -mt-1 text-mac-blue"></i>MotionCanvas Pro</h1>
+        </div>
+        <div class="flex items-center gap-4">
+            <div class="text-xs text-gray-400">Duration: <span id="ui-total-duration">10.0</span>s</div>
+            <button id="btn-export" class="bg-mac-blue hover:bg-blue-500 text-white px-4 py-1.5 rounded-md text-sm font-medium transition-colors flex items-center gap-2 shadow-sm">
+                <i data-lucide="download" class="w-4 h-4"></i> Export WebM
+            </button>
+        </div>
+    </header>
+
+    <!-- Main Workspace -->
+    <main class="flex-1 flex overflow-hidden">
+        
+        <!-- Left Sidebar: Tools -->
+        <aside class="w-16 glass-panel border-r border-mac-border flex flex-col items-center py-4 gap-4 z-10 shrink-0">
+            <button id="btn-add-text" class="w-10 h-10 rounded-xl hover:bg-white/10 flex items-center justify-center text-gray-300 transition-colors shadow-sm" title="Add Text Layer">
+                <i data-lucide="type" class="w-5 h-5"></i>
+            </button>
+            <div class="w-8 h-px bg-mac-border my-1"></div>
+            <label class="w-10 h-10 rounded-xl hover:bg-white/10 flex items-center justify-center text-gray-300 transition-colors shadow-sm cursor-pointer" title="Add Audio/Extract from Video">
+                <i data-lucide="music" class="w-5 h-5"></i>
+                <input type="file" id="input-audio" class="hidden" accept="audio/*, video/mp4, video/webm, video/quicktime">
+            </label>
+        </aside>
+
+        <!-- Center: Canvas & Playback -->
+        <section class="flex-1 flex flex-col relative bg-[#121212]">
+            <!-- Canvas Container -->
+            <div class="flex-1 flex items-center justify-center p-8 overflow-hidden relative">
+                <!-- 16:9 Aspect Ratio Wrapper -->
+                <div class="relative shadow-2xl ring-1 ring-white/10 rounded-lg overflow-hidden bg-black" style="aspect-ratio: 16/9; max-height: 100%; width: 100%; max-width: 1280px;">
+                    <canvas id="main-canvas" width="1280" height="720" class="w-full h-full object-contain"></canvas>
+                    
+                    <!-- Exporting Overlay -->
+                    <div id="export-overlay" class="absolute inset-0 bg-black/80 backdrop-blur-sm hidden flex-col items-center justify-center z-50">
+                        <i data-lucide="loader" class="w-10 h-10 text-mac-blue animate-spin mb-4"></i>
+                        <h2 class="text-xl font-bold">Rendering Video...</h2>
+                        <p class="text-sm text-gray-400 mt-2">Please do not close this tab.</p>
+                        <div class="w-64 h-2 bg-gray-800 rounded-full mt-4 overflow-hidden">
+                            <div id="export-progress" class="h-full bg-mac-blue w-0 transition-all duration-300"></div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Playback Controls -->
+            <div class="h-16 glass-panel border-t border-mac-border flex items-center justify-center gap-6 shrink-0">
+                <span id="ui-time-current" class="text-sm font-mono text-gray-400 w-16 text-right">0.00s</span>
+                
+                <button id="btn-stop" class="w-8 h-8 rounded-full hover:bg-white/10 flex items-center justify-center text-gray-300 transition-colors">
+                    <i data-lucide="square" class="w-4 h-4 fill-current"></i>
+                </button>
+                <button id="btn-play-pause" class="w-12 h-12 rounded-full bg-mac-blue hover:bg-blue-500 text-white flex items-center justify-center shadow-md transition-transform active:scale-95">
+                    <i data-lucide="play" id="icon-play" class="w-5 h-5 fill-current ml-1"></i>
+                    <i data-lucide="pause" id="icon-pause" class="w-5 h-5 fill-current hidden"></i>
+                </button>
+                
+                <span id="ui-time-total" class="text-sm font-mono text-gray-400 w-16 text-left">10.00s</span>
+            </div>
+        </section>
+
+        <!-- Right Sidebar: Properties -->
+        <aside class="w-72 glass-panel border-l border-mac-border flex flex-col z-10 shrink-0 shadow-[-5px_0_15px_rgba(0,0,0,0.3)]">
+            <div class="h-10 border-b border-mac-border flex items-center px-4 font-medium text-sm text-gray-300">
+                Properties
+            </div>
+            <div id="properties-panel" class="flex-1 overflow-y-auto p-4 text-sm">
+                <div class="text-gray-500 text-center mt-10">
+                    <i data-lucide="mouse-pointer-click" class="w-8 h-8 mx-auto mb-3 opacity-50"></i>
+                    Select a text or audio track<br>in the timeline to edit.
+                </div>
+            </div>
+        </aside>
+    </main>
+
+    <!-- Bottom: Timeline -->
+    <footer class="h-64 glass-panel border-t border-mac-border flex flex-col shrink-0 z-20 shadow-[0_-5px_15px_rgba(0,0,0,0.5)]">
+        <div class="flex flex-1 overflow-hidden relative">
+            
+            <!-- Headers (Pinned Left Area) -->
+            <div class="w-48 border-r border-mac-border bg-black/30 flex flex-col z-20 shrink-0 shadow-[2px_0_10px_rgba(0,0,0,0.3)]">
+                <!-- Title & Zoom controls -->
+                <div class="h-8 border-b border-mac-border flex items-center justify-between px-3 text-xs text-gray-400 shrink-0 bg-black/40">
+                    <span class="font-medium">Layers & Tracks</span>
+                    <div class="flex gap-1">
+                        <button id="btn-zoom-out" class="p-1 hover:bg-white/10 rounded transition-colors" title="Zoom Out"><i data-lucide="zoom-out" class="w-3.5 h-3.5"></i></button>
+                        <button id="btn-zoom-in" class="p-1 hover:bg-white/10 rounded transition-colors" title="Zoom In"><i data-lucide="zoom-in" class="w-3.5 h-3.5"></i></button>
+                    </div>
+                </div>
+                <!-- Header Track List -->
+                <div id="track-headers" class="flex-1 overflow-hidden">
+                    <!-- Generated by JS -->
+                </div>
+            </div>
+            
+            <!-- Scrollable Timeline Area (Right) -->
+            <div class="flex-1 overflow-auto flex flex-col relative" id="timeline-scroll-container">
+                <div id="timeline-inner" class="relative min-w-full" style="height: 100%;">
+                    
+                    <!-- Ruler Header -->
+                    <div class="h-8 border-b border-mac-border bg-black/40 relative timeline-grid" id="timeline-ruler">
+                        <div id="playhead-top" class="absolute top-0 bottom-0 w-px bg-red-500 z-50 pointer-events-none drop-shadow-md">
+                            <div class="w-3 h-3 bg-red-500 rotate-45 -ml-1.5 -mt-1.5 rounded-sm"></div>
+                        </div>
+                    </div>
+                    
+                    <!-- Track Bodies -->
+                    <div id="track-bodies" class="relative flex-1 timeline-grid min-h-[calc(100%-2rem)]">
+                        <!-- Playhead Line -->
+                        <div id="playhead-line" class="absolute top-0 bottom-0 w-px bg-red-500/60 z-50 pointer-events-none drop-shadow"></div>
+                        <!-- Generated by JS -->
+                    </div>
+
+                </div>
+            </div>
+
+        </div>
+    </footer>
+
+    <!-- Script Logic -->
+    <script>
+        // --- 1. State & Setup ---
+        const state = {
+            duration: 10, // seconds
+            currentTime: 0,
+            isPlaying: false,
+            selectedId: null,
+            zoom: 1.5, // Initial zoom multiplier
+            texts: [],
+            audio: [],
+            isExporting: false
+        };
+
+        const canvas = document.getElementById('main-canvas');
+        const ctx = canvas.getContext('2d');
+        let audioCtx = null;
+        let activeAudioNodes = [];
+        let animationFrameId = null;
+        let lastTime = 0;
+
+        // UI Elements
+        const uiCurrentTime = document.getElementById('ui-time-current');
+        const playheadTop = document.getElementById('playhead-top');
+        const playheadLine = document.getElementById('playhead-line');
+        const propertiesPanel = document.getElementById('properties-panel');
+        const trackHeaders = document.getElementById('track-headers');
+        const trackBodies = document.getElementById('track-bodies');
+        const timelineScrollContainer = document.getElementById('timeline-scroll-container');
+        const timelineInner = document.getElementById('timeline-inner');
+        const timelineRuler = document.getElementById('timeline-ruler');
+
+        // Drag State for clips
+        const drag = { active: false, id: null, action: null, startX: 0, initStart: 0, initEnd: 0, initOffset: 0, wasDragged: false };
+
+        // Initialize Lucide Icons
+        lucide.createIcons();
+
+        function initAudioContext() {
+            if (!audioCtx) {
+                audioCtx = new (window.AudioContext || window.webkitAudioContext)();
+            }
+        }
+
+        function generateId() {
+            return Math.random().toString(36).substr(2, 9);
+        }
+
+        // --- 2. Canvas Rendering Engine ---
+        function easeOutQuart(x) {
+            return 1 - Math.pow(1 - x, 4);
+        }
+
+        function renderCanvas(time) {
+            ctx.clearRect(0, 0, canvas.width, canvas.height);
+            ctx.fillStyle = '#000000';
+            ctx.fillRect(0, 0, canvas.width, canvas.height);
+
+            state.texts.forEach(item => {
+                if (time < item.start || time > item.end) return;
+
+                ctx.save();
+                let alpha = 1; let scaleX = 1; let scaleY = 1;
+                let offsetX = 0; let offsetY = 0;
+
+                const inDuration = 0.8; const outDuration = 0.8;
+                const timeIn = time - item.start;
+                const timeOut = item.end - time;
+
+                if (timeIn < inDuration) {
+                    const progress = timeIn / inDuration;
+                    const eased = easeOutQuart(progress);
+                    if (item.animIn === 'fade') alpha = eased;
+                    if (item.animIn === 'slideUp') { alpha = eased; offsetY = (1 - eased) * 100; }
+                    if (item.animIn === 'scale') { alpha = eased; scaleX = eased; scaleY = eased; }
+                    if (item.animIn === 'drop') { alpha = eased; offsetY = -(1 - eased) * 200; }
+                }
+
+                if (timeOut < outDuration) {
+                    const progress = timeOut / outDuration;
+                    const eased = easeOutQuart(progress);
+                    if (item.animOut === 'fade') alpha = eased;
+                    if (item.animOut === 'slideDown') { alpha = eased; offsetY = (1 - eased) * 100; }
+                    if (item.animOut === 'scale') { alpha = eased; scaleX = eased; scaleY = eased; }
+                }
+
+                if (timeIn >= inDuration && timeOut >= outDuration) {
+                    if (item.animLoop === 'pulse') {
+                        const p = 1 + Math.sin(time * 4) * 0.05;
+                        scaleX *= p; scaleY *= p;
+                    }
+                    if (item.animLoop === 'float') {
+                        offsetY += Math.sin(time * 3) * 15;
+                    }
+                    if (item.animLoop === 'wave') {
+                        offsetX += Math.sin(time * 5) * 10;
+                    }
+                }
+
+                ctx.globalAlpha = Math.max(0, Math.min(1, alpha));
+                const posX = (item.x / 100) * canvas.width;
+                const posY = (item.y / 100) * canvas.height;
+
+                ctx.translate(posX + offsetX, posY + offsetY);
+                ctx.scale(scaleX, scaleY);
+                ctx.font = `bold ${item.size}px ${item.font}`;
+                ctx.fillStyle = item.color;
+                ctx.textAlign = 'center';
+                ctx.textBaseline = 'middle';
+                
+                const lines = item.text.split('\n');
+                const lineHeight = item.size * 1.2;
+                const startY = -(lines.length - 1) * lineHeight / 2;
+
+                ctx.shadowColor = 'rgba(0,0,0,0.8)';
+                ctx.shadowBlur = 15;
+                ctx.shadowOffsetX = 3;
+                ctx.shadowOffsetY = 3;
+
+                lines.forEach((line, index) => {
+                    ctx.fillText(line, 0, startY + (index * lineHeight));
+                });
+                ctx.restore();
+            });
+        }
+
+        // --- 3. Playback Engine ---
+        function updatePlayheadUI() {
+            uiCurrentTime.innerText = state.currentTime.toFixed(2) + 's';
+            const pps = 50 * state.zoom;
+            const px = state.currentTime * pps;
+            playheadTop.style.left = `${px}px`;
+            playheadTop.style.marginLeft = '0';
+            playheadLine.style.left = `${px}px`;
+            playheadLine.style.marginLeft = '0';
+
+            // Auto-scroll timeline to keep playhead in view during playback
+            if (state.isPlaying && !state.isExporting) {
+                const containerWidth = timelineScrollContainer.clientWidth;
+                const scrollLeft = timelineScrollContainer.scrollLeft;
+                if (px > scrollLeft + containerWidth - 100) {
+                    timelineScrollContainer.scrollLeft = px - containerWidth + 100;
+                }
+            }
+        }
+
+        function play() {
+            if (state.isPlaying) return;
+            initAudioContext();
+            if(audioCtx.state === 'suspended') audioCtx.resume();
+            if (state.currentTime >= state.duration) state.currentTime = 0;
+
+            state.isPlaying = true;
+            lastTime = performance.now();
+            
+            document.getElementById('icon-play').classList.add('hidden');
+            document.getElementById('icon-pause').classList.remove('hidden');
+
+            state.audio.forEach(track => {
+                if (track.start < state.duration && track.end > state.currentTime) {
+                    const source = audioCtx.createBufferSource();
+                    source.buffer = track.buffer;
+                    const gain = audioCtx.createGain();
+                    gain.gain.value = track.volume;
+                    
+                    source.connect(gain);
+                    gain.connect(audioCtx.destination);
+
+                    let delay = Math.max(0, track.start - state.currentTime);
+                    let timeInTrack = Math.max(0, state.currentTime - track.start);
+                    let offset = (track.sourceOffset || 0) + timeInTrack;
+                    let durationToPlay = track.end - Math.max(state.currentTime, track.start);
+                    
+                    source.start(audioCtx.currentTime + delay, offset, durationToPlay);
+                    activeAudioNodes.push({ id: track.id, source, gain });
+                }
+            });
+            loop();
+        }
+
+        function pause() {
+            state.isPlaying = false;
+            cancelAnimationFrame(animationFrameId);
+            
+            document.getElementById('icon-play').classList.remove('hidden');
+            document.getElementById('icon-pause').classList.add('hidden');
+
+            activeAudioNodes.forEach(node => { try { node.source.stop(); } catch(e) {} });
+            activeAudioNodes = [];
+            
+            renderCanvas(state.currentTime);
+        }
+
+        function stop() {
+            pause();
+            state.currentTime = 0;
+            updatePlayheadUI();
+            renderCanvas(state.currentTime);
+            timelineScrollContainer.scrollLeft = 0;
+        }
+
+        function loop() {
+            if (!state.isPlaying) return;
+            const now = performance.now();
+            const delta = (now - lastTime) / 1000;
+            lastTime = now;
+
+            state.currentTime += delta;
+
+            if (state.currentTime >= state.duration) {
+                if (!state.isExporting) {
+                    pause();
+                    state.currentTime = state.duration;
+                }
+            }
+
+            updatePlayheadUI();
+            renderCanvas(state.currentTime);
+            if (state.isPlaying) animationFrameId = requestAnimationFrame(loop);
+        }
+
+        // --- 4. Audio Generation & Zoom Setup ---
+        function getWaveformURL(buffer, color) {
+            const canvas = document.createElement('canvas');
+            canvas.width = 1000; 
+            canvas.height = 40; 
+            const ctx = canvas.getContext('2d');
+            const data = buffer.getChannelData(0);
+            const step = Math.ceil(data.length / canvas.width);
+            const amp = canvas.height / 2;
+            
+            ctx.fillStyle = color;
+            for(let i=0; i<canvas.width; i++) {
+                let min = 1.0; let max = -1.0;
+                for(let j=0; j<step; j++) {
+                    const idx = (i*step)+j;
+                    if (idx < data.length) {
+                        const datum = data[idx];
+                        if(datum < min) min = datum;
+                        if(datum > max) max = datum;
+                    }
+                }
+                ctx.fillRect(i, (1+min)*amp, 1, Math.max(1, (max-min)*amp));
+            }
+            return canvas.toDataURL();
+        }
+
+        document.getElementById('btn-zoom-in').addEventListener('click', () => { state.zoom = Math.min(state.zoom + 0.5, 10); renderTimeline(); updatePlayheadUI(); });
+        document.getElementById('btn-zoom-out').addEventListener('click', () => { state.zoom = Math.max(state.zoom - 0.5, 0.5); renderTimeline(); updatePlayheadUI(); });
+
+        // Sync Vertical Scroll between bodies and headers
+        timelineScrollContainer.addEventListener('scroll', (e) => {
+            trackHeaders.scrollTop = e.target.scrollTop;
+        });
+
+        // --- 5. Timeline & UI Rendering ---
+        function selectItem(id) {
+            state.selectedId = id;
+            renderTimeline();
+            renderProperties();
+        }
+
+        function renderTimeline() {
+            const pps = 50 * state.zoom;
+            const totalWidth = state.duration * pps;
+            
+            // Adjust Container Widths & Background scaling
+            timelineInner.style.width = `${Math.max(totalWidth, timelineScrollContainer.clientWidth)}px`;
+            timelineRuler.style.backgroundSize = `${pps}px 100%`;
+            trackBodies.style.backgroundSize = `${pps}px 100%`;
+
+            trackHeaders.innerHTML = '';
+            
+            const playhead = document.getElementById('playhead-line');
+            trackBodies.innerHTML = '';
+            trackBodies.appendChild(playhead);
+
+            const allTracks = [...state.texts, ...state.audio];
+            if (allTracks.length === 0) {
+                trackBodies.innerHTML += `<div class="absolute inset-0 flex items-center justify-center text-gray-600 text-sm italic pointer-events-none">Timeline empty. Add text or audio.</div>`;
+            }
+
+            allTracks.forEach((item, index) => {
+                const isText = 'text' in item;
+                const isSelected = item.id === state.selectedId;
+                const typeIcon = isText ? 'type' : 'music';
+                
+                let label = isText ? `${item.text.substring(0, 15).replace('\n',' ')}...` : `${item.name.substring(0, 20)}`;
+
+                // Header Generation
+                const headerDiv = document.createElement('div');
+                headerDiv.className = `h-12 border-b border-mac-border flex items-center px-3 gap-2 cursor-pointer transition-colors ${isSelected ? 'bg-mac-blue/20 border-r-2 border-r-mac-blue' : 'hover:bg-white/5'}`;
+                headerDiv.onclick = () => selectItem(item.id);
+                headerDiv.innerHTML = `
+                    <div class="w-6 h-6 rounded bg-black/30 flex items-center justify-center shrink-0">
+                        <i data-lucide="${typeIcon}" class="w-3.5 h-3.5 ${isText?'text-blue-400':'text-green-400'}"></i>
+                    </div>
+                    <span class="text-xs text-gray-300 truncate w-full pointer-events-none">${label}</span>
+                    <button class="text-gray-500 hover:text-red-400 shrink-0 delete-btn p-1" data-id="${item.id}" title="Delete Track">
+                        <i data-lucide="trash-2" class="w-3.5 h-3.5 pointer-events-none"></i>
+                    </button>
+                `;
+                trackHeaders.appendChild(headerDiv);
+
+                // Body Track Row & Block Generation
+                const rowDiv = document.createElement('div');
+                rowDiv.className = `h-12 border-b border-mac-border relative ${isSelected ? 'bg-white/5' : ''}`;
+                
+                const duration = item.end - item.start;
+                const width = duration * pps;
+                const left = item.start * pps;
+
+                const blockDiv = document.createElement('div');
+                blockDiv.dataset.id = item.id;
+                
+                // Color & Base styles
+                let typeColor = isText ? 'bg-blue-500/20 text-blue-100 border-blue-500/50' : 'text-green-100 border-green-500/50';
+                blockDiv.className = `track-block cursor-grab absolute top-1.5 bottom-1.5 rounded border shadow-md overflow-hidden flex flex-col justify-center px-2 ${typeColor} ${isSelected ? 'ring-2 ring-white ring-offset-1 ring-offset-mac-dark z-20' : 'z-10'} hover:brightness-110`;
+                
+                blockDiv.style.left = `${left}px`;
+                blockDiv.style.width = `${Math.max(width, 10)}px`;
+
+                // Waveform integration
+                if (!isText) {
+                    blockDiv.style.backgroundColor = '#064e3b'; // Base dark emerald
+                    blockDiv.style.backgroundImage = `linear-gradient(rgba(0,0,0,0.3), rgba(0,0,0,0.3)), url(${item.waveform})`;
+                    blockDiv.style.backgroundSize = `${item.buffer.duration * pps}px 100%`;
+                    blockDiv.style.backgroundPosition = `${-(item.sourceOffset || 0) * pps}px center`;
+                    blockDiv.style.backgroundRepeat = 'no-repeat';
+                }
+
+                blockDiv.innerHTML = `
+                    <span class="text-[11px] font-medium truncate whitespace-nowrap opacity-90 drop-shadow-md z-10 pointer-events-none select-none">${label}</span>
+                    <div class="absolute left-0 w-2.5 top-0 bottom-0 cursor-ew-resize hover:bg-white/40 resize-handle z-20 flex items-center justify-center transition-colors" data-id="${item.id}" data-action="trim-left">
+                        <div class="w-0.5 h-3 bg-white/60 rounded pointer-events-none"></div>
+                    </div>
+                    <div class="absolute right-0 w-2.5 top-0 bottom-0 cursor-ew-resize hover:bg-white/40 resize-handle z-20 flex items-center justify-center transition-colors" data-id="${item.id}" data-action="trim-right">
+                        <div class="w-0.5 h-3 bg-white/60 rounded pointer-events-none"></div>
+                    </div>
+                `;
+                
+                rowDiv.appendChild(blockDiv);
+                trackBodies.appendChild(rowDiv);
+            });
+
+            lucide.createIcons();
+
+            document.querySelectorAll('.delete-btn').forEach(btn => {
+                btn.onclick = (e) => {
+                    e.stopPropagation();
+                    const id = e.currentTarget.getAttribute('data-id');
+                    state.texts = state.texts.filter(t => t.id !== id);
+                    state.audio = state.audio.filter(a => a.id !== id);
+                    if (state.selectedId === id) { state.selectedId = null; renderProperties(); }
+                    renderTimeline();
+                    renderCanvas(state.currentTime);
+                }
+            });
+        }
+
+        // Properties Panel Helper
+        function createInputGroup(label, id, type, value, options = {}) {
+            let inputHtml = '';
+            if (type === 'select') {
+                inputHtml = `<select id="${id}" class="w-full bg-mac-dark border border-mac-border rounded px-2 py-1.5 text-xs text-white focus:outline-none focus:border-mac-blue transition-colors">
+                    ${options.choices.map(c => `<option value="${c.value}" ${c.value === value ? 'selected' : ''}>${c.label}</option>`).join('')}
+                </select>`;
+            } else if (type === 'textarea') {
+                inputHtml = `<textarea id="${id}" rows="2" class="w-full bg-mac-dark border border-mac-border rounded px-2 py-1.5 text-xs text-white focus:outline-none focus:border-mac-blue resize-none transition-colors">${value}</textarea>`;
+            } else {
+                let extra = type === 'number' ? `min="${options.min||0}" max="${options.max||1000}" step="${options.step||1}"` : '';
+                inputHtml = `<input type="${type}" id="${id}" value="${value}" ${extra} class="w-full bg-mac-dark border border-mac-border rounded px-2 py-1.5 text-xs text-white focus:outline-none focus:border-mac-blue transition-colors ${type==='color' ? 'h-8 p-0.5' : ''}">`;
+            }
+            return `<div class="mb-3"><label class="block text-xs text-gray-400 mb-1 font-medium">${label}</label>${inputHtml}</div>`;
+        }
+
+        function renderProperties() {
+            if (!state.selectedId) {
+                propertiesPanel.innerHTML = `
+                    <div class="text-gray-500 text-center mt-10">
+                        <i data-lucide="mouse-pointer-click" class="w-8 h-8 mx-auto mb-3 opacity-50"></i>
+                        Select a track to edit.
+                    </div>
+                `;
+                lucide.createIcons();
+                return;
+            }
+
+            const textItem = state.texts.find(t => t.id === state.selectedId);
+            const audioItem = state.audio.find(a => a.id === state.selectedId);
+            let html = '';
+
+            if (textItem) {
+                html += `<div class="font-semibold text-gray-200 mb-4 pb-2 border-b border-white/10 flex items-center gap-2"><i data-lucide="type" class="w-4 h-4"></i> Text Properties</div>`;
+                html += createInputGroup('Text Content', 'prop-text', 'textarea', textItem.text);
+                
+                html += `<div class="grid grid-cols-2 gap-2">`;
+                html += createInputGroup('Font', 'prop-font', 'select', textItem.font, {
+                    choices: [{value: 'Arial', label: 'Arial'}, {value: 'Courier New', label: 'Courier New'}, {value: 'Impact', label: 'Impact'}, {value: 'Times New Roman', label: 'Times'}, {value: 'Helvetica', label: 'Helvetica'}, {value: 'Verdana', label: 'Verdana'}]
+                });
+                html += createInputGroup('Size', 'prop-size', 'number', textItem.size, {min: 10, max: 300});
+                html += `</div>`;
+
+                html += `<div class="grid grid-cols-2 gap-2">`;
+                html += createInputGroup('Color', 'prop-color', 'color', textItem.color);
+                html += `</div>`;
+
+                html += `<div class="grid grid-cols-2 gap-2">`;
+                html += createInputGroup('Position X (%)', 'prop-x', 'number', textItem.x, {min: 0, max: 100});
+                html += createInputGroup('Position Y (%)', 'prop-y', 'number', textItem.y, {min: 0, max: 100});
+                html += `</div>`;
+
+                html += `<div class="grid grid-cols-2 gap-2 mt-2">`;
+                html += createInputGroup('Start (s)', 'prop-start', 'number', textItem.start.toFixed(2), {min: 0, max: state.duration, step: 0.1});
+                html += createInputGroup('End (s)', 'prop-end', 'number', textItem.end.toFixed(2), {min: 0, max: state.duration, step: 0.1});
+                html += `</div>`;
+
+                html += `<div class="mt-4 font-semibold text-gray-200 mb-2 pb-1 border-b border-white/10 text-xs">Animations</div>`;
+                html += createInputGroup('In Animation', 'prop-animIn', 'select', textItem.animIn, {
+                    choices: [{value:'none', label:'None'}, {value:'fade', label:'Fade'}, {value:'slideUp', label:'Slide Up'}, {value:'scale', label:'Scale In'}, {value:'drop', label:'Drop In'}]
+                });
+                html += createInputGroup('Loop Animation', 'prop-animLoop', 'select', textItem.animLoop, {
+                    choices: [{value:'none', label:'None'}, {value:'pulse', label:'Pulse'}, {value:'float', label:'Float'}, {value:'wave', label:'Wave'}]
+                });
+                html += createInputGroup('Out Animation', 'prop-animOut', 'select', textItem.animOut, {
+                    choices: [{value:'none', label:'None'}, {value:'fade', label:'Fade'}, {value:'slideDown', label:'Slide Down'}, {value:'scale', label:'Scale Out'}]
+                });
+            } else if (audioItem) {
+                html += `<div class="font-semibold text-gray-200 mb-4 pb-2 border-b border-white/10 flex items-center gap-2"><i data-lucide="music" class="w-4 h-4"></i> Audio Properties</div>`;
+                html += `<div class="text-xs text-gray-400 mb-4 break-words" title="${audioItem.name}">File: ${audioItem.name}</div>`;
+                
+                html += createInputGroup('Track Type', 'prop-type', 'select', audioItem.type, {
+                    choices: [{value:'music', label:'Music'}, {value:'dialog', label:'Dialog'}, {value:'sfx', label:'SFX'}, {value:'background', label:'Background'}]
+                });
+                
+                html += `<div class="grid grid-cols-2 gap-2 mt-2">`;
+                html += createInputGroup('Start (s)', 'prop-start', 'number', audioItem.start.toFixed(2), {min: 0, max: state.duration, step: 0.1});
+                html += createInputGroup('End (s)', 'prop-end', 'number', audioItem.end.toFixed(2), {min: 0, max: state.duration, step: 0.1});
+                html += `</div>`;
+                
+                html += `
+                    <div class="mb-3 mt-2">
+                        <label class="block text-xs text-gray-400 mb-1 font-medium">Volume (${Math.round(audioItem.volume*100)}%)</label>
+                        <input type="range" id="prop-volume" min="0" max="2" step="0.05" value="${audioItem.volume}" class="w-full">
+                    </div>
+                `;
+            }
+
+            propertiesPanel.innerHTML = html;
+            lucide.createIcons();
+
+            const bindInput = (id, key, parser = (v)=>v) => {
+                const el = document.getElementById(id);
+                if (el) {
+                    el.addEventListener('input', (e) => {
+                        const val = parser(e.target.value);
+                        if (textItem) textItem[key] = val;
+                        if (audioItem) audioItem[key] = val;
+                        
+                        const item = textItem || audioItem;
+                        if (key === 'start' && item.start >= item.end) item.end = item.start + 0.5;
+                        if (key === 'end' && item.end <= item.start) item.start = Math.max(0, item.end - 0.5);
+
+                        renderTimeline();
+                        renderCanvas(state.currentTime);
+                    });
+                }
+            };
+
+            if (textItem) {
+                bindInput('prop-text', 'text'); bindInput('prop-font', 'font'); bindInput('prop-size', 'size', Number);
+                bindInput('prop-color', 'color'); bindInput('prop-x', 'x', Number); bindInput('prop-y', 'y', Number);
+                bindInput('prop-start', 'start', Number); bindInput('prop-end', 'end', Number);
+                bindInput('prop-animIn', 'animIn'); bindInput('prop-animLoop', 'animLoop'); bindInput('prop-animOut', 'animOut');
+            }
+            if (audioItem) {
+                bindInput('prop-type', 'type'); bindInput('prop-start', 'start', Number); bindInput('prop-end', 'end', Number);
+                
+                const volEl = document.getElementById('prop-volume');
+                if (volEl) {
+                    volEl.addEventListener('input', (e) => {
+                        volEl.previousElementSibling.innerText = `Volume (${Math.round(e.target.value*100)}%)`;
+                        audioItem.volume = Number(e.target.value);
+                        activeAudioNodes.forEach(node => { if (node.id === audioItem.id) node.gain.gain.value = audioItem.volume; });
+                    });
+                }
+            }
+        }
+
+        // --- 6. Interactions, Dragging & Events ---
+        document.getElementById('btn-play-pause').addEventListener('click', () => { state.isPlaying ? pause() : play(); });
+        document.getElementById('btn-stop').addEventListener('click', stop);
+
+        document.getElementById('btn-add-text').addEventListener('click', () => {
+            const newText = {
+                id: generateId(), text: 'NEW TEXT', font: 'Impact', size: 100, color: '#ffffff',
+                x: 50, y: 50, start: state.currentTime, end: Math.min(state.currentTime + 3, state.duration),
+                animIn: 'scale', animLoop: 'none', animOut: 'fade'
+            };
+            state.texts.push(newText);
+            selectItem(newText.id);
+            renderTimeline(); renderCanvas(state.currentTime);
+        });
+
+        document.getElementById('input-audio').addEventListener('change', async (e) => {
+            const file = e.target.files[0];
+            if (!file) return;
+
+            initAudioContext();
+            const origHTML = propertiesPanel.innerHTML;
+            propertiesPanel.innerHTML = `<div class="p-4 text-center text-sm text-mac-blue animate-pulse flex flex-col items-center"><i data-lucide="loader" class="animate-spin mb-2 w-6 h-6"></i>Processing Audio...</div>`;
+            lucide.createIcons();
+            
+            try {
+                const arrayBuffer = await file.arrayBuffer();
+                const audioBuffer = await audioCtx.decodeAudioData(arrayBuffer);
+                const waveDataURL = getWaveformURL(audioBuffer, 'rgba(74, 222, 128, 0.8)'); // Tailwind green-400
+                
+                const newAudio = {
+                    id: generateId(), name: file.name, type: 'music', buffer: audioBuffer,
+                    start: state.currentTime, end: Math.min(state.currentTime + audioBuffer.duration, state.duration),
+                    sourceOffset: 0, volume: 1, waveform: waveDataURL
+                };
+                
+                state.audio.push(newAudio);
+                selectItem(newAudio.id);
+                renderTimeline();
+            } catch (err) {
+                alert("Error decoding audio. File might be corrupted or unsupported format.");
+                propertiesPanel.innerHTML = origHTML;
+            }
+            e.target.value = '';
+        });
+
+        // Drag & Drop & Timeline Seeking logic
+        trackBodies.addEventListener('mousedown', e => {
+            const handle = e.target.closest('.resize-handle');
+            const block = e.target.closest('.track-block');
+            
+            if (handle || block) {
+                const target = handle || block;
+                drag.active = true;
+                drag.wasDragged = false;
+                drag.id = target.dataset.id;
+                drag.action = handle ? target.dataset.action : 'move';
+                drag.startX = e.clientX;
+                
+                const item = state.texts.find(t=>t.id === drag.id) || state.audio.find(a=>a.id === drag.id);
+                drag.initStart = item.start;
+                drag.initEnd = item.end;
+                drag.initOffset = item.sourceOffset || 0;
+                
+                if (state.isPlaying) pause();
+                if (block && drag.id !== state.selectedId) selectItem(drag.id);
+
+                if(block && !handle) block.classList.add('cursor-grabbing');
+                
+                e.preventDefault();
+            } else {
+                // Clicking empty space -> Seek
+                const rect = trackBodies.getBoundingClientRect();
+                const pps = 50 * state.zoom;
+                const x = e.clientX - rect.left + timelineScrollContainer.scrollLeft;
+                state.currentTime = Math.min(state.duration, Math.max(0, x / pps));
+                updatePlayheadUI();
+                renderCanvas(state.currentTime);
+            }
+        });
+
+        window.addEventListener('mousemove', e => {
+            if (!drag.active) return;
+            drag.wasDragged = true;
+            
+            const pps = 50 * state.zoom;
+            const dx = e.clientX - drag.startX;
+            const dt = dx / pps;
+            
+            const item = state.texts.find(t=>t.id === drag.id) || state.audio.find(a=>a.id === drag.id);
+            if (!item) return;
+            
+            if (drag.action === 'move') {
+                let duration = drag.initEnd - drag.initStart;
+                let newStart = Math.max(0, drag.initStart + dt);
+                item.start = newStart;
+                item.end = newStart + duration;
+            } else if (drag.action === 'trim-left') {
+                let newStart = drag.initStart + dt;
+                if (newStart > item.end - 0.2) newStart = item.end - 0.2;
+                if (newStart < 0) newStart = 0;
+                
+                let timeDiff = newStart - drag.initStart;
+                item.start = newStart;
+                
+                if (item.buffer) {
+                    item.sourceOffset = drag.initOffset + timeDiff;
+                    if (item.sourceOffset < 0) {
+                        item.start = drag.initStart + drag.initOffset;
+                        item.sourceOffset = 0;
+                    }
+                }
+            } else if (drag.action === 'trim-right') {
+                let newEnd = drag.initEnd + dt;
+                if (newEnd < item.start + 0.2) newEnd = item.start + 0.2;
+                if (newEnd > state.duration) newEnd = state.duration;
+                
+                if (item.buffer) {
+                    let maxEnd = item.start + (item.buffer.duration - item.sourceOffset);
+                    if (newEnd > maxEnd) newEnd = maxEnd;
+                }
+                item.end = newEnd;
+            }
+            
+            renderTimeline();
+            renderProperties(); // Keep inputs in sync
+            
+            // Preview update
+            state.currentTime = drag.action === 'trim-right' ? item.end : item.start;
+            updatePlayheadUI();
+            renderCanvas(state.currentTime);
+        });
+
+        window.addEventListener('mouseup', () => {
+            if(drag.active) {
+                const blocks = document.querySelectorAll('.track-block');
+                blocks.forEach(b => b.classList.remove('cursor-grabbing'));
+                setTimeout(() => { drag.active = false; drag.wasDragged = false; }, 0);
+            }
+        });
+
+        // --- 7. Export to WebM ---
+        document.getElementById('btn-export').addEventListener('click', async () => {
+            if (state.isPlaying) stop();
+            initAudioContext();
+            
+            const overlay = document.getElementById('export-overlay');
+            const progress = document.getElementById('export-progress');
+            overlay.classList.remove('hidden'); overlay.classList.add('flex');
+            progress.style.width = '0%';
+
+            state.isExporting = true;
+            state.currentTime = 0;
+
+            const canvasStream = canvas.captureStream(30);
+            const mediaStreamDest = audioCtx.createMediaStreamDestination();
+            
+            const dummyOsc = audioCtx.createOscillator();
+            const dummyGain = audioCtx.createGain(); dummyGain.gain.value = 0;
+            dummyOsc.connect(dummyGain); dummyGain.connect(mediaStreamDest);
+            dummyOsc.start();
+
+            const combinedStream = new MediaStream([...canvasStream.getVideoTracks(), ...mediaStreamDest.stream.getAudioTracks()]);
+
+            let mimeType = MediaRecorder.isTypeSupported('video/webm;codecs=vp8,opus') ? 'video/webm;codecs=vp8,opus' : 'video/webm';
+            const recorder = new MediaRecorder(combinedStream, { mimeType });
+            const chunks = [];
+
+            recorder.ondataavailable = e => { if (e.data.size > 0) chunks.push(e.data); };
+            recorder.onstop = () => {
+                const blob = new Blob(chunks, { type: mimeType });
+                const url = URL.createObjectURL(blob);
+                const a = document.createElement('a'); a.href = url; a.download = 'MotionCanvas_Export.webm'; a.click();
+                URL.revokeObjectURL(url);
+                overlay.classList.add('hidden'); overlay.classList.remove('flex');
+                state.isExporting = false; stop(); dummyOsc.stop();
+            };
+
+            recorder.start(100);
+
+            state.audio.forEach(track => {
+                if (track.start < state.duration) {
+                    const source = audioCtx.createBufferSource(); source.buffer = track.buffer;
+                    const gain = audioCtx.createGain(); gain.gain.value = track.volume;
+                    source.connect(gain); gain.connect(mediaStreamDest);
+                    
+                    let delay = track.start;
+                    let durationToPlay = track.end - track.start;
+                    source.start(audioCtx.currentTime + delay, track.sourceOffset || 0, durationToPlay);
+                    activeAudioNodes.push({ source, gain });
+                }
+            });
+
+            let startTime = performance.now();
+            function exportLoop() {
+                if (!state.isExporting) return;
+                state.currentTime = (performance.now() - startTime) / 1000;
+                
+                if (state.currentTime >= state.duration) {
+                    state.currentTime = state.duration; renderCanvas(state.currentTime);
+                    progress.style.width = '100%'; setTimeout(() => recorder.stop(), 500); return;
+                }
+                renderCanvas(state.currentTime); updatePlayheadUI();
+                progress.style.width = `${(state.currentTime / state.duration) * 100}%`;
+                requestAnimationFrame(exportLoop);
+            }
+            exportLoop();
+        });
+
+        // --- Init ---
+        
+        // Add Mock texts
+        state.texts.push(
+            { id: generateId(), text: 'Welcome to', font: 'Impact', size: 100, color: '#ffffff', x: 50, y: 38, start: 0, end: 3, animIn: 'scale', animLoop: 'none', animOut: 'slideDown' },
+            { id: generateId(), text: 'MotionCanvas', font: 'Impact', size: 140, color: '#0a84ff', x: 50, y: 58, start: 0.5, end: 3.5, animIn: 'slideUp', animLoop: 'float', animOut: 'fade' },
+            { id: generateId(), text: 'Create Stunning\nText Animations', font: 'Arial', size: 80, color: '#4ade80', x: 50, y: 50, start: 4, end: 8, animIn: 'drop', animLoop: 'pulse', animOut: 'scale' }
+        );
+
+        renderTimeline();
+        renderCanvas(0);
+        updatePlayheadUI();
+
+    </script>
+</body>
+</html>

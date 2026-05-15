@@ -1,0 +1,800 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+    <title>Editorial Post Creator Studio</title>
+    
+    <!-- Google Fonts -->
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;600;800;900&family=Merriweather:ital,wght@0,400;0,700;1,400&family=Space+Grotesk:wght@500;700&display=swap" rel="stylesheet">
+
+    <!-- Tailwind CSS -->
+    <script src="https://cdn.tailwindcss.com"></script>
+    <script>
+        tailwind.config = {
+            theme: {
+                extend: {
+                    fontFamily: {
+                        sans: ['Inter', 'sans-serif'],
+                        editorial: ['Space Grotesk', 'sans-serif'],
+                        serif: ['Merriweather', 'serif'],
+                    },
+                    colors: {
+                        studio: {
+                            50: '#f8fafc',
+                            100: '#f1f5f9',
+                            200: '#e2e8f0',
+                            300: '#cbd5e1',
+                            800: '#1e293b',
+                            900: '#0f172a',
+                        },
+                        highlighter: {
+                            yellow: '#fde047',
+                            pink: '#f9a8d4',
+                            green: '#86efac'
+                        }
+                    }
+                }
+            }
+        }
+    </script>
+
+    <!-- Phosphor Icons -->
+    <script src="https://unpkg.com/@phosphor-icons/web"></script>
+    <!-- Fabric.js for Advanced Canvas Manipulation -->
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/fabric.js/5.3.1/fabric.min.js"></script>
+
+    <style>
+        body { overscroll-behavior-y: none; }
+        
+        /* Custom ranges */
+        input[type=range] {
+            -webkit-appearance: none;
+            width: 100%;
+            background: transparent;
+        }
+        input[type=range]::-webkit-slider-thumb {
+            -webkit-appearance: none;
+            height: 16px;
+            width: 16px;
+            border-radius: 50%;
+            background: #0f172a;
+            cursor: pointer;
+            margin-top: -6px;
+            box-shadow: 0 1px 3px rgba(0,0,0,0.3);
+        }
+        input[type=range]::-webkit-slider-runnable-track {
+            width: 100%;
+            height: 4px;
+            cursor: pointer;
+            background: #cbd5e1;
+            border-radius: 2px;
+        }
+        
+        /* Color input styling */
+        input[type="color"] {
+            -webkit-appearance: none;
+            border: none;
+            width: 100%;
+            height: 100%;
+            padding: 0;
+            cursor: pointer;
+            background: transparent;
+        }
+        input[type="color"]::-webkit-color-swatch-wrapper { padding: 0; }
+        input[type="color"]::-webkit-color-swatch { border: none; border-radius: 4px; }
+
+        /* Canvas Wrapper Checkered BG */
+        .canvas-bg {
+            background-color: #e2e8f0;
+            background-image: linear-gradient(45deg, #cbd5e1 25%, transparent 25%, transparent 75%, #cbd5e1 75%, #cbd5e1), 
+                              linear-gradient(45deg, #cbd5e1 25%, transparent 25%, transparent 75%, #cbd5e1 75%, #cbd5e1);
+            background-size: 20px 20px;
+            background-position: 0 0, 10px 10px;
+        }
+
+        /* Fabric canvas overrides to ensure centering */
+        .canvas-container {
+            margin: 0 auto;
+            box-shadow: 0 25px 50px -12px rgba(0, 0, 0, 0.25);
+            transition: transform 0.1s ease-out;
+            transform-origin: center center;
+        }
+    </style>
+</head>
+<body class="bg-studio-50 text-slate-800 h-screen flex flex-col overflow-hidden font-sans">
+
+    <!-- HEADER -->
+    <header class="h-16 bg-white border-b border-studio-200 flex items-center justify-between px-6 flex-shrink-0 z-20 shadow-sm">
+        <div class="flex items-center gap-3">
+            <div class="bg-studio-900 text-white p-2 rounded">
+                <i class="ph-bold ph-newspaper-clipping text-xl"></i>
+            </div>
+            <div>
+                <h1 class="text-lg font-black text-studio-900 tracking-tight leading-none uppercase">Editorial Creator</h1>
+                <p class="text-[10px] font-bold text-slate-400 uppercase tracking-widest mt-0.5">Post Studio Pro</p>
+            </div>
+        </div>
+
+        <div class="flex items-center gap-4">
+            <div class="flex items-center gap-2 border-r border-studio-200 pr-4">
+                <button onclick="canvas.undo()" class="p-2 text-slate-400 hover:text-studio-900 hover:bg-studio-100 rounded transition hidden" id="btn-undo" title="Undo">
+                    <i class="ph-bold ph-arrow-u-up-left text-lg"></i>
+                </button>
+                <button onclick="deleteSelected()" class="flex items-center gap-2 px-3 py-1.5 text-sm font-semibold text-red-500 hover:bg-red-50 border border-red-200 rounded transition" title="Delete Selected">
+                    <i class="ph-bold ph-trash"></i> Delete
+                </button>
+            </div>
+            
+            <div class="flex items-center gap-2">
+                <select id="export-res" class="bg-studio-50 border border-studio-200 text-studio-900 font-bold px-3 py-1.5 rounded outline-none cursor-pointer text-sm">
+                    <option value="1">HD (1080p)</option>
+                    <option value="1.333">2K (1440p)</option>
+                    <option value="2" selected>4K (2160p)</option>
+                </select>
+                <button id="btn-export" class="flex items-center gap-2 px-5 py-1.5 bg-studio-900 text-white font-bold rounded hover:bg-studio-800 transition-colors text-sm shadow-md">
+                    <i class="ph-bold ph-download-simple"></i> Export PNG
+                </button>
+            </div>
+        </div>
+    </header>
+
+    <!-- MAIN APP -->
+    <main class="flex-1 flex overflow-hidden">
+        
+        <!-- SIDEBAR -->
+        <aside class="w-[340px] bg-white border-r border-studio-200 flex flex-col z-10 flex-shrink-0 shadow-[4px_0_24px_rgba(0,0,0,0.02)]">
+            
+            <!-- Tabs -->
+            <div class="flex border-b border-studio-200">
+                <button class="tab-btn flex-1 py-3 text-xs font-bold uppercase tracking-wider text-studio-900 border-b-2 border-studio-900 bg-studio-50" data-target="tab-elements">Elements</button>
+                <button class="tab-btn flex-1 py-3 text-xs font-bold uppercase tracking-wider text-slate-400 border-b-2 border-transparent hover:text-studio-900 transition" data-target="tab-draw">Draw</button>
+                <button class="tab-btn flex-1 py-3 text-xs font-bold uppercase tracking-wider text-slate-400 border-b-2 border-transparent hover:text-studio-900 transition" data-target="tab-canvas">Canvas</button>
+            </div>
+
+            <div class="flex-1 overflow-y-auto p-5 custom-scrollbar">
+                
+                <!-- ELEMENTS TAB -->
+                <div id="tab-elements" class="tab-content flex flex-col gap-6">
+                    
+                    <div class="flex flex-col gap-3">
+                        <label class="text-[10px] font-black text-slate-400 uppercase tracking-widest">Add Media</label>
+                        <button onclick="document.getElementById('image-upload').click()" class="w-full py-3 bg-studio-50 border-2 border-dashed border-studio-300 rounded-lg text-sm font-bold text-studio-900 hover:bg-studio-100 hover:border-studio-900 transition flex items-center justify-center gap-2">
+                            <i class="ph-bold ph-image text-lg"></i> Upload Image
+                        </button>
+                        <input type="file" id="image-upload" accept="image/*" class="hidden" onchange="handleImageUpload(event)">
+                    </div>
+
+                    <div class="flex flex-col gap-3">
+                        <label class="text-[10px] font-black text-slate-400 uppercase tracking-widest">Typography</label>
+                        <div class="grid grid-cols-2 gap-2">
+                            <button onclick="addText('Headline')" class="py-2 px-3 bg-white border border-studio-200 rounded text-left hover:border-studio-900 transition shadow-sm group">
+                                <span class="block text-lg font-black text-studio-900 group-hover:text-blue-600">Headline</span>
+                                <span class="text-[10px] text-slate-500">Bold & Large</span>
+                            </button>
+                            <button onclick="addText('Body')" class="py-2 px-3 bg-white border border-studio-200 rounded text-left hover:border-studio-900 transition shadow-sm group">
+                                <span class="block text-sm font-medium text-studio-900 mt-1 group-hover:text-blue-600">Body Text</span>
+                                <span class="text-[10px] text-slate-500">Regular info</span>
+                            </button>
+                        </div>
+                    </div>
+
+                    <hr class="border-studio-200">
+
+                    <!-- Contextual Object Settings (Shows when text is selected) -->
+                    <div id="text-properties" class="flex flex-col gap-4 opacity-50 pointer-events-none transition-opacity">
+                        <div class="flex items-center justify-between">
+                            <label class="text-[10px] font-black text-slate-400 uppercase tracking-widest">Text Properties</label>
+                            <span class="text-[10px] font-bold text-blue-500 bg-blue-50 px-2 py-0.5 rounded">Select text to edit</span>
+                        </div>
+                        
+                        <div>
+                            <label class="block text-xs font-semibold text-studio-800 mb-1.5">Font Family</label>
+                            <select id="font-family" class="w-full px-3 py-2 bg-studio-50 border border-studio-200 rounded text-sm text-studio-900 outline-none focus:border-studio-900" onchange="updateSelectedText('fontFamily', this.value)">
+                                <option value="Inter">Inter (Sans)</option>
+                                <option value="Space Grotesk">Space Grotesk (Editorial)</option>
+                                <option value="Merriweather">Merriweather (Serif)</option>
+                            </select>
+                        </div>
+                        
+                        <div class="grid grid-cols-2 gap-3">
+                            <div>
+                                <label class="block text-xs font-semibold text-studio-800 mb-1.5">Text Color</label>
+                                <div class="relative w-full h-9 border border-studio-200 rounded overflow-hidden">
+                                    <input type="color" id="text-color" value="#0f172a" oninput="updateSelectedText('fill', this.value)">
+                                </div>
+                            </div>
+                            <div>
+                                <label class="block text-xs font-semibold text-studio-800 mb-1.5">BG Highlight</label>
+                                <div class="relative w-full h-9 border border-studio-200 rounded overflow-hidden bg-white flex items-center">
+                                    <input type="color" id="text-bg-color" value="#fde047" oninput="updateSelectedText('textBackgroundColor', this.value)" class="w-3/4">
+                                    <button onclick="updateSelectedText('textBackgroundColor', '')" class="w-1/4 h-full border-l border-studio-200 hover:bg-studio-100 flex justify-center items-center text-red-500" title="Remove Highlight"><i class="ph-bold ph-x"></i></button>
+                                </div>
+                            </div>
+                        </div>
+
+                        <div>
+                            <div class="flex justify-between items-center mb-1.5">
+                                <label class="block text-xs font-semibold text-studio-800">Alignment</label>
+                            </div>
+                            <div class="flex bg-studio-50 border border-studio-200 rounded p-1 gap-1">
+                                <button onclick="updateSelectedText('textAlign', 'left')" class="flex-1 py-1.5 text-studio-800 hover:bg-white rounded transition"><i class="ph-bold ph-text-align-left text-lg mx-auto"></i></button>
+                                <button onclick="updateSelectedText('textAlign', 'center')" class="flex-1 py-1.5 text-studio-800 hover:bg-white rounded transition"><i class="ph-bold ph-text-align-center text-lg mx-auto"></i></button>
+                                <button onclick="updateSelectedText('textAlign', 'right')" class="flex-1 py-1.5 text-studio-800 hover:bg-white rounded transition"><i class="ph-bold ph-text-align-right text-lg mx-auto"></i></button>
+                            </div>
+                        </div>
+                    </div>
+
+                    <hr class="border-studio-200">
+
+                    <!-- Layering -->
+                    <div class="flex flex-col gap-3">
+                        <label class="text-[10px] font-black text-slate-400 uppercase tracking-widest">Layer Order</label>
+                        <div class="grid grid-cols-2 gap-2">
+                            <button onclick="bringForward()" class="py-2 bg-studio-50 border border-studio-200 rounded text-xs font-bold text-studio-800 hover:bg-white hover:border-studio-900 transition flex justify-center items-center gap-1"><i class="ph-bold ph-caret-up"></i> Bring Forward</button>
+                            <button onclick="sendBackward()" class="py-2 bg-studio-50 border border-studio-200 rounded text-xs font-bold text-studio-800 hover:bg-white hover:border-studio-900 transition flex justify-center items-center gap-1"><i class="ph-bold ph-caret-down"></i> Send Back</button>
+                        </div>
+                    </div>
+
+                </div>
+
+                <!-- DRAW TAB -->
+                <div id="tab-draw" class="tab-content flex flex-col gap-6 hidden">
+                    
+                    <!-- Mode Toggle -->
+                    <div class="flex bg-studio-100 p-1 rounded-lg">
+                        <button id="btn-mode-select" onclick="setInteraction('select')" class="flex-1 py-2 text-sm font-bold bg-white text-studio-900 shadow-sm rounded-md transition flex justify-center items-center gap-2">
+                            <i class="ph-bold ph-cursor"></i> Select
+                        </button>
+                        <button id="btn-mode-draw" onclick="setInteraction('draw')" class="flex-1 py-2 text-sm font-bold text-slate-500 hover:text-studio-900 rounded-md transition flex justify-center items-center gap-2">
+                            <i class="ph-bold ph-scribble-loop"></i> Draw
+                        </button>
+                    </div>
+
+                    <div id="draw-settings" class="flex flex-col gap-5 opacity-50 pointer-events-none transition-opacity">
+                        
+                        <div>
+                            <label class="block text-xs font-semibold text-studio-800 mb-2">Brush Type</label>
+                            <div class="grid grid-cols-2 gap-2">
+                                <button onclick="setBrushType('marker')" id="btn-brush-marker" class="py-2.5 bg-blue-50 border-2 border-blue-500 rounded text-sm font-bold text-blue-700 transition flex justify-center items-center gap-2">
+                                    <i class="ph-bold ph-highlighter text-lg"></i> Marker
+                                </button>
+                                <button onclick="setBrushType('pen')" id="btn-brush-pen" class="py-2.5 bg-white border border-studio-200 rounded text-sm font-bold text-studio-800 hover:border-studio-900 transition flex justify-center items-center gap-2">
+                                    <i class="ph-bold ph-pen text-lg"></i> Pen
+                                </button>
+                            </div>
+                            <p class="text-[10px] text-slate-500 mt-2 italic">* Marker is thick & translucent. Pen is solid.</p>
+                        </div>
+
+                        <div>
+                            <label class="block text-xs font-semibold text-studio-800 mb-2">Brush Color</label>
+                            <!-- Presets -->
+                            <div class="flex gap-2 mb-3">
+                                <button onclick="setBrushColor('#fde047')" class="w-8 h-8 rounded-full bg-highlighter-yellow ring-2 ring-offset-2 ring-transparent focus:ring-studio-400 hover:scale-110 transition shadow-sm"></button>
+                                <button onclick="setBrushColor('#f9a8d4')" class="w-8 h-8 rounded-full bg-highlighter-pink ring-2 ring-offset-2 ring-transparent focus:ring-studio-400 hover:scale-110 transition shadow-sm"></button>
+                                <button onclick="setBrushColor('#86efac')" class="w-8 h-8 rounded-full bg-highlighter-green ring-2 ring-offset-2 ring-transparent focus:ring-studio-400 hover:scale-110 transition shadow-sm"></button>
+                                <button onclick="setBrushColor('#ef4444')" class="w-8 h-8 rounded-full bg-red-500 ring-2 ring-offset-2 ring-transparent focus:ring-studio-400 hover:scale-110 transition shadow-sm"></button>
+                                <button onclick="setBrushColor('#0f172a')" class="w-8 h-8 rounded-full bg-studio-900 ring-2 ring-offset-2 ring-transparent focus:ring-studio-400 hover:scale-110 transition shadow-sm"></button>
+                            </div>
+                            <div class="relative w-full h-10 border border-studio-200 rounded overflow-hidden">
+                                <input type="color" id="custom-brush-color" value="#fde047" onchange="setBrushColor(this.value)">
+                            </div>
+                        </div>
+
+                        <div>
+                            <div class="flex justify-between items-center mb-2">
+                                <label class="block text-xs font-semibold text-studio-800">Brush Size</label>
+                                <span id="brush-size-label" class="text-xs font-bold text-blue-600">30px</span>
+                            </div>
+                            <input type="range" id="brush-size" min="1" max="100" value="30" oninput="updateBrush()">
+                        </div>
+
+                    </div>
+                </div>
+
+                <!-- CANVAS SETTINGS TAB -->
+                <div id="tab-canvas" class="tab-content flex flex-col gap-6 hidden">
+                    
+                    <div>
+                        <label class="block text-xs font-semibold text-studio-800 mb-2">Aspect Ratio</label>
+                        <select id="canvas-ratio" class="w-full px-3 py-2 bg-studio-50 border border-studio-200 rounded text-sm text-studio-900 outline-none focus:border-studio-900" onchange="updateCanvasSize(this.value)">
+                            <option value="1080x1350">Portrait (4:5) - Instagram</option>
+                            <option value="1080x1080">Square (1:1) - Social</option>
+                            <option value="1920x1080">Landscape (16:9) - Video/Web</option>
+                        </select>
+                    </div>
+
+                    <div>
+                        <label class="block text-xs font-semibold text-studio-800 mb-2">Background Color</label>
+                        <div class="relative w-full h-10 border border-studio-200 rounded overflow-hidden">
+                            <input type="color" id="canvas-bg-color" value="#f4f4f5" oninput="updateCanvasBackground()">
+                        </div>
+                    </div>
+
+                    <div>
+                        <label class="block text-xs font-semibold text-studio-800 mb-2">Background Pattern</label>
+                        <div class="grid grid-cols-2 gap-2">
+                            <button onclick="setBgPattern('none')" class="py-2 bg-white border border-studio-200 rounded text-sm font-medium hover:border-studio-900 transition">Solid</button>
+                            <button onclick="setBgPattern('grid')" class="py-2 bg-white border border-studio-200 rounded text-sm font-medium hover:border-studio-900 transition flex justify-center items-center gap-1"><i class="ph ph-grid-four"></i> Grid</button>
+                        </div>
+                    </div>
+
+                    <hr class="border-studio-200 mt-4">
+                    
+                    <button onclick="clearCanvas()" class="w-full py-2.5 bg-red-50 border border-red-200 text-red-600 rounded text-sm font-bold hover:bg-red-100 transition flex items-center justify-center gap-2">
+                        <i class="ph-bold ph-warning-circle"></i> Clear Entire Canvas
+                    </button>
+
+                </div>
+
+            </div>
+        </aside>
+
+        <!-- CANVAS WORKSPACE -->
+        <section class="flex-1 canvas-bg relative overflow-hidden flex items-center justify-center p-8">
+            
+            <!-- Zoom Controls Overlay -->
+            <div class="absolute bottom-6 right-6 bg-white shadow-lg border border-studio-200 rounded-lg flex items-center p-1 z-10">
+                <button onclick="zoomCanvas(-0.1)" class="p-2 text-studio-600 hover:text-studio-900 hover:bg-studio-50 rounded"><i class="ph-bold ph-minus"></i></button>
+                <span id="zoom-label" class="px-3 text-xs font-bold text-studio-900 min-w-[60px] text-center">100%</span>
+                <button onclick="zoomCanvas(0.1)" class="p-2 text-studio-600 hover:text-studio-900 hover:bg-studio-50 rounded"><i class="ph-bold ph-plus"></i></button>
+                <div class="w-px h-4 bg-studio-200 mx-1"></div>
+                <button onclick="fitCanvas()" class="p-2 text-studio-600 hover:text-blue-600 hover:bg-blue-50 rounded" title="Fit to screen"><i class="ph-bold ph-corners-out"></i></button>
+            </div>
+
+            <!-- The wrapper that scales visually -->
+            <div id="canvas-wrapper" class="relative">
+                <canvas id="editor-canvas"></canvas>
+            </div>
+            
+        </section>
+
+    </main>
+
+    <!-- Export Modal Overlay -->
+    <div id="export-overlay" class="fixed inset-0 bg-studio-900/80 backdrop-blur-sm z-[100] hidden flex-col items-center justify-center transition-opacity">
+        <div class="bg-white p-8 rounded-xl shadow-2xl flex flex-col items-center max-w-sm w-full text-center">
+            <div class="w-12 h-12 border-4 border-studio-100 border-t-studio-900 rounded-full animate-spin mb-4"></div>
+            <h2 class="text-xl font-black text-studio-900 mb-2">Rendering Masterpiece</h2>
+            <p class="text-sm text-slate-500 font-medium">Exporting high-resolution PNG...</p>
+        </div>
+    </div>
+
+    <script>
+        // --- Core State & Variables ---
+        let canvas;
+        let currentZoom = 1;
+        let currentBrushType = 'marker'; // 'marker' or 'pen'
+        let currentBrushColor = '#fde047';
+        let bgPatternType = 'none';
+
+        // --- Initialization ---
+        window.onload = () => {
+            initFabric();
+            setupTabs();
+            setupKeyboardShortcuts();
+            window.addEventListener('resize', fitCanvas);
+        };
+
+        function initFabric() {
+            canvas = new fabric.Canvas('editor-canvas', {
+                width: 1080,
+                height: 1350,
+                preserveObjectStacking: true,
+                selectionColor: 'rgba(59, 130, 246, 0.1)',
+                selectionBorderColor: '#3b82f6',
+                selectionLineWidth: 1
+            });
+
+            // Set default background
+            updateCanvasBackground();
+
+            // Default Fabric object settings to look clean
+            fabric.Object.prototype.set({
+                transparentCorners: false,
+                cornerColor: '#ffffff',
+                cornerStrokeColor: '#3b82f6',
+                borderColor: '#3b82f6',
+                cornerSize: 10,
+                padding: 5,
+                cornerStyle: 'circle'
+            });
+
+            // Event Listeners for UI updates
+            canvas.on('selection:created', handleSelection);
+            canvas.on('selection:updated', handleSelection);
+            canvas.on('selection:cleared', handleSelectionCleared);
+
+            // Setup default brush
+            updateBrush();
+            setInteraction('select');
+            
+            // Initial zoom fit
+            setTimeout(fitCanvas, 100);
+        }
+
+        // --- Layout & Zoom Management ---
+        function fitCanvas() {
+            const container = document.querySelector('.canvas-bg');
+            const wrapper = document.getElementById('canvas-wrapper');
+            
+            // 80px padding total
+            const padding = 80;
+            const availableW = container.clientWidth - padding;
+            const availableH = container.clientHeight - padding;
+
+            const scaleX = availableW / canvas.width;
+            const scaleY = availableH / canvas.height;
+            
+            // Fit to view
+            currentZoom = Math.min(scaleX, scaleY);
+            if (currentZoom > 1) currentZoom = 1; // Don't scale up past 100% initially
+            
+            applyZoom();
+        }
+
+        function zoomCanvas(delta) {
+            currentZoom += delta;
+            if(currentZoom < 0.1) currentZoom = 0.1;
+            if(currentZoom > 3) currentZoom = 3;
+            applyZoom();
+        }
+
+        function applyZoom() {
+            const wrapper = document.getElementById('canvas-wrapper');
+            wrapper.style.transform = `scale(${currentZoom})`;
+            document.getElementById('zoom-label').innerText = `${Math.round(currentZoom * 100)}%`;
+        }
+
+        function updateCanvasSize(dimensions) {
+            const [w, h] = dimensions.split('x').map(Number);
+            canvas.setWidth(w);
+            canvas.setHeight(h);
+            updateCanvasBackground(); // Re-apply bg to fill new area
+            fitCanvas();
+        }
+
+        // --- Background Management ---
+        function updateCanvasBackground() {
+            const color = document.getElementById('canvas-bg-color').value;
+            
+            if (bgPatternType === 'none') {
+                canvas.setBackgroundColor(color, canvas.renderAll.bind(canvas));
+            } else if (bgPatternType === 'grid') {
+                createGridPattern(color);
+            }
+        }
+
+        function setBgPattern(type) {
+            bgPatternType = type;
+            updateCanvasBackground();
+        }
+
+        function createGridPattern(bgColor) {
+            // Create a small canvas for the pattern
+            const patternCanvas = document.createElement('canvas');
+            patternCanvas.width = 40;
+            patternCanvas.height = 40;
+            const ctx = patternCanvas.getContext('2d');
+
+            ctx.fillStyle = bgColor;
+            ctx.fillRect(0, 0, 40, 40);
+
+            // Draw grid lines
+            ctx.strokeStyle = 'rgba(0,0,0,0.06)';
+            ctx.lineWidth = 1;
+            
+            ctx.beginPath();
+            ctx.moveTo(0, 0);
+            ctx.lineTo(40, 0);
+            ctx.moveTo(0, 0);
+            ctx.lineTo(0, 40);
+            ctx.stroke();
+
+            const pattern = new fabric.Pattern({
+                source: patternCanvas,
+                repeat: 'repeat'
+            });
+
+            canvas.setBackgroundColor(pattern, canvas.renderAll.bind(canvas));
+        }
+
+        // --- Text & Image Tools ---
+        function addText(type) {
+            let options = {
+                left: canvas.width / 2,
+                top: canvas.height / 2,
+                fontFamily: 'Inter',
+                originX: 'center',
+                originY: 'center',
+                fill: '#0f172a',
+            };
+
+            if (type === 'Headline') {
+                options.text = 'MAJOR HEADLINE HERE';
+                options.fontSize = 80;
+                options.fontWeight = 900;
+                // Add default yellow highlight like the examples
+                options.textBackgroundColor = '#fde047'; 
+            } else {
+                options.text = 'Add your description or body text here. You can resize, edit, and change the highlight color of this block.';
+                options.fontSize = 36;
+                options.fontWeight = 500;
+                options.width = 600;
+                options.textAlign = 'left';
+            }
+
+            const text = new fabric.Textbox(options.text, options);
+            canvas.add(text);
+            canvas.setActiveObject(text);
+            canvas.renderAll();
+        }
+
+        function handleImageUpload(e) {
+            const file = e.target.files[0];
+            if (!file) return;
+
+            const reader = new FileReader();
+            reader.onload = function(f) {
+                const data = f.target.result;
+                fabric.Image.fromURL(data, function(img) {
+                    
+                    // Scale image if it's too big
+                    const maxDim = Math.max(img.width, img.height);
+                    const canvasDim = Math.min(canvas.width, canvas.height);
+                    if (maxDim > canvasDim * 0.8) {
+                        img.scale((canvasDim * 0.8) / maxDim);
+                    }
+
+                    img.set({
+                        left: canvas.width / 2,
+                        top: canvas.height / 2,
+                        originX: 'center',
+                        originY: 'center',
+                        // Optional: Add a subtle shadow for that pasted photo look
+                        shadow: new fabric.Shadow({
+                            color: 'rgba(0,0,0,0.15)',
+                            blur: 15,
+                            offsetX: 0,
+                            offsetY: 8
+                        })
+                    });
+                    canvas.add(img);
+                    canvas.setActiveObject(img);
+                    canvas.renderAll();
+                });
+            };
+            reader.readAsDataURL(file);
+            e.target.value = ''; // Reset
+        }
+
+        // --- Drawing Tools ---
+        function setInteraction(mode) {
+            const btnSelect = document.getElementById('btn-mode-select');
+            const btnDraw = document.getElementById('btn-mode-draw');
+            const drawSettings = document.getElementById('draw-settings');
+
+            if (mode === 'draw') {
+                canvas.isDrawingMode = true;
+                btnDraw.classList.replace('text-slate-500', 'text-studio-900');
+                btnDraw.classList.add('bg-white', 'shadow-sm');
+                btnSelect.classList.remove('bg-white', 'shadow-sm', 'text-studio-900');
+                btnSelect.classList.add('text-slate-500');
+                
+                drawSettings.classList.remove('opacity-50', 'pointer-events-none');
+                
+                // Deselect active objects when entering draw mode
+                canvas.discardActiveObject();
+                canvas.requestRenderAll();
+                
+            } else {
+                canvas.isDrawingMode = false;
+                btnSelect.classList.replace('text-slate-500', 'text-studio-900');
+                btnSelect.classList.add('bg-white', 'shadow-sm');
+                btnDraw.classList.remove('bg-white', 'shadow-sm', 'text-studio-900');
+                btnDraw.classList.add('text-slate-500');
+
+                drawSettings.classList.add('opacity-50', 'pointer-events-none');
+            }
+        }
+
+        function setBrushType(type) {
+            currentBrushType = type;
+            const btnMarker = document.getElementById('btn-brush-marker');
+            const btnPen = document.getElementById('btn-brush-pen');
+
+            if (type === 'marker') {
+                btnMarker.classList.add('bg-blue-50', 'border-2', 'border-blue-500', 'text-blue-700');
+                btnMarker.classList.remove('bg-white', 'border', 'border-studio-200', 'text-studio-800');
+                
+                btnPen.classList.remove('bg-blue-50', 'border-2', 'border-blue-500', 'text-blue-700');
+                btnPen.classList.add('bg-white', 'border', 'border-studio-200', 'text-studio-800');
+            } else {
+                btnPen.classList.add('bg-blue-50', 'border-2', 'border-blue-500', 'text-blue-700');
+                btnPen.classList.remove('bg-white', 'border', 'border-studio-200', 'text-studio-800');
+                
+                btnMarker.classList.remove('bg-blue-50', 'border-2', 'border-blue-500', 'text-blue-700');
+                btnMarker.classList.add('bg-white', 'border', 'border-studio-200', 'text-studio-800');
+            }
+            updateBrush();
+        }
+
+        function setBrushColor(hex) {
+            currentBrushColor = hex;
+            document.getElementById('custom-brush-color').value = hex;
+            updateBrush();
+        }
+
+        function updateBrush() {
+            if (!canvas.freeDrawingBrush) {
+                canvas.freeDrawingBrush = new fabric.PencilBrush(canvas);
+            }
+            
+            const size = parseInt(document.getElementById('brush-size').value);
+            document.getElementById('brush-size-label').innerText = `${size}px`;
+            
+            canvas.freeDrawingBrush.width = size;
+
+            if (currentBrushType === 'marker') {
+                // Convert hex to rgba for translucency
+                const r = parseInt(currentBrushColor.slice(1, 3), 16);
+                const g = parseInt(currentBrushColor.slice(3, 5), 16);
+                const b = parseInt(currentBrushColor.slice(5, 7), 16);
+                canvas.freeDrawingBrush.color = `rgba(${r}, ${g}, ${b}, 0.65)`;
+            } else {
+                canvas.freeDrawingBrush.color = currentBrushColor;
+            }
+        }
+
+        // --- Object Properties & UI Sync ---
+        function handleSelection() {
+            const obj = canvas.getActiveObject();
+            if (!obj) return;
+
+            const textProps = document.getElementById('text-properties');
+            
+            if (obj.type === 'textbox' || obj.type === 'text') {
+                textProps.classList.remove('opacity-50', 'pointer-events-none');
+                
+                // Sync UI
+                document.getElementById('font-family').value = obj.fontFamily || 'Inter';
+                document.getElementById('text-color').value = obj.fill || '#000000';
+                
+                if (obj.textBackgroundColor) {
+                    document.getElementById('text-bg-color').value = obj.textBackgroundColor;
+                }
+            } else {
+                textProps.classList.add('opacity-50', 'pointer-events-none');
+            }
+        }
+
+        function handleSelectionCleared() {
+            document.getElementById('text-properties').classList.add('opacity-50', 'pointer-events-none');
+        }
+
+        function updateSelectedText(property, value) {
+            const obj = canvas.getActiveObject();
+            if (obj && (obj.type === 'textbox' || obj.type === 'text')) {
+                obj.set(property, value);
+                canvas.renderAll();
+            }
+        }
+
+        // --- Layer Management ---
+        function bringForward() {
+            const obj = canvas.getActiveObject();
+            if (obj) {
+                canvas.bringForward(obj);
+                canvas.renderAll();
+            }
+        }
+
+        function sendBackward() {
+            const obj = canvas.getActiveObject();
+            if (obj) {
+                canvas.sendBackwards(obj);
+                canvas.renderAll();
+            }
+        }
+
+        function deleteSelected() {
+            const activeObjects = canvas.getActiveObjects();
+            if (activeObjects.length) {
+                canvas.discardActiveObject();
+                activeObjects.forEach(function(object) {
+                    canvas.remove(object);
+                });
+            }
+        }
+
+        function clearCanvas() {
+            if(confirm("Are you sure you want to clear the entire canvas?")) {
+                canvas.clear();
+                updateCanvasBackground();
+            }
+        }
+
+        // --- UI Setup ---
+        function setupTabs() {
+            const btns = document.querySelectorAll('.tab-btn');
+            const contents = document.querySelectorAll('.tab-content');
+
+            btns.forEach(btn => {
+                btn.addEventListener('click', () => {
+                    // Reset all
+                    btns.forEach(b => {
+                        b.classList.remove('border-studio-900', 'bg-studio-50', 'text-studio-900');
+                        b.classList.add('border-transparent', 'text-slate-400');
+                    });
+                    contents.forEach(c => c.classList.add('hidden'));
+
+                    // Activate clicked
+                    btn.classList.add('border-studio-900', 'bg-studio-50', 'text-studio-900');
+                    btn.classList.remove('border-transparent', 'text-slate-400');
+                    document.getElementById(btn.dataset.target).classList.remove('hidden');
+                });
+            });
+        }
+
+        function setupKeyboardShortcuts() {
+            window.addEventListener('keydown', (e) => {
+                if (e.key === 'Backspace' || e.key === 'Delete') {
+                    // Don't delete object if editing text inside a textbox
+                    if (document.activeElement.tagName === 'INPUT' || 
+                        document.activeElement.tagName === 'TEXTAREA' ||
+                        (canvas.getActiveObject() && canvas.getActiveObject().isEditing)) {
+                        return;
+                    }
+                    deleteSelected();
+                }
+            });
+        }
+
+        // --- Export Logic ---
+        document.getElementById('btn-export').addEventListener('click', () => {
+            const overlay = document.getElementById('export-overlay');
+            overlay.classList.remove('hidden');
+            overlay.classList.add('flex');
+
+            // Brief timeout to let UI update showing the modal
+            setTimeout(() => {
+                const multiplier = parseFloat(document.getElementById('export-res').value);
+                
+                // Deselect before export to remove borders
+                canvas.discardActiveObject();
+                canvas.renderAll();
+
+                try {
+                    const dataURL = canvas.toDataURL({
+                        format: 'png',
+                        quality: 1,
+                        multiplier: multiplier
+                    });
+
+                    // Parse resolution for filename
+                    let resLabel = "HD";
+                    if(multiplier === 1.333) resLabel = "2K";
+                    if(multiplier === 2) resLabel = "4K";
+
+                    const link = document.createElement('a');
+                    link.download = `editorial-post-${resLabel}-${Date.now()}.png`;
+                    link.href = dataURL;
+                    document.body.appendChild(link);
+                    link.click();
+                    document.body.removeChild(link);
+
+                } catch(e) {
+                    alert("Export failed. If you used external images, they might be blocked by CORS.");
+                    console.error(e);
+                } finally {
+                    overlay.classList.add('hidden');
+                    overlay.classList.remove('flex');
+                }
+            }, 100);
+        });
+
+    </script>
+</body>
+</html>

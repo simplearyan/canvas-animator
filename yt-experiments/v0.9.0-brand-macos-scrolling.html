@@ -1,0 +1,706 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Canvas Labs | SCROLLING-ARCH</title>
+    <meta name="description" content="Elevate your web designs with Canvas Labs. Browse our collection of free, high-performance animated background templates, UI elements, and motion graphics ready for your project.">
+    
+    <!-- Dynamic Favicon -->
+    <link id="favicon" rel="icon" type="image/svg+xml" href="">
+
+    <!-- Tailwind CSS -->
+    <script src="https://cdn.tailwindcss.com"></script>
+    <!-- Lucide Icons -->
+    <script src="https://unpkg.com/lucide@latest"></script>
+    <!-- Google Fonts -->
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&family=Outfit:wght@300;400;500;700;800&display=swap" rel="stylesheet">
+    
+    <script>
+        tailwind.config = {
+            darkMode: 'class',
+            theme: {
+                extend: {
+                    fontFamily: {
+                        sans: ['Inter', 'sans-serif'],
+                    },
+                    colors: {
+                        brand: {
+                            50: '#f5f3ff',
+                            100: '#ede9fe',
+                            500: '#8b5cf6',
+                            600: '#7c3aed',
+                            700: '#6d28d9',
+                        }
+                    }
+                }
+            }
+        }
+    </script>
+    <style>
+        /* Smooth Global Theme Transition */
+        .theme-transition,
+        .theme-transition *,
+        .theme-transition *:before,
+        .theme-transition *:after {
+            transition-property: background-color, border-color, color, fill, stroke, box-shadow !important;
+            transition-duration: 400ms !important;
+            transition-timing-function: cubic-bezier(0.4, 0, 0.2, 1) !important;
+        }
+
+        /* Custom Scrollbar (Used for sidebars/panels) */
+        .custom-scrollbar::-webkit-scrollbar {
+            width: 5px;
+            height: 5px;
+        }
+        .custom-scrollbar::-webkit-scrollbar-track {
+            background: transparent;
+        }
+        .custom-scrollbar::-webkit-scrollbar-thumb {
+            background: #e5e7eb;
+            border-radius: 10px;
+        }
+        .custom-scrollbar:hover::-webkit-scrollbar-thumb {
+            background: #d1d5db;
+        }
+        
+        .dark .custom-scrollbar::-webkit-scrollbar-thumb {
+            background: #3f3f46;
+        }
+        .dark .custom-scrollbar:hover::-webkit-scrollbar-thumb {
+            background: #52525b;
+        }
+
+        /* Hide Scrollbar for Horizontal Elements */
+        .hide-scrollbar::-webkit-scrollbar {
+            display: none;
+        }
+        .hide-scrollbar {
+            -ms-overflow-style: none;
+            scrollbar-width: none;
+        }
+
+        /* Animations */
+        @keyframes pulse-slow {
+            0%, 100% { opacity: 1; }
+            50% { opacity: 0.8; }
+        }
+        .animate-preview {
+            animation: pulse-slow 4s cubic-bezier(0.4, 0, 0.6, 1) infinite;
+        }
+        @keyframes fade-in {
+            from { opacity: 0; transform: translateY(8px); }
+            to { opacity: 1; transform: translateY(0); }
+        }
+        .animate-fade-in {
+            animation: fade-in 0.3s ease-out forwards;
+        }
+
+        /* Push Sidebar Base Styles */
+        #sidebarPush .nav-link {
+            display: flex;
+            align-items: center;
+            gap: 0.75rem;
+            padding: 0.625rem 0.75rem;
+            border-radius: 0.75rem;
+            text-decoration: none;
+        }
+        #sidebarPush .nav-text {
+            font-size: 0.875rem;
+            font-weight: 500;
+            white-space: nowrap;
+        }
+
+        /* Push Sidebar Mini State */
+        #sidebarPush.is-mini .nav-link {
+            flex-direction: column;
+            justify-content: center;
+            gap: 0.375rem;
+            padding: 0.75rem 0.25rem;
+        }
+        #sidebarPush.is-mini .nav-text {
+            font-size: 0.65rem;
+            line-height: 1.1;
+            text-align: center;
+            white-space: normal;
+            display: -webkit-box;
+            -webkit-line-clamp: 1;
+            -webkit-box-orient: vertical;
+            overflow: hidden;
+            text-overflow: ellipsis;
+            width: 100%;
+        }
+        #sidebarPush.is-mini .nav-divider {
+            margin-left: 0.5rem;
+            margin-right: 0.5rem;
+        }
+
+        /* Editor Transparency Grid */
+        .bg-checker {
+            background-color: #f3f4f6;
+            background-image: linear-gradient(45deg, #e5e7eb 25%, transparent 25%), 
+                              linear-gradient(-45deg, #e5e7eb 25%, transparent 25%), 
+                              linear-gradient(45deg, transparent 75%, #e5e7eb 75%), 
+                              linear-gradient(-45deg, transparent 75%, #e5e7eb 75%);
+            background-size: 20px 20px;
+            background-position: 0 0, 0 10px, 10px -10px, -10px 0px;
+        }
+        .dark .bg-checker {
+            background-color: #18181b; 
+            background-image: linear-gradient(45deg, #27272a 25%, transparent 25%),
+                              linear-gradient(-45deg, #27272a 25%, transparent 25%),
+                              linear-gradient(45deg, transparent 75%, #27272a 75%),
+                              linear-gradient(-45deg, transparent 75%, #27272a 75%);
+        }
+
+        /* Timeline Ruler */
+        .timeline-ruler {
+            background-image: linear-gradient(90deg, #e5e7eb 1px, transparent 1px);
+        }
+        .dark .timeline-ruler {
+            background-image: linear-gradient(90deg, #27272a 1px, transparent 1px);
+        }
+        
+        /* Floating Sidebar State */
+        #sidebarPush.is-floating {
+            position: fixed !important;
+            inset-y: 0;
+            left: 0;
+            width: 260px !important;
+            z-index: 70;
+            box-shadow: 0 25px 50px -12px rgba(0, 0, 0, 0.25);
+            background-color: white;
+            padding-top: 1rem;
+        }
+        .dark #sidebarPush.is-floating {
+            background-color: #09090b;
+        }
+        #sidebarPush.is-floating .nav-link {
+            flex-direction: row !important;
+            padding-left: 1rem !important;
+            padding-right: 1rem !important;
+            justify-content: flex-start !important;
+            gap: 12px !important;
+            align-items: center !important;
+        }
+        #sidebarPush.is-floating .nav-text {
+            display: block !important;
+            opacity: 1 !important;
+            font-size: 0.875rem !important;
+            white-space: nowrap !important;
+            text-align: left !important;
+            -webkit-line-clamp: unset !important;
+            line-height: normal !important;
+        }
+
+        /* Smooth Grid Transition for Cards */
+        .template-card-container {
+            transition: all 0.5s cubic-bezier(0.4, 0, 0.2, 1);
+            transform: translateZ(0); 
+            will-change: transform, width;
+        }
+        @media (hover: hover) {
+            .template-card-item:hover .template-card-container {
+                box-shadow: 0 10px 30px -10px rgba(0,0,0,0.12);
+                border-color: #d1d5db;
+            }
+            .dark .template-card-item:hover .template-card-container {
+                box-shadow: none;
+                border-color: #3f3f46;
+            }
+        }
+
+        /* Sidebar Footer */
+        .sidebar-footer {
+            padding-top: 1rem;
+            padding-bottom: 1.5rem;
+            transition: all 0.3s ease;
+        }
+        #sidebarPush.is-mini .sidebar-footer {
+            display: none;
+        }
+    
+        .font-outfit { font-family: 'Outfit', sans-serif; }
+        body { font-family: 'Outfit', sans-serif !important; }
+        
+        /* Dark Mode Backgrounds */
+        .dark body { background-color: #09090b !important; color: #f5f5f7 !important; }
+        .dark #mainHeader { background-color: #09090b/95 !important; }
+        .dark #sidebarPush, .dark #sidebarDrawer { background-color: #09090b !important; border-color: rgba(255,255,255,0.05) !important; }
+        .dark .template-card-container { background-color: rgba(255,255,255,0.02) !important; border-color: rgba(255,255,255,0.05) !important; }
+        
+        /* Layout Transitions */
+        #mainContent, #sidebarPush {
+            transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+        }
+
+        /* Smart Header Hide/Show */
+        #mainHeader {
+            transition: transform 0.3s ease, background-color 0.3s ease;
+        }
+        
+    </style>
+    <!-- Dark Mode Init Script -->
+    <script>
+        if (localStorage.getItem('theme') === 'dark' || (!('theme' in localStorage) && window.matchMedia('(prefers-color-scheme: dark)').matches)) {
+            document.documentElement.classList.add('dark');
+        } else {
+            document.documentElement.classList.remove('dark');
+        }
+    </script>
+</head>
+<body class="bg-white dark:bg-[#09090b] text-gray-900 dark:text-zinc-100 min-h-screen antialiased transition-colors duration-300">
+
+    <!-- Header (Fixed) -->
+    <header id="mainHeader" class="fixed top-0 left-0 right-0 h-16 bg-white/95 dark:bg-[#09090b]/95 backdrop-blur-md flex items-center justify-between px-4 lg:px-6 z-[70] transition-all border-b border-transparent">
+        <div class="flex items-center gap-4 header-hide-on-search">
+            <!-- Menu Toggle -->
+            <button id="mainToggleBtn" class="p-2 rounded-md text-gray-500 dark:text-zinc-400 hover:bg-gray-100 dark:hover:bg-zinc-800 focus:outline-none transition-colors">
+                <i data-lucide="menu" class="w-5 h-5"></i>
+            </button>
+            
+            <!-- Logo -->
+            <a href="#" class="flex items-center gap-3 sm:gap-4 group">
+                <div class="flex items-center gap-1 bg-gray-100 dark:bg-[#2c2c2e] px-2 py-1.5 rounded-lg border border-gray-200 dark:border-white/5 shadow-[inset_0_1px_2px_rgba(0,0,0,0.1)]">
+                    <div class="w-2 h-2 sm:w-2.5 sm:h-2.5 rounded-full bg-[#ff5f57] shadow-inner"></div>
+                    <div class="w-2 h-2 sm:w-2.5 sm:h-2.5 rounded-full bg-[#febc2e] shadow-inner"></div>
+                    <div class="w-2 h-2 sm:w-2.5 sm:h-2.5 rounded-full bg-[#28c840] shadow-inner"></div>
+                </div>
+                <div class="flex items-baseline">
+                    <span class="text-xl sm:text-2xl font-outfit font-bold tracking-tight text-gray-900 dark:text-white leading-none">Canvas</span>
+                    <span class="text-xl sm:text-2xl font-outfit font-light tracking-tight text-gray-500 dark:text-zinc-400 leading-none">Labs</span>
+                </div>
+            </a>
+        </div>
+
+        <!-- Search Bar -->
+        <div id="headerSearch" class="hidden sm:flex flex-1 max-w-2xl px-4 lg:px-12 transition-all duration-300 items-center gap-2">
+            <button id="closeSearchBtn" class="sm:hidden p-2 text-gray-500 dark:text-zinc-400 hover:bg-gray-100 dark:hover:bg-zinc-800 rounded-full transition-colors">
+                <i data-lucide="arrow-left" class="w-5 h-5"></i>
+            </button>
+            <div class="relative group flex-1">
+                <div class="absolute inset-y-0 left-0 pl-4 flex items-center pointer-events-none text-gray-400 group-focus-within:text-brand-500 transition-colors">
+                    <i data-lucide="search" class="w-4 h-4"></i>
+                </div>
+                <input 
+                    type="text" 
+                    id="searchInput"
+                    class="block w-full pl-11 pr-3 py-2.5 border border-gray-200 dark:border-zinc-800 rounded-xl leading-5 bg-gray-100/50 dark:bg-zinc-900/50 text-gray-900 dark:text-zinc-100 placeholder-gray-500 dark:placeholder-zinc-500 outline-none focus:bg-white dark:focus:bg-[#050506] focus:border-gray-300 dark:focus:border-zinc-700 focus:ring-4 focus:ring-gray-400/5 dark:focus:ring-0 dark:focus:shadow-[inset_0_1px_4px_rgba(0,0,0,0.4)] sm:text-sm transition-all duration-300" 
+                    placeholder="Search animations..."
+                >
+            </div>
+        </div>
+
+        <!-- Right Actions -->
+        <div class="flex items-center gap-1 sm:gap-4 header-hide-on-search">
+            <button id="mobileSearchBtn" class="sm:hidden p-2 text-gray-500 dark:text-zinc-400 hover:bg-gray-100 dark:hover:bg-zinc-800 rounded-full transition-colors">
+                <i data-lucide="search" class="w-5 h-5"></i>
+            </button>
+            <button class="hidden sm:flex items-center gap-2 text-sm font-medium text-gray-700 dark:text-zinc-300 hover:text-gray-900 dark:hover:text-white px-3 py-2 rounded-md hover:bg-gray-50 dark:hover:bg-zinc-800 transition-colors">
+                <i data-lucide="plus-circle" class="w-4 h-4"></i> Create
+            </button>
+            <button class="theme-toggle-btn w-9 h-9 rounded-full flex items-center justify-center text-gray-500 dark:text-zinc-400 hover:bg-gray-100 dark:hover:bg-zinc-800 transition-colors focus:outline-none">
+                <span class="dark:hidden flex items-center justify-center"><i data-lucide="moon" class="w-5 h-5"></i></span>
+                <span class="hidden dark:flex items-center justify-center"><i data-lucide="sun" class="w-5 h-5"></i></span>
+            </button>
+        </div>
+    </header>
+
+    <!-- Main Layout -->
+    <div class="flex pt-16 min-h-screen">
+        
+        <!-- Sidebar (Fixed on Desktop/Tablet) -->
+        <aside id="sidebarPush" class="fixed top-16 left-0 bottom-0 hidden md:flex flex-col w-[72px] xl:w-64 z-40 bg-white dark:bg-[#09090b] border-r border-transparent dark:border-zinc-800/50">
+            <div class="sidebar-scroll-content flex-1 overflow-y-auto custom-scrollbar flex flex-col">
+                <nav id="navMenuPush" class="px-2 xl:px-3 pb-4 pt-4 space-y-1">
+                    <!-- Nav items generated by JS -->
+                </nav>
+                
+                <div class="sidebar-footer border-t border-gray-100 dark:border-zinc-800/50 hidden xl:block">
+                    <div class="flex flex-wrap gap-x-3 gap-y-1.5 px-6 py-4">
+                        <a href="#" onclick="showSidebarPage('Terms')" class="text-[12px] font-semibold text-gray-500 dark:text-zinc-500 hover:text-gray-900 dark:hover:text-zinc-300 transition-colors">Terms</a>
+                        <a href="#" onclick="showSidebarPage('Privacy')" class="text-[12px] font-semibold text-gray-500 dark:text-zinc-500 hover:text-gray-900 dark:hover:text-zinc-300 transition-colors">Privacy</a>
+                        <a href="#" onclick="showSidebarPage('Contact')" class="text-[12px] font-semibold text-gray-500 dark:text-zinc-500 hover:text-gray-900 dark:hover:text-zinc-300 transition-colors">Contact</a>
+                    </div>
+                    <p class="px-6 pb-4 text-[11px] font-medium text-gray-400 dark:text-zinc-600">© 2026 Canvas Labs</p>
+                </div>
+            </div>
+        </aside>
+
+        <!-- Main Content Area (Natural Body Scroll) -->
+        <main id="mainContent" class="flex-1 bg-[#fbfbfc] dark:bg-[#0c0c0e] min-h-screen ml-0 md:ml-[72px] xl:ml-64">
+            
+            <div id="standardViewsWrapper" class="w-full">
+                <div class="max-w-7xl mx-auto p-6 md:p-10 lg:p-12">
+                    
+                    <!-- Gallery View -->
+                    <div id="galleryView" class="animate-fade-in relative">
+                        <!-- Page Header -->
+                        <div class="mb-10 max-w-3xl">
+                            <h1 id="pageTitle" class="text-4xl md:text-5xl font-extrabold tracking-tight text-gray-900 dark:text-zinc-50 mb-4 leading-tight transition-colors">
+                                Free animated background templates
+                            </h1>
+                            <p id="pageDesc" class="text-lg text-gray-600 dark:text-zinc-400 leading-relaxed transition-colors">
+                                <strong class="font-semibold text-gray-900 dark:text-zinc-100">Elevate your designs</strong> with our collection of free, user-friendly animated background templates ready for your canvas.
+                            </p>
+                        </div>
+
+                        <!-- Grid -->
+                        <div id="cardGrid" class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-x-8 gap-y-12 pb-20">
+                            <!-- Cards generated by JS -->
+                        </div>
+
+                        <!-- Empty State -->
+                        <div id="emptyState" class="hidden flex-col items-center justify-center py-20 text-center">
+                            <div class="w-16 h-16 bg-gray-100 dark:bg-zinc-900 rounded-full flex items-center justify-center text-gray-400 dark:text-zinc-500 mb-4 transition-colors">
+                                <i data-lucide="search-x" class="w-8 h-8"></i>
+                            </div>
+                            <h3 class="text-lg font-medium text-gray-900 dark:text-zinc-100 transition-colors">No templates found</h3>
+                        </div>
+                    </div>
+
+                    <!-- Detail View -->
+                    <div id="detailView" class="hidden flex-col gap-6 lg:gap-8 animate-fade-in">
+                        <!-- Breadcrumb -->
+                        <button id="backToGalleryBtn" class="flex items-center gap-2 text-sm font-medium text-gray-500 dark:text-zinc-400 hover:text-gray-900 dark:hover:text-zinc-100 transition-colors w-fit group">
+                            <i data-lucide="arrow-left" class="w-4 h-4 group-hover:-translate-x-1 transition-transform"></i> 
+                            <span id="backBtnText">Back</span>
+                        </button>
+
+                        <div class="flex flex-col lg:flex-row gap-8 lg:gap-12 pb-20">
+                            <!-- Left: Preview -->
+                            <div class="flex-1 flex flex-col gap-4">
+                                <div id="detailCanvas" class="w-full aspect-video rounded-2xl border border-gray-100 dark:border-zinc-800 flex items-center justify-center overflow-hidden relative transition-colors shadow-sm">
+                                    <!-- Content injected here -->
+                                </div>
+                                <div class="flex items-center justify-between text-sm text-gray-500 dark:text-zinc-400 px-2 transition-colors">
+                                    <div class="flex items-center gap-4">
+                                        <button class="w-8 h-8 flex items-center justify-center rounded-full hover:bg-gray-100 dark:hover:bg-zinc-800 text-gray-700 dark:text-zinc-300">
+                                            <i data-lucide="play" class="w-4 h-4 fill-current"></i>
+                                        </button>
+                                        <div class="h-1.5 w-32 md:w-64 bg-gray-200 dark:bg-zinc-800 rounded-full overflow-hidden">
+                                            <div class="h-full bg-brand-500 dark:bg-brand-600 w-1/3"></div>
+                                        </div>
+                                    </div>
+                                    <div class="hidden sm:flex items-center gap-3">
+                                        <span>1920 × 1080</span>
+                                        <span>•</span>
+                                        <span>60 fps</span>
+                                    </div>
+                                </div>
+                            </div>
+
+                            <!-- Right: Config -->
+                            <div class="w-full lg:w-[380px] shrink-0 flex flex-col gap-8">
+                                <div>
+                                    <span id="detailCategory" class="text-[11px] font-bold uppercase tracking-wider text-brand-700 dark:text-brand-300 bg-brand-50 dark:bg-brand-500/20 px-2.5 py-1 rounded-md border border-brand-100 dark:border-brand-500/30 transition-colors mb-3 inline-block">Category</span>
+                                    <h1 id="detailTitle" class="text-3xl font-extrabold text-gray-900 dark:text-zinc-50 mb-3 tracking-tight transition-colors">Template Title</h1>
+                                    <p class="text-gray-500 dark:text-zinc-400 leading-relaxed text-[15px]">Professional animation template designed for seamless integration.</p>
+                                </div>
+
+                                <button id="openEditorBtn" class="w-full bg-gray-900 dark:bg-zinc-100 hover:bg-black dark:hover:bg-white text-white dark:text-zinc-900 font-semibold py-3.5 px-4 rounded-xl shadow-md transition-transform active:scale-[0.98] flex items-center justify-center gap-2">
+                                    <i data-lucide="layout-template" class="w-5 h-5"></i> Open in Editor
+                                </button>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Editor View (Fixed Fullscreen Overlay) -->
+            <div id="editorView" class="hidden fixed inset-0 bg-gray-50 dark:bg-zinc-950 z-[100] flex-col overflow-hidden animate-fade-in transition-colors duration-200">
+                <!-- Editor Topbar -->
+                <div class="h-16 border-b border-gray-200 dark:border-zinc-800 bg-white dark:bg-zinc-900 flex items-center justify-between px-4 lg:px-6 shrink-0 z-10">
+                    <div class="flex items-center gap-2 sm:gap-4">
+                        <button id="editorBackBtn" class="p-2 hover:bg-gray-100 dark:hover:bg-zinc-800 rounded-lg text-gray-500 dark:text-zinc-400 transition-colors group">
+                            <i data-lucide="arrow-left" class="w-5 h-5 group-hover:-translate-x-0.5 transition-transform"></i>
+                        </button>
+                        <div class="h-6 w-px bg-gray-200 dark:bg-zinc-700 hidden sm:block"></div>
+                        <span id="editorTitle" class="font-semibold text-gray-900 dark:text-zinc-100 text-[15px] hidden sm:block pl-2">Template Editor</span>
+                    </div>
+                    <div class="flex items-center gap-2 sm:gap-3">
+                        <button class="bg-brand-600 hover:bg-brand-700 text-white px-4 py-2 rounded-lg text-sm font-medium shadow-sm flex items-center gap-2">
+                            <i data-lucide="download" class="w-4 h-4"></i> Export
+                        </button>
+                        <button class="theme-toggle-btn w-9 h-9 rounded-full flex items-center justify-center text-gray-500 dark:text-zinc-400 hover:bg-gray-100 dark:hover:bg-zinc-800">
+                            <i data-lucide="moon" class="dark:hidden w-5 h-5"></i>
+                            <i data-lucide="sun" class="hidden dark:block w-5 h-5"></i>
+                        </button>
+                    </div>
+                </div>
+
+                <!-- Editor Main Workspace -->
+                <div class="flex flex-1 overflow-hidden relative">
+                    <div class="w-16 border-r border-gray-200 dark:border-zinc-800 bg-white dark:bg-zinc-900 flex flex-col items-center py-4 gap-2 shrink-0">
+                        <button class="p-2.5 bg-brand-50 dark:bg-brand-500/20 text-brand-600 dark:text-brand-400 rounded-xl"><i data-lucide="mouse-pointer-2" class="w-5 h-5"></i></button>
+                        <button class="p-2.5 hover:bg-gray-100 dark:hover:bg-zinc-800 text-gray-500 dark:text-zinc-400 rounded-xl"><i data-lucide="type" class="w-5 h-5"></i></button>
+                        <button class="p-2.5 hover:bg-gray-100 dark:hover:bg-zinc-800 text-gray-500 dark:text-zinc-400 rounded-xl"><i data-lucide="image" class="w-5 h-5"></i></button>
+                    </div>
+                    <div class="flex-1 bg-checker overflow-auto relative flex custom-scrollbar" id="editorCanvasWrapper">
+                        <div class="m-auto p-8 lg:p-16 flex items-center justify-center min-w-full min-h-full">
+                            <div id="editorCanvas" class="shadow-2xl ring-1 ring-black/5 dark:ring-white/5 relative overflow-hidden flex items-center justify-center rounded-sm bg-black" style="width: 800px; height: 450px;">
+                                <!-- Template content injected here -->
+                            </div>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Bottom Timeline -->
+                <div class="h-48 border-t border-gray-200 dark:border-zinc-800 bg-white dark:bg-zinc-900 shrink-0 hidden sm:flex flex-col">
+                    <div class="h-10 border-b border-gray-100 dark:border-zinc-800 flex items-center px-4 bg-gray-50/50 dark:bg-zinc-950/50">
+                        <span class="text-xs font-medium font-mono text-gray-500">00:00:00 / 00:00:03</span>
+                    </div>
+                    <div class="flex-1 relative overflow-auto custom-scrollbar bg-white dark:bg-zinc-900">
+                        <div class="w-full h-full timeline-ruler opacity-20"></div>
+                    </div>
+                </div>
+            </div>
+        </main>
+    </div>
+
+    <!-- Drawer Sidebar (Mobile/Tablet Overlays) -->
+    <div id="sidebarOverlay" class="fixed inset-0 bg-black/30 dark:bg-black/60 z-[60] opacity-0 pointer-events-none transition-opacity duration-300"></div>
+    <aside id="sidebarDrawer" class="fixed inset-y-0 left-0 z-[120] w-[280px] bg-white dark:bg-zinc-900 shadow-2xl transform -translate-x-full transition-transform duration-300 flex flex-col">
+        <div class="h-16 border-b border-gray-200 dark:border-zinc-800 flex items-center px-6 gap-4 flex-shrink-0">
+             <span class="text-xl font-outfit font-bold">Canvas<span class="font-light text-gray-500">Labs</span></span>
+        </div>
+        <div class="sidebar-scroll-content flex-1 overflow-y-auto custom-scrollbar flex flex-col">
+            <nav id="navMenuDrawer" class="px-3 pb-4 pt-4 space-y-1">
+                <!-- Nav items generated by JS -->
+            </nav>
+        </div>
+    </aside>
+
+    <script>
+        // --- FAVICON & TITLE ANIMATORS ---
+        let faviconAngle = 0;
+        const faviconEl = document.getElementById('favicon');
+        setInterval(() => {
+            if (!faviconEl) return;
+            faviconAngle = (faviconAngle + 10) % 360;
+            const svg = `<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'><text y='.9em' font-size='80' transform='rotate(${faviconAngle} 50 55)'>✨</text></svg>`;
+            faviconEl.href = `data:image/svg+xml,${encodeURIComponent(svg)}`;
+        }, 150);
+
+        // --- THEME TOGGLE ---
+        function toggleTheme() {
+            document.documentElement.classList.add('theme-transition');
+            document.documentElement.classList.toggle('dark');
+            localStorage.setItem('theme', document.documentElement.classList.contains('dark') ? 'dark' : 'light');
+            setTimeout(() => document.documentElement.classList.remove('theme-transition'), 400);
+        }
+        document.querySelectorAll('.theme-toggle-btn').forEach(btn => btn.addEventListener('click', toggleTheme));
+
+        // --- DATA ---
+        const navItems = [
+            { id: 'backgrounds', label: 'Backgrounds', icon: 'image' },
+            { id: 'text', label: 'Text Effects', icon: 'type' },
+            { id: 'ui', label: 'UI Elements', icon: 'layout' },
+            { id: 'charts', label: 'Charts & Data', icon: 'bar-chart-2' },
+            { divider: true },
+            { id: 'social', label: 'Social Media', icon: 'message-circle' },
+            { id: 'ads', label: 'Ads & Marketing', icon: 'megaphone' },
+        ];
+
+        const templatesData = [
+            { id: 1, title: 'Revenue Pulse', category: 'charts', color: 'bg-indigo-600', content: '<div class="flex items-end gap-1 h-12"><div class="w-3 bg-white/40 h-[40%]"></div><div class="w-3 bg-white/70 h-[80%] animate-pulse"></div><div class="w-3 bg-white/100 h-[60%]"></div></div>' },
+            { id: 2, title: 'Sumi-e Flow', category: 'backgrounds', color: 'bg-[#fcfaf2]', content: '<svg class="w-32 h-20" viewBox="0 0 100 60"><path d="M10,50 Q40,10 90,40" stroke="#000" stroke-width="3" fill="none" class="animate-preview"/></svg>' },
+            { id: 3, title: 'Emoji Fountain', category: 'social', color: 'bg-emerald-500', content: '<div class="text-4xl animate-bounce">✨🚀🔥</div>' },
+            { id: 4, title: 'Macify Studio', category: 'ui', color: 'bg-gray-200', content: '<div class="w-32 h-20 bg-white rounded-lg shadow-xl border p-2 flex flex-col gap-1"><div class="h-1 w-8 bg-gray-200 rounded"></div><div class="h-4 w-full bg-blue-500 rounded"></div></div>' },
+            { id: 5, title: 'Neon Orbit', category: 'charts', color: 'bg-[#050506]', content: '<div class="w-16 h-16 rounded-full border-4 border-cyan-400 border-t-transparent animate-spin"></div>' },
+            { id: 6, title: 'Brutalist Action', category: 'text', color: 'bg-yellow-400', content: '<div class="font-black text-3xl text-black -skew-x-12">ACTION</div>' },
+            { id: 7, title: 'Sankey Stream', category: 'charts', color: 'bg-white', content: '<svg class="w-32 h-16" viewBox="0 0 100 50"><path d="M0,25 C30,25 70,10 100,10" stroke="#6366f1" stroke-width="8" fill="none" opacity="0.3"/></svg>' },
+            { id: 8, title: 'Haze Gradient', category: 'backgrounds', color: 'bg-gradient-to-br from-pink-300 via-purple-300 to-indigo-400 animate-preview', content: '' },
+        ];
+
+        // --- STATE ---
+        let currentCategory = 'backgrounds';
+        let searchQuery = '';
+        let activeTemplate = null;
+        let isDesktopPushMini = false;
+        let isDrawerOpen = false;
+
+        // --- RENDER ---
+        function renderNav() {
+            const push = document.getElementById('navMenuPush');
+            const drawer = document.getElementById('navMenuDrawer');
+            push.innerHTML = drawer.innerHTML = '';
+
+            navItems.forEach(item => {
+                if (item.divider) {
+                    push.insertAdjacentHTML('beforeend', '<div class="my-4 border-t border-gray-100 dark:border-zinc-800 mx-4"></div>');
+                    drawer.insertAdjacentHTML('beforeend', '<div class="my-4 border-t border-gray-100 dark:border-zinc-800 mx-4"></div>');
+                    return;
+                }
+                const isActive = item.id === currentCategory;
+                const cls = isActive ? 'bg-brand-50 dark:bg-brand-500/15 text-brand-700 dark:text-zinc-50 font-semibold' : 'text-gray-600 dark:text-zinc-400 hover:bg-gray-100 dark:hover:bg-zinc-800/50';
+                
+                const html = `<a href="#" onclick="setCategory('${item.id}', '${item.label}')" class="nav-link px-3 py-2.5 rounded-xl flex items-center gap-3 transition-all ${cls}">
+                    <i data-lucide="${item.icon}" class="w-5 h-5 flex-shrink-0"></i>
+                    <span class="nav-text text-[14px]">${item.label}</span>
+                </a>`;
+                push.insertAdjacentHTML('beforeend', html);
+                drawer.insertAdjacentHTML('beforeend', html);
+            });
+            lucide.createIcons();
+        }
+
+        function renderCards() {
+            const grid = document.getElementById('cardGrid');
+            grid.innerHTML = '';
+            const filtered = templatesData.filter(t => (currentCategory === 'all' || t.category === currentCategory) && t.title.toLowerCase().includes(searchQuery.toLowerCase()));
+            
+            filtered.forEach(item => {
+                const card = document.createElement('div');
+                card.className = 'template-card-item group cursor-pointer flex flex-col gap-3 animate-fade-in';
+                card.onclick = () => showDetail(item);
+                card.innerHTML = `
+                    <div class="template-card-container w-full aspect-video rounded-xl border border-gray-100 dark:border-zinc-800 flex items-center justify-center overflow-hidden relative ${item.color}">
+                        ${item.content}
+                    </div>
+                    <h3 class="text-[15px] font-semibold px-1 text-gray-900 dark:text-zinc-100">${item.title}</h3>
+                `;
+                grid.appendChild(card);
+            });
+        }
+
+        // --- NAVIGATION & LAYOUT ---
+        function setCategory(id, label) {
+            currentCategory = id;
+            document.getElementById('pageTitle').innerText = `Free animated ${label.toLowerCase()} templates`;
+            hideDetail();
+            closeDrawer();
+            renderNav();
+            renderCards();
+        }
+
+        function updateLayout() {
+            const width = window.innerWidth;
+            const sidebar = document.getElementById('sidebarPush');
+            const main = document.getElementById('mainContent');
+            
+            if (width < 768) {
+                sidebar.classList.add('hidden');
+                main.classList.remove('md:ml-[72px]', 'xl:ml-64');
+                main.style.marginLeft = '0px';
+            } else if (width < 1280) {
+                sidebar.classList.remove('hidden', 'xl:w-64');
+                sidebar.classList.add('md:flex', 'w-[72px]', 'is-mini');
+                main.style.marginLeft = '72px';
+            } else {
+                sidebar.classList.remove('hidden', 'w-[72px]', 'is-mini');
+                sidebar.classList.add('md:flex', 'xl:w-64');
+                if (isDesktopPushMini) {
+                    sidebar.classList.add('is-mini');
+                    sidebar.style.width = '72px';
+                    main.style.marginLeft = '72px';
+                } else {
+                    sidebar.classList.remove('is-mini');
+                    sidebar.style.width = '256px';
+                    main.style.marginLeft = '256px';
+                }
+            }
+        }
+
+        function toggleSidebar() {
+            if (window.innerWidth < 1280) {
+                isDrawerOpen ? closeDrawer() : openDrawer();
+            } else {
+                isDesktopPushMini = !isDesktopPushMini;
+                updateLayout();
+            }
+        }
+
+        function openDrawer() {
+            isDrawerOpen = true;
+            document.getElementById('sidebarDrawer').classList.remove('-translate-x-full');
+            document.getElementById('sidebarOverlay').classList.replace('opacity-0', 'opacity-100');
+            document.getElementById('sidebarOverlay').classList.replace('pointer-events-none', 'pointer-events-auto');
+            document.body.style.overflow = 'hidden';
+        }
+
+        function closeDrawer() {
+            isDrawerOpen = false;
+            document.getElementById('sidebarDrawer').classList.add('-translate-x-full');
+            document.getElementById('sidebarOverlay').classList.replace('opacity-100', 'opacity-0');
+            document.getElementById('sidebarOverlay').classList.replace('pointer-events-auto', 'pointer-events-none');
+            document.body.style.overflow = '';
+        }
+
+        // --- VIEW MANAGEMENT ---
+        function showDetail(item) {
+            activeTemplate = item;
+            document.getElementById('galleryView').classList.add('hidden');
+            document.getElementById('detailView').classList.replace('hidden', 'flex');
+            document.getElementById('detailTitle').innerText = item.title;
+            document.getElementById('detailCategory').innerText = item.category;
+            document.getElementById('detailCanvas').className = `w-full aspect-video rounded-2xl border border-gray-100 dark:border-zinc-800 flex items-center justify-center overflow-hidden relative ${item.color} shadow-sm`;
+            document.getElementById('detailCanvas').innerHTML = `<div class="transform scale-150">${item.content}</div>`;
+            window.scrollTo({ top: 0, behavior: 'smooth' });
+        }
+
+        function hideDetail() {
+            document.getElementById('detailView').classList.replace('flex', 'hidden');
+            document.getElementById('galleryView').classList.remove('hidden');
+        }
+
+        function showEditor() {
+            const ev = document.getElementById('editorView');
+            ev.classList.replace('hidden', 'flex');
+            document.getElementById('editorTitle').innerText = activeTemplate.title;
+            document.getElementById('editorCanvas').className = `shadow-2xl ring-1 ring-black/5 dark:ring-white/5 relative overflow-hidden flex items-center justify-center rounded-sm bg-black ${activeTemplate.color}`;
+            document.getElementById('editorCanvas').innerHTML = `<div class="transform scale-150">${activeTemplate.content}</div>`;
+            document.body.style.overflow = 'hidden';
+        }
+
+        function hideEditor() {
+            document.getElementById('editorView').classList.replace('flex', 'hidden');
+            document.body.style.overflow = '';
+        }
+
+        // --- SMART HEADER ---
+        let lastScroll = 0;
+        window.addEventListener('scroll', () => {
+            const header = document.getElementById('mainHeader');
+            const currentScroll = window.pageYOffset;
+            
+            if (currentScroll > 10) {
+                header.classList.add('bg-white/100', 'dark:bg-[#09090b]/100', 'border-gray-100', 'dark:border-zinc-800/50', 'shadow-sm');
+                header.classList.remove('bg-white/95', 'dark:bg-[#09090b]/95', 'border-transparent');
+            } else {
+                header.classList.remove('bg-white/100', 'dark:bg-[#09090b]/100', 'border-gray-100', 'dark:border-zinc-800/50', 'shadow-sm');
+                header.classList.add('bg-white/95', 'dark:bg-[#09090b]/95', 'border-transparent');
+            }
+
+            // Hide header on scroll down (mobile focus)
+            if (window.innerWidth < 768) {
+                if (currentScroll > lastScroll && currentScroll > 80) {
+                    header.style.transform = 'translateY(-100%)';
+                } else {
+                    header.style.transform = 'translateY(0)';
+                }
+            } else {
+                header.style.transform = 'translateY(0)';
+            }
+            lastScroll = currentScroll;
+        }, { passive: true });
+
+        // --- LISTENERS ---
+        document.getElementById('mainToggleBtn').addEventListener('click', toggleSidebar);
+        document.getElementById('sidebarOverlay').addEventListener('click', closeDrawer);
+        document.getElementById('backToGalleryBtn').addEventListener('click', hideDetail);
+        document.getElementById('openEditorBtn').addEventListener('click', showEditor);
+        document.getElementById('editorBackBtn').addEventListener('click', hideEditor);
+        document.getElementById('searchInput').addEventListener('input', (e) => {
+            searchQuery = e.target.value;
+            renderCards();
+        });
+        window.addEventListener('resize', updateLayout);
+
+        // --- INIT ---
+        renderNav();
+        renderCards();
+        updateLayout();
+    </script>
+</body>
+</html>

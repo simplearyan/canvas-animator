@@ -1,0 +1,993 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+    <title>Data Thesis - Bar Chart Race Animator</title>
+    
+    <!-- Google Fonts -->
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Carrois+Gothic&family=Inter:wght@400;500;600;700;800;900&family=JetBrains+Mono:wght@400;500;700;800&family=Playfair+Display:wght@600;700;900&family=Roboto:wght@400;500;700;900&display=swap" rel="stylesheet">
+
+    <!-- Tailwind CSS -->
+    <script src="https://cdn.tailwindcss.com"></script>
+    <script>
+        tailwind.config = {
+            theme: {
+                extend: {
+                    fontFamily: {
+                        sans: ['Inter', 'sans-serif'],
+                        mono: ['JetBrains Mono', 'monospace'],
+                    },
+                    colors: {
+                        blueprint: {
+                            50: '#f0f4f8',
+                            100: '#d9e2ec',
+                            200: '#bcccdc',
+                            300: '#9fb3c8',
+                            800: '#102a43',
+                            900: '#003366',
+                        },
+                        brand: {
+                            red: '#ef4444',
+                            blue: '#3b82f6'
+                        }
+                    }
+                }
+            }
+        }
+    </script>
+
+    <!-- Phosphor Icons -->
+    <script src="https://unpkg.com/@phosphor-icons/web"></script>
+
+    <style>
+        body { overscroll-behavior-y: none; }
+        
+        .blueprint-bg {
+            background-color: #f4f7fa;
+            background-image: 
+                linear-gradient(rgba(0, 51, 102, 0.08) 1px, transparent 1px),
+                linear-gradient(90deg, rgba(0, 51, 102, 0.08) 1px, transparent 1px);
+            background-size: 24px 24px;
+            background-position: center center;
+        }
+
+        /* Custom sliders */
+        input[type=range] {
+            -webkit-appearance: none;
+            width: 100%;
+            background: transparent;
+        }
+        input[type=range]::-webkit-slider-thumb {
+            -webkit-appearance: none;
+            height: 16px;
+            width: 16px;
+            border-radius: 50%;
+            background: #003366;
+            cursor: pointer;
+            margin-top: -6px;
+            box-shadow: 0 1px 3px rgba(0,0,0,0.3);
+        }
+        input[type=range]::-webkit-slider-runnable-track {
+            width: 100%;
+            height: 4px;
+            cursor: pointer;
+            background: #cbd5e1;
+            border-radius: 2px;
+        }
+        input[type=range]:focus::-webkit-slider-runnable-track { background: #94a3b8; }
+
+        ::-webkit-scrollbar { width: 8px; height: 8px; }
+        ::-webkit-scrollbar-track { background: transparent; }
+        ::-webkit-scrollbar-thumb { background: #cbd5e1; border-radius: 0px; border: 1px solid #f4f7fa; }
+        ::-webkit-scrollbar-thumb:hover { background: #94a3b8; }
+
+        input[type="color"] {
+            -webkit-appearance: none;
+            border: none;
+            width: 100%;
+            height: 100%;
+            padding: 0;
+            cursor: pointer;
+            background: transparent;
+        }
+        input[type="color"]::-webkit-color-swatch-wrapper { padding: 0; }
+        input[type="color"]::-webkit-color-swatch { border: none; }
+
+        .blueprint-shadow { box-shadow: 6px 6px 0px rgba(0, 51, 102, 0.1); }
+    </style>
+</head>
+<body class="blueprint-bg text-slate-800 h-screen flex flex-col overflow-hidden">
+
+    <!-- HEADER -->
+    <header class="h-16 bg-white border-b border-blueprint-900 flex items-center justify-between px-4 sm:px-8 flex-shrink-0 z-20">
+        <div class="flex items-center gap-4">
+            <div class="border-2 border-blueprint-900 px-3 py-1 flex items-center bg-white blueprint-shadow select-none">
+                <span class="text-xl sm:text-2xl font-black text-blueprint-900 tracking-tighter uppercase">BarChart</span>
+                <span class="text-xl sm:text-2xl font-black text-brand-red tracking-tighter uppercase">Race</span>
+            </div>
+            <div class="hidden md:flex gap-2 text-[10px] font-bold text-blueprint-900 uppercase tracking-widest mt-1">
+                <span class="border border-blueprint-200 px-2 py-0.5 bg-blueprint-50">Data Thesis</span>
+                <span class="border border-blueprint-200 px-2 py-0.5 bg-blueprint-50">Studio Automation</span>
+            </div>
+        </div>
+
+        <div class="flex items-center justify-end gap-3 shrink-0">
+            <button id="btn-header-preview" class="flex items-center gap-2 px-4 py-1.5 bg-white hover:bg-slate-50 text-blueprint-900 font-bold transition-colors border-2 border-blueprint-900 text-xs shadow-[2px_2px_0px_#003366] hover:shadow-none hover:translate-x-[2px] hover:translate-y-[2px] uppercase">
+                <i class="ph-bold ph-play-circle text-lg" id="icon-play"></i>
+                <span id="text-play" class="hidden sm:inline tracking-wider">Preview Race</span>
+            </button>
+            
+            <div class="flex bg-blueprint-900 border-2 border-blueprint-900 shadow-[2px_2px_0px_rgba(0,51,102,0.5)]">
+                <select id="export-res" class="bg-white text-blueprint-900 font-bold pl-3 pr-2 py-1.5 outline-none cursor-pointer appearance-none text-xs border-r-2 border-blueprint-900 hidden sm:block uppercase">
+                    <option value="1080">HD 1080p</option>
+                    <option value="1440">2K 1440p</option>
+                    <option value="2160" selected>4K 2160p</option>
+                </select>
+                <select id="export-fmt" class="bg-white text-blueprint-900 font-bold pl-3 pr-2 py-1.5 outline-none cursor-pointer appearance-none text-xs uppercase">
+                    <option value="webm" selected>WebM</option>
+                    <option value="png">PNG Snap</option>
+                </select>
+                <button id="btn-header-export" class="flex items-center gap-2 px-4 py-1.5 text-white font-black hover:bg-blueprint-800 transition-colors text-xs uppercase tracking-widest">
+                    <i class="ph-bold ph-export text-sm"></i> Export
+                </button>
+            </div>
+        </div>
+    </header>
+
+    <main class="flex-1 flex flex-col md:flex-row overflow-hidden relative">
+        
+        <!-- Recording Overlay -->
+        <div id="recording-overlay" class="fixed top-6 left-1/2 -translate-x-1/2 -translate-y-24 bg-white blueprint-shadow border-4 border-blueprint-900 px-8 py-4 flex items-center gap-4 transition-all duration-500 z-[60]">
+            <div class="w-4 h-4 rounded-full bg-brand-red animate-pulse"></div>
+            <span id="recording-text" class="text-sm font-black text-blueprint-900 uppercase tracking-widest">Rendering WebM Video... <span id="rec-pct">0%</span></span>
+        </div>
+
+        <!-- SIDEBAR -->
+        <aside class="w-full md:w-[420px] bg-white border-b md:border-b-0 md:border-r border-blueprint-900 flex flex-col z-10 flex-shrink-0 h-[50vh] md:h-full order-2 md:order-1 shadow-[0_-4px_10px_rgba(0,0,0,0.05)] md:shadow-none">
+            
+            <div class="flex border-b border-blueprint-900">
+                <button class="tab-btn flex-1 py-3 text-[11px] font-black uppercase tracking-widest text-white bg-blueprint-900" data-target="panel-data">Data & Setup</button>
+                <button class="tab-btn flex-1 py-3 text-[11px] font-black uppercase tracking-widest text-blueprint-900 bg-blueprint-50 hover:bg-blueprint-100 transition" data-target="panel-style">Style & Camera</button>
+            </div>
+
+            <div class="flex-1 overflow-y-auto p-5 custom-scrollbar relative">
+                
+                <!-- DATA PANEL -->
+                <div id="panel-data" class="tab-content flex flex-col gap-6">
+                    
+                    <!-- Presets -->
+                    <div>
+                        <h2 class="text-[10px] font-bold uppercase tracking-widest text-slate-500 mb-2 flex items-center gap-2">
+                            <i class="ph-fill ph-database text-yellow-500 text-lg"></i> Real-World Presets
+                        </h2>
+                        <div class="grid grid-cols-2 gap-2">
+                            <button class="preset-btn py-2 bg-white border border-blueprint-200 hover:border-blueprint-900 hover:bg-blueprint-50 text-xs font-semibold text-slate-700 transition px-3 text-left shadow-[2px_2px_0px_rgba(0,0,0,0.05)]" data-preset="tech">💻 Tech Giants Cap</button>
+                            <button class="preset-btn py-2 bg-white border border-blueprint-200 hover:border-blueprint-900 hover:bg-blueprint-50 text-xs font-semibold text-slate-700 transition px-3 text-left shadow-[2px_2px_0px_rgba(0,0,0,0.05)]" data-preset="pop">🌍 Global Population</button>
+                            <button class="preset-btn py-2 bg-white border border-blueprint-200 hover:border-blueprint-900 hover:bg-blueprint-50 text-xs font-semibold text-slate-700 transition px-3 text-left shadow-[2px_2px_0px_rgba(0,0,0,0.05)]" data-preset="brands">🏷️ Top Brands</button>
+                            <button class="preset-btn py-2 bg-white border border-blueprint-200 hover:border-blueprint-900 hover:bg-blueprint-50 text-xs font-semibold text-slate-700 transition px-3 text-left shadow-[2px_2px_0px_rgba(0,0,0,0.05)]" data-preset="games">🎮 Best Selling Consoles</button>
+                        </div>
+                    </div>
+
+                    <div class="w-full border-b border-dashed border-blueprint-300"></div>
+
+                    <!-- Metadata -->
+                    <div class="flex flex-col gap-3">
+                        <h2 class="text-[10px] font-bold uppercase tracking-widest text-slate-500">Video Metadata</h2>
+                        <input type="text" id="ui-title" value="The Rise of Tech Giants" class="px-3 py-2 bg-slate-50 border border-blueprint-200 text-sm font-bold text-slate-900 outline-none focus:border-blueprint-900 transition-all" placeholder="Main Title">
+                        <input type="text" id="ui-subtitle" value="Market Capitalization (in Billions USD)" class="px-3 py-2 bg-slate-50 border border-blueprint-200 text-xs text-slate-700 outline-none focus:border-blueprint-900 transition-all" placeholder="Subtitle">
+                        <div class="flex gap-2">
+                            <input type="text" id="ui-source" value="SOURCE: MACROTRENDS" class="flex-1 px-3 py-2 bg-slate-50 border border-blueprint-200 text-[10px] font-bold uppercase text-slate-500 outline-none focus:border-blueprint-900 transition-all" placeholder="Source">
+                            <select id="ui-format" class="w-24 px-2 py-2 bg-slate-50 border border-blueprint-200 text-[10px] font-bold uppercase text-slate-800 outline-none focus:border-blueprint-900">
+                                <option value="num">1,000</option>
+                                <option value="cur" selected>$1,000</option>
+                                <option value="k">1K/1M</option>
+                            </select>
+                        </div>
+                    </div>
+
+                    <div class="w-full border-b border-dashed border-blueprint-300"></div>
+
+                    <!-- CSV Editor -->
+                    <div class="flex flex-col gap-2 flex-1 min-h-[250px]">
+                        <div class="flex justify-between items-end">
+                            <h2 class="text-[10px] font-bold uppercase tracking-widest text-slate-500">Timeline Data (CSV)</h2>
+                            <span class="text-[9px] text-slate-400 font-mono">Format: Date, Entity1, Entity2...</span>
+                        </div>
+                        <textarea id="ui-csv" class="w-full flex-1 p-3 border-2 border-blueprint-200 bg-slate-50 text-[11px] text-slate-800 font-mono outline-none focus:border-blueprint-900 resize-none whitespace-pre transition-colors leading-relaxed" spellcheck="false"></textarea>
+                        <button id="btn-parse-data" class="w-full py-2 bg-blueprint-900 text-white text-xs font-bold uppercase tracking-wider hover:bg-blueprint-800 transition shadow-[2px_2px_0px_rgba(0,51,102,0.3)] hover:shadow-none hover:translate-x-[2px] hover:translate-y-[2px]">Compile Data Timeline</button>
+                    </div>
+
+                </div>
+
+                <!-- STYLE PANEL -->
+                <div id="panel-style" class="tab-content flex flex-col gap-6 hidden">
+                    
+                    <!-- Core Setup -->
+                    <div class="grid grid-cols-2 gap-4">
+                        <div>
+                            <label class="block text-[10px] font-bold uppercase tracking-wider text-blueprint-900 mb-1.5">Orientation</label>
+                            <select id="ui-orientation" class="w-full px-3 py-2 bg-slate-50 border border-blueprint-200 text-xs font-bold text-slate-800 outline-none focus:border-blueprint-900">
+                                <option value="horizontal" selected>Horizontal Race</option>
+                                <option value="vertical">Vertical Race</option>
+                            </select>
+                        </div>
+                        <div>
+                            <label class="block text-[10px] font-bold uppercase tracking-wider text-blueprint-900 mb-1.5">Top N Entities</label>
+                            <select id="ui-top-n" class="w-full px-3 py-2 bg-slate-50 border border-blueprint-200 text-xs font-bold text-slate-800 outline-none focus:border-blueprint-900">
+                                <option value="5">Top 5</option>
+                                <option value="10" selected>Top 10</option>
+                                <option value="15">Top 15</option>
+                                <option value="20">Top 20</option>
+                            </select>
+                        </div>
+                        <div>
+                            <div class="flex justify-between items-center mb-1.5">
+                                <label class="block text-[10px] font-bold text-blueprint-900 uppercase tracking-wider">Race Duration</label>
+                                <span id="dur-val" class="text-[10px] text-brand-red font-bold">15s</span>
+                            </div>
+                            <input type="range" id="ui-duration" min="3" max="60" step="1" value="15">
+                        </div>
+                        <div>
+                            <label class="block text-[10px] font-bold uppercase tracking-wider text-blueprint-900 mb-1.5">Font Style</label>
+                            <select id="ui-font" class="w-full px-3 py-2 bg-slate-50 border border-blueprint-200 text-xs font-bold text-slate-800 outline-none focus:border-blueprint-900">
+                                <option value="Inter" selected>Inter (Clean)</option>
+                                <option value="JetBrains Mono">JetBrains (Code)</option>
+                                <option value="Playfair Display">Playfair (News)</option>
+                                <option value="Roboto">Roboto (Standard)</option>
+                            </select>
+                        </div>
+                    </div>
+
+                    <div class="w-full border-b border-dashed border-blueprint-300"></div>
+
+                    <!-- Colors -->
+                    <div>
+                        <h2 class="text-[10px] font-bold uppercase tracking-widest text-slate-500 mb-3">Color Scheme</h2>
+                        <div class="grid grid-cols-2 gap-4">
+                            <div>
+                                <label class="block text-[10px] font-bold uppercase tracking-wider text-blueprint-900 mb-1.5">Palette</label>
+                                <select id="ui-palette" class="w-full px-3 py-2 bg-slate-50 border border-blueprint-200 text-xs font-bold text-slate-800 outline-none focus:border-blueprint-900">
+                                    <option value="vibrant" selected>Data Vibrant</option>
+                                    <option value="corporate">Corporate Blue</option>
+                                    <option value="neon">Cyberpunk</option>
+                                    <option value="monochrome">Monochrome</option>
+                                </select>
+                            </div>
+                            <div>
+                                <label class="block text-[10px] font-bold uppercase tracking-wider text-blueprint-900 mb-1.5">Background</label>
+                                <div class="relative w-full h-8 border border-blueprint-200 overflow-hidden">
+                                    <input type="color" id="ui-bg" value="#ffffff">
+                                </div>
+                            </div>
+                            <div>
+                                <label class="block text-[10px] font-bold uppercase tracking-wider text-blueprint-900 mb-1.5">Text Color</label>
+                                <div class="relative w-full h-8 border border-blueprint-200 overflow-hidden">
+                                    <input type="color" id="ui-text" value="#1e293b">
+                                </div>
+                            </div>
+                            <div>
+                                <label class="block text-[10px] font-bold uppercase tracking-wider text-blueprint-900 mb-1.5">Watermark</label>
+                                <div class="relative w-full h-8 border border-blueprint-200 overflow-hidden">
+                                    <input type="color" id="ui-watermark" value="#f1f5f9">
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+
+                    <div class="w-full border-b border-dashed border-blueprint-300"></div>
+
+                    <!-- Camera Pan & Zoom -->
+                    <div class="flex flex-col gap-4 bg-blueprint-50 border border-blueprint-100 p-3 rounded">
+                        <div class="flex justify-between items-center">
+                            <label class="block text-[10px] font-black uppercase tracking-widest text-blueprint-900">Virtual Camera</label>
+                            <button id="btn-reset-cam" class="text-[9px] font-bold text-brand-blue hover:underline uppercase">Reset</button>
+                        </div>
+                        <div class="grid grid-cols-1 gap-3">
+                            <div>
+                                <div class="flex justify-between items-center mb-1">
+                                    <label class="block text-[9px] font-bold text-slate-500 uppercase tracking-wider">Zoom Scale</label>
+                                    <span id="zoom-val" class="text-[9px] text-blueprint-900 font-bold">1.0x</span>
+                                </div>
+                                <input type="range" id="ui-zoom" min="0.5" max="3" step="0.05" value="1.0">
+                            </div>
+                            <div class="flex gap-4">
+                                <div class="flex-1">
+                                    <div class="flex justify-between items-center mb-1">
+                                        <label class="block text-[9px] font-bold text-slate-500 uppercase tracking-wider">Pan X</label>
+                                        <span id="panx-val" class="text-[9px] text-blueprint-900 font-bold">0</span>
+                                    </div>
+                                    <input type="range" id="ui-panx" min="-1000" max="1000" step="10" value="0">
+                                </div>
+                                <div class="flex-1">
+                                    <div class="flex justify-between items-center mb-1">
+                                        <label class="block text-[9px] font-bold text-slate-500 uppercase tracking-wider">Pan Y</label>
+                                        <span id="pany-val" class="text-[9px] text-blueprint-900 font-bold">0</span>
+                                    </div>
+                                    <input type="range" id="ui-pany" min="-1000" max="1000" step="10" value="0">
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+
+                </div>
+            </div>
+        </aside>
+
+        <!-- CANVAS AREA -->
+        <section class="flex-1 relative overflow-hidden flex items-center justify-center p-4 sm:p-12 order-1 md:order-2">
+            <!-- 16:9 Aspect Ratio Container for video editing standards -->
+            <div class="relative w-full max-w-[1200px] aspect-video bg-white border-4 border-blueprint-900 blueprint-shadow overflow-hidden">
+                <canvas id="race-canvas" class="w-full h-full block bg-white"></canvas>
+            </div>
+        </section>
+
+    </main>
+
+    <script>
+        // --- REAL WORLD DATA PRESETS ---
+        const PRESETS = {
+            'tech': {
+                title: 'The Rise of Tech Giants', subtitle: 'Market Capitalization (in Billions USD)', source: 'SOURCE: MACROTRENDS / YAHOO', format: 'cur',
+                csv: `Date,Apple,Microsoft,Amazon,Google,Meta,Tesla,Nvidia,Tencent,Alibaba,IBM,Intel,Cisco
+2005,34,233,19,0,0,0,4,1,0,131,152,108
+2007,173,293,40,212,0,0,10,12,0,147,155,164
+2009,189,270,60,188,0,0,10,40,0,170,113,139
+2011,377,218,78,211,0,0,8,44,0,216,128,98
+2013,500,314,181,372,139,18,9,122,0,203,128,120
+2015,583,436,316,528,296,31,17,189,204,133,163,137
+2017,860,659,563,729,512,52,117,493,441,141,216,189
+2019,1300,1200,920,922,585,75,143,480,570,118,260,202
+2021,2913,2522,1691,1917,935,1061,735,562,323,119,209,267
+2023,2994,2794,1570,1774,909,791,1223,371,197,149,213,205`
+            },
+            'pop': {
+                title: 'Most Populated Countries', subtitle: 'Total Population (in Millions)', source: 'SOURCE: UN POPULATION DIVISION', format: 'num',
+                csv: `Date,China,India,USA,Indonesia,Pakistan,Brazil,Nigeria,Bangladesh,Russia,Mexico,Japan,Ethiopia
+1950,554,357,148,69,37,53,37,39,102,28,84,18
+1970,822,555,205,114,59,96,55,67,130,52,104,28
+1990,1153,873,252,181,114,149,95,106,148,83,123,48
+2000,1262,1056,282,211,142,175,122,129,146,97,126,66
+2010,1337,1234,309,241,179,195,159,147,142,114,128,87
+2020,1411,1396,335,271,227,214,211,167,145,126,125,117
+2023,1425,1428,339,277,240,216,223,172,144,128,123,126`
+            },
+            'brands': {
+                title: 'Top Global Brands Value', subtitle: 'Brand Value (in Billions USD)', source: 'SOURCE: INTERBRAND', format: 'cur',
+                csv: `Date,Coca-Cola,Microsoft,IBM,GE,Intel,Nokia,Disney,McDonalds,Toyota,Apple,Google,Amazon,Samsung
+2000,72,70,53,38,39,38,33,27,18,6,0,0,5
+2005,67,59,53,42,35,26,26,26,24,7,8,0,14
+2010,70,60,64,42,32,29,28,33,26,21,43,6,19
+2015,78,67,65,42,35,0,36,39,49,170,120,37,45
+2020,56,166,34,0,36,0,40,42,51,322,165,200,62
+2023,58,316,0,0,0,0,48,50,64,502,260,276,91`
+            },
+            'games': {
+                title: 'Best Selling Video Game Consoles', subtitle: 'Cumulative Lifetime Sales (Millions)', source: 'SOURCE: VGCHARTZ / COMPANY REPS', format: 'num',
+                csv: `Date,PS2,DS,Switch,GameBoy,PS4,PS1,Wii,PS3,Xbox360,GBA,PSP,XboxOne,NES,SNES
+2000,10,0,0,118,0,79,0,0,0,0,0,0,61,49
+2005,100,14,0,118,0,102,0,0,1,60,15,0,61,49
+2010,150,144,0,118,0,102,84,47,50,81,67,0,61,49
+2015,155,154,0,118,35,102,101,86,84,81,82,19,61,49
+2020,155,154,79,118,114,102,101,87,84,81,82,50,61,49
+2023,155,154,139,118,117,102,101,87,84,81,82,58,61,49`
+            }
+        };
+
+        const PALETTES = {
+            vibrant: ['#ef4444', '#3b82f6', '#10b981', '#f59e0b', '#8b5cf6', '#ec4899', '#06b6d4', '#eab308', '#14b8a6', '#f97316'],
+            corporate: ['#1e3a8a', '#2563eb', '#3b82f6', '#60a5fa', '#93c5fd', '#1e40af', '#1d4ed8', '#0f172a', '#334155', '#475569'],
+            neon: ['#ff00ff', '#00ffff', '#00ff00', '#ffff00', '#ff0000', '#0000ff', '#ff0088', '#00ff88', '#8800ff', '#ff8800'],
+            monochrome: ['#171717', '#262626', '#404040', '#525252', '#737373', '#a3a3a3', '#d4d4d4', '#e5e5e5', '#0a0a0a', '#000000']
+        };
+
+        // --- APP STATE ---
+        const state = {
+            rawDates: [], // ['2000', '2005', '2010']
+            seriesData: [], // [{name: 'Apple', values: [10, 20, 30], color: '#f00'}, ...]
+            keyframes: [], // Pre-calculated ranks and values per date
+            
+            progress: 0.0, // 0.0 to 1.0
+            isPlaying: false,
+            isRecording: false,
+            
+            // Settings
+            title: '', subtitle: '', source: '', format: 'cur',
+            orientation: 'horizontal', topN: 10,
+            duration: 15000, font: 'Inter',
+            bgColor: '#ffffff', textColor: '#1e293b', watermarkColor: '#f1f5f9',
+            palette: 'vibrant',
+            
+            // Camera
+            zoom: 1.0, panX: 0, panY: 0
+        };
+
+        // --- UI ELEMENTS ---
+        const canvas = document.getElementById('race-canvas');
+        const ctx = canvas.getContext('2d', { alpha: false });
+        // Internal hi-res canvas size for rendering 
+        const CW = 1920; 
+        const CH = 1080;
+        canvas.width = CW;
+        canvas.height = CH;
+
+        // --- CORE LOGIC: DATA PARSING & INTERPOLATION ---
+
+        function parseCSV() {
+            const text = document.getElementById('ui-csv').value.trim();
+            if (!text) return false;
+
+            const lines = text.split('\n').map(l => l.split(',').map(c => c.trim()));
+            if (lines.length < 2) return false;
+
+            // First line: Date, Entity1, Entity2...
+            const headers = lines[0];
+            const entities = headers.slice(1);
+            
+            state.rawDates = [];
+            let tempSeries = entities.map(e => ({ name: e, values: [] }));
+
+            for (let i = 1; i < lines.length; i++) {
+                if(lines[i].length < 2) continue;
+                state.rawDates.push(lines[i][0]);
+                for(let j = 0; j < entities.length; j++) {
+                    let val = parseFloat(lines[i][j+1]);
+                    tempSeries[j].values.push(isNaN(val) ? 0 : val);
+                }
+            }
+
+            // Assign colors
+            const colors = PALETTES[state.palette];
+            state.seriesData = tempSeries.map((s, idx) => ({
+                ...s,
+                color: colors[idx % colors.length]
+            }));
+
+            calculateKeyframes();
+            return true;
+        }
+
+        function calculateKeyframes() {
+            state.keyframes = [];
+            const numDates = state.rawDates.length;
+
+            for (let d = 0; d < numDates; d++) {
+                // Get all entities at this date
+                let frame = state.seriesData.map(s => ({
+                    name: s.name,
+                    color: s.color,
+                    value: s.values[d]
+                }));
+
+                // Sort descending to find rank
+                frame.sort((a, b) => b.value - a.value);
+                
+                // Assign rank
+                frame.forEach((item, index) => { item.rank = index; });
+                
+                // Sort alphabetically to maintain consistent array order for easy lookup later
+                frame.sort((a, b) => a.name.localeCompare(b.name));
+                state.keyframes.push(frame);
+            }
+        }
+
+        function getInterpolatedFrame(progress) {
+            const totalSteps = state.keyframes.length - 1;
+            if (totalSteps < 1) return { data: null, dateStr: '', maxVal: 0 };
+
+            // Clamp progress to ensure we never look for an out-of-bounds array index
+            progress = Math.max(0, Math.min(1, progress));
+
+            let exactStep = progress * totalSteps;
+            let idx1 = Math.floor(exactStep);
+            let idx2 = Math.min(idx1 + 1, totalSteps);
+            let fraction = exactStep - idx1;
+            
+            // smooth easing for the fraction (optional, makes it less linear)
+            // fraction = fraction * fraction * (3 - 2 * fraction); 
+
+            if (idx1 === totalSteps) { idx2 = idx1; fraction = 0; }
+
+            const f1 = state.keyframes[idx1];
+            const f2 = state.keyframes[idx2];
+            
+            // Calculate current interpolated date string (rough estimation if years)
+            let currentDateStr = state.rawDates[idx1];
+            // Attempt to interpolate year if it looks like a number
+            const y1 = parseFloat(state.rawDates[idx1]);
+            const y2 = parseFloat(state.rawDates[idx2]);
+            if(!isNaN(y1) && !isNaN(y2)) {
+                currentDateStr = Math.floor(y1 + (y2 - y1) * fraction).toString();
+            }
+
+            let currentData = f1.map((item1, i) => {
+                const item2 = f2[i]; // Because we sorted alphabetically, indices match
+                return {
+                    name: item1.name,
+                    color: item1.color,
+                    value: item1.value + (item2.value - item1.value) * fraction,
+                    rank: item1.rank + (item2.rank - item1.rank) * fraction
+                };
+            });
+
+            // Find current max value for scaling the axis
+            const currentMax = Math.max(...currentData.map(d => d.value));
+
+            return { data: currentData, dateStr: currentDateStr, maxVal: currentMax };
+        }
+
+        // --- RENDER ENGINE ---
+
+        function formatValue(val) {
+            if (state.format === 'cur') return '$' + Math.round(val).toLocaleString();
+            if (state.format === 'k') {
+                if(val >= 1000) return (val/1000).toFixed(1) + 'k';
+                return Math.round(val).toString();
+            }
+            return Math.round(val).toLocaleString();
+        }
+
+        function drawFrame(progress) {
+            ctx.save();
+            
+            // Background
+            ctx.fillStyle = state.bgColor;
+            ctx.fillRect(0, 0, CW, CH);
+
+            // Apply Camera
+            ctx.translate(CW/2 + state.panX, CH/2 + state.panY);
+            ctx.scale(state.zoom, state.zoom);
+            ctx.translate(-CW/2, -CH/2);
+
+            const { data, dateStr, maxVal } = getInterpolatedFrame(progress);
+            if (!data) { ctx.restore(); return; }
+
+            // DRAW WATERMARK DATE
+            ctx.textAlign = 'right';
+            ctx.textBaseline = 'bottom';
+            ctx.font = `900 320px "${state.font}"`;
+            ctx.fillStyle = state.watermarkColor;
+            ctx.fillText(dateStr, CW - 80, CH - 60);
+
+            // DRAW METADATA (Header)
+            ctx.textAlign = 'left';
+            ctx.textBaseline = 'top';
+            ctx.fillStyle = state.textColor;
+            ctx.font = `900 64px "${state.font}"`;
+            ctx.fillText(state.title, 80, 60);
+            
+            ctx.font = `500 36px "${state.font}"`;
+            ctx.fillText(state.subtitle, 80, 140);
+            
+            ctx.font = `700 24px "${state.font}"`;
+            ctx.fillStyle = '#64748b'; // generic gray for source
+            ctx.fillText(state.source, 80, 190);
+
+            // Filter out items beyond Top N (but keep them if they are transitioning out)
+            // We draw items if their rank < Top N + 1 (to allow smooth sliding out)
+            const visibleData = data.filter(d => d.rank < parseInt(state.topN) + 1);
+            
+            // Calculate scale bounds
+            const scaleMax = maxVal > 0 ? maxVal * 1.1 : 1; // 10% headroom
+            
+            if (state.orientation === 'horizontal') {
+                drawHorizontalBars(visibleData, scaleMax);
+            } else {
+                drawVerticalBars(visibleData, scaleMax);
+            }
+
+            ctx.restore();
+        }
+
+        function drawHorizontalBars(data, scaleMax) {
+            const startX = 280; // Space for labels
+            const endX = CW - 100;
+            const startY = 260;
+            const endY = CH - 80;
+            const availableW = endX - startX;
+            const availableH = endY - startY;
+            
+            const topN = parseInt(state.topN);
+            const slotH = availableH / topN;
+            const barH = slotH * 0.75;
+
+            // Axis line
+            ctx.beginPath();
+            ctx.moveTo(startX, startY);
+            ctx.lineTo(startX, endY + 20);
+            ctx.strokeStyle = state.textColor;
+            ctx.lineWidth = 4;
+            ctx.stroke();
+
+            // Draw Bars
+            data.forEach(item => {
+                // If rank is exactly topN, opacity should drop to 0 as it exits
+                const opacity = Math.max(0, 1 - Math.max(0, item.rank - (topN - 1)));
+                if (opacity <= 0) return;
+
+                const y = startY + (item.rank * slotH) + (slotH - barH)/2;
+                const barW = (item.value / scaleMax) * availableW;
+
+                ctx.globalAlpha = opacity;
+                
+                // Draw Bar
+                ctx.fillStyle = item.color;
+                ctx.beginPath();
+                ctx.roundRect(startX, y, Math.max(2, barW), barH, 4);
+                ctx.fill();
+
+                // Draw Label
+                ctx.textAlign = 'right';
+                ctx.textBaseline = 'middle';
+                ctx.font = `700 24px "${state.font}"`;
+                ctx.fillStyle = state.textColor;
+                ctx.fillText(item.name, startX - 20, y + barH/2);
+
+                // Draw Value
+                ctx.textAlign = 'left';
+                ctx.font = `800 28px "${state.font === 'Playfair Display' ? state.font : 'JetBrains Mono'}"`;
+                // If bar is long enough, put text inside
+                if (barW > 100) {
+                    ctx.fillStyle = '#ffffff';
+                    ctx.fillText(formatValue(item.value), startX + barW - 15, y + barH/2);
+                    // Ensure text aligns inside
+                    ctx.textAlign = 'right';
+                    ctx.fillText(formatValue(item.value), startX + barW - 15, y + barH/2);
+                } else {
+                    ctx.fillStyle = state.textColor;
+                    ctx.fillText(formatValue(item.value), startX + barW + 15, y + barH/2);
+                }
+            });
+            ctx.globalAlpha = 1.0;
+        }
+
+        function drawVerticalBars(data, scaleMax) {
+            const startX = 100;
+            const endX = CW - 100;
+            const startY = 260;
+            const endY = CH - 140; // Space for labels at bottom
+            const availableW = endX - startX;
+            const availableH = endY - startY;
+
+            const topN = parseInt(state.topN);
+            const slotW = availableW / topN;
+            const barW = slotW * 0.75;
+
+            // Axis line
+            ctx.beginPath();
+            ctx.moveTo(startX - 20, endY);
+            ctx.lineTo(endX, endY);
+            ctx.strokeStyle = state.textColor;
+            ctx.lineWidth = 4;
+            ctx.stroke();
+
+            data.forEach(item => {
+                const opacity = Math.max(0, 1 - Math.max(0, item.rank - (topN - 1)));
+                if (opacity <= 0) return;
+
+                const x = startX + (item.rank * slotW) + (slotW - barW)/2;
+                const barH = (item.value / scaleMax) * availableH;
+                const y = endY - barH;
+
+                ctx.globalAlpha = opacity;
+                
+                // Draw Bar
+                ctx.fillStyle = item.color;
+                ctx.beginPath();
+                ctx.roundRect(x, y, barW, Math.max(2, barH), [4, 4, 0, 0]);
+                ctx.fill();
+
+                // Draw Label
+                ctx.textAlign = 'center';
+                ctx.textBaseline = 'top';
+                ctx.font = `700 22px "${state.font}"`;
+                ctx.fillStyle = state.textColor;
+                
+                // Handle long names by rotating or truncating
+                let lbl = item.name;
+                if(lbl.length > 10) lbl = lbl.substring(0,8)+'...';
+                ctx.fillText(lbl, x + barW/2, endY + 15);
+
+                // Draw Value
+                ctx.textBaseline = 'bottom';
+                ctx.font = `800 24px "${state.font === 'Playfair Display' ? state.font : 'JetBrains Mono'}"`;
+                
+                if (barH > 50) {
+                    ctx.fillStyle = '#ffffff';
+                    ctx.fillText(formatValue(item.value), x + barW/2, y + 35);
+                } else {
+                    ctx.fillStyle = state.textColor;
+                    ctx.fillText(formatValue(item.value), x + barW/2, y - 10);
+                }
+            });
+            ctx.globalAlpha = 1.0;
+        }
+
+        // --- ANIMATION CONTROLLER ---
+
+        function playAnimation() {
+            if (state.isPlaying || state.keyframes.length === 0) return;
+            state.isPlaying = true;
+            
+            const btnPlay = document.getElementById('btn-header-preview');
+            const iconPlay = document.getElementById('icon-play');
+            const textPlay = document.getElementById('text-play');
+            
+            btnPlay.classList.add('bg-red-100', 'text-brand-red', 'border-brand-red');
+            iconPlay.classList.replace('ph-play-circle', 'ph-stop-circle');
+            textPlay.innerText = 'Stop';
+
+            const startTime = performance.now();
+            // Start from 0 unless already partially through
+            if(state.progress >= 1.0) state.progress = 0;
+            const startProgress = state.progress;
+
+            function loop(currentTime) {
+                if (!state.isPlaying) return;
+                
+                // Prevent negative elapsed time on first frame due to rAF timing quirks
+                const elapsed = Math.max(0, currentTime - startTime);
+                const addedProgress = elapsed / state.duration;
+                state.progress = startProgress + addedProgress;
+
+                if (state.progress >= 1.0) {
+                    state.progress = 1.0;
+                    drawFrame(1.0);
+                    stopAnimation();
+                } else {
+                    drawFrame(state.progress);
+                    requestAnimationFrame(loop);
+                }
+            }
+            requestAnimationFrame(loop);
+        }
+
+        function stopAnimation() {
+            state.isPlaying = false;
+            const btnPlay = document.getElementById('btn-header-preview');
+            const iconPlay = document.getElementById('icon-play');
+            const textPlay = document.getElementById('text-play');
+            
+            btnPlay.classList.remove('bg-red-100', 'text-brand-red', 'border-brand-red');
+            iconPlay.classList.replace('ph-stop-circle', 'ph-play-circle');
+            textPlay.innerText = 'Preview Race';
+        }
+
+        document.getElementById('btn-header-preview').addEventListener('click', () => {
+            if (state.isRecording) return;
+            state.isPlaying ? stopAnimation() : playAnimation();
+        });
+
+
+        // --- UI BINDINGS ---
+        
+        function updateFromUI() {
+            state.title = document.getElementById('ui-title').value;
+            state.subtitle = document.getElementById('ui-subtitle').value;
+            state.source = document.getElementById('ui-source').value;
+            state.format = document.getElementById('ui-format').value;
+            
+            state.orientation = document.getElementById('ui-orientation').value;
+            state.topN = document.getElementById('ui-top-n').value;
+            state.duration = parseInt(document.getElementById('ui-duration').value) * 1000;
+            state.font = document.getElementById('ui-font').value;
+            
+            state.bgColor = document.getElementById('ui-bg').value;
+            state.textColor = document.getElementById('ui-text').value;
+            state.watermarkColor = document.getElementById('ui-watermark').value;
+            
+            // Check palette change
+            const newPal = document.getElementById('ui-palette').value;
+            if(newPal !== state.palette) {
+                state.palette = newPal;
+                const colors = PALETTES[state.palette];
+                state.seriesData.forEach((s, idx) => { s.color = colors[idx % colors.length]; });
+                calculateKeyframes(); // refresh objects
+            }
+
+            // Camera
+            state.zoom = parseFloat(document.getElementById('ui-zoom').value);
+            state.panX = parseInt(document.getElementById('ui-panx').value);
+            state.panY = parseInt(document.getElementById('ui-pany').value);
+
+            if(!state.isPlaying) drawFrame(state.progress);
+        }
+
+        document.querySelectorAll('input, select').forEach(el => {
+            el.addEventListener('input', () => {
+                if(el.id === 'ui-duration') document.getElementById('dur-val').innerText = el.value + 's';
+                if(el.id === 'ui-zoom') document.getElementById('zoom-val').innerText = parseFloat(el.value).toFixed(1) + 'x';
+                if(el.id === 'ui-panx') document.getElementById('panx-val').innerText = el.value;
+                if(el.id === 'ui-pany') document.getElementById('pany-val').innerText = el.value;
+                if(el.id !== 'ui-csv') updateFromUI(); 
+            });
+        });
+
+        document.getElementById('btn-parse-data').addEventListener('click', () => {
+            if(parseCSV()) {
+                state.progress = 0.0;
+                drawFrame(0);
+            } else {
+                alert("Invalid CSV format. Needs Date column and at least one entity column.");
+            }
+        });
+
+        document.querySelectorAll('.preset-btn').forEach(btn => {
+            btn.addEventListener('click', () => {
+                const presetKey = btn.getAttribute('data-preset');
+                const p = PRESETS[presetKey];
+                if(p) {
+                    document.getElementById('ui-title').value = p.title;
+                    document.getElementById('ui-subtitle').value = p.subtitle;
+                    document.getElementById('ui-source').value = p.source;
+                    document.getElementById('ui-format').value = p.format;
+                    document.getElementById('ui-csv').value = p.csv;
+                    updateFromUI();
+                    parseCSV();
+                    state.progress = 0.0;
+                    drawFrame(0);
+                }
+            });
+        });
+
+        document.getElementById('btn-reset-cam').addEventListener('click', () => {
+            document.getElementById('ui-zoom').value = 1.0;
+            document.getElementById('ui-panx').value = 0;
+            document.getElementById('ui-pany').value = 0;
+            document.getElementById('zoom-val').innerText = '1.0x';
+            document.getElementById('panx-val').innerText = '0';
+            document.getElementById('pany-val').innerText = '0';
+            updateFromUI();
+        });
+
+        // Tabs logic
+        document.querySelectorAll('.tab-btn').forEach(btn => {
+            btn.addEventListener('click', () => {
+                document.querySelectorAll('.tab-btn').forEach(b => {
+                    b.classList.remove('text-white', 'bg-blueprint-900');
+                    b.classList.add('text-blueprint-900', 'bg-blueprint-50');
+                });
+                document.querySelectorAll('.tab-content').forEach(c => c.classList.add('hidden'));
+                
+                btn.classList.add('text-white', 'bg-blueprint-900');
+                btn.classList.remove('text-blueprint-900', 'bg-blueprint-50');
+                document.getElementById(btn.getAttribute('data-target')).classList.remove('hidden');
+            });
+        });
+
+        // --- EXPORT LOGIC ---
+        
+        async function exportVideo(targetWidth) {
+            if(state.keyframes.length === 0) return alert("Please load data first.");
+            
+            const targetHeight = targetWidth * (CH/CW);
+            const expCanvas = document.createElement('canvas');
+            expCanvas.width = targetWidth;
+            expCanvas.height = targetHeight;
+            const expCtx = expCanvas.getContext('2d');
+            const scale = targetWidth / CW;
+
+            const overlay = document.getElementById('recording-overlay');
+            const recText = document.getElementById('recording-text');
+            const recPct = document.getElementById('rec-pct');
+
+            let mediaRecorder;
+            let recordedChunks = [];
+            state.isRecording = true;
+            stopAnimation(); // Halt any preview
+            
+            try {
+                const stream = expCanvas.captureStream(60);
+                
+                let options = { mimeType: 'video/webm;codecs=vp9' };
+                if (!MediaRecorder.isTypeSupported(options.mimeType)) {
+                    options = { mimeType: 'video/webm;codecs=vp8' };
+                    if (!MediaRecorder.isTypeSupported(options.mimeType)) options = { mimeType: 'video/webm' };
+                }
+
+                options.videoBitsPerSecond = 20000000;
+                mediaRecorder = new MediaRecorder(stream, options);
+
+                mediaRecorder.ondataavailable = (e) => { if (e.data.size > 0) recordedChunks.push(e.data); };
+
+                mediaRecorder.onstop = () => {
+                    const blob = new Blob(recordedChunks, { type: options.mimeType.split(';')[0] });
+                    const url = URL.createObjectURL(blob);
+                    
+                    const a = document.createElement('a');
+                    a.style.display = 'none';
+                    a.href = url;
+                    a.download = `DataThesis-Race-${targetWidth}w-${Date.now()}.webm`;
+                    document.body.appendChild(a);
+                    a.click();
+                    setTimeout(() => { document.body.removeChild(a); window.URL.revokeObjectURL(url); }, 100);
+
+                    overlay.classList.remove('translate-y-4');
+                    overlay.classList.add('-translate-y-24');
+                    state.isRecording = false;
+                    drawFrame(1.0); // Reset UI to end
+                };
+
+                overlay.classList.remove('-translate-y-24');
+                overlay.classList.add('translate-y-4');
+                recText.innerHTML = 'Rendering Video... <span id="rec-pct">0%</span>';
+
+                mediaRecorder.start();
+                
+                const startTime = performance.now();
+                const durationMs = state.duration;
+
+                function renderLoop(currentTime) {
+                    // Prevent negative elapsed time
+                    const elapsed = Math.max(0, currentTime - startTime);
+                    let p = elapsed / durationMs;
+                    if(p > 1.0) p = 1.0;
+                    
+                    // Render to hidden export canvas
+                    expCtx.save();
+                    expCtx.scale(scale, scale);
+                    // Temporarily swap standard context for drawFrame logic
+                    const originalCtx = window.ctx;
+                    window.ctx = expCtx; 
+                    drawFrame(p);
+                    window.ctx = originalCtx;
+                    expCtx.restore();
+
+                    // Render to visible canvas so user sees progress
+                    drawFrame(p);
+
+                    document.getElementById('rec-pct').innerText = `${Math.round(p * 100)}%`;
+
+                    if (p < 1.0) {
+                        requestAnimationFrame(renderLoop);
+                    } else {
+                        recText.innerText = 'Finalizing file...';
+                        setTimeout(() => { if(mediaRecorder.state !== 'inactive') mediaRecorder.stop(); }, 500);
+                    }
+                }
+                requestAnimationFrame(renderLoop);
+
+            } catch (err) {
+                console.error(err);
+                alert("Recording failed. Browser may not support it.");
+                overlay.classList.remove('translate-y-4');
+                overlay.classList.add('-translate-y-24');
+                state.isRecording = false;
+            }
+        }
+
+        document.getElementById('btn-header-export').addEventListener('click', () => {
+            if (state.isPlaying || state.isRecording) return;
+            const fmt = document.getElementById('export-fmt').value;
+            const targetWidth = parseInt(document.getElementById('export-res').value);
+            
+            if (fmt === 'png') {
+                const targetHeight = targetWidth * (CH/CW);
+                const expCanvas = document.createElement('canvas');
+                expCanvas.width = targetWidth;
+                expCanvas.height = targetHeight;
+                const expCtx = expCanvas.getContext('2d');
+                expCtx.scale(targetWidth/CW, targetWidth/CW);
+                
+                const originalCtx = window.ctx;
+                window.ctx = expCtx; 
+                drawFrame(state.progress); // Draw current state
+                window.ctx = originalCtx;
+
+                const a = document.createElement('a');
+                a.href = expCanvas.toDataURL("image/png");
+                a.download = `DataThesis-Snapshot-${Date.now()}.png`;
+                a.click();
+            } else {
+                exportVideo(targetWidth);
+            }
+        });
+
+        // Initialize with default preset
+        document.querySelector('[data-preset="tech"]').click();
+
+    </script>
+</body>
+</html>

@@ -1,0 +1,607 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Canvas Motion Studio</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;700&family=Space+Grotesk:wght@700&family=Pacifico&family=Bebas+Neue&display=swap" rel="stylesheet">
+    <style>
+        body { font-family: 'Inter', sans-serif; overscroll-behavior: none; }
+        input[type=range] { accent-color: #8b5cf6; }
+        /* Custom scrollbar for side panel */
+        ::-webkit-scrollbar { width: 6px; }
+        ::-webkit-scrollbar-track { background: #1f2937; }
+        ::-webkit-scrollbar-thumb { background: #4b5563; border-radius: 4px; }
+        ::-webkit-scrollbar-thumb:hover { background: #6b7280; }
+    </style>
+</head>
+<body class="bg-gray-950 text-white h-screen flex flex-col overflow-hidden">
+
+    <!-- Header -->
+    <header class="p-4 border-b border-gray-800 bg-gray-900 flex justify-between items-center shrink-0">
+        <h1 class="text-xl font-bold bg-gradient-to-r from-violet-400 to-fuchsia-500 bg-clip-text text-transparent flex items-center gap-2">
+            <svg class="w-6 h-6 text-violet-500" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 10l4.553-2.276A1 1 0 0121 8.618v6.764a1 1 0 01-1.447.894L15 14M5 18h8a2 2 0 002-2V8a2 2 0 00-2-2H5a2 2 0 00-2 2v8a2 2 0 002 2z"></path></svg>
+            MotionStudio
+        </h1>
+        <div class="flex items-center gap-4">
+            <div class="text-sm text-gray-400">Project Length: <span id="durationDisplay">5</span>s</div>
+            <button id="exportBtn" class="bg-violet-600 hover:bg-violet-500 px-4 py-2 rounded-lg font-bold text-sm shadow-lg shadow-violet-900/50 transition-colors flex items-center gap-2">
+                <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-4l-4 4m0 0l-4-4m4 4V4"></path></svg>
+                Export Video
+            </button>
+        </div>
+    </header>
+
+    <!-- Main Workspace -->
+    <main class="flex-1 flex flex-col md:flex-row overflow-hidden">
+        
+        <!-- Canvas & Timeline Area (Left/Top) -->
+        <section class="flex-1 flex flex-col bg-gray-950 p-4 relative min-h-0">
+            <!-- Canvas Container (16:9 Aspect Ratio) -->
+            <div class="w-full max-w-4xl mx-auto flex-1 flex items-center justify-center relative">
+                <div class="relative w-full aspect-video bg-black rounded-xl shadow-2xl overflow-hidden ring-1 ring-gray-800">
+                    <canvas id="canvas" class="absolute inset-0 w-full h-full"></canvas>
+                    <div id="recIndicator" class="absolute top-4 right-4 flex items-center gap-2 hidden z-10 bg-black/60 px-3 py-1 rounded-full backdrop-blur">
+                        <div class="w-3 h-3 bg-red-500 rounded-full animate-pulse"></div>
+                        <span class="text-xs font-bold text-red-500">REC</span>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Playback Controls & Scrubber -->
+            <div class="mt-6 w-full max-w-4xl mx-auto bg-gray-900 p-4 rounded-xl border border-gray-800 shadow-xl shrink-0">
+                <div class="flex items-center gap-4 mb-2">
+                    <button id="playPauseBtn" class="bg-gray-800 hover:bg-gray-700 p-3 rounded-full transition-colors text-violet-400">
+                        <svg id="playIcon" class="w-5 h-5" fill="currentColor" viewBox="0 0 20 20"><path fill-rule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zM9.555 7.168A1 1 0 008 8v4a1 1 0 001.555.832l3-2a1 1 0 000-1.664l-3-2z" clip-rule="evenodd"></path></svg>
+                        <svg id="pauseIcon" class="w-5 h-5 hidden" fill="currentColor" viewBox="0 0 20 20"><path fill-rule="evenodd" d="M18 10a8 8 0 11-16 0 8 8 0 0116 0zM7 8a1 1 0 012 0v4a1 1 0 11-2 0V8zm5-1a1 1 0 00-1 1v4a1 1 0 102 0V8a1 1 0 00-1-1z" clip-rule="evenodd"></path></svg>
+                    </button>
+                    <span id="timeDisplay" class="font-mono text-sm text-gray-400 w-12">0.00s</span>
+                    <input type="range" id="timeline" min="0" max="5" step="0.01" value="0" class="flex-1 cursor-pointer">
+                </div>
+            </div>
+        </section>
+
+        <!-- Editor Panel (Right/Bottom) -->
+        <aside class="w-full md:w-96 bg-gray-900 border-l border-gray-800 flex flex-col shrink-0 md:h-full max-h-[50vh] md:max-h-full">
+            
+            <!-- Tabs -->
+            <div class="flex border-b border-gray-800">
+                <button id="tabElements" class="flex-1 py-3 text-sm font-bold border-b-2 border-violet-500 text-violet-400">Layers</button>
+                <button id="tabAdd" class="flex-1 py-3 text-sm font-bold border-b-2 border-transparent text-gray-500 hover:text-gray-300">Add New</button>
+            </div>
+
+            <!-- Content Area -->
+            <div class="flex-1 overflow-y-auto p-4 relative">
+                
+                <!-- LAYERS LIST -->
+                <div id="viewElements" class="space-y-3">
+                    <div id="layerList" class="space-y-2"></div>
+                </div>
+
+                <!-- ADD NEW FORM -->
+                <div id="viewAdd" class="hidden space-y-4">
+                    <div class="grid grid-cols-2 gap-2 mb-4">
+                        <button onclick="setAddType('text')" id="typeTextBtn" class="bg-violet-600 py-2 rounded-lg text-sm font-bold transition">Text</button>
+                        <button onclick="setAddType('image')" id="typeImageBtn" class="bg-gray-800 py-2 rounded-lg text-sm font-bold transition">Image</button>
+                    </div>
+
+                    <!-- Text Specific -->
+                    <div id="addTextProps" class="space-y-3">
+                        <input type="text" id="newText" placeholder="Enter text..." class="w-full bg-gray-950 border border-gray-700 rounded-lg p-2 text-sm focus:border-violet-500 outline-none">
+                        <div class="flex gap-2">
+                            <input type="color" id="newColor" value="#ffffff" class="w-10 h-10 rounded cursor-pointer bg-transparent border-0">
+                            <select id="newFont" class="flex-1 bg-gray-950 border border-gray-700 rounded-lg p-2 text-sm outline-none">
+                                <option value="Inter">Inter (Sans)</option>
+                                <option value="'Space Grotesk'">Space Grotesk (Bold)</option>
+                                <option value="'Bebas Neue'">Bebas Neue (Display)</option>
+                                <option value="Pacifico">Pacifico (Script)</option>
+                            </select>
+                        </div>
+                    </div>
+
+                    <!-- Image Specific -->
+                    <div id="addImageProps" class="hidden space-y-3">
+                        <label class="block w-full border-2 border-dashed border-gray-700 hover:border-violet-500 rounded-xl p-4 text-center cursor-pointer transition">
+                            <span class="text-sm text-gray-400 block mb-1">Click to upload image</span>
+                            <input type="file" id="imageUpload" accept="image/*" class="hidden">
+                            <img id="imagePreview" class="hidden w-full h-24 object-contain mt-2 rounded bg-gray-950">
+                        </label>
+                    </div>
+
+                    <div class="h-px bg-gray-800 my-4"></div>
+
+                    <!-- Common Animation Props -->
+                    <h3 class="text-xs font-bold text-gray-500 uppercase">Animations</h3>
+                    <div class="grid grid-cols-3 gap-2">
+                        <div>
+                            <label class="text-xs text-gray-400 block mb-1">In</label>
+                            <select id="newAnimIn" class="w-full bg-gray-950 border border-gray-700 rounded p-1.5 text-xs">
+                                <option value="fade">Fade</option>
+                                <option value="slideUp">Slide Up</option>
+                                <option value="scale">Scale Pop</option>
+                                <option value="none">None</option>
+                            </select>
+                        </div>
+                        <div>
+                            <label class="text-xs text-gray-400 block mb-1">Loop</label>
+                            <select id="newAnimLoop" class="w-full bg-gray-950 border border-gray-700 rounded p-1.5 text-xs">
+                                <option value="none">None</option>
+                                <option value="float">Float</option>
+                                <option value="pulse">Pulse</option>
+                                <option value="spin">Spin</option>
+                            </select>
+                        </div>
+                        <div>
+                            <label class="text-xs text-gray-400 block mb-1">Out</label>
+                            <select id="newAnimOut" class="w-full bg-gray-950 border border-gray-700 rounded p-1.5 text-xs">
+                                <option value="fade">Fade</option>
+                                <option value="slideDown">Slide Dn</option>
+                                <option value="scale">Scale Shrink</option>
+                                <option value="none">None</option>
+                            </select>
+                        </div>
+                    </div>
+
+                    <!-- Timing -->
+                    <h3 class="text-xs font-bold text-gray-500 uppercase mt-4">Timing (seconds)</h3>
+                    <div class="flex gap-4">
+                        <div class="flex-1">
+                            <label class="text-xs text-gray-400 block mb-1">Start Time</label>
+                            <input type="number" id="newStart" value="0.5" step="0.1" min="0" class="w-full bg-gray-950 border border-gray-700 rounded p-2 text-sm">
+                        </div>
+                        <div class="flex-1">
+                            <label class="text-xs text-gray-400 block mb-1">End Time</label>
+                            <input type="number" id="newEnd" value="4.5" step="0.1" min="0.1" class="w-full bg-gray-950 border border-gray-700 rounded p-2 text-sm">
+                        </div>
+                    </div>
+
+                    <button id="addToSceneBtn" class="w-full bg-violet-600 hover:bg-violet-500 py-3 rounded-xl font-bold text-sm transition mt-6">
+                        Add to Scene
+                    </button>
+                </div>
+            </div>
+        </aside>
+    </main>
+
+    <script>
+        /**
+         * 1. APP STATE & CONFIG
+         */
+        const canvas = document.getElementById('canvas');
+        const ctx = canvas.getContext('2d');
+        const PROJECT_DURATION = 5.0; // Fixed 5 seconds for simplicity
+        
+        let elements = [];
+        let isPlaying = false;
+        let currentTime = 0;
+        let lastTimestamp = performance.now();
+        let animationFrameId;
+        
+        let addMode = 'text'; // 'text' or 'image'
+        let pendingImageObj = null; // Stores preloaded image
+
+        // Custom toast notification replacing alert()
+        function showToast(msg) {
+            const toast = document.createElement('div');
+            toast.className = 'fixed top-4 right-4 bg-red-600 text-white px-6 py-3 rounded-lg shadow-2xl z-50 text-sm font-bold transition-all duration-300 transform translate-y-0 opacity-100';
+            toast.innerText = msg;
+            document.body.appendChild(toast);
+            setTimeout(() => {
+                toast.classList.remove('translate-y-0', 'opacity-100');
+                toast.classList.add('-translate-y-4', 'opacity-0');
+                setTimeout(() => toast.remove(), 300);
+            }, 3000);
+        }
+
+        // Handle Canvas Resolution
+        function resizeCanvas() {
+            const rect = canvas.parentElement.getBoundingClientRect();
+            canvas.width = rect.width * 2; // Retina resolution
+            canvas.height = rect.height * 2;
+            ctx.scale(2, 2);
+            renderFrame(currentTime);
+        }
+        window.addEventListener('resize', resizeCanvas);
+
+        /**
+         * 2. ANIMATION & RENDERING ENGINE
+         */
+        function renderFrame(time) {
+            const width = canvas.width / 2;
+            const height = canvas.height / 2;
+
+            // Clear Background
+            ctx.clearRect(0, 0, width, height);
+            ctx.fillStyle = '#09090b'; // dark zinc bg
+            ctx.fillRect(0, 0, width, height);
+
+            // Draw Elements
+            elements.forEach(el => {
+                // Check if element should be visible at current time
+                if (time < el.start || time > el.end) return;
+
+                ctx.save();
+                
+                // Animation Modifiers
+                let alpha = 1;
+                let scale = el.scale || 1;
+                let dx = 0;
+                let dy = 0;
+                let rot = 0;
+
+                const transTime = 0.5; // duration of in/out effects
+
+                // IN ANIMATION
+                if (time < el.start + transTime) {
+                    let t = (time - el.start) / transTime;
+                    t = easeOutQuart(t); // Smooth easing
+                    
+                    if (el.animIn === 'fade') alpha = t;
+                    else if (el.animIn === 'slideUp') { alpha = t; dy = (1-t) * 50; }
+                    else if (el.animIn === 'scale') { alpha = t; scale *= t; }
+                }
+
+                // OUT ANIMATION
+                if (time > el.end - transTime) {
+                    let t = (el.end - time) / transTime; // 1 to 0
+                    t = Math.max(0, t);
+                    
+                    if (el.animOut === 'fade') alpha = t;
+                    else if (el.animOut === 'slideDown') { alpha = t; dy = (1-t) * -50; }
+                    else if (el.animOut === 'scale') { alpha = t; scale *= t; }
+                }
+
+                // LOOP ANIMATION
+                const activeTime = time - el.start;
+                if (el.animLoop === 'float') {
+                    dy += Math.sin(activeTime * 3) * 15;
+                } else if (el.animLoop === 'pulse') {
+                    scale *= 1 + (Math.sin(activeTime * 5) * 0.05);
+                } else if (el.animLoop === 'spin') {
+                    rot = activeTime * 1.5;
+                }
+
+                // Apply Transforms (Pivot at center of object)
+                ctx.globalAlpha = Math.max(0, Math.min(1, alpha));
+                ctx.translate(el.x + dx, el.y + dy);
+                ctx.rotate(rot);
+                ctx.scale(scale, scale);
+
+                // Draw specific element type
+                if (el.type === 'text') {
+                    ctx.font = `700 ${el.size}px ${el.font}`;
+                    ctx.fillStyle = el.color;
+                    ctx.textAlign = 'center';
+                    ctx.textBaseline = 'middle';
+                    ctx.fillText(el.text, 0, 0);
+                } else if (el.type === 'image' && el.imgObj) {
+                    ctx.drawImage(el.imgObj, -el.w/2, -el.h/2, el.w, el.h);
+                }
+
+                ctx.restore();
+            });
+        }
+
+        function easeOutQuart(x) { return 1 - Math.pow(1 - x, 4); }
+
+        function gameLoop(timestamp) {
+            if (!isPlaying) {
+                lastTimestamp = timestamp;
+                return;
+            }
+            
+            const deltaTime = (timestamp - lastTimestamp) / 1000;
+            lastTimestamp = timestamp;
+            
+            currentTime += deltaTime;
+            
+            // Loop playback
+            if (currentTime >= PROJECT_DURATION) {
+                currentTime = 0;
+            }
+            
+            updateTimelineUI();
+            renderFrame(currentTime);
+            
+            animationFrameId = requestAnimationFrame(gameLoop);
+        }
+
+        function togglePlay() {
+            isPlaying = !isPlaying;
+            document.getElementById('playIcon').classList.toggle('hidden', isPlaying);
+            document.getElementById('pauseIcon').classList.toggle('hidden', !isPlaying);
+            
+            if (isPlaying) {
+                if (currentTime >= PROJECT_DURATION) currentTime = 0;
+                lastTimestamp = performance.now();
+                animationFrameId = requestAnimationFrame(gameLoop);
+            } else {
+                cancelAnimationFrame(animationFrameId);
+            }
+        }
+
+        /**
+         * 3. UI & STATE MANAGEMENT
+         */
+        const timeline = document.getElementById('timeline');
+        const timeDisplay = document.getElementById('timeDisplay');
+
+        timeline.addEventListener('input', (e) => {
+            currentTime = parseFloat(e.target.value);
+            updateTimelineUI();
+            renderFrame(currentTime);
+        });
+
+        function updateTimelineUI() {
+            timeline.value = currentTime;
+            timeDisplay.innerText = currentTime.toFixed(2) + 's';
+        }
+
+        // --- LAYER MANAGEMENT ---
+        function generateId() { return Math.random().toString(36).substr(2, 9); }
+
+        function addTextElement() {
+            const text = document.getElementById('newText').value || 'New Text';
+            elements.push({
+                id: generateId(),
+                type: 'text',
+                text: text,
+                color: document.getElementById('newColor').value,
+                font: document.getElementById('newFont').value,
+                size: 60,
+                x: canvas.parentElement.clientWidth / 2, // center
+                y: canvas.parentElement.clientHeight / 2, // center
+                start: parseFloat(document.getElementById('newStart').value),
+                end: parseFloat(document.getElementById('newEnd').value),
+                animIn: document.getElementById('newAnimIn').value,
+                animOut: document.getElementById('newAnimOut').value,
+                animLoop: document.getElementById('newAnimLoop').value
+            });
+            refreshLayers();
+            switchTab('Elements');
+            document.getElementById('newText').value = ''; // reset
+        }
+
+        function addImageElement() {
+            if (!pendingImageObj) return showToast("Please select an image first.");
+            
+            // Auto calculate size to fit in canvas
+            const maxW = 300;
+            let w = pendingImageObj.width;
+            let h = pendingImageObj.height;
+            if (w > maxW) { h = h * (maxW / w); w = maxW; }
+
+            elements.push({
+                id: generateId(),
+                type: 'image',
+                imgObj: pendingImageObj, // Use preloaded image
+                w: w, h: h, scale: 1,
+                x: canvas.parentElement.clientWidth / 2,
+                y: canvas.parentElement.clientHeight / 2,
+                start: parseFloat(document.getElementById('newStart').value),
+                end: parseFloat(document.getElementById('newEnd').value),
+                animIn: document.getElementById('newAnimIn').value,
+                animOut: document.getElementById('newAnimOut').value,
+                animLoop: document.getElementById('newAnimLoop').value
+            });
+            
+            pendingImageObj = null;
+            document.getElementById('imagePreview').classList.add('hidden');
+            document.getElementById('imageUpload').value = ''; // reset file input
+            refreshLayers();
+            switchTab('Elements');
+        }
+
+        function removeElement(id) {
+            elements = elements.filter(el => el.id !== id);
+            refreshLayers();
+            renderFrame(currentTime);
+        }
+
+        function refreshLayers() {
+            const list = document.getElementById('layerList');
+            list.innerHTML = '';
+            
+            if(elements.length === 0) {
+                list.innerHTML = '<div class="text-center text-gray-500 text-sm mt-10">No layers added yet.</div>';
+                return;
+            }
+
+            elements.forEach(el => {
+                const title = el.type === 'text' ? `Text: "${el.text}"` : `Image Layer`;
+                list.innerHTML += `
+                    <div class="flex items-center justify-between bg-gray-800 p-3 rounded-lg border border-gray-700">
+                        <div>
+                            <div class="text-sm font-bold text-gray-200">${title}</div>
+                            <div class="text-xs text-gray-500">${el.start}s - ${el.end}s | Loop: ${el.animLoop}</div>
+                        </div>
+                        <button onclick="removeElement('${el.id}')" class="text-red-400 hover:text-red-300 p-1">
+                            <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16"></path></svg>
+                        </button>
+                    </div>
+                `;
+            });
+            renderFrame(currentTime); // Force update visually
+        }
+
+        // --- EVENT LISTENERS ---
+        document.getElementById('playPauseBtn').addEventListener('click', togglePlay);
+        
+        document.getElementById('addToSceneBtn').addEventListener('click', () => {
+            if (addMode === 'text') addTextElement();
+            else addImageElement();
+        });
+
+        // Image Upload & Preload Logic
+        document.getElementById('imageUpload').addEventListener('change', function(e) {
+            const file = e.target.files[0];
+            if (!file) return;
+
+            const reader = new FileReader();
+            reader.onload = function(event) {
+                const img = new Image();
+                img.onload = function() {
+                    pendingImageObj = img; // Save to global state
+                    const preview = document.getElementById('imagePreview');
+                    preview.src = img.src;
+                    preview.classList.remove('hidden');
+                }
+                img.src = event.target.result;
+            }
+            reader.readAsDataURL(file);
+        });
+
+        // Tab Switching Logic
+        function switchTab(tab) {
+            const vEls = document.getElementById('viewElements');
+            const vAdd = document.getElementById('viewAdd');
+            const tEls = document.getElementById('tabElements');
+            const tAdd = document.getElementById('tabAdd');
+
+            if (tab === 'Elements') {
+                vEls.classList.remove('hidden'); vAdd.classList.add('hidden');
+                tEls.classList.add('border-violet-500', 'text-violet-400'); tEls.classList.remove('border-transparent', 'text-gray-500');
+                tAdd.classList.remove('border-violet-500', 'text-violet-400'); tAdd.classList.add('border-transparent', 'text-gray-500');
+            } else {
+                vEls.classList.add('hidden'); vAdd.classList.remove('hidden');
+                tAdd.classList.add('border-violet-500', 'text-violet-400'); tAdd.classList.remove('border-transparent', 'text-gray-500');
+                tEls.classList.remove('border-violet-500', 'text-violet-400'); tEls.classList.add('border-transparent', 'text-gray-500');
+            }
+        }
+        document.getElementById('tabElements').addEventListener('click', () => switchTab('Elements'));
+        document.getElementById('tabAdd').addEventListener('click', () => switchTab('Add'));
+
+        function setAddType(type) {
+            addMode = type;
+            const tBtn = document.getElementById('typeTextBtn');
+            const iBtn = document.getElementById('typeImageBtn');
+            const tProps = document.getElementById('addTextProps');
+            const iProps = document.getElementById('addImageProps');
+
+            if(type === 'text') {
+                tBtn.className = 'bg-violet-600 py-2 rounded-lg text-sm font-bold transition';
+                iBtn.className = 'bg-gray-800 py-2 rounded-lg text-sm font-bold transition';
+                tProps.classList.remove('hidden');
+                iProps.classList.add('hidden');
+            } else {
+                iBtn.className = 'bg-violet-600 py-2 rounded-lg text-sm font-bold transition';
+                tBtn.className = 'bg-gray-800 py-2 rounded-lg text-sm font-bold transition';
+                iProps.classList.remove('hidden');
+                tProps.classList.add('hidden');
+            }
+        }
+
+        /**
+         * 4. EXPORT ENGINE (MediaRecorder API)
+         */
+        let mediaRecorder;
+        let recordedChunks = [];
+        
+        async function exportVideo() {
+            if (mediaRecorder && mediaRecorder.state === 'recording') return;
+
+            const btn = document.getElementById('exportBtn');
+            const indicator = document.getElementById('recIndicator');
+            
+            try {
+                // Prepare Canvas Stream
+                const stream = canvas.captureStream(30); // 30 FPS
+                
+                let options = { mimeType: 'video/webm; codecs=vp9' };
+                if (!MediaRecorder.isTypeSupported(options.mimeType)) {
+                    options = { mimeType: 'video/mp4' };
+                    if (!MediaRecorder.isTypeSupported(options.mimeType)) options = { mimeType: '' };
+                }
+
+                mediaRecorder = new MediaRecorder(stream, options);
+                recordedChunks = [];
+
+                mediaRecorder.ondataavailable = (e) => {
+                    if (e.data.size > 0) recordedChunks.push(e.data);
+                };
+
+                mediaRecorder.onstop = () => {
+                    const blob = new Blob(recordedChunks, { type: options.mimeType || 'video/mp4' });
+                    const url = URL.createObjectURL(blob);
+                    
+                    const a = document.createElement('a');
+                    a.href = url;
+                    a.download = `motion-export-${Date.now()}.${options.mimeType.includes('webm') ? 'webm' : 'mp4'}`;
+                    document.body.appendChild(a);
+                    a.click();
+                    
+                    setTimeout(() => {
+                        document.body.removeChild(a);
+                        window.URL.revokeObjectURL(url);
+                    }, 100);
+
+                    // Reset UI
+                    btn.innerHTML = '<svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-4l-4 4m0 0l-4-4m4 4V4"></path></svg> Export Video';
+                    btn.classList.remove('bg-red-600', 'animate-pulse');
+                    indicator.classList.add('hidden');
+                };
+
+                // Setup UI for recording
+                btn.innerHTML = 'Recording...';
+                btn.classList.add('bg-red-600', 'animate-pulse');
+                indicator.classList.remove('hidden');
+
+                // Stop current playback, seek to 0
+                isPlaying = false;
+                currentTime = 0;
+                updateTimelineUI();
+                renderFrame(0);
+
+                // Start recording and immediately start playback
+                mediaRecorder.start();
+                togglePlay(); // Play from 0
+
+                // Automatically stop recording when timeline finishes
+                setTimeout(() => {
+                    if (mediaRecorder.state === 'recording') {
+                        togglePlay(); // Pause
+                        mediaRecorder.stop();
+                        currentTime = 0; // reset
+                        updateTimelineUI();
+                        renderFrame(0);
+                    }
+                }, PROJECT_DURATION * 1000 + 200); // Small buffer
+
+            } catch (err) {
+                console.error("Export failed:", err);
+                showToast("Export is not supported on this browser/device.");
+            }
+        }
+        document.getElementById('exportBtn').addEventListener('click', exportVideo);
+
+        /**
+         * 5. INITIALIZATION
+         */
+        // Give fonts time to load, then initialize
+        document.fonts.ready.then(() => {
+            resizeCanvas();
+            refreshLayers();
+            // Pre-add a sample element to show how it works
+            elements.push({
+                id: generateId(),
+                type: 'text',
+                text: 'Welcome',
+                color: '#8b5cf6',
+                font: "'Space Grotesk'",
+                size: 80,
+                x: canvas.parentElement.clientWidth / 2,
+                y: canvas.parentElement.clientHeight / 2,
+                start: 0.5,
+                end: 4.5,
+                animIn: 'scale',
+                animOut: 'slideDown',
+                animLoop: 'float'
+            });
+            refreshLayers();
+            renderFrame(0);
+        });
+
+    </script>
+</body>
+</html>

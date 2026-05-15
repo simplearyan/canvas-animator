@@ -1,0 +1,643 @@
+<!DOCTYPE html>
+<html lang="en" class="dark">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+    <title>MotionCanvas Mobile</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <script src="https://unpkg.com/lucide@latest"></script>
+    <script>
+        tailwind.config = {
+            darkMode: 'class',
+            theme: {
+                extend: {
+                    colors: {
+                        yt: {
+                            bg: '#0f0f0f',
+                            panel: '#212121',
+                            hover: '#3d3d3d',
+                            blue: '#3b82f6',
+                            green: '#12b886',
+                            text: '#f1f1f1',
+                            subtext: '#aaaaaa'
+                        }
+                    },
+                    fontFamily: { sans: ['-apple-system', 'BlinkMacSystemFont', 'Roboto', 'Helvetica', 'sans-serif'] }
+                }
+            }
+        }
+    </script>
+    <style>
+        * { -webkit-tap-highlight-color: transparent; }
+        body { overscroll-behavior-y: none; }
+        
+        ::-webkit-scrollbar { display: none; }
+        .no-scrollbar { -ms-overflow-style: none; scrollbar-width: none; }
+
+        input[type="range"] { -webkit-appearance: none; width: 100%; background: transparent; }
+        input[type="range"]::-webkit-slider-thumb { -webkit-appearance: none; height: 16px; width: 16px; border-radius: 50%; background: currentColor; cursor: pointer; margin-top: -6px; }
+        input[type="range"]::-webkit-slider-runnable-track { width: 100%; height: 4px; border-radius: 2px; background: #3d3d3d; }
+        
+        .track-block { touch-action: none; transition: background-color 0.1s ease; }
+        
+        .bottom-sheet { transition: transform 0.25s cubic-bezier(0.2, 0.8, 0.2, 1); }
+        .bottom-sheet.open { transform: translateY(0%); }
+        .bottom-sheet.closed { transform: translateY(100%); }
+
+        /* Depth and Focus styling */
+        .track-unselected {
+            background-color: #282828;
+            color: #aaaaaa;
+            border: 1px solid transparent;
+        }
+        
+        .track-selected-text {
+            background-color: rgba(59, 130, 246, 0.25);
+            border: 1px solid #3b82f6;
+            color: #ffffff;
+            z-index: 30;
+        }
+        
+        .track-selected-audio {
+            background-color: rgba(18, 184, 134, 0.25);
+            border: 1px solid #12b886;
+            color: #ffffff;
+            z-index: 30;
+        }
+
+        .timeline-grid {
+            background-image: linear-gradient(to right, rgba(255,255,255,0.05) 1px, transparent 1px);
+        }
+    </style>
+</head>
+<body class="bg-yt-bg text-yt-text h-[100dvh] flex flex-col font-sans overflow-hidden select-none">
+
+    <!-- Header -->
+    <header class="h-14 flex items-center justify-between px-4 shrink-0 bg-yt-bg z-20">
+        <div class="flex items-center gap-3">
+            <button class="w-8 h-8 flex items-center justify-center -ml-2 text-yt-text">
+                <i data-lucide="chevron-left" class="w-6 h-6"></i>
+            </button>
+            <span class="font-bold tracking-tight text-[15px]">MotionCanvas</span>
+        </div>
+        <button id="btn-export" class="bg-white text-black px-4 py-1.5 rounded-full text-xs font-bold active:scale-95 flex items-center gap-1 transition-transform">
+            Export <i data-lucide="arrow-up-right" class="w-3.5 h-3.5"></i>
+        </button>
+    </header>
+
+    <!-- Canvas Preview Area -->
+    <section class="w-full bg-black shrink-0 relative flex items-center justify-center z-10" style="height: 35vh;">
+        <div class="relative w-full max-w-full aspect-video flex items-center justify-center">
+            <canvas id="main-canvas" width="1280" height="720" class="w-full h-full object-contain"></canvas>
+            
+            <div id="export-overlay" class="absolute inset-0 bg-black/90 hidden flex-col items-center justify-center z-50">
+                <i data-lucide="loader" class="w-8 h-8 text-white animate-spin mb-3"></i>
+                <h2 id="export-title" class="text-sm font-bold">Exporting Video...</h2>
+                <div id="export-bar-container" class="w-48 h-1 bg-gray-800 rounded-full mt-4 overflow-hidden">
+                    <div id="export-progress" class="h-full bg-white w-0"></div>
+                </div>
+            </div>
+        </div>
+    </section>
+
+    <!-- Clean, Minimal Transport Bar -->
+    <div class="h-12 bg-yt-bg flex items-center justify-center gap-6 px-4 shrink-0 z-20 relative">
+        <span id="ui-time-current" class="text-xs font-bold text-yt-blue w-12 text-right tracking-widest">00:00</span>
+        
+        <button id="btn-play-pause" class="w-10 h-10 flex items-center justify-center active:scale-90 text-white transition-transform">
+            <i data-lucide="play" id="icon-play" class="w-6 h-6 fill-current"></i>
+            <i data-lucide="pause" id="icon-pause" class="w-6 h-6 fill-current hidden"></i>
+        </button>
+        
+        <span id="ui-time-total" class="text-xs font-bold text-yt-subtext w-12 text-left tracking-widest">00:10</span>
+    </div>
+
+    <!-- Timeline Area -->
+    <section class="flex-1 relative bg-[#0f0f0f] overflow-hidden flex flex-col border-t border-white/5">
+        <!-- Playhead Line -->
+        <div class="absolute left-1/2 top-0 bottom-0 w-[1.5px] bg-white z-40 -ml-[0.75px] pointer-events-none drop-shadow-md">
+            <svg class="absolute -top-1 -left-[5.5px] w-3 h-3 text-white fill-current" viewBox="0 0 24 24"><path d="M12 2L22 12H2L12 2Z"/></svg>
+        </div>
+
+        <div id="timeline-scroll" class="w-full h-full overflow-x-auto overflow-y-auto no-scrollbar relative" style="will-change: scroll;">
+            <div id="timeline-inner" class="relative min-h-full flex flex-col py-6 gap-2">
+                <div class="absolute top-0 h-4 w-full border-b border-white/10 timeline-grid opacity-50" id="timeline-ruler"></div>
+                <div id="track-container" class="relative flex-1 mt-2"></div>
+            </div>
+        </div>
+    </section>
+
+    <!-- Compact Bottom Toolbar -->
+    <footer id="bottom-toolbar" class="h-[72px] bg-[#0f0f0f] shrink-0 flex items-center justify-center overflow-x-auto no-scrollbar px-4 gap-4 z-30 pb-2 border-t border-white/5">
+        <!-- Populated dynamically -->
+    </footer>
+
+    <!-- Bottom Sheet Modal for Edits -->
+    <div id="bottom-sheet" class="bottom-sheet closed absolute bottom-0 left-0 right-0 bg-[#212121] rounded-t-2xl z-50 flex flex-col shadow-[0_-15px_40px_rgba(0,0,0,0.9)]" style="height: 45vh;">
+        <div class="w-full flex justify-center py-4 shrink-0 touch-none" id="sheet-drag-handle">
+            <div class="w-10 h-1.5 bg-gray-500 rounded-full"></div>
+        </div>
+        <div id="sheet-content" class="flex-1 overflow-y-auto px-6 pb-6 no-scrollbar flex flex-col gap-4">
+            <!-- Dynamic Form Content -->
+        </div>
+    </div>
+    
+    <input type="file" id="input-audio" class="hidden" accept="audio/*, video/mp4, video/webm, video/quicktime">
+
+    <script>
+        // --- 1. State & Constants ---
+        const state = { duration: 10, currentTime: 0, isPlaying: false, selectedId: null, texts: [], audio: [] };
+        const PPS = 80; 
+        let isProgrammaticScroll = false; let scrollTimeout = null;
+
+        const canvas = document.getElementById('main-canvas'); const ctx = canvas.getContext('2d');
+        let audioCtx = null; let activeAudioNodes = []; let animationFrameId = null; let lastTime = 0;
+
+        const timelineScroll = document.getElementById('timeline-scroll'); const timelineInner = document.getElementById('timeline-inner');
+        const trackContainer = document.getElementById('track-container'); const bottomToolbar = document.getElementById('bottom-toolbar');
+        const bottomSheet = document.getElementById('bottom-sheet'); const sheetContent = document.getElementById('sheet-content');
+
+        const drag = { active: false, id: null, action: null, initialClientX: 0, initStart: 0, initEnd: 0, initOffset: 0, el: null, badgeEl: null };
+
+        lucide.createIcons();
+
+        function initAudioContext() {
+            if (!audioCtx) audioCtx = new (window.AudioContext || window.webkitAudioContext)();
+            if (audioCtx.state === 'suspended') audioCtx.resume();
+        }
+        
+        function generateId() { return Math.random().toString(36).substr(2, 9); }
+        function easeOutQuart(x) { return 1 - Math.pow(1 - x, 4); }
+        function formatTime(seconds) {
+            const mins = Math.floor(seconds / 60); const secs = Math.floor(seconds % 60);
+            return `${mins.toString().padStart(2, '0')}:${secs.toString().padStart(2, '0')}`;
+        }
+
+        function recalculateDuration() {
+            let maxEnd = 10;
+            [...state.texts, ...state.audio].forEach(item => { if (item.end > maxEnd) maxEnd = item.end; });
+            state.duration = Math.max(10, Math.ceil(maxEnd));
+            document.getElementById('ui-time-total').innerText = formatTime(state.duration);
+            updateTimelineLayout();
+        }
+
+        function updateTimelineLayout() {
+            const halfWidth = window.innerWidth / 2;
+            const totalWidth = (state.duration * PPS) + (halfWidth * 2);
+            timelineInner.style.width = `${totalWidth}px`;
+            timelineInner.style.paddingLeft = `${halfWidth}px`; timelineInner.style.paddingRight = `${halfWidth}px`;
+            document.getElementById('timeline-ruler').style.backgroundSize = `${PPS}px 100%`;
+        }
+
+        // --- 2. Playback Engine ---
+        function scheduleAudioTrack(audioItem, timeRef) {
+            if (!audioItem || !audioItem.buffer) return;
+            const isSFX = audioItem.hasOwnProperty('offset');
+            let tStart = isSFX ? timeRef + (audioItem.offset || 0) : audioItem.start;
+            let tEnd = isSFX ? tStart + audioItem.buffer.duration : audioItem.end;
+            let trimIn = isSFX ? 0 : (audioItem.sourceOffset || 0);
+
+            if (tStart < state.duration && tEnd > state.currentTime) {
+                const source = audioCtx.createBufferSource(); source.buffer = audioItem.buffer;
+                const gain = audioCtx.createGain(); gain.gain.value = audioItem.volume !== undefined ? audioItem.volume : 1;
+                source.connect(gain); gain.connect(audioCtx.destination); 
+                
+                let delay = Math.max(0, tStart - state.currentTime);
+                let timeInTrack = Math.max(0, state.currentTime - tStart);
+                let dur = (tEnd - tStart) - timeInTrack;
+                
+                if (dur > 0) { source.start(audioCtx.currentTime + delay, trimIn + timeInTrack, dur); activeAudioNodes.push(source); }
+            }
+        }
+
+        function play() {
+            if (state.isPlaying) return;
+            initAudioContext();
+            if (state.currentTime >= state.duration - 0.1) { state.currentTime = 0; syncScrollToTime(); }
+            state.isPlaying = true; lastTime = performance.now();
+            document.getElementById('icon-play').classList.add('hidden'); document.getElementById('icon-pause').classList.remove('hidden');
+            state.audio.forEach(t => scheduleAudioTrack(t)); state.texts.forEach(t => { if(t.sfx) scheduleAudioTrack(t.sfx, t.start); });
+            animationFrameId = requestAnimationFrame(loop);
+        }
+
+        function pause() {
+            state.isPlaying = false; cancelAnimationFrame(animationFrameId);
+            document.getElementById('icon-play').classList.remove('hidden'); document.getElementById('icon-pause').classList.add('hidden');
+            activeAudioNodes.forEach(node => { try { node.stop(); } catch(e){} });
+            activeAudioNodes = []; renderCanvas(state.currentTime);
+        }
+
+        function loop() {
+            if (!state.isPlaying) return;
+            const now = performance.now(); const delta = (now - lastTime) / 1000; lastTime = now;
+            state.currentTime += delta;
+            
+            if (state.currentTime >= state.duration) { pause(); state.currentTime = state.duration; }
+            syncScrollToTime(); document.getElementById('ui-time-current').innerText = formatTime(state.currentTime);
+            renderCanvas(state.currentTime);
+            if (state.isPlaying) animationFrameId = requestAnimationFrame(loop);
+        }
+
+        // --- 3. Canvas Rendering ---
+        function renderCanvas(time) {
+            const scale = canvas.height / 720;
+            ctx.clearRect(0, 0, canvas.width, canvas.height); ctx.fillStyle = '#000000'; ctx.fillRect(0, 0, canvas.width, canvas.height);
+
+            state.texts.forEach(item => {
+                if (time < item.start || time > item.end) return;
+                ctx.save();
+                let alpha = 1; let scaleX = 1; let scaleY = 1; let offsetY = 0;
+                const timeIn = time - item.start; const timeOut = item.end - time;
+
+                if (timeIn < 0.6) {
+                    const eased = easeOutQuart(timeIn / 0.6);
+                    if(item.anim === 'fade') alpha = eased;
+                    if(item.anim === 'scale') { alpha = eased; scaleX = eased; scaleY = eased; }
+                }
+                if (timeOut < 0.6) {
+                    const eased = easeOutQuart(timeOut / 0.6);
+                    if(item.anim === 'fade') alpha = eased;
+                    if(item.anim === 'scale') { alpha = eased; scaleX = eased; scaleY = eased; }
+                }
+
+                ctx.globalAlpha = Math.max(0, Math.min(1, alpha));
+                ctx.translate((item.x / 100) * canvas.width, (item.y / 100) * canvas.height + offsetY); ctx.scale(scaleX, scaleY);
+                
+                const sSize = item.size * scale;
+                ctx.font = `bold ${sSize}px ${item.font}`; ctx.fillStyle = item.color;
+                ctx.textAlign = 'center'; ctx.textBaseline = 'middle';
+                
+                ctx.shadowColor = 'rgba(0,0,0,0.8)'; ctx.shadowBlur = 10 * scale; ctx.shadowOffsetY = 4 * scale;
+                const lines = item.text.split('\n'); const startY = -(lines.length - 1) * (sSize * 1.2) / 2;
+                lines.forEach((line, i) => ctx.fillText(line, 0, startY + (i * sSize * 1.2)));
+                ctx.restore();
+            });
+        }
+
+        // --- 4. Scrolling Logic ---
+        function syncScrollToTime() {
+            isProgrammaticScroll = true; timelineScroll.scrollLeft = state.currentTime * PPS;
+            clearTimeout(scrollTimeout); scrollTimeout = setTimeout(() => { isProgrammaticScroll = false; }, 50);
+        }
+
+        timelineScroll.addEventListener('scroll', () => {
+            if (isProgrammaticScroll || drag.active) return;
+            state.currentTime = Math.max(0, timelineScroll.scrollLeft / PPS);
+            document.getElementById('ui-time-current').innerText = formatTime(state.currentTime);
+            renderCanvas(state.currentTime);
+        });
+
+        // --- 5. UI Rendering & Stable Dragging ---
+        function selectItem(id) { state.selectedId = id; renderTimeline(); renderToolbar(); closeSheet(); }
+
+        function createTrackDOM(item, isText, topOffset) {
+            const width = (item.end - item.start) * PPS;
+            const left = item.start * PPS;
+            const isSel = item.id === state.selectedId;
+            const label = isText ? item.text.replace('\n',' ') : item.name;
+            
+            const div = document.createElement('div');
+            div.dataset.id = item.id;
+            div.className = `absolute h-[42px] rounded-lg flex items-center justify-between text-xs font-semibold track-block overflow-hidden ${isSel ? (isText ? 'track-selected-text' : 'track-selected-audio') : 'track-unselected'}`;
+            div.style.left = `${left}px`; div.style.width = `${Math.max(width, 40)}px`; div.style.top = `${topOffset}px`;
+
+            if (!isText && item.waveform) {
+                div.style.backgroundImage = `url(${item.waveform})`; div.style.backgroundSize = `${item.buffer.duration * PPS}px 100%`;
+                div.style.backgroundPosition = `${-(item.sourceOffset || 0) * PPS}px center`; div.style.backgroundRepeat = 'no-repeat';
+            }
+
+            let innerHtml = `
+                <div class="duration-badge absolute -top-8 left-1/2 -translate-x-1/2 bg-white text-black font-bold text-[10px] px-2 py-1 rounded shadow-lg opacity-0 transition-opacity whitespace-nowrap z-50 pointer-events-none">0.0s</div>
+                <div class="truncate pointer-events-none z-10 w-full flex items-center gap-1.5 px-3">
+            `;
+            if(!isText) innerHtml += `<i data-lucide="music" class="w-3.5 h-3.5 shrink-0 ${isSel?'text-white':'text-yt-green'}"></i> `;
+            else if (isText && item.sfx) innerHtml += `<i data-lucide="volume-2" class="w-3.5 h-3.5 shrink-0 ${isSel?'text-white':'text-yt-blue'}"></i> `;
+            else innerHtml += `<i data-lucide="type" class="w-3 h-3 shrink-0 ${isSel?'text-white':'text-gray-400'}"></i> `;
+            innerHtml += `<span class="truncate tracking-wide">${label}</span></div>`;
+
+            if (isSel) {
+                innerHtml += `
+                    <div class="absolute left-0 top-0 bottom-0 w-4 flex items-center justify-center bg-white/20 z-20" data-action="trim-left">
+                        <div class="w-[3px] h-[40%] bg-white rounded-full pointer-events-none shadow-sm"></div>
+                    </div>
+                    <div class="absolute right-0 top-0 bottom-0 w-4 flex items-center justify-center bg-white/20 z-20" data-action="trim-right">
+                        <div class="w-[3px] h-[40%] bg-white rounded-full pointer-events-none shadow-sm"></div>
+                    </div>
+                `;
+            }
+            div.innerHTML = innerHtml; return div;
+        }
+
+        function renderTimeline() {
+            recalculateDuration();
+            trackContainer.innerHTML = '';
+            let yOffset = 0;
+            state.texts.forEach(item => { trackContainer.appendChild(createTrackDOM(item, true, yOffset)); yOffset += 48; });
+            state.audio.forEach(item => { trackContainer.appendChild(createTrackDOM(item, false, yOffset)); yOffset += 48; });
+            trackContainer.style.minHeight = `${yOffset + 50}px`; lucide.createIcons();
+        }
+
+        function getClientX(e) { return (e.touches && e.touches.length > 0) ? e.touches[0].clientX : e.clientX; }
+
+        function initDrag(e) {
+            const el = e.target.closest('.track-block');
+            if (!el) { if (e.target.closest('#timeline-scroll') || e.target.closest('#timeline-inner')) selectItem(null); return; }
+            
+            const handle = e.target.closest('[data-action]');
+            drag.active = true; drag.id = el.dataset.id; drag.action = handle ? handle.dataset.action : 'move'; drag.el = el;
+            drag.badgeEl = el.querySelector('.duration-badge'); drag.initialClientX = getClientX(e);
+            
+            const item = state.texts.find(t=>t.id === drag.id) || state.audio.find(a=>a.id === drag.id);
+            drag.initStart = item.start; drag.initEnd = item.end; drag.initOffset = item.sourceOffset || 0;
+            
+            if (state.isPlaying) pause();
+            if (drag.id !== state.selectedId) selectItem(drag.id);
+            if (drag.badgeEl) drag.badgeEl.style.opacity = '1';
+            
+            e.preventDefault(); e.stopPropagation();
+        }
+
+        function doDrag(e) {
+            if (!drag.active) return;
+            const dx = getClientX(e) - drag.initialClientX; const dt = dx / PPS;
+            const item = state.texts.find(t=>t.id === drag.id) || state.audio.find(a=>a.id === drag.id);
+            if (!item) return;
+
+            if (drag.action === 'move') {
+                const dur = drag.initEnd - drag.initStart;
+                item.start = Math.max(0, drag.initStart + dt); item.end = item.start + dur;
+            } else if (drag.action === 'trim-left') {
+                item.start = Math.max(0, Math.min(item.end - 0.5, drag.initStart + dt));
+                if (item.buffer && !item.text) {
+                    let newOffset = drag.initOffset + (item.start - drag.initStart);
+                    if (newOffset < 0) { newOffset = 0; item.start = drag.initStart - drag.initOffset; }
+                    item.sourceOffset = newOffset;
+                }
+            } else if (drag.action === 'trim-right') {
+                item.end = Math.max(item.start + 0.5, drag.initEnd + dt);
+                if (item.buffer && !item.text) item.end = Math.min(item.end, item.start + (item.buffer.duration - item.sourceOffset));
+            }
+            
+            // Fast DOM Update - Decoupled from Playhead/Scroll!
+            drag.el.style.left = `${item.start * PPS}px`; drag.el.style.width = `${(item.end - item.start) * PPS}px`;
+            if (item.buffer && !item.text) drag.el.style.backgroundPosition = `${-(item.sourceOffset || 0) * PPS}px center`;
+            if (drag.badgeEl) drag.badgeEl.innerText = `${(item.end - item.start).toFixed(1)}s`;
+
+            renderCanvas(state.currentTime); // Keep canvas updated to show changes if under playhead
+        }
+
+        function endDrag() { 
+            if(drag.active) {
+                if (drag.badgeEl) drag.badgeEl.style.opacity = '0';
+                drag.active = false; renderTimeline(); 
+            }
+        }
+
+        trackContainer.addEventListener('mousedown', initDrag); trackContainer.addEventListener('touchstart', initDrag, {passive: false});
+        window.addEventListener('mousemove', doDrag); window.addEventListener('touchmove', doDrag, {passive: false});
+        window.addEventListener('mouseup', endDrag); window.addEventListener('touchend', endDrag);
+
+        // --- 6. Toolbar & Modals (Compact & Clean) ---
+        function renderToolbar() {
+            bottomToolbar.innerHTML = '';
+            
+            const createBtn = (icon, text, onClick, highlight = false) => {
+                const b = document.createElement('button');
+                b.className = `flex flex-col items-center justify-center min-w-[56px] active:opacity-50 transition-opacity gap-1 shrink-0 px-2`;
+                const colorCls = highlight ? 'text-yt-blue' : 'text-gray-300';
+                const iconColorCls = highlight ? 'text-yt-blue' : 'text-white';
+                
+                b.innerHTML = `
+                    <i data-lucide="${icon}" class="w-[22px] h-[22px] ${iconColorCls} pointer-events-none mb-0.5"></i>
+                    <span class="text-[10px] font-medium pointer-events-none tracking-wide ${colorCls}">${text}</span>
+                `;
+                b.onclick = onClick; return b;
+            };
+
+            if (!state.selectedId) {
+                bottomToolbar.appendChild(createBtn('type', 'Text', () => {
+                    const id = generateId();
+                    state.texts.push({ id, text: 'Title', font: 'Helvetica', size: 120, color: '#ffffff', x: 50, y: 50, start: state.currentTime, end: state.currentTime + 3, anim: 'fade' });
+                    selectItem(id); renderCanvas(state.currentTime);
+                }, true));
+                bottomToolbar.appendChild(createBtn('music', 'Sound', () => document.getElementById('input-audio').click()));
+                bottomToolbar.appendChild(createBtn('sparkles', 'Presets', openPresetSheet));
+            } else {
+                const isText = state.texts.some(t => t.id === state.selectedId);
+                if (isText) {
+                    bottomToolbar.appendChild(createBtn('edit-2', 'Edit', openTextEditSheet, true));
+                    bottomToolbar.appendChild(createBtn('palette', 'Style', openTextStyleSheet));
+                    bottomToolbar.appendChild(createBtn('wand-2', 'Anim', openTextAnimSheet));
+                    bottomToolbar.appendChild(createBtn('volume-2', 'SFX', openTextSFXSheet));
+                } else {
+                    bottomToolbar.appendChild(createBtn('volume-2', 'Volume', openAudioVolSheet, true));
+                }
+                bottomToolbar.appendChild(createBtn('trash-2', 'Delete', () => {
+                    state.texts = state.texts.filter(t => t.id !== state.selectedId);
+                    state.audio = state.audio.filter(a => a.id !== state.selectedId);
+                    selectItem(null); renderCanvas(state.currentTime);
+                }));
+            }
+            lucide.createIcons();
+        }
+
+        function openSheet(html) { sheetContent.innerHTML = html; bottomSheet.classList.remove('closed'); bottomSheet.classList.add('open'); lucide.createIcons(); }
+        function closeSheet() { bottomSheet.classList.remove('open'); bottomSheet.classList.add('closed'); }
+        document.getElementById('sheet-drag-handle').addEventListener('click', closeSheet);
+
+        function getActiveItem() { return state.texts.find(t=>t.id===state.selectedId) || state.audio.find(a=>a.id===state.selectedId); }
+        function triggerUpdate() { renderCanvas(state.currentTime); renderTimeline(); }
+
+        function openTextEditSheet() {
+            const item = getActiveItem();
+            openSheet(`
+                <div class="flex justify-between items-center mb-4"><h3 class="font-bold text-lg">Text</h3><button class="bg-white text-black font-bold px-4 py-1.5 rounded-full text-sm" onclick="closeSheet()">Done</button></div>
+                <textarea id="sheet-text" class="w-full bg-[#282828] rounded-xl p-4 text-white focus:outline-none text-lg text-center" rows="2">${item.text}</textarea>
+            `);
+            document.getElementById('sheet-text').addEventListener('input', e => { item.text = e.target.value; triggerUpdate(); });
+            setTimeout(()=>document.getElementById('sheet-text').focus(), 100);
+        }
+
+        function openTextStyleSheet() {
+            const item = getActiveItem();
+            openSheet(`
+                <h3 class="font-bold mb-4 text-lg">Style</h3>
+                <div class="flex items-center justify-between mb-4 bg-[#282828] p-4 rounded-xl border border-white/5">
+                    <span class="font-medium">Text Color</span><input type="color" id="sheet-color" value="${item.color}" class="w-8 h-8 rounded-full bg-transparent border-0 cursor-pointer p-0">
+                </div>
+                <div class="mb-4 bg-[#282828] p-4 rounded-xl border border-white/5">
+                    <span class="font-medium block mb-4">Text Size</span><input type="range" id="sheet-size" min="20" max="300" value="${item.size}">
+                </div>
+                <div class="grid grid-cols-2 gap-3">
+                    ${['Impact', 'Arial', 'Courier New', 'Helvetica'].map(f => `<button class="py-3 bg-[#282828] rounded-xl font-bold border ${item.font===f?'border-yt-blue text-yt-blue':'border-transparent text-white'}" onclick="updateFont('${f}')" style="font-family: ${f}">${f}</button>`).join('')}
+                </div>
+            `);
+            document.getElementById('sheet-color').addEventListener('input', e => { item.color = e.target.value; triggerUpdate(); });
+            document.getElementById('sheet-size').addEventListener('input', e => { item.size = Number(e.target.value); triggerUpdate(); });
+        }
+        window.updateFont = (f) => { const item = getActiveItem(); if(item){ item.font = f; triggerUpdate(); openTextStyleSheet(); } };
+
+        function openTextAnimSheet() {
+            const item = getActiveItem();
+            openSheet(`
+                <h3 class="font-bold mb-4 text-lg">Animation</h3>
+                <div class="grid grid-cols-3 gap-3">
+                    ${['none', 'fade', 'scale'].map(a => `<button class="py-4 bg-[#282828] rounded-xl font-medium capitalize border ${item.anim===a?'border-yt-blue text-yt-blue':'border-transparent text-white'}" onclick="updateAnim('${a}')">${a}</button>`).join('')}
+                </div>
+            `);
+        }
+        window.updateAnim = (a) => { const item = getActiveItem(); if(item){ item.anim = a; triggerUpdate(); openTextAnimSheet(); } };
+
+        function openTextSFXSheet() {
+            const item = getActiveItem();
+            openSheet(`
+                <h3 class="font-bold mb-2 text-lg">Linked SFX</h3><p class="text-sm text-yt-subtext mb-6">Play a sound automatically with this text.</p>
+                ${item.sfx ? `<button onclick="removeSFX()" class="w-full py-4 bg-red-500/10 text-red-500 rounded-2xl font-bold text-lg">Remove Sound</button>` : `<button onclick="document.getElementById('input-audio').click()" class="w-full py-4 bg-white text-black rounded-2xl font-bold text-lg">Upload Sound</button>`}
+            `);
+        }
+        window.removeSFX = () => { const item = getActiveItem(); if(item) { delete item.sfx; triggerUpdate(); openTextSFXSheet(); } };
+
+        function openAudioVolSheet() {
+            const item = getActiveItem();
+            openSheet(`
+                <h3 class="font-bold mb-6 text-lg flex justify-between">Volume <span id="vol-label" class="text-yt-green">${Math.round(item.volume*100)}%</span></h3>
+                <div class="bg-[#282828] p-6 rounded-2xl"><input type="range" id="sheet-vol" min="0" max="2" step="0.05" value="${item.volume}" style="color: #12b886"></div>
+            `);
+            document.getElementById('sheet-vol').addEventListener('input', e => { 
+                item.volume = Number(e.target.value); document.getElementById('vol-label').innerText = `${Math.round(item.volume*100)}%`; triggerUpdate(); 
+            });
+        }
+
+        // --- Presets ---
+        async function createSyntheticSFX(type) {
+            initAudioContext();
+            const sampleRate = audioCtx.sampleRate; const buffer = audioCtx.createBuffer(1, sampleRate * 1.5, sampleRate); const data = buffer.getChannelData(0);
+            if (type === 'impact') {
+                for (let i = 0; i < buffer.length; i++) { const t = i / sampleRate; data[i] = Math.sin(2 * Math.PI * 100 * Math.exp(-t * 15)) * Math.exp(-t * 4); }
+            } else {
+                for (let i = 0; i < buffer.length; i++) { const t = i / sampleRate; data[i] = (Math.random() * 2 - 1) * Math.exp(-Math.pow((t - 0.4) * 4, 2)) * 0.3; }
+            }
+            return buffer;
+        }
+
+        function openPresetSheet() {
+            openSheet(`
+                <h3 class="font-bold mb-4 text-lg">Presets</h3>
+                <div class="flex flex-col gap-3">
+                    <button class="bg-[#282828] p-5 rounded-2xl flex items-center justify-between border border-transparent hover:border-yt-blue transition-colors" onclick="applyPreset('impact', this)">
+                        <span class="font-black text-white text-xl italic tracking-wider">IMPACT</span>
+                        <span class="text-xs font-medium text-yt-blue bg-yt-blue/10 px-3 py-1 rounded-full">Boom SFX</span>
+                    </button>
+                    <button class="bg-[#282828] p-5 rounded-2xl flex items-center justify-between border border-transparent hover:border-yt-blue transition-colors" onclick="applyPreset('swoosh', this)">
+                        <span class="font-bold text-white text-xl">SWOOSH</span>
+                        <span class="text-xs font-medium text-green-400 bg-green-400/10 px-3 py-1 rounded-full">Fast SFX</span>
+                    </button>
+                </div>
+            `);
+        }
+
+        window.applyPreset = async (type, btn) => {
+            const originalHTML = btn.innerHTML;
+            btn.innerHTML = `<div class="w-full flex justify-center py-2"><i data-lucide="loader" class="w-6 h-6 animate-spin text-yt-blue"></i></div>`; lucide.createIcons();
+            try {
+                initAudioContext(); const buffer = await createSyntheticSFX(type); closeSheet();
+                const newText = {
+                    id: generateId(), text: type.toUpperCase(), font: 'Impact', size: 140, color: '#ffffff', x: 50, y: 50,
+                    start: state.currentTime, end: state.currentTime + 2, anim: type==='impact'?'scale':'fade', sfx: { buffer: buffer, volume: 1 }
+                };
+                state.texts.push(newText); selectItem(newText.id); renderCanvas(state.currentTime);
+            } catch (err) { btn.innerHTML = originalHTML; lucide.createIcons(); }
+        };
+
+        // --- Audio File Upload & Waveform ---
+        function getWaveformURL(buffer) {
+            const canvas = document.createElement('canvas'); canvas.width = 600; canvas.height = 42; const ctx = canvas.getContext('2d');
+            const data = buffer.getChannelData(0); const step = Math.ceil(data.length / canvas.width); const amp = 21;
+            ctx.fillStyle = '#12b886';
+            for(let i=0; i<canvas.width; i++) {
+                let min = 1.0; let max = -1.0;
+                for(let j=0; j<step; j++) { const idx = (i*step)+j; if(idx < data.length) { const d = data[idx]; if(d<min) min=d; if(d>max) max=d; } }
+                ctx.fillRect(i, (1+min)*amp, 2, Math.max(2, (max-min)*amp));
+            }
+            return canvas.toDataURL();
+        }
+
+        document.getElementById('input-audio').addEventListener('change', async (e) => {
+            const file = e.target.files[0]; if (!file) return; initAudioContext();
+            const overlay = document.getElementById('export-overlay');
+            document.getElementById('export-title').innerText = "Importing Sound..."; document.getElementById('export-bar-container').classList.add('hidden'); 
+            overlay.classList.remove('hidden'); overlay.classList.add('flex');
+
+            try {
+                const arrayBuffer = await file.arrayBuffer(); const buffer = await audioCtx.decodeAudioData(arrayBuffer);
+                const item = getActiveItem();
+                if (item && state.texts.includes(item)) {
+                    item.sfx = { buffer: buffer, volume: 1 }; openTextSFXSheet();
+                } else {
+                    state.audio.push({
+                        id: generateId(), name: file.name, buffer: buffer, start: state.currentTime, end: state.currentTime + buffer.duration,
+                        sourceOffset: 0, volume: 1, waveform: getWaveformURL(buffer)
+                    });
+                    selectItem(state.audio[state.audio.length-1].id);
+                }
+                renderTimeline();
+            } catch (err) { alert("Format not supported."); }
+            
+            overlay.classList.add('hidden'); overlay.classList.remove('flex');
+            document.getElementById('export-title').innerText = "Exporting Video..."; document.getElementById('export-bar-container').classList.remove('hidden');
+            e.target.value = '';
+        });
+
+        document.getElementById('btn-play-pause').addEventListener('click', () => { state.isPlaying ? pause() : play(); });
+
+        // --- Export Engine ---
+        document.getElementById('btn-export').addEventListener('click', async () => {
+            if (state.isPlaying) pause(); initAudioContext();
+            const overlay = document.getElementById('export-overlay'); const progress = document.getElementById('export-progress');
+            overlay.classList.remove('hidden'); overlay.classList.add('flex'); progress.style.width = '0%';
+            state.isExporting = true; state.currentTime = 0;
+
+            const canvasStream = canvas.captureStream(30); const mediaStreamDest = audioCtx.createMediaStreamDestination();
+            const dummy = audioCtx.createOscillator(); const dGain = audioCtx.createGain(); dGain.gain.value = 0;
+            dummy.connect(dGain); dGain.connect(mediaStreamDest); dummy.start();
+
+            const combined = new MediaStream([...canvasStream.getVideoTracks(), ...mediaStreamDest.stream.getAudioTracks()]);
+            const recorder = new MediaRecorder(combined, { mimeType: 'video/webm' }); const chunks = [];
+
+            recorder.ondataavailable = e => { if (e.data.size > 0) chunks.push(e.data); };
+            recorder.onstop = () => {
+                const url = URL.createObjectURL(new Blob(chunks, { type: 'video/webm' }));
+                const a = document.createElement('a'); a.href = url; a.download = 'MotionCanvas_Mobile.webm'; a.click();
+                overlay.classList.add('hidden'); overlay.classList.remove('flex'); state.isExporting = false; dummy.stop();
+            };
+
+            recorder.start(100);
+
+            const scheduleExp = (a, ref) => {
+                if(!a.buffer) return;
+                let s = a.offset ? ref+a.offset : a.start;
+                if(s < state.duration) {
+                    const src = audioCtx.createBufferSource(); src.buffer = a.buffer;
+                    const gn = audioCtx.createGain(); gn.gain.value = a.volume || 1;
+                    src.connect(gn); gn.connect(mediaStreamDest);
+                    src.start(audioCtx.currentTime + s, a.sourceOffset||0, a.end ? a.end-a.start : a.buffer.duration);
+                }
+            };
+            state.audio.forEach(t => scheduleExp(t, 0)); state.texts.forEach(t => { if(t.sfx) scheduleExp(t.sfx, t.start); });
+
+            let st = performance.now();
+            function exportLoop() {
+                if (!state.isExporting) return;
+                state.currentTime = (performance.now() - st) / 1000;
+                if (state.currentTime >= state.duration) { renderCanvas(state.duration); progress.style.width = '100%'; setTimeout(()=>recorder.stop(), 500); return; }
+                renderCanvas(state.currentTime); progress.style.width = `${(state.currentTime/state.duration)*100}%`; requestAnimationFrame(exportLoop);
+            }
+            exportLoop();
+        });
+
+        // Init Setup
+        state.texts.push({ id: generateId(), text: 'Start typing', font: 'Helvetica', size: 120, color: '#ffffff', x: 50, y: 50, start: 1, end: 5, anim: 'fade' });
+        selectItem(null); renderCanvas(0); updateTimelineLayout();
+    </script>
+</body>
+</html>

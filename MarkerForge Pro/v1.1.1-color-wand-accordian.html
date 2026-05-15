@@ -1,0 +1,1836 @@
+<!DOCTYPE html>
+<html lang="en" class="dark">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+    <title>MarkerForge Pro</title>
+    
+    <!-- Tailwind CSS -->
+    <script src="https://cdn.tailwindcss.com"></script>
+    <script>
+        tailwind.config = {
+            darkMode: 'class',
+            theme: { extend: { fontFamily: { sans: ['Inter', 'sans-serif'] } } }
+        }
+    </script>
+    
+    <!-- Google Fonts -->
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
+    
+    <!-- Lucide Icons -->
+    <script src="https://unpkg.com/lucide@latest"></script>
+
+    <!-- p5.js Library -->
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/p5.js/1.9.0/p5.min.js"></script>
+
+    <style>
+        :root { color-scheme: dark; }
+        
+        body {
+            font-family: 'Inter', sans-serif;
+            background-color: #09090b; 
+            color: #ececf1;
+            overflow: hidden;
+            touch-action: none;
+            -webkit-font-smoothing: antialiased;
+        }
+
+        ::-webkit-scrollbar { width: 6px; height: 6px; }
+        ::-webkit-scrollbar-track { background: transparent; }
+        ::-webkit-scrollbar-thumb { background: rgba(255, 255, 255, 0.1); border-radius: 10px; }
+        ::-webkit-scrollbar-thumb:hover { background: rgba(255, 255, 255, 0.2); }
+
+        .checker-bg {
+            background-color: #0f172a;
+            background-image: 
+                linear-gradient(45deg, #1e293b 25%, transparent 25%), 
+                linear-gradient(-45deg, #1e293b 25%, transparent 25%), 
+                linear-gradient(45deg, transparent 75%, #1e293b 75%), 
+                linear-gradient(-45deg, transparent 75%, #1e293b 75%);
+            background-size: 24px 24px;
+            background-position: 0 0, 0 12px, 12px -12px, -12px 0px;
+        }
+
+        input[type="range"] {
+            -webkit-appearance: none;
+            height: 4px;
+            background: rgba(255, 255, 255, 0.1);
+            border-radius: 2px;
+            outline: none;
+        }
+        input[type="range"]::-webkit-slider-thumb {
+            -webkit-appearance: none;
+            width: 16px;
+            height: 16px;
+            border-radius: 50%;
+            background: #fff;
+            box-shadow: 0 2px 6px rgba(0,0,0,0.4);
+            cursor: pointer;
+            transition: transform 0.1s;
+        }
+        input[type="range"]::-webkit-slider-thumb:hover { transform: scale(1.1); }
+
+        input[type="color"] {
+            -webkit-appearance: none;
+            border: none;
+            width: 28px;
+            height: 28px;
+            border-radius: 50%;
+            padding: 0;
+            cursor: pointer;
+            background: transparent;
+        }
+        input[type="color"]::-webkit-color-swatch-wrapper { padding: 0; }
+        input[type="color"]::-webkit-color-swatch { border: none; border-radius: 50%; box-shadow: inset 0 0 0 1px rgba(255,255,255,0.2); }
+
+        .tool-btn { transition: all 0.2s ease; border: 1px solid transparent; }
+        .tool-btn.active {
+            background-color: rgba(14, 165, 233, 0.2); 
+            border-color: rgba(14, 165, 233, 0.5);
+            color: #38bdf8; 
+        }
+        .tool-btn:hover:not(.active) { background-color: rgba(255, 255, 255, 0.05); }
+
+        #scale-wrapper {
+            position: absolute;
+            inset: 0;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            overflow: hidden;
+            padding: 0px; 
+        }
+
+        #p5-container canvas {
+            box-shadow: 0 0 0 1px rgba(255,255,255,0.05), 0 30px 60px -12px rgba(0,0,0,0.8);
+            transform-origin: center center;
+            will-change: transform;
+            border-radius: 8px;
+            cursor: crosshair;
+        }
+
+        /* Custom macOS Style Dropdowns */
+        .mac-dropdown-menu {
+            transform-origin: top center;
+            animation: dropdownFadeIn 0.15s cubic-bezier(0.16, 1, 0.3, 1) forwards;
+        }
+        @keyframes dropdownFadeIn {
+            from { opacity: 0; transform: scaleY(0.95) translateY(-4px); }
+            to { opacity: 1; transform: scaleY(1) translateY(0); }
+        }
+        .mac-dropdown-item { transition: background-color 0.1s, color 0.1s; }
+        .mac-dropdown-item:hover { background-color: #0ea5e9; color: #fff; } /* Sky 500 */
+        .mac-dropdown-item.selected { background-color: rgba(14, 165, 233, 0.15); color: #38bdf8; }
+    </style>
+</head>
+<body class="flex flex-col h-screen text-sm">
+
+    <!-- Header -->
+    <header class="absolute top-0 w-full h-14 bg-zinc-900/80 backdrop-blur-2xl border-b border-white/5 flex items-center justify-between px-4 sm:px-6 z-40">
+        <div class="flex items-center gap-3">
+            <div class="w-7 h-7 rounded-lg bg-gradient-to-br from-sky-400 to-blue-600 flex items-center justify-center shadow-inner shadow-white/20">
+                <i data-lucide="highlighter" class="w-4 h-4 text-white"></i>
+            </div>
+            <h1 class="font-semibold tracking-tight whitespace-nowrap hidden sm:block text-zinc-100">MarkerForge <span class="text-zinc-500 font-normal">Pro</span></h1>
+        </div>
+
+        <div class="flex items-center gap-2 bg-black/40 p-1 rounded-xl ring-1 ring-white/10 shrink-0">
+            <button onclick="undoStroke()" class="px-3 py-1.5 rounded-lg text-zinc-400 hover:text-white hover:bg-white/10 transition-colors flex items-center gap-2 text-xs font-medium" title="Undo Last Stroke">
+                <i data-lucide="undo" class="w-3.5 h-3.5"></i> <span class="hidden md:inline">Undo</span>
+            </button>
+            <div class="w-px h-4 bg-white/10"></div>
+            <button onclick="clearCanvas()" class="px-3 py-1.5 rounded-lg text-rose-400 hover:text-rose-300 hover:bg-rose-500/10 transition-colors flex items-center gap-2 text-xs font-medium" title="Clear All">
+                <i data-lucide="trash-2" class="w-3.5 h-3.5"></i> <span class="hidden md:inline">Clear</span>
+            </button>
+        </div>
+
+        <div class="flex items-center justify-end gap-3 shrink-0 relative">
+            <button onclick="togglePreview()" id="btn-play" class="flex items-center gap-2 px-3 py-1.5 bg-white/5 hover:bg-white/10 text-white rounded-lg font-medium transition-colors ring-1 ring-white/5 text-xs sm:text-sm shadow-sm">
+                <i data-lucide="play" class="w-4 h-4" id="icon-play"></i>
+                <span id="text-play" class="hidden sm:inline">Preview</span>
+            </button>
+            
+            <div class="flex bg-sky-600 rounded-lg shadow-lg shadow-sky-600/20 ring-1 ring-inset ring-white/20 transition-all hover:bg-sky-500" id="export-dropdown-container">
+                <!-- Custom Export Dropdown -->
+                <div class="relative hidden sm:block border-r border-sky-400/30">
+                    <button onclick="toggleExportDropdown()" id="export-dropdown-btn" class="bg-transparent text-white font-medium pl-3 pr-2 py-1.5 outline-none flex items-center gap-1 text-xs h-full">
+                        <span id="export-dropdown-label">HD 1080p</span>
+                        <i data-lucide="chevron-down" class="w-3 h-3 opacity-70"></i>
+                    </button>
+                    <div id="export-dropdown-menu" class="hidden absolute top-full right-0 mt-2 w-32 bg-zinc-800/95 backdrop-blur-2xl border border-white/10 rounded-xl shadow-[0_10px_30px_rgba(0,0,0,0.5)] z-50 overflow-hidden py-1 mac-dropdown-menu text-xs">
+                        <button onclick="selectExportRes('1920', 'HD 1080p')" class="w-full text-left px-3 py-2 mac-dropdown-item selected flex items-center justify-between" id="opt-exp-1920">HD 1080p <i data-lucide="check" class="w-3 h-3"></i></button>
+                        <button onclick="selectExportRes('2560', '2K 1440p')" class="w-full text-left px-3 py-2 mac-dropdown-item flex items-center justify-between" id="opt-exp-2560">2K 1440p <i data-lucide="check" class="w-3 h-3 hidden"></i></button>
+                        <button onclick="selectExportRes('3840', '4K 2160p')" class="w-full text-left px-3 py-2 mac-dropdown-item flex items-center justify-between" id="opt-exp-3840">4K 2160p <i data-lucide="check" class="w-3 h-3 hidden"></i></button>
+                    </div>
+                </div>
+                <input type="hidden" id="export-res" value="1920">
+                
+                <button onclick="exportVideo()" id="btn-export" class="flex items-center gap-2 px-3 py-1.5 text-white font-medium transition-all rounded-r-lg text-xs sm:text-sm">
+                    <i data-lucide="download" class="w-4 h-4"></i>
+                    <span class="hidden sm:inline">Export WebM</span>
+                </button>
+            </div>
+        </div>
+    </header>
+
+    <!-- Main Layout -->
+    <div class="flex flex-1 pt-14 relative overflow-hidden flex-col md:flex-row">
+        
+        <!-- Left Sidebar -->
+        <aside class="w-full md:w-80 flex-shrink-0 bg-zinc-900/60 backdrop-blur-3xl border-r border-white/5 z-30 h-[45%] md:h-full flex flex-col shadow-[0_-10px_40px_rgba(0,0,0,0.5)] md:shadow-none order-2 md:order-1 relative">
+            
+            <div class="p-5 overflow-y-auto space-y-6 pb-20">
+                
+                <!-- Marker Engine -->
+                <div>
+                    <label class="text-[11px] font-bold text-zinc-500 uppercase tracking-widest block mb-3 flex items-center gap-1.5">
+                        <i data-lucide="pen-tool" class="w-3 h-3"></i> Marker Variants
+                    </label>
+                    <div class="grid grid-cols-2 gap-2">
+                        <button class="tool-btn py-2.5 rounded-lg text-xs font-medium text-zinc-300 bg-black/40 border-white/10 flex flex-col justify-center items-center gap-1.5" data-tool="chisel" onclick="setTool('chisel')">
+                            <i data-lucide="pen-tool" class="w-4 h-4 transform -rotate-45"></i> <span>Chisel Tip</span>
+                        </button>
+                        <button class="tool-btn py-2.5 rounded-lg text-xs font-medium text-zinc-300 bg-black/40 border-white/10 flex flex-col justify-center items-center gap-1.5" data-tool="fine" onclick="setTool('fine')">
+                            <i data-lucide="edit-3" class="w-4 h-4"></i> <span>Fine Point</span>
+                        </button>
+                        <button class="tool-btn active py-2.5 rounded-lg text-xs font-medium text-zinc-300 bg-black/40 border-white/10 flex flex-col justify-center items-center gap-1.5" data-tool="highlighter" onclick="setTool('highlighter')">
+                            <i data-lucide="highlighter" class="w-4 h-4 text-yellow-400"></i> <span>Highlighter</span>
+                        </button>
+                        <button class="tool-btn py-2.5 rounded-lg text-xs font-medium text-zinc-300 bg-black/40 border-white/10 flex flex-col justify-center items-center gap-1.5" data-tool="wetMarker" onclick="setTool('wetMarker')">
+                            <i data-lucide="droplet" class="w-4 h-4 text-sky-400"></i> <span>Wet Marker</span>
+                        </button>
+                        <button class="tool-btn py-2.5 rounded-lg text-xs font-medium text-zinc-300 bg-black/40 border-white/10 flex flex-col justify-center items-center gap-1.5" data-tool="dryErase" onclick="setTool('dryErase')">
+                            <i data-lucide="brush" class="w-4 h-4 text-zinc-400"></i> <span>Dry Erase</span>
+                        </button>
+                        <button class="tool-btn py-2.5 rounded-lg text-xs font-medium text-zinc-300 bg-black/40 border-white/10 flex flex-col justify-center items-center gap-1.5" data-tool="brushPen" onclick="setTool('brushPen')">
+                            <i data-lucide="paintbrush" class="w-4 h-4 text-pink-400"></i> <span>Brush Pen</span>
+                        </button>
+                        <button class="tool-btn py-2.5 rounded-lg text-xs font-medium text-zinc-300 bg-black/40 border-white/10 flex flex-col justify-center items-center gap-1.5" data-tool="paintMarker" onclick="setTool('paintMarker')">
+                            <i data-lucide="paint-bucket" class="w-4 h-4 text-emerald-400"></i> <span>Paint Marker</span>
+                        </button>
+                        <button class="tool-btn py-2.5 rounded-lg text-xs font-medium text-zinc-300 bg-black/40 border-white/10 flex flex-col justify-center items-center gap-1.5" data-tool="calligraphy" onclick="setTool('calligraphy')">
+                            <i data-lucide="feather" class="w-4 h-4 text-violet-400"></i> <span>Calligraphy</span>
+                        </button>
+
+                        <button class="tool-btn col-span-2 py-2.5 rounded-lg text-xs font-medium text-zinc-300 bg-black/40 border-white/10 flex flex-col justify-center items-center gap-1.5 text-rose-400" data-tool="eraser" onclick="setTool('eraser')">
+                            <i data-lucide="eraser" class="w-4 h-4"></i> <span>Eraser</span>
+                        </button>
+                    </div>
+                </div>
+
+                <div class="w-full h-px bg-white/5"></div>
+
+                <!-- Presets Section (Custom Dropdown) -->
+                <div class="space-y-3">
+                    <div class="flex items-center justify-between">
+                        <label class="text-[11px] font-bold text-zinc-500 uppercase tracking-widest flex items-center gap-1.5">
+                            <i data-lucide="bookmark" class="w-3 h-3"></i> Presets
+                        </label>
+                        <div class="flex items-center bg-black/20 rounded-md border border-white/10 p-0.5 relative z-20">
+                            <button onclick="savePreset()" class="p-1.5 text-zinc-400 hover:text-white transition-colors rounded hover:bg-white/5" title="Save Preset"><i data-lucide="plus" class="w-3.5 h-3.5"></i></button>
+                            <button onclick="deletePreset()" class="p-1.5 text-zinc-400 hover:text-rose-400 transition-colors rounded hover:bg-white/5" title="Delete Preset"><i data-lucide="trash-2" class="w-3.5 h-3.5"></i></button>
+                            <div class="w-px h-3.5 bg-white/10 mx-1"></div>
+                            <button onclick="document.getElementById('import-preset-input').click()" class="p-1.5 text-zinc-400 hover:text-white transition-colors rounded hover:bg-white/5" title="Import Presets"><i data-lucide="upload" class="w-3.5 h-3.5"></i></button>
+                            <button onclick="exportPresets()" class="p-1.5 text-zinc-400 hover:text-white transition-colors rounded hover:bg-white/5" title="Export Presets"><i data-lucide="download" class="w-3.5 h-3.5"></i></button>
+                            <input type="file" id="import-preset-input" class="hidden" accept=".json" onchange="importPresets(event)">
+                        </div>
+                    </div>
+                    
+                    <!-- macOS Custom Dropdown for Presets -->
+                    <div class="relative z-10" id="preset-dropdown-container">
+                        <button onclick="togglePresetDropdown()" id="preset-dropdown-btn" class="w-full bg-black/40 text-sm text-zinc-300 border border-white/10 rounded-lg pl-3 pr-8 py-2 outline-none focus:border-sky-500 transition-colors hover:bg-white/5 flex items-center justify-between text-left">
+                            <span id="preset-dropdown-label" class="truncate block">-- Select Preset --</span>
+                            <i data-lucide="chevron-down" class="w-4 h-4 text-zinc-500 shrink-0"></i>
+                        </button>
+                        <div id="preset-dropdown-menu" class="hidden absolute top-full left-0 w-full mt-2 bg-zinc-800/95 backdrop-blur-2xl border border-white/10 rounded-xl shadow-[0_10px_40px_rgba(0,0,0,0.6)] overflow-y-auto max-h-48 py-1 mac-dropdown-menu">
+                            <!-- Populated by JS -->
+                        </div>
+                    </div>
+                </div>
+
+                <div class="w-full h-px bg-white/5"></div>
+
+                <!-- Properties -->
+                <div class="space-y-4">
+                    <div class="flex items-center justify-between mb-1">
+                        <label class="text-[11px] font-bold text-zinc-500 uppercase tracking-widest block">Ink Properties</label>
+                        <label class="flex items-center gap-1.5 cursor-pointer text-[10px] text-zinc-400 hover:text-white transition-colors bg-white/5 px-2 py-1 rounded border border-white/10 hover:bg-white/10" title="Snap strokes perfectly straight">
+                            <input type="checkbox" id="straight-line-toggle" class="accent-sky-500 w-3 h-3" onchange="appState.straightLine = this.checked;"> 
+                            <i data-lucide="ruler" class="w-3 h-3"></i> Straight Lines
+                        </label>
+                    </div>
+                    
+                    <div class="flex items-center justify-between">
+                        <span class="text-xs text-zinc-300 hidden md:inline">Ink Color</span>
+                        <div class="flex-1 md:flex-none flex justify-between md:justify-end gap-1.5">
+                            
+                            <button class="w-7 h-7 rounded-full bg-[#111827] border border-white/20 hover:scale-110 transition-transform" onclick="setColor('#111827')" title="Permanent Black"></button>
+                            <button class="w-7 h-7 rounded-full bg-[#ef4444] border border-white/20 hover:scale-110 transition-transform" onclick="setColor('#ef4444')" title="Red"></button>
+                            <button class="w-7 h-7 rounded-full bg-[#0ea5e9] border border-white/20 hover:scale-110 transition-transform" onclick="setColor('#0ea5e9')" title="Cyan"></button>
+                            <button class="w-7 h-7 rounded-full bg-[#22c55e] border border-white/20 hover:scale-110 transition-transform" onclick="setColor('#22c55e')" title="Green"></button>
+                            <button class="w-7 h-7 rounded-full bg-[#fde047] border border-white/20 hover:scale-110 transition-transform" onclick="setColor('#fde047')" title="Highlighter Yellow"></button>
+                            
+                            <div class="w-px h-7 bg-white/10 mx-0.5"></div>
+
+                            <div class="relative w-7 h-7 rounded-full border border-white/20 bg-[url('data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAAAoAAAAKCAYAAACNMs+9AAAAAXNSR0IArs4c6QAAACVJREFUKFNjZCASMDKgAnv37v3/n0QciwZkR+BThM8wUshwQxgAYeAU/6+E4wYAAAAASUVORK5CYII=')] overflow-hidden cursor-pointer hover:scale-110 transition-transform" title="Custom Color">
+                                <input type="color" class="absolute w-full h-full opacity-0 inset-0 cursor-pointer" value="#fde047" id="prop-color" onchange="setColor(this.value)" oninput="setColor(this.value)">
+                            </div>
+                        </div>
+                    </div>
+
+                    <div>
+                        <div class="flex justify-between items-center mb-2">
+                            <span class="text-xs text-zinc-300 font-medium">Marker Tip Size</span>
+                            <span id="size-val" class="text-xs text-zinc-400 font-mono">30px</span>
+                        </div>
+                        <input type="range" id="size-slider" min="2" max="150" value="30" class="w-full accent-sky-500" oninput="appState.size = parseInt(this.value); document.getElementById('size-val').innerText = this.value + 'px';">
+                    </div>
+                    
+                    <div>
+                        <div class="flex justify-between items-center mb-2">
+                            <span class="text-xs text-zinc-300 font-medium">Ink Opacity</span>
+                            <span id="opacity-val" class="text-xs text-zinc-400 font-mono">50%</span>
+                        </div>
+                        <input type="range" id="opacity-slider" min="5" max="100" value="50" class="w-full accent-sky-500" oninput="appState.opacity = parseInt(this.value); document.getElementById('opacity-val').innerText = this.value + '%';">
+                    </div>
+
+                    <!-- Custom macOS Blend Mode Selector -->
+                    <div>
+                        <div class="flex justify-between items-center mb-2">
+                            <span class="text-xs text-zinc-300 font-medium">Blend Mode</span>
+                        </div>
+                        <div class="relative z-0" id="blend-dropdown-container">
+                            <button onclick="toggleBlendDropdown()" id="blend-dropdown-btn" class="w-full bg-black/40 text-xs text-zinc-300 border border-white/10 rounded-lg pl-3 pr-8 py-2 outline-none focus:border-sky-500 transition-colors hover:bg-white/5 flex items-center justify-between text-left">
+                                <span id="blend-dropdown-label">Auto (Tool Default)</span>
+                                <i data-lucide="chevron-down" class="w-4 h-4 text-zinc-500 shrink-0"></i>
+                            </button>
+                            <div id="blend-dropdown-menu" class="hidden absolute top-full left-0 w-full mt-2 bg-zinc-800/95 backdrop-blur-2xl border border-white/10 rounded-xl shadow-[0_10px_40px_rgba(0,0,0,0.6)] py-1 mac-dropdown-menu text-xs">
+                                <button onclick="selectBlendMode('auto', 'Auto (Tool Default)')" class="w-full text-left px-3 py-2 mac-dropdown-item selected flex items-center justify-between" id="opt-blend-auto">Auto (Tool Default) <i data-lucide="check" class="w-3 h-3"></i></button>
+                                <button onclick="selectBlendMode('source-over', 'Normal (Opaque)')" class="w-full text-left px-3 py-2 mac-dropdown-item flex items-center justify-between" id="opt-blend-normal">Normal (Opaque) <i data-lucide="check" class="w-3 h-3 hidden"></i></button>
+                                <button onclick="selectBlendMode('multiply', 'Multiply (Highlighter)')" class="w-full text-left px-3 py-2 mac-dropdown-item flex items-center justify-between" id="opt-blend-multiply">Multiply (Highlighter) <i data-lucide="check" class="w-3 h-3 hidden"></i></button>
+                            </div>
+                        </div>
+                    </div>
+
+                    <!-- Marker Specific Controls -->
+                    <div id="prop-angle-container">
+                        <div class="flex justify-between items-center mb-2">
+                            <span class="text-xs text-zinc-300 font-medium">Marker Angle (Chisel/Calligraphy)</span>
+                            <span id="angle-val" class="text-xs text-zinc-400 font-mono">45°</span>
+                        </div>
+                        <input type="range" id="angle-slider" min="0" max="180" value="45" class="w-full accent-sky-500" oninput="appState.angle = parseInt(this.value); document.getElementById('angle-val').innerText = this.value + '°';">
+                    </div>
+
+                    <div id="prop-texture-container">
+                        <div class="flex justify-between items-center mb-2">
+                            <span class="text-xs text-zinc-300 font-medium">Bleed / Streakiness</span>
+                            <span id="texture-val" class="text-xs text-zinc-400 font-mono">60%</span>
+                        </div>
+                        <input type="range" id="texture-slider" min="0" max="100" value="60" class="w-full accent-sky-500" oninput="appState.texture = parseInt(this.value); document.getElementById('texture-val').innerText = this.value + '%';">
+                    </div>
+                </div>
+
+                <div class="w-full h-px bg-white/5"></div>
+
+                <!-- Smart Highlighter Accordion -->
+                <div class="space-y-2">
+                    <button onclick="toggleSmartHighlighter()" class="w-full flex items-center justify-between text-[11px] font-bold text-zinc-500 uppercase tracking-widest group hover:text-zinc-300 transition-colors">
+                        <div class="flex items-center gap-2">
+                            <div class="w-5 h-5 rounded shadow-lg bg-gradient-to-tr from-violet-500 to-fuchsia-500 flex items-center justify-center group-hover:scale-105 transition-transform"><i data-lucide="wand-2" class="w-3 h-3 text-white"></i></div>
+                            <span>Smart Highlighter</span>
+                        </div>
+                        <i data-lucide="chevron-down" id="smart-hl-chevron" class="w-4 h-4 transition-transform duration-300"></i>
+                    </button>
+
+                    <div id="smart-hl-content" class="hidden mt-2 p-3 bg-black/20 rounded-xl border border-white/5 space-y-4 animate-[dropdownFadeIn_0.2s_ease-out]">
+                        <p class="text-[10px] text-zinc-400 leading-tight">Use your system color picker's eyedropper tool to sample exact colors from the canvas image.</p>
+                        
+                        <div class="flex gap-3">
+                            <div class="flex-1 space-y-1.5">
+                                <label class="text-[9px] font-bold text-zinc-500 uppercase tracking-widest block">Text Color</label>
+                                <div class="relative w-full h-7 rounded border border-white/20 overflow-hidden cursor-pointer shadow-inner hover:border-sky-400 transition-colors" title="Click to use eyedropper on canvas">
+                                    <input type="color" class="absolute w-[200%] h-[200%] -top-2 -left-2 cursor-pointer" value="#000000" id="sc-text-color" oninput="updateSmartColors()">
+                                </div>
+                            </div>
+                            <div class="flex-1 space-y-1.5">
+                                <label class="text-[9px] font-bold text-zinc-500 uppercase tracking-widest block">Paper Color</label>
+                                <div class="relative w-full h-7 rounded border border-white/20 overflow-hidden cursor-pointer shadow-inner hover:border-sky-400 transition-colors" title="Click to use eyedropper on canvas">
+                                    <input type="color" class="absolute w-[200%] h-[200%] -top-2 -left-2 cursor-pointer" value="#ffffff" id="sc-bg-color" oninput="updateSmartColors()">
+                                </div>
+                            </div>
+                        </div>
+
+                        <div class="space-y-1.5">
+                            <label class="text-[9px] font-bold text-zinc-500 uppercase tracking-widest block">Highlighter Inks</label>
+                            <div class="grid grid-cols-3 gap-2" id="sc-recommendations">
+                                <!-- Generated by JS -->
+                            </div>
+                        </div>
+
+                        <div class="w-full h-14 rounded-lg border border-white/10 relative flex items-center justify-center shadow-inner overflow-hidden transition-colors" id="sc-preview-box" style="background-color: #ffffff;">
+                            <div class="font-serif italic text-xl z-10 select-none transition-colors" id="sc-preview-text" style="color: #000000;">MarkerForge</div>
+                            <div class="absolute inset-y-1/2 -mt-2.5 inset-x-2 h-5 rounded z-20 pointer-events-none opacity-80 transition-colors" id="sc-preview-highlight" style="background-color: transparent; mix-blend-mode: multiply;"></div>
+                        </div>
+                    </div>
+                </div>
+
+                <div class="w-full h-px bg-white/5"></div>
+
+                <!-- Background -->
+                <div class="space-y-4">
+                    <div class="flex items-center justify-between">
+                        <label class="text-[11px] font-bold text-zinc-500 uppercase tracking-widest block">Paper Setup</label>
+                        <label class="flex items-center gap-1.5 cursor-pointer text-[10px] text-zinc-400 hover:text-white transition-colors">
+                            <input type="checkbox" id="bg-transparent-toggle" class="accent-sky-500 w-3 h-3" onchange="appState.bgTransparent = this.checked; updateBg();"> Transparent
+                        </label>
+                    </div>
+                    <div class="flex items-center justify-between">
+                        <span class="text-xs text-zinc-300 hidden md:inline">Background</span>
+                        <div class="flex-1 md:flex-none flex justify-between md:justify-end gap-2">
+                            <button class="w-6 h-6 rounded-full bg-[#ffffff] border border-white/20" onclick="setBgColor('#ffffff')"></button>
+                            <button class="w-6 h-6 rounded-full bg-[#f8fafc] border border-white/20" onclick="setBgColor('#f8fafc')"></button>
+                            <button class="w-6 h-6 rounded-full bg-[#fef3c7] border border-white/20" onclick="setBgColor('#fef3c7')"></button>
+                            <button class="w-6 h-6 rounded-full bg-[#18181b] border border-white/20" onclick="setBgColor('#18181b')"></button>
+                            
+                            <div class="relative w-6 h-6 rounded-full border border-white/20 bg-[url('data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAAAoAAAAKCAYAAACNMs+9AAAAAXNSR0IArs4c6QAAACVJREFUKFNjZCASMDKgAnv37v3/n0QciwZkR+BThM8wUshwQxgAYeAU/6+E4wYAAAAASUVORK5CYII=')] overflow-hidden cursor-pointer" title="Custom Background">
+                                <input type="color" class="absolute w-full h-full opacity-0 inset-0 cursor-pointer" value="#ffffff" id="bg-color" onchange="setBgColor(this.value)" oninput="setBgColor(this.value)">
+                            </div>
+                        </div>
+                    </div>
+                </div>
+
+                <div class="w-full h-px bg-white/5"></div>
+
+                <!-- Reference Image -->
+                <div class="space-y-3">
+                    <div class="flex items-center justify-between">
+                        <label class="text-[11px] font-bold text-zinc-500 uppercase tracking-widest block">Reference Guide</label>
+                        <label class="flex items-center gap-1.5 cursor-pointer text-[10px] text-zinc-400 hover:text-white transition-colors">
+                            <input type="checkbox" id="ref-image-toggle" class="accent-sky-500 w-3 h-3" onchange="appState.showRefImage = this.checked; updateBg();"> Show Image
+                        </label>
+                    </div>
+                    <div class="flex items-center justify-between gap-2 bg-black/20 p-2 rounded-lg border border-white/5">
+                        <div class="flex items-center gap-2 overflow-hidden">
+                            <i data-lucide="image" class="w-4 h-4 text-zinc-500 shrink-0"></i>
+                            <span class="text-xs text-zinc-400 truncate" id="ref-image-name">No image</span>
+                        </div>
+                        <button onclick="document.getElementById('ref-image-input').click()" class="shrink-0 px-2 py-1 bg-white/10 hover:bg-white/20 text-white rounded text-xs font-medium transition-colors">Upload</button>
+                        <input type="file" id="ref-image-input" class="hidden" accept="image/*" onchange="handleRefImage(event)">
+                    </div>
+                    <p class="text-[9px] text-zinc-500 leading-tight">Image serves as a tracing guide and is hidden during WebM export & previews.</p>
+                </div>
+
+                <div class="w-full h-px bg-white/5"></div>
+
+                <!-- Viewport / Camera -->
+                <div class="space-y-4">
+                    <div class="flex items-center justify-between">
+                        <label class="text-[11px] font-bold text-zinc-500 uppercase tracking-widest block">Camera / Viewport</label>
+                        <button onclick="resetCamera()" class="text-[10px] text-zinc-400 hover:text-white transition-colors bg-white/5 px-2 py-0.5 rounded border border-white/10 hover:bg-white/10">Reset View</button>
+                    </div>
+                    
+                    <div>
+                        <div class="flex justify-between items-center mb-2">
+                            <span class="text-xs text-zinc-300 font-medium">Zoom Level</span>
+                            <span id="zoom-val" class="text-xs text-zinc-400 font-mono">100%</span>
+                        </div>
+                        <input type="range" id="zoom-slider" min="10" max="500" value="100" class="w-full accent-sky-500" oninput="setCameraZoom(this.value)">
+                    </div>
+                    
+                    <div>
+                        <div class="flex justify-between items-center mb-2">
+                            <span class="text-xs text-zinc-300 font-medium">Pan X</span>
+                            <span id="panx-val" class="text-xs text-zinc-400 font-mono">0px</span>
+                        </div>
+                        <input type="range" id="panx-slider" min="-3840" max="3840" value="0" class="w-full accent-sky-500" oninput="setCameraPanX(this.value)">
+                    </div>
+                    
+                    <div>
+                        <div class="flex justify-between items-center mb-2">
+                            <span class="text-xs text-zinc-300 font-medium">Pan Y</span>
+                            <span id="pany-val" class="text-xs text-zinc-400 font-mono">0px</span>
+                        </div>
+                        <input type="range" id="pany-slider" min="-2160" max="2160" value="0" class="w-full accent-sky-500" oninput="setCameraPanY(this.value)">
+                    </div>
+                </div>
+
+            </div>
+        </aside>
+
+        <!-- Main Canvas Area -->
+        <main class="flex-1 relative bg-zinc-950 pattern-grid overflow-hidden order-1 md:order-2 flex items-center justify-center">
+            
+            <div id="scale-wrapper" class="checker-bg">
+                <div id="p5-container"></div>
+            </div>
+            
+            <div id="status-indicator" class="absolute top-6 right-6 flex items-center gap-2 bg-sky-500/10 border border-sky-500/50 text-sky-400 px-4 py-2.5 rounded-full shadow-lg opacity-0 transition-opacity duration-300 pointer-events-none backdrop-blur-md z-50">
+                <div class="w-2 h-2 rounded-full bg-sky-400 animate-pulse" id="status-dot"></div>
+                <span class="text-xs font-bold tracking-wide uppercase" id="status-text">Playing Sequence</span>
+            </div>
+        </main>
+    </div>
+
+    <!-- Export Loading Overlay -->
+    <div id="export-loader" class="fixed inset-0 z-50 bg-black/80 hidden flex flex-col items-center justify-center transition-opacity opacity-0 backdrop-blur-sm">
+        <div class="w-12 h-12 border-4 border-white/10 border-t-sky-500 rounded-full animate-spin mb-4"></div>
+        <h2 class="text-xl font-bold text-white mb-2">Rendering WebM Video</h2>
+        <p class="text-sm text-zinc-400 font-mono font-medium" id="rec-time">Processing 0%</p>
+    </div>
+
+    <!-- Save Preset Modal -->
+    <div id="save-preset-modal" class="fixed inset-0 z-[70] bg-zinc-950/60 hidden flex-col items-center justify-center transition-opacity opacity-0 backdrop-blur-md">
+        <div class="bg-zinc-900/90 border border-white/10 rounded-2xl p-6 w-[340px] shadow-[0_20px_50px_rgba(0,0,0,0.5)] backdrop-blur-2xl transform scale-95 transition-transform duration-300" id="save-modal-content">
+            <h3 class="text-white font-semibold mb-5 flex items-center gap-2 text-base tracking-tight"><i data-lucide="bookmark-plus" class="w-5 h-5 text-sky-400"></i> Save Preset</h3>
+            <div class="space-y-4">
+                <div>
+                    <label class="text-xs text-zinc-400 font-medium block mb-1.5 ml-1">Preset Name</label>
+                    <input type="text" id="preset-name-input" class="w-full bg-black/40 border border-white/10 rounded-xl px-3 py-2.5 text-white text-sm outline-none focus:border-sky-500 focus:ring-1 focus:ring-sky-500 transition-all placeholder:text-zinc-600 shadow-inner" placeholder="e.g. Neon Sketch">
+                </div>
+                
+                <div class="space-y-2">
+                    <label class="flex items-start gap-3 cursor-pointer text-sm text-zinc-300 hover:text-white transition-colors bg-white/5 p-3 rounded-xl border border-white/5 hover:bg-white/10">
+                        <div class="mt-0.5">
+                            <input type="checkbox" id="preset-include-tools" class="accent-sky-500 w-4 h-4 rounded-sm cursor-pointer" checked>
+                        </div>
+                        <div class="flex flex-col">
+                            <span class="font-medium text-zinc-200">Save Tool Settings</span>
+                            <span class="text-[11px] text-zinc-500 leading-tight mt-0.5">Save current brush, color, size, blend mode, etc.</span>
+                        </div>
+                    </label>
+
+                    <label class="flex items-start gap-3 cursor-pointer text-sm text-zinc-300 hover:text-white transition-colors bg-white/5 p-3 rounded-xl border border-white/5 hover:bg-white/10">
+                        <div class="mt-0.5">
+                            <input type="checkbox" id="preset-include-drawing" class="accent-sky-500 w-4 h-4 rounded-sm cursor-pointer">
+                        </div>
+                        <div class="flex flex-col">
+                            <span class="font-medium text-zinc-200">Include Canvas Drawing</span>
+                            <span class="text-[11px] text-zinc-500 leading-tight mt-0.5">Saves current strokes and viewport camera state.</span>
+                        </div>
+                    </label>
+                </div>
+
+                <div class="flex gap-3 justify-end pt-2">
+                    <button onclick="closeSaveModal()" class="px-4 py-2 rounded-xl text-zinc-400 hover:text-white hover:bg-white/10 transition-all text-sm font-medium">Cancel</button>
+                    <button onclick="confirmSavePreset()" class="px-4 py-2 rounded-xl bg-sky-500 hover:bg-sky-400 text-white transition-all text-sm font-medium shadow-[0_0_15px_rgba(14,165,233,0.3)]">Save</button>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Delete Preset Modal -->
+    <div id="delete-preset-modal" class="fixed inset-0 z-[70] bg-zinc-950/60 hidden flex-col items-center justify-center transition-opacity opacity-0 backdrop-blur-md">
+        <div class="bg-zinc-900/90 border border-white/10 rounded-2xl p-6 w-[340px] shadow-[0_20px_50px_rgba(0,0,0,0.5)] backdrop-blur-2xl transform scale-95 transition-transform duration-300" id="delete-modal-content">
+            <h3 class="text-white font-semibold mb-2 flex items-center gap-2 text-base tracking-tight"><i data-lucide="trash-2" class="w-5 h-5 text-rose-400"></i> Delete Preset</h3>
+            <p class="text-sm text-zinc-400 mb-5 leading-relaxed" id="delete-preset-text">Are you sure you want to delete this preset?</p>
+            <div class="flex gap-3 justify-end">
+                <button onclick="closeDeleteModal()" class="px-4 py-2 rounded-xl text-zinc-400 hover:text-white hover:bg-white/10 transition-all text-sm font-medium">Cancel</button>
+                <button onclick="confirmDeletePreset()" class="px-4 py-2 rounded-xl bg-rose-500 hover:bg-rose-600 text-white transition-all text-sm font-medium shadow-[0_0_15px_rgba(244,63,94,0.3)]">Delete</button>
+            </div>
+        </div>
+    </div>
+
+    <!-- Toasts -->
+    <div id="toast-container" class="fixed top-20 right-6 z-[60] flex flex-col gap-2 pointer-events-none"></div>
+
+    <script>
+        lucide.createIcons();
+
+        // --- Shared App State ---
+        const appState = {
+            tool: 'highlighter', 
+            color: '#fde047',
+            size: 30,
+            opacity: 50,
+            angle: 45,      
+            texture: 60,    
+            straightLine: false, 
+            blendMode: 'auto', 
+            
+            bgColor: '#ffffff',
+            bgTransparent: false,
+            
+            refImage: null,
+            showRefImage: false,
+
+            cameraX: 0,
+            cameraY: 0,
+            cameraZoom: 1.0,
+            
+            history: [], 
+            
+            isPlaying: false,
+            isExporting: false
+        };
+
+        // --- Custom Dropdown Logic ---
+        function closeAllDropdowns() {
+            document.querySelectorAll('.mac-dropdown-menu').forEach(menu => menu.classList.add('hidden'));
+        }
+
+        document.addEventListener('click', (e) => {
+            if (!e.target.closest('#blend-dropdown-container')) document.getElementById('blend-dropdown-menu')?.classList.add('hidden');
+            if (!e.target.closest('#preset-dropdown-container')) document.getElementById('preset-dropdown-menu')?.classList.add('hidden');
+            if (!e.target.closest('#export-dropdown-container')) document.getElementById('export-dropdown-menu')?.classList.add('hidden');
+        });
+
+        // Export Dropdown
+        function toggleExportDropdown() {
+            document.getElementById('export-dropdown-menu').classList.toggle('hidden');
+        }
+        function selectExportRes(val, label) {
+            document.getElementById('export-res').value = val;
+            document.getElementById('export-dropdown-label').innerText = label;
+            document.querySelectorAll('#export-dropdown-menu button').forEach(btn => {
+                btn.classList.remove('selected');
+                btn.querySelector('i').classList.add('hidden');
+            });
+            document.getElementById('opt-exp-'+val).classList.add('selected');
+            document.getElementById('opt-exp-'+val).querySelector('i').classList.remove('hidden');
+            closeAllDropdowns();
+        }
+
+        // Blend Mode Dropdown
+        function toggleBlendDropdown() {
+            document.getElementById('blend-dropdown-menu').classList.toggle('hidden');
+        }
+        function selectBlendMode(val, label) {
+            appState.blendMode = val;
+            document.getElementById('blend-dropdown-label').innerText = label;
+            
+            document.querySelectorAll('#blend-dropdown-menu button').forEach(btn => {
+                btn.classList.remove('selected');
+                btn.querySelector('i').classList.add('hidden');
+            });
+            
+            let idMap = { 'auto': 'opt-blend-auto', 'source-over': 'opt-blend-normal', 'multiply': 'opt-blend-multiply' };
+            document.getElementById(idMap[val]).classList.add('selected');
+            document.getElementById(idMap[val]).querySelector('i').classList.remove('hidden');
+            closeAllDropdowns();
+        }
+
+        // Preset Dropdown
+        let selectedPresetIndex = null;
+        function togglePresetDropdown() {
+            document.getElementById('preset-dropdown-menu').classList.toggle('hidden');
+        }
+        function applyPresetFromMenu(index, label) {
+            selectedPresetIndex = index;
+            document.getElementById('preset-dropdown-label').innerText = label;
+            applyPreset(index);
+            updatePresetMenuVisuals();
+            closeAllDropdowns();
+        }
+        function updatePresetMenuVisuals() {
+            document.querySelectorAll('#preset-dropdown-menu button').forEach(btn => {
+                btn.classList.remove('selected');
+                btn.querySelector('i').classList.add('hidden');
+            });
+            if (selectedPresetIndex !== null) {
+                let btn = document.getElementById('opt-preset-'+selectedPresetIndex);
+                if(btn) {
+                    btn.classList.add('selected');
+                    btn.querySelector('i').classList.remove('hidden');
+                }
+            }
+        }
+
+
+        // --- Camera Control Functions ---
+        function setCameraZoom(val) {
+            appState.cameraZoom = parseInt(val) / 100;
+            document.getElementById('zoom-val').innerText = val + '%';
+            if (window.p5inst && !appState.isPlaying) window.p5inst.redrawHistory();
+        }
+
+        function setCameraPanX(val) {
+            appState.cameraX = parseInt(val);
+            document.getElementById('panx-val').innerText = val + 'px';
+            if (window.p5inst && !appState.isPlaying) window.p5inst.redrawHistory();
+        }
+
+        function setCameraPanY(val) {
+            appState.cameraY = parseInt(val);
+            document.getElementById('pany-val').innerText = val + 'px';
+            if (window.p5inst && !appState.isPlaying) window.p5inst.redrawHistory();
+        }
+
+        function resetCamera() {
+            document.getElementById('zoom-slider').value = 100;
+            document.getElementById('panx-slider').value = 0;
+            document.getElementById('pany-slider').value = 0;
+            setCameraZoom(100);
+            setCameraPanX(0);
+            setCameraPanY(0);
+        }
+
+        // --- Reference Image ---
+        function handleRefImage(event) {
+            const file = event.target.files[0];
+            if (!file) return;
+
+            const url = URL.createObjectURL(file);
+            if (window.p5inst) {
+                window.p5inst.loadImage(url, (img) => {
+                    appState.refImage = img;
+                    appState.showRefImage = true;
+                    document.getElementById('ref-image-toggle').checked = true;
+                    document.getElementById('ref-image-name').innerText = file.name;
+                    updateBg();
+                    showToast('Reference image loaded', 'success');
+                }, () => {
+                    showToast('Failed to load image', 'error');
+                });
+            }
+            event.target.value = ''; // allow reloading same file
+        }
+
+        // --- Preset Management ---
+        const PRESETS_KEY = 'markerforge_presets';
+        let savedPresets = [];
+        let presetToDelete = null;
+
+        try {
+            savedPresets = JSON.parse(localStorage.getItem(PRESETS_KEY) || '[]');
+        } catch(e) { savedPresets = []; }
+
+        function updatePresetDropdown() {
+            const menu = document.getElementById('preset-dropdown-menu');
+            if(!menu) return;
+            menu.innerHTML = '';
+            
+            if (savedPresets.length === 0) {
+                menu.innerHTML = '<div class="px-3 py-2 text-zinc-500 text-center text-xs">No presets saved</div>';
+                document.getElementById('preset-dropdown-label').innerText = '-- Select Preset --';
+                selectedPresetIndex = null;
+                return;
+            }
+
+            savedPresets.forEach((p, index) => {
+                let label = p.name;
+                if (p.history && !p.tool) label += ' (Drawing Only)';
+                else if (p.history && p.tool) label += ' (Tools + Drawing)';
+                
+                const btn = document.createElement('button');
+                btn.id = 'opt-preset-' + index;
+                btn.className = 'w-full text-left px-3 py-2 mac-dropdown-item flex items-center justify-between truncate gap-2';
+                btn.innerHTML = `<span class="truncate">${label}</span> <i data-lucide="check" class="w-3 h-3 hidden shrink-0"></i>`;
+                btn.onclick = () => applyPresetFromMenu(index, label);
+                menu.appendChild(btn);
+            });
+            lucide.createIcons();
+            updatePresetMenuVisuals();
+        }
+
+        function savePreset() {
+            if (appState.isPlaying) return;
+            const modal = document.getElementById('save-preset-modal');
+            const content = document.getElementById('save-modal-content');
+            document.getElementById('preset-name-input').value = '';
+            document.getElementById('preset-include-tools').checked = true;
+            document.getElementById('preset-include-drawing').checked = appState.history.length > 0;
+            
+            modal.classList.remove('hidden');
+            requestAnimationFrame(() => {
+                requestAnimationFrame(() => {
+                    modal.classList.remove('opacity-0');
+                    content.classList.remove('scale-95');
+                    content.classList.add('scale-100');
+                });
+            });
+            document.getElementById('preset-name-input').focus();
+        }
+
+        function closeSaveModal() {
+            const modal = document.getElementById('save-preset-modal');
+            const content = document.getElementById('save-modal-content');
+            modal.classList.add('opacity-0');
+            content.classList.remove('scale-100');
+            content.classList.add('scale-95');
+            setTimeout(() => modal.classList.add('hidden'), 300);
+        }
+
+        function confirmSavePreset() {
+            const name = document.getElementById('preset-name-input').value.trim();
+            const includeTools = document.getElementById('preset-include-tools').checked;
+            const includeDrawing = document.getElementById('preset-include-drawing').checked;
+            
+            if (!name) {
+                showToast('Please enter a preset name', 'error');
+                return;
+            }
+
+            if (!includeTools && !includeDrawing) {
+                showToast('Select at least one save option', 'error');
+                return;
+            }
+            
+            const preset = { name: name };
+
+            if (includeTools) {
+                preset.tool = appState.tool;
+                preset.color = appState.color;
+                preset.size = appState.size;
+                preset.opacity = appState.opacity;
+                preset.angle = appState.angle;
+                preset.texture = appState.texture;
+                preset.straightLine = appState.straightLine;
+                preset.blendMode = appState.blendMode;
+            }
+
+            if (includeDrawing) {
+                preset.history = JSON.parse(JSON.stringify(appState.history));
+                preset.bgColor = appState.bgColor;
+                preset.bgTransparent = appState.bgTransparent;
+                preset.cameraX = appState.cameraX;
+                preset.cameraY = appState.cameraY;
+                preset.cameraZoom = appState.cameraZoom;
+            }
+            
+            try {
+                savedPresets.push(preset);
+                localStorage.setItem(PRESETS_KEY, JSON.stringify(savedPresets));
+                updatePresetDropdown();
+                let newIndex = savedPresets.length - 1;
+                applyPresetFromMenu(newIndex, name);
+                closeSaveModal();
+                showToast('Preset saved successfully!', 'success');
+            } catch (e) {
+                savedPresets.pop(); // Revert on failure
+                if (e.name === 'QuotaExceededError') {
+                    showToast('Storage full! Drawing history is too large. Export to JSON instead.', 'error');
+                } else {
+                    showToast('Error saving preset', 'error');
+                }
+            }
+        }
+
+        function deletePreset() {
+            if (appState.isPlaying) return;
+            if (selectedPresetIndex === null) {
+                showToast('Select a preset to delete', 'error');
+                return;
+            }
+            
+            presetToDelete = selectedPresetIndex;
+            const presetName = savedPresets[selectedPresetIndex].name;
+            document.getElementById('delete-preset-text').innerText = `Are you sure you want to delete "${presetName}"? This action cannot be undone.`;
+            
+            const modal = document.getElementById('delete-preset-modal');
+            const content = document.getElementById('delete-modal-content');
+            modal.classList.remove('hidden');
+            requestAnimationFrame(() => {
+                requestAnimationFrame(() => {
+                    modal.classList.remove('opacity-0');
+                    content.classList.remove('scale-95');
+                    content.classList.add('scale-100');
+                });
+            });
+        }
+
+        function closeDeleteModal() {
+            const modal = document.getElementById('delete-preset-modal');
+            const content = document.getElementById('delete-modal-content');
+            modal.classList.add('opacity-0');
+            content.classList.remove('scale-100');
+            content.classList.add('scale-95');
+            setTimeout(() => modal.classList.add('hidden'), 300);
+            presetToDelete = null;
+        }
+
+        function confirmDeletePreset() {
+            if (presetToDelete === null) return;
+            savedPresets.splice(presetToDelete, 1);
+            localStorage.setItem(PRESETS_KEY, JSON.stringify(savedPresets));
+            selectedPresetIndex = null;
+            document.getElementById('preset-dropdown-label').innerText = '-- Select Preset --';
+            updatePresetDropdown();
+            closeDeleteModal();
+            showToast('Preset deleted', 'info');
+        }
+
+        function applyPreset(index) {
+            const p = savedPresets[index];
+            if (!p) return;
+
+            let loadedWhat = [];
+
+            if (p.tool) {
+                setTool(p.tool);
+                setColor(p.color);
+                
+                appState.size = p.size || 30;
+                appState.opacity = p.opacity || 50;
+                appState.angle = p.angle || 45;
+                appState.texture = p.texture || 60;
+                appState.straightLine = p.straightLine || false;
+                
+                // Update Blend Mode Visuals
+                let targetBlendMode = p.blendMode || 'auto';
+                let labelMap = { 'auto': 'Auto (Tool Default)', 'source-over': 'Normal (Opaque)', 'multiply': 'Multiply (Highlighter)' };
+                selectBlendMode(targetBlendMode, labelMap[targetBlendMode]);
+
+                document.getElementById('size-slider').value = appState.size;
+                document.getElementById('size-val').innerText = appState.size + 'px';
+                
+                document.getElementById('opacity-slider').value = appState.opacity;
+                document.getElementById('opacity-val').innerText = appState.opacity + '%';
+                
+                document.getElementById('angle-slider').value = appState.angle;
+                document.getElementById('angle-val').innerText = appState.angle + '°';
+
+                document.getElementById('texture-slider').value = appState.texture;
+                document.getElementById('texture-val').innerText = appState.texture + '%';
+
+                document.getElementById('straight-line-toggle').checked = appState.straightLine;
+                
+                loadedWhat.push('tools');
+            }
+
+            if (p.history) {
+                appState.history = JSON.parse(JSON.stringify(p.history));
+                appState.bgColor = p.bgColor || '#ffffff';
+                appState.bgTransparent = p.bgTransparent || false;
+                appState.cameraX = p.cameraX || 0;
+                appState.cameraY = p.cameraY || 0;
+                appState.cameraZoom = p.cameraZoom || 1.0;
+                
+                document.getElementById('bg-color').value = appState.bgColor;
+                document.getElementById('bg-transparent-toggle').checked = appState.bgTransparent;
+                
+                document.getElementById('zoom-slider').value = Math.round(appState.cameraZoom * 100);
+                document.getElementById('zoom-val').innerText = Math.round(appState.cameraZoom * 100) + '%';
+                
+                document.getElementById('panx-slider').value = appState.cameraX;
+                document.getElementById('panx-val').innerText = appState.cameraX + 'px';
+                
+                document.getElementById('pany-slider').value = appState.cameraY;
+                document.getElementById('pany-val').innerText = appState.cameraY + 'px';
+
+                if (window.p5inst && window.p5inst.syncTime) window.p5inst.syncTime();
+                if (window.p5inst) window.p5inst.redrawHistory();
+                
+                loadedWhat.push('drawing');
+            }
+
+            if (loadedWhat.length === 2) {
+                showToast(`Loaded: ${p.name} (Tools & Drawing)`, 'info');
+            } else if (loadedWhat.includes('drawing')) {
+                showToast(`Loaded: ${p.name} (Drawing Only)`, 'info');
+            } else {
+                showToast(`Loaded: ${p.name}`, 'info');
+            }
+        }
+
+        function exportPresets() {
+            if (savedPresets.length === 0) {
+                showToast('No presets to export', 'error');
+                return;
+            }
+            const dataStr = "data:text/json;charset=utf-8," + encodeURIComponent(JSON.stringify(savedPresets, null, 2));
+            const a = document.createElement('a');
+            a.href = dataStr;
+            a.download = "markerforge-presets.json";
+            document.body.appendChild(a);
+            a.click();
+            a.remove();
+            showToast('Presets exported', 'success');
+        }
+
+        function importPresets(event) {
+            const file = event.target.files[0];
+            if (!file) return;
+
+            const reader = new FileReader();
+            reader.onload = function(e) {
+                try {
+                    const imported = JSON.parse(e.target.result);
+                    if (Array.isArray(imported)) {
+                        savedPresets = savedPresets.concat(imported);
+                        localStorage.setItem(PRESETS_KEY, JSON.stringify(savedPresets));
+                        updatePresetDropdown();
+                        showToast(`Imported ${imported.length} presets`, 'success');
+                    } else {
+                        showToast('Invalid preset file format', 'error');
+                    }
+                } catch (err) {
+                    showToast('Failed to parse file', 'error');
+                }
+                event.target.value = ''; // Reset input
+            };
+            reader.readAsText(file);
+        }
+
+        window.addEventListener('DOMContentLoaded', updatePresetDropdown);
+
+
+        // --- Smart Highlighter Color Recommender ---
+        function hexToHsl(hex) {
+            let result = /^#?([a-f\d]{2})([a-f\d]{2})([a-f\d]{2})$/i.exec(hex);
+            if(!result) return {h:0, s:0, l:1};
+            let r = parseInt(result[1], 16) / 255;
+            let g = parseInt(result[2], 16) / 255;
+            let b = parseInt(result[3], 16) / 255;
+            let max = Math.max(r, g, b), min = Math.min(r, g, b);
+            let h, s, l = (max + min) / 2;
+            if (max == min) { h = s = 0; } else {
+                let d = max - min;
+                s = l > 0.5 ? d / (2 - max - min) : d / (max + min);
+                switch (max) {
+                    case r: h = (g - b) / d + (g < b ? 6 : 0); break;
+                    case g: h = (b - r) / d + 2; break;
+                    case b: h = (r - g) / d + 4; break;
+                }
+                h /= 6;
+            }
+            return { h: h * 360, s, l };
+        }
+
+        function hslToHex(h, s, l) {
+            l /= 100;
+            const a = s * Math.min(l, 1 - l) / 100;
+            const f = n => {
+                const k = (n + h / 30) % 12;
+                const color = l - a * Math.max(Math.min(k - 3, 9 - k, 1), -1);
+                return Math.round(255 * color).toString(16).padStart(2, '0');
+            };
+            return `#${f(0)}${f(8)}${f(4)}`;
+        }
+
+        function toggleSmartHighlighter() {
+            const content = document.getElementById('smart-hl-content');
+            const chevron = document.getElementById('smart-hl-chevron');
+            
+            if (content.classList.contains('hidden')) {
+                content.classList.remove('hidden');
+                chevron.classList.add('rotate-180');
+                
+                // Automatically grab canvas background if not transparent
+                if (!appState.bgTransparent) {
+                    document.getElementById('sc-bg-color').value = appState.bgColor;
+                }
+                updateSmartColors();
+            } else {
+                content.classList.add('hidden');
+                chevron.classList.remove('rotate-180');
+            }
+        }
+
+        let currentSmartRecommendations = [];
+        function updateSmartColors() {
+            const textHex = document.getElementById('sc-text-color').value;
+            const bgHex = document.getElementById('sc-bg-color').value;
+            
+            // Update preview box
+            document.getElementById('sc-preview-box').style.backgroundColor = bgHex;
+            document.getElementById('sc-preview-text').style.color = textHex;
+
+            const hsl = hexToHsl(textHex);
+            const isGrayscale = hsl.s < 0.1 || hsl.l < 0.15 || hsl.l > 0.85;
+
+            // Generate 3 bright, contrasting colors
+            let hues = [];
+            if (isGrayscale) {
+                // If text is black/grey/white, standard highlighter colors work best
+                hues = [60, 180, 320]; // Yellow, Cyan, Magenta
+            } else {
+                // Shift hues to create contrast (Analogous and Complementary)
+                hues = [(hsl.h + 60) % 360, (hsl.h + 180) % 360, (hsl.h + 300) % 360];
+            }
+
+            currentSmartRecommendations = hues.map(h => hslToHex(h, 95, 75)); // High Saturation, High Lightness
+
+            const container = document.getElementById('sc-recommendations');
+            container.innerHTML = '';
+
+            currentSmartRecommendations.forEach((color, i) => {
+                const btn = document.createElement('button');
+                
+                // Check if this color is currently active
+                const isActive = appState.color.toLowerCase() === color.toLowerCase();
+                
+                btn.className = `h-8 rounded flex items-center justify-center transition-all relative overflow-hidden group shadow-sm ${isActive ? 'ring-2 ring-white scale-105 z-10' : 'border border-white/20 hover:scale-105 hover:ring-1 hover:ring-white/50'}`;
+                btn.style.backgroundColor = color;
+                
+                if (isActive) {
+                    btn.innerHTML = `<i data-lucide="check" class="w-3.5 h-3.5 text-black/60 absolute z-20"></i><div class="absolute inset-0 bg-gradient-to-b from-white/40 to-transparent z-10"></div>`;
+                } else {
+                    btn.innerHTML = `<div class="absolute inset-0 bg-gradient-to-b from-white/30 to-transparent z-10"></div>`;
+                }
+
+                btn.onclick = () => {
+                    // Set Global Ink Color and switch tool to Highlighter
+                    setColor(color);
+                    setTool('highlighter');
+                    showToast('Smart Color Applied', 'success');
+                };
+                
+                btn.onmouseenter = () => {
+                    document.getElementById('sc-preview-highlight').style.backgroundColor = color;
+                };
+                
+                btn.onmouseleave = () => {
+                    // Revert preview to currently selected active color, or first rec
+                    const activeColor = currentSmartRecommendations.find(c => c.toLowerCase() === appState.color.toLowerCase()) || currentSmartRecommendations[0];
+                    document.getElementById('sc-preview-highlight').style.backgroundColor = activeColor;
+                };
+                
+                container.appendChild(btn);
+            });
+            lucide.createIcons();
+
+            // Set default preview to the active color or first recommendation
+            const activeColor = currentSmartRecommendations.find(c => c.toLowerCase() === appState.color.toLowerCase()) || currentSmartRecommendations[0];
+            document.getElementById('sc-preview-highlight').style.backgroundColor = activeColor;
+        }
+
+
+        // --- UI Functions ---
+        function setTool(toolName) {
+            if(appState.isPlaying) return;
+            appState.tool = toolName;
+            document.querySelectorAll('.tool-btn').forEach(btn => {
+                btn.classList.remove('active');
+                if(btn.dataset.tool === toolName) btn.classList.add('active');
+            });
+
+            // Adjust Opacity defaults based on tool for best effect
+            const opSlider = document.querySelector('input[oninput*="appState.opacity"]');
+            if (toolName === 'highlighter' || toolName === 'wetMarker') {
+                appState.opacity = 50;
+            } else if (toolName === 'brushPen') {
+                appState.opacity = 80;
+            } else if (toolName === 'chisel' || toolName === 'fine' || toolName === 'dryErase' || toolName === 'calligraphy' || toolName === 'paintMarker') {
+                appState.opacity = 95;
+            } else if (toolName === 'eraser') {
+                appState.opacity = 100;
+            }
+            opSlider.value = appState.opacity;
+            document.getElementById('opacity-val').innerText = appState.opacity + '%';
+        }
+
+        function setColor(hex) {
+            appState.color = hex;
+            document.getElementById('prop-color').value = hex;
+            
+            // Sync Smart Highlighter active states if accordion is open
+            const hlContent = document.getElementById('smart-hl-content');
+            if (hlContent && !hlContent.classList.contains('hidden')) {
+                updateSmartColors();
+            }
+        }
+
+        function setBgColor(hex) {
+            appState.bgColor = hex;
+            document.getElementById('bg-color').value = hex;
+            appState.bgTransparent = false;
+            document.getElementById('bg-transparent-toggle').checked = false;
+            updateBg();
+        }
+
+        function updateBg() {
+            if (window.p5inst && !appState.isPlaying) {
+                window.p5inst.redrawHistory();
+            }
+        }
+
+        function clearCanvas() {
+            if (appState.isPlaying || appState.isExporting) return;
+            if (confirm('Clear the entire paper?')) {
+                appState.history = [];
+                if (window.p5inst && window.p5inst.syncTime) window.p5inst.syncTime();
+                window.p5inst.clearCanvas();
+                showToast('Canvas cleared', 'success');
+            }
+        }
+
+        function undoStroke() {
+            if (appState.isPlaying || appState.isExporting) return;
+            if (appState.history.length > 0) {
+                appState.history.pop();
+                if (window.p5inst && window.p5inst.syncTime) window.p5inst.syncTime();
+                window.p5inst.redrawHistory();
+                showToast('Undo successful', 'info');
+            }
+        }
+
+        function showToast(message, type = 'info') {
+            const container = document.getElementById('toast-container');
+            const toast = document.createElement('div');
+            toast.className = `bg-zinc-800/95 backdrop-blur-md text-white px-4 py-3 rounded-xl shadow-2xl ring-1 ring-white/10 flex items-center gap-3 transform transition-all -translate-y-4 opacity-0 z-50`;
+            let icon = type === 'success' ? 'check-circle' : (type === 'error' ? 'alert-triangle' : 'info');
+            let color = type === 'success' ? 'text-green-400' : (type === 'error' ? 'text-red-400' : 'text-sky-400');
+            toast.innerHTML = `<i data-lucide="${icon}" class="w-4 h-4 ${color}"></i> <span class="text-sm font-medium">${message}</span>`;
+            container.appendChild(toast); lucide.createIcons();
+            requestAnimationFrame(() => toast.classList.remove('-translate-y-4', 'opacity-0'));
+            setTimeout(() => { toast.classList.add('-translate-y-4', 'opacity-0'); setTimeout(() => toast.remove(), 300); }, 3000);
+        }
+
+        // --- Global Controller ---
+        function togglePreview() {
+            if (window.p5inst) {
+                if (appState.isPlaying) window.p5inst.stopPlayback();
+                else window.p5inst.startPlayback();
+            }
+        }
+
+        function exportVideo() {
+            if (window.p5inst) window.p5inst.exportVideo();
+        }
+
+        // --- Viewport Scaling ---
+        function updateLayoutScale() {
+            const wrapper = document.getElementById('scale-wrapper');
+            const padding = 0; 
+            const availW = wrapper.clientWidth - padding;
+            const availH = wrapper.clientHeight - padding;
+
+            const logicalW = 1920;
+            const logicalH = 1080;
+
+            const scale = Math.min(availW / logicalW, availH / logicalH, 1.0);
+            const container = document.getElementById('p5-container');
+            if(container) container.style.transform = `scale(${scale})`;
+        }
+        window.addEventListener('resize', updateLayoutScale);
+
+        // ==========================================
+        // P5.JS ENGINE (Instance Mode)
+        // ==========================================
+        const sketch = (p) => {
+            
+            const LOGICAL_W = 1920;
+            const LOGICAL_H = 1080;
+            
+            let mainCanvas;
+            
+            // Interaction State
+            let isDrawing = false;
+            let currentStroke = null;
+            let logicalTime = 0;
+            let lastEventTime = 0;
+            let pX = 0, pY = 0; 
+            let lineStartX = 0, lineStartY = 0; // For straight lines
+            let strokeBuffer = null;            // Fast visual buffer for straight lines
+
+            // Playback State
+            let playStartTime = 0;
+            let playStrokeIdx = 0;
+            let playPointIdx = 0;
+
+            p.setup = () => {
+                mainCanvas = p.createCanvas(LOGICAL_W, LOGICAL_H);
+                mainCanvas.parent('p5-container');
+                p.pixelDensity(1); 
+                
+                const el = mainCanvas.elt;
+                el.addEventListener('pointerdown', handlePointerDown);
+                el.addEventListener('pointermove', handlePointerMove);
+                window.addEventListener('pointerup', handlePointerUp);
+                
+                updateLayoutScale();
+                p.clearCanvas();
+            };
+
+            p.draw = () => {
+                if (appState.isPlaying && !appState.isExporting) {
+                    let elapsed = p.millis() - playStartTime;
+                    stepPlayback(elapsed, p); 
+                }
+            };
+
+            // Fix for internal clock sync after Undoes/Clears
+            p.syncTime = () => {
+                if (appState.history.length === 0) {
+                    logicalTime = 0;
+                } else {
+                    let last = appState.history[appState.history.length - 1];
+                    logicalTime = last.startTime + last.duration;
+                }
+                lastEventTime = p.millis(); // Prevent huge time diff jump on next draw
+            };
+
+            // --- Custom Interaction Handlers ---
+            function getScaledPos(evt) {
+                const rect = mainCanvas.elt.getBoundingClientRect();
+                const scaleX = LOGICAL_W / rect.width;
+                const scaleY = LOGICAL_H / rect.height;
+                // Transform to logical coordinates, then inversely apply the camera offset & zoom
+                let rawX = (evt.clientX - rect.left) * scaleX;
+                let rawY = (evt.clientY - rect.top) * scaleY;
+                return {
+                    x: (rawX - appState.cameraX) / appState.cameraZoom,
+                    y: (rawY - appState.cameraY) / appState.cameraZoom
+                };
+            }
+
+            function handlePointerDown(e) {
+                if (appState.isPlaying || appState.isExporting) return;
+                e.preventDefault();
+                mainCanvas.elt.setPointerCapture(e.pointerId);
+                
+                isDrawing = true;
+                const pos = getScaledPos(e);
+                pX = pos.x; pY = pos.y;
+                lineStartX = pos.x; lineStartY = pos.y;
+                
+                let now = p.millis();
+                if (appState.history.length === 0) logicalTime = 0;
+                else {
+                    let diff = now - lastEventTime;
+                    if (diff > 1000) diff = 1000;
+                    logicalTime += diff;
+                }
+                lastEventTime = now;
+
+                if (appState.straightLine) {
+                    strokeBuffer = p.get(); // Cache current canvas for fast preview rendering
+                }
+
+                currentStroke = {
+                    tool: appState.tool,
+                    color: appState.color,
+                    size: appState.size,
+                    opacity: appState.opacity,
+                    angle: appState.angle,
+                    texture: appState.texture,
+                    blendMode: appState.blendMode,
+                    startTime: logicalTime,
+                    duration: 0,
+                    points: []
+                };
+            }
+
+            function handlePointerMove(e) {
+                if (!isDrawing || appState.isPlaying || appState.isExporting) return;
+                e.preventDefault();
+                
+                const pos = getScaledPos(e);
+                let now = p.millis();
+                logicalTime += (now - lastEventTime);
+                lastEventTime = now;
+
+                if (appState.straightLine) {
+                    // Fast preview rendering using the cached buffer
+                    p.clearCanvas();
+                    p.image(strokeBuffer, 0, 0, LOGICAL_W, LOGICAL_H);
+                    
+                    let dist = p.dist(lineStartX, lineStartY, pos.x, pos.y);
+                    let visual_dist = dist * appState.cameraZoom;
+                    let steps = Math.max(1, p.floor(visual_dist / 2));
+                    
+                    p.push();
+                    p.translate(appState.cameraX, appState.cameraY);
+                    p.scale(appState.cameraZoom);
+                    
+                    for(let i=1; i<=steps; i++) {
+                        let t1 = (i-1)/steps;
+                        let t2 = i/steps;
+                        let px = p.lerp(lineStartX, pos.x, t1);
+                        let py = p.lerp(lineStartY, pos.y, t1);
+                        let x = p.lerp(lineStartX, pos.x, t2);
+                        let y = p.lerp(lineStartY, pos.y, t2);
+                        
+                        let pt = {x, y, px, py, t: 0};
+                        drawBrushSegment(p, pt, currentStroke, 1.0);
+                    }
+                    p.pop();
+
+                } else {
+                    let d = p.dist(pX, pY, pos.x, pos.y);
+                    if (d > 1) { // Normal freehand drawing
+                        let pt = { x: pos.x, y: pos.y, px: pX, py: pY, t: logicalTime };
+                        currentStroke.points.push(pt);
+                        currentStroke.duration = logicalTime - currentStroke.startTime;
+                        
+                        // Draw Live
+                        p.push();
+                        p.translate(appState.cameraX, appState.cameraY);
+                        p.scale(appState.cameraZoom);
+                        drawBrushSegment(p, pt, currentStroke, 1.0);
+                        p.pop();
+                        
+                        pX = pos.x; pY = pos.y;
+                    }
+                }
+            }
+
+            function handlePointerUp(e) {
+                if (!isDrawing) return;
+                isDrawing = false;
+                if(e.pointerId) mainCanvas.elt.releasePointerCapture(e.pointerId);
+                
+                if (appState.straightLine) {
+                    const pos = getScaledPos(e);
+                    let dist = p.dist(lineStartX, lineStartY, pos.x, pos.y);
+                    let visual_dist = dist * appState.cameraZoom;
+                    
+                    if (visual_dist > 1) {
+                        let steps = Math.max(1, p.floor(visual_dist / 2));
+                        let timePerStep = (logicalTime - currentStroke.startTime) / steps;
+                        
+                        for(let i=1; i<=steps; i++) {
+                            let t1 = (i-1)/steps;
+                            let t2 = i/steps;
+                            let px = p.lerp(lineStartX, pos.x, t1);
+                            let py = p.lerp(lineStartY, pos.y, t1);
+                            let x = p.lerp(lineStartX, pos.x, t2);
+                            let y = p.lerp(lineStartY, pos.y, t2);
+                            
+                            let pt = {
+                                x, y, px, py, 
+                                t: currentStroke.startTime + (timePerStep * i)
+                            };
+                            currentStroke.points.push(pt);
+                        }
+                        currentStroke.duration = logicalTime - currentStroke.startTime;
+                        appState.history.push(currentStroke);
+                    }
+                    
+                    p.redrawHistory(); // Clean up final drawn state
+                    strokeBuffer = null;
+                } else {
+                    if (currentStroke && currentStroke.points.length > 0) {
+                        appState.history.push(currentStroke);
+                    }
+                }
+                currentStroke = null;
+            }
+
+            // --- Marker Rendering Engine ---
+            function drawBrushSegment(target, pt, strokeData, baseExportScale = 1.0) {
+                let x = pt.x * baseExportScale;
+                let y = pt.y * baseExportScale;
+                let px = pt.px * baseExportScale;
+                let py = pt.py * baseExportScale;
+                let size = strokeData.size * baseExportScale;
+                let requestedBlendMode = strokeData.blendMode || 'auto';
+                
+                let c = p.color(strokeData.color);
+                let op = strokeData.opacity / 100;
+                let texture = strokeData.texture / 100; 
+                let angleRad = p.radians(strokeData.angle || 45); // For chisel
+                
+                let distScaled = p.dist(x, y, px, py);
+                let visual_d = distScaled * appState.cameraZoom; // Distance on screen for density calc
+                
+                if (distScaled === 0 && strokeData.tool !== 'wetMarker') return; 
+
+                target.push();
+
+                if (strokeData.tool === 'eraser') {
+                    target.strokeWeight(size);
+                    target.strokeCap(p.ROUND);
+                    target.strokeJoin(p.ROUND);
+                    if (appState.bgTransparent) {
+                        target.drawingContext.globalCompositeOperation = 'destination-out';
+                        c = p.color(0); c.setAlpha(255);
+                    } else {
+                        target.drawingContext.globalCompositeOperation = 'source-over';
+                        c = p.color(appState.bgColor);
+                        c.setAlpha(255 * op);
+                    }
+                    target.stroke(c);
+                    target.line(px, py, x, y);
+                }
+                else {
+                    // Universal Blend Mode Override Logic
+                    let activeBlend = requestedBlendMode;
+                    if (activeBlend === 'auto') {
+                        if (strokeData.tool === 'highlighter' || strokeData.tool === 'wetMarker' || strokeData.tool === 'brushPen') {
+                            activeBlend = 'multiply';
+                        } else {
+                            activeBlend = 'source-over';
+                        }
+                    }
+                    target.drawingContext.globalCompositeOperation = activeBlend;
+
+                    if (strokeData.tool === 'chisel' || strokeData.tool === 'highlighter') {
+                        // Stroke settings representing the edge of the chisel
+                        target.strokeCap(p.SQUARE);
+                        target.strokeWeight(Math.max(1, size * 0.15)); // Inner thickness
+                        
+                        let alphaMultiplier = strokeData.tool === 'highlighter' ? 120 : 255;
+                        c.setAlpha(alphaMultiplier * op);
+                        target.stroke(c);
+
+                        // Interpolate steps closely so the angled strokes form a solid fill
+                        let steps = Math.max(1, p.floor(visual_d / 1.5)); 
+                        for (let i = 0; i <= steps; i++) {
+                            let interX = p.lerp(px, x, i / steps);
+                            let interY = p.lerp(py, y, i / steps);
+                            
+                            // Perpendicular displacement representing the width of the tip
+                            let dx = p.cos(angleRad) * (size / 2);
+                            let dy = p.sin(angleRad) * (size / 2);
+                            
+                            target.line(interX - dx, interY - dy, interX + dx, interY + dy);
+                        }
+                    }
+                    else if (strokeData.tool === 'fine') {
+                        // Solid rounded fine-point marker
+                        target.strokeWeight(size);
+                        target.strokeCap(p.ROUND);
+                        c.setAlpha(255 * op);
+                        target.stroke(c);
+                        target.line(px, py, x, y);
+                    }
+                    else if (strokeData.tool === 'dryErase') {
+                        // Streaky parallel lines
+                        target.noStroke();
+                        c.setAlpha(255 * op);
+                        target.fill(c);
+                        
+                        let steps = Math.max(1, p.floor(visual_d / 1.5));
+                        let bristles = Math.max(4, p.floor(size * 0.5));
+                        
+                        // Normal vector to the movement direction
+                        let perpX = -(y - py) / (distScaled || 1);
+                        let perpY = (x - px) / (distScaled || 1);
+
+                        for (let i = 0; i <= steps; i++) {
+                            let interX = p.lerp(px, x, i / steps);
+                            let interY = p.lerp(py, y, i / steps);
+                            
+                            for (let b = 0; b < bristles; b++) {
+                                // Map bristle to the brush width
+                                let offsetMap = p.map(b, 0, bristles-1, -size/2, size/2);
+                                let bx = interX + perpX * offsetMap;
+                                let by = interY + perpY * offsetMap;
+                                
+                                // High texture = MORE streaky/broken. Low texture = solid dry erase.
+                                let noiseVal = p.noise(bx * 0.05, by * 0.05, strokeData.startTime + b);
+                                let streakThreshold = p.map(texture, 0, 1, 0, 0.75); 
+                                
+                                if (noiseVal > streakThreshold) {
+                                    // Dynamic dot sizes to feel natural
+                                    let dotRadius = size * p.random(0.15, 0.25);
+                                    target.circle(bx, by, dotRadius);
+                                }
+                            }
+                        }
+                    }
+                    else if (strokeData.tool === 'wetMarker') {
+                        // Bleeding and overlapping strokes (like a juicy Copic)
+                        target.noStroke();
+                        
+                        let visualSize = size * appState.cameraZoom;
+                        let steps = Math.max(1, p.floor(visual_d / (visualSize * 0.15)));
+                        for (let i = 0; i <= steps; i++) {
+                            let interX = p.lerp(px, x, i / steps);
+                            let interY = p.lerp(py, y, i / steps);
+                            
+                            // Solid inner core
+                            c.setAlpha(120 * op);
+                            target.fill(c);
+                            target.circle(interX, interY, size * 0.8);
+                            
+                            // Texture determines the amount of wet bleed around the edge
+                            if (p.random() < texture) {
+                                c.setAlpha(25 * op);
+                                target.fill(c);
+                                // Spread amount based on texture property
+                                let bleedSpread = size * p.map(texture, 0, 1, 1.0, 1.6);
+                                target.circle(interX + p.random(-2, 2), interY + p.random(-2, 2), p.random(size*0.9, bleedSpread));
+                            }
+                        }
+                    }
+                    else if (strokeData.tool === 'brushPen') {
+                        // Pressure/Speed sensitive flexible brush (e.g. Tombow Fudenosuke)
+                        target.noStroke();
+                        c.setAlpha(255 * op); 
+                        target.fill(c);
+                        
+                        let speed = distScaled / baseExportScale; // Logical distance equivalent
+                        // Move slow = thick line, move fast = thin line
+                        let targetSize = p.map(speed, 0, 40, size * 1.5, size * 0.3, true);
+
+                        let steps = Math.max(1, p.floor(visual_d / 1.5));
+                        for (let i = 0; i <= steps; i++) {
+                            let interX = p.lerp(px, x, i / steps);
+                            let interY = p.lerp(py, y, i / steps);
+                            target.circle(interX, interY, targetSize);
+                        }
+                    }
+                    else if (strokeData.tool === 'paintMarker') {
+                        // Very solid, sits on top, slight noisy edge (e.g. Posca Paint Marker)
+                        target.noStroke();
+                        c.setAlpha(255 * op);
+                        target.fill(c);
+
+                        let steps = Math.max(1, p.floor(visual_d / 2));
+                        for (let i = 0; i <= steps; i++) {
+                            let interX = p.lerp(px, x, i / steps);
+                            let interY = p.lerp(py, y, i / steps);
+                            target.circle(interX, interY, size);
+                            
+                            // Edge noise based on texture (simulating acrylic paint edges on paper)
+                            if (texture > 0 && p.random() < texture) {
+                                let noiseRad = size * p.map(texture, 0, 1, 0.5, 0.65);
+                                let angle = p.random(p.TWO_PI);
+                                target.circle(interX + p.cos(angle)*noiseRad, interY + p.sin(angle)*noiseRad, p.random(1, 4) * baseExportScale);
+                            }
+                        }
+                    }
+                    else if (strokeData.tool === 'calligraphy') {
+                        // Rigid flat nib Calligraphy pen
+                        target.strokeCap(p.SQUARE);
+                        target.strokeWeight(2 * baseExportScale); 
+                        c.setAlpha(255 * op);
+                        target.stroke(c);
+
+                        let steps = Math.max(1, p.floor(visual_d / 1)); 
+                        for (let i = 0; i <= steps; i++) {
+                            let interX = p.lerp(px, x, i / steps);
+                            let interY = p.lerp(py, y, i / steps);
+                            
+                            // Uses the user-defined Angle slider
+                            let dx = p.cos(angleRad) * (size / 2);
+                            let dy = p.sin(angleRad) * (size / 2);
+                            
+                            target.line(interX - dx, interY - dy, interX + dx, interY + dy);
+                        }
+                    }
+                }
+
+                target.pop();
+            }
+
+            // --- Control Methods exposed to Window ---
+            p.clearCanvas = () => {
+                p.drawingContext.globalCompositeOperation = 'source-over';
+                if (appState.bgTransparent) {
+                    p.clear();
+                } else {
+                    p.background(appState.bgColor);
+                }
+            };
+
+            p.redrawHistory = () => {
+                p.clearCanvas();
+                p.push();
+                p.translate(appState.cameraX, appState.cameraY);
+                p.scale(appState.cameraZoom);
+
+                // Draw reference guide image if enabled
+                if (appState.refImage && appState.showRefImage && !appState.isPlaying) {
+                    p.image(appState.refImage, 0, 0, LOGICAL_W, LOGICAL_H);
+                }
+
+                for (let stroke of appState.history) {
+                    for (let pt of stroke.points) {
+                        drawBrushSegment(p, pt, stroke, 1.0);
+                    }
+                }
+                p.pop();
+            };
+
+            p.getTotalTime = () => {
+                if (appState.history.length === 0) return 0;
+                let last = appState.history[appState.history.length - 1];
+                return last.startTime + last.duration;
+            };
+
+            function setPlayUI(playing, exporting = false) {
+                const btnPlay = document.getElementById('btn-play');
+                const iconPlay = document.getElementById('icon-play');
+                const textPlay = document.getElementById('text-play');
+                const ind = document.getElementById('status-indicator');
+                const txt = document.getElementById('status-text');
+
+                document.querySelectorAll('.tool-btn, input, select, button').forEach(b => {
+                    // Ignore the stop button during play, but disable everything else
+                    if (b.id !== 'btn-play' && b.id !== 'icon-play') {
+                        b.disabled = playing;
+                    }
+                });
+
+                if (playing) {
+                    ind.classList.remove('opacity-0');
+                    if (exporting) {
+                        btnPlay.disabled = true;
+                        ind.classList.replace('bg-sky-500/10', 'bg-red-500/10');
+                        ind.classList.replace('border-sky-500/50', 'border-red-500/50');
+                        ind.classList.replace('text-sky-400', 'text-red-400');
+                        document.getElementById('status-dot').classList.replace('bg-sky-400', 'bg-red-400');
+                        txt.innerText = 'Rendering Video...';
+                    } else {
+                        btnPlay.classList.add('bg-rose-500/20', 'text-rose-400', 'border-rose-500/50');
+                        btnPlay.classList.remove('bg-white/5', 'text-white', 'border-white/5');
+                        iconPlay.setAttribute('data-lucide', 'square');
+                        textPlay.innerText = 'Stop';
+                        txt.innerText = 'Playing Sequence';
+                    }
+                } else {
+                    btnPlay.disabled = false;
+                    btnPlay.classList.remove('bg-rose-500/20', 'text-rose-400', 'border-rose-500/50');
+                    btnPlay.classList.add('bg-white/5', 'text-white', 'border-white/5');
+                    iconPlay.setAttribute('data-lucide', 'play');
+                    textPlay.innerText = 'Preview';
+                    ind.classList.add('opacity-0');
+                    
+                    ind.classList.replace('bg-rose-500/10', 'bg-sky-500/10');
+                    ind.classList.replace('border-rose-500/50', 'border-sky-500/50');
+                    ind.classList.replace('text-rose-400', 'text-sky-400');
+                    document.getElementById('status-dot').classList.replace('bg-rose-400', 'bg-sky-400');
+                }
+                lucide.createIcons();
+            }
+
+            p.startPlayback = () => {
+                if (appState.history.length === 0) {
+                    showToast('Draw something first!', 'error');
+                    return;
+                }
+                appState.isPlaying = true;
+                appState.isExporting = false;
+                setPlayUI(true);
+                
+                p.clearCanvas();
+                playStartTime = p.millis();
+                playStrokeIdx = 0;
+                playPointIdx = 0;
+            };
+
+            p.stopPlayback = () => {
+                appState.isPlaying = false;
+                setPlayUI(false);
+                p.redrawHistory();
+            };
+
+            function stepPlayback(elapsedMs, targetBuffer, scale = 1.0) {
+                targetBuffer.push();
+                targetBuffer.translate(appState.cameraX * scale, appState.cameraY * scale);
+                targetBuffer.scale(appState.cameraZoom);
+                
+                while (playStrokeIdx < appState.history.length) {
+                    let stroke = appState.history[playStrokeIdx];
+
+                    if (playPointIdx >= stroke.points.length) {
+                        playStrokeIdx++;
+                        playPointIdx = 0;
+                        continue;
+                    }
+
+                    let pt = stroke.points[playPointIdx];
+                    if (pt.t <= elapsedMs) {
+                        drawBrushSegment(targetBuffer, pt, stroke, scale);
+                        playPointIdx++;
+                    } else {
+                        break; // Wait for next frame
+                    }
+                }
+                targetBuffer.pop();
+
+                let totalTime = p.getTotalTime();
+                
+                if (appState.isExporting) {
+                    let pct = Math.min(100, Math.round((elapsedMs / totalTime) * 100));
+                    document.getElementById('rec-time').innerText = `Processing ${pct}%`;
+                }
+
+                if (elapsedMs >= totalTime + 1000) { 
+                    if (appState.isExporting) {
+                        document.getElementById('rec-time').innerText = `Finalizing File...`;
+                        setTimeout(() => {
+                            if (appState.mediaRecorder && appState.mediaRecorder.state !== 'inactive') {
+                                appState.mediaRecorder.stop();
+                            }
+                        }, 500);
+                        appState.isPlaying = false;
+                    } else {
+                        p.stopPlayback();
+                    }
+                }
+            }
+
+            p.exportVideo = () => {
+                if (appState.history.length === 0) return showToast('Draw something first!', 'error');
+                if (appState.isPlaying || appState.isExporting) return;
+
+                const targetWidth = parseInt(document.getElementById('export-res').value);
+                const aspect = LOGICAL_H / LOGICAL_W;
+                const targetHeight = targetWidth * aspect;
+                const exportScale = targetWidth / LOGICAL_W;
+
+                const pg = p.createGraphics(targetWidth, targetHeight);
+                pg.drawingContext.globalCompositeOperation = 'source-over';
+                if (appState.bgTransparent) pg.clear();
+                else pg.background(appState.bgColor);
+
+                // Prime the canvas frame before capture to avoid black frames
+                p.clearCanvas();
+                p.image(pg, 0, 0, LOGICAL_W, LOGICAL_H);
+
+                const stream = pg.elt.captureStream(60); 
+                appState.recordedChunks = [];
+                appState.mediaRecorder = new MediaRecorder(stream, { 
+                    mimeType: 'video/webm; codecs=vp9',
+                    videoBitsPerSecond: 20000000 
+                });
+                
+                appState.mediaRecorder.ondataavailable = (e) => {
+                    if (e.data.size > 0) appState.recordedChunks.push(e.data);
+                };
+
+                appState.mediaRecorder.onstop = () => {
+                    const blob = new Blob(appState.recordedChunks, { type: 'video/webm' });
+                    const url = URL.createObjectURL(blob);
+                    const link = document.createElement('a');
+                    link.href = url;
+                    link.download = `markerforge-${targetWidth}w-${Date.now()}.webm`;
+                    link.click();
+                    URL.revokeObjectURL(url);
+                    
+                    appState.isExporting = false;
+                    appState.isPlaying = false;
+                    setPlayUI(false);
+                    document.getElementById('export-loader').classList.add('opacity-0');
+                    setTimeout(() => document.getElementById('export-loader').classList.add('hidden'), 300);
+                    
+                    pg.remove(); 
+                    p.redrawHistory();
+                    showToast('Video exported successfully!', 'success');
+                };
+
+                appState.isPlaying = true;
+                appState.isExporting = true;
+                setPlayUI(true, true);
+                
+                const loader = document.getElementById('export-loader');
+                loader.classList.remove('hidden');
+                requestAnimationFrame(() => loader.classList.remove('opacity-0'));
+
+                playStrokeIdx = 0;
+                playPointIdx = 0;
+                let exportStartTime = 0; 
+                
+                function exportLoop() {
+                    if (!appState.isExporting) return;
+                    let elapsedMs = p.millis() - exportStartTime;
+                    
+                    stepPlayback(elapsedMs, pg, exportScale);
+                    
+                    p.clearCanvas();
+                    p.image(pg, 0, 0, LOGICAL_W, LOGICAL_H);
+
+                    requestAnimationFrame(exportLoop);
+                }
+                
+                // Slight delay ensures the background buffer is fully painted by the browser before starting the WebM capture
+                setTimeout(() => {
+                    appState.mediaRecorder.start();
+                    exportStartTime = p.millis(); 
+                    exportLoop();
+                }, 100);
+            };
+
+            window.p5inst = p;
+        };
+
+        // Boot P5
+        new p5(sketch);
+
+    </script>
+</body>
+</html>

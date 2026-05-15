@@ -1,0 +1,1042 @@
+<!DOCTYPE html>
+<html lang="en" class="dark">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+    <title>Rough Math Animator</title>
+    
+    <!-- Tailwind CSS -->
+    <script src="https://cdn.tailwindcss.com"></script>
+    <script>
+        tailwind.config = {
+            darkMode: 'class',
+            theme: { 
+                extend: { 
+                    fontFamily: { 
+                        sans: ['Inter', 'sans-serif'],
+                        mono: ['Fira Code', 'monospace']
+                    } 
+                } 
+            }
+        }
+    </script>
+    
+    <!-- Google Fonts -->
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=Fira+Code:wght@400;500&display=swap" rel="stylesheet">
+    
+    <!-- Lucide Icons -->
+    <script src="https://unpkg.com/lucide@latest"></script>
+
+    <!-- Rough.js -->
+    <script src="https://unpkg.com/roughjs@4.5.2/bundled/rough.js"></script>
+
+    <!-- MathJax Configuration & Loader -->
+    <script>
+        window.MathJax = {
+            tex: { packages: {'[+]': ['base', 'ams']} },
+            svg: { fontCache: 'local' },
+            startup: {
+                pageReady: () => {
+                    return MathJax.startup.defaultPageReady().then(() => {
+                        window.mathJaxLoaded = true;
+                        document.getElementById('loading-overlay').style.opacity = '0';
+                        setTimeout(() => document.getElementById('loading-overlay').classList.add('hidden'), 300);
+                        document.getElementById('latex-input').dispatchEvent(new Event('input'));
+                    });
+                }
+            }
+        };
+    </script>
+    <script id="MathJax-script" async src="https://cdn.jsdelivr.net/npm/mathjax@3/es5/tex-svg.js"></script>
+
+    <style>
+        :root { color-scheme: dark; }
+        .light { color-scheme: light; }
+        
+        body {
+            font-family: 'Inter', sans-serif;
+            background-color: #09090b; /* zinc-950 */
+            color: #f4f4f5; /* zinc-50 */
+            overflow: hidden;
+            touch-action: none;
+            -webkit-font-smoothing: antialiased;
+            transition: background-color 0.3s, color 0.3s;
+        }
+
+        .light body {
+            background-color: #fafafa; /* zinc-50 */
+            color: #18181b; /* zinc-900 */
+        }
+
+        /* Scrollbars */
+        ::-webkit-scrollbar { width: 6px; height: 6px; }
+        ::-webkit-scrollbar-track { background: transparent; }
+        ::-webkit-scrollbar-thumb { background: rgba(161, 161, 170, 0.4); border-radius: 10px; }
+        ::-webkit-scrollbar-thumb:hover { background: rgba(161, 161, 170, 0.6); }
+
+        textarea::-webkit-scrollbar { width: 4px; }
+
+        /* Range Sliders */
+        input[type="range"] {
+            -webkit-appearance: none;
+            height: 4px;
+            background: rgba(161, 161, 170, 0.3);
+            border-radius: 2px;
+            outline: none;
+        }
+        input[type="range"]::-webkit-slider-thumb {
+            -webkit-appearance: none;
+            width: 14px;
+            height: 14px;
+            border-radius: 50%;
+            background: #fff;
+            box-shadow: 0 2px 5px rgba(0,0,0,0.3);
+            cursor: pointer;
+            transition: transform 0.1s;
+        }
+        .light input[type="range"]::-webkit-slider-thumb {
+            background: #18181b;
+        }
+        input[type="range"]::-webkit-slider-thumb:hover { transform: scale(1.15); }
+
+        /* Color Inputs */
+        input[type="color"] {
+            -webkit-appearance: none;
+            border: none;
+            width: 100%;
+            height: 100%;
+            padding: 0;
+            cursor: pointer;
+            background: transparent;
+        }
+        input[type="color"]::-webkit-color-swatch-wrapper { padding: 0; }
+        input[type="color"]::-webkit-color-swatch { border: none; border-radius: 50%; }
+
+        /* Bounding Box / Aspect Ratio Wrapper */
+        .checker-bg {
+            background-image: 
+                linear-gradient(45deg, rgba(161,161,170,0.05) 25%, transparent 25%), 
+                linear-gradient(-45deg, rgba(161,161,170,0.05) 25%, transparent 25%), 
+                linear-gradient(45deg, transparent 75%, rgba(161,161,170,0.05) 75%), 
+                linear-gradient(-45deg, transparent 75%, rgba(161,161,170,0.05) 75%);
+            background-size: 20px 20px;
+            background-position: 0 0, 0 10px, 10px -10px, -10px 0px;
+        }
+
+        #scale-wrapper {
+            position: absolute;
+            inset: 0;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            overflow: hidden;
+            padding: 24px;
+        }
+
+        #canvas-container {
+            box-shadow: 0 0 0 1px rgba(161,161,170,0.15), 0 20px 40px -10px rgba(0,0,0,0.3);
+            transform-origin: center center;
+            will-change: transform;
+            border-radius: 12px;
+            overflow: hidden;
+            background-color: transparent;
+            position: relative;
+        }
+
+        .light #canvas-container {
+            box-shadow: 0 0 0 1px rgba(0,0,0,0.05), 0 20px 40px -10px rgba(0,0,0,0.1);
+        }
+
+        /* macOS Dropdowns */
+        .mac-dropdown-menu {
+            transform-origin: top right;
+            animation: dropdownFadeIn 0.15s cubic-bezier(0.16, 1, 0.3, 1) forwards;
+        }
+        @keyframes dropdownFadeIn {
+            from { opacity: 0; transform: scaleY(0.95) translateY(-4px); }
+            to { opacity: 1; transform: scaleY(1) translateY(0); }
+        }
+        .mac-dropdown-item { transition: background-color 0.1s, color 0.1s; }
+        .dark .mac-dropdown-item:hover { background-color: #3b82f6; color: #fff; } 
+        .light .mac-dropdown-item:hover { background-color: #3b82f6; color: #fff; }
+        .dark .mac-dropdown-item.selected { background-color: rgba(59, 130, 246, 0.15); color: #60a5fa; }
+        .light .mac-dropdown-item.selected { background-color: rgba(59, 130, 246, 0.1); color: #2563eb; }
+    </style>
+</head>
+<body class="flex flex-col h-screen text-sm">
+
+    <!-- Loading Overlay -->
+    <div id="loading-overlay" class="fixed inset-0 bg-zinc-50/90 dark:bg-zinc-950/90 z-[100] flex flex-col items-center justify-center transition-opacity duration-300 backdrop-blur-md">
+        <div class="w-10 h-10 border-4 border-zinc-200 dark:border-zinc-800 border-t-blue-500 dark:border-t-blue-500 rounded-full animate-spin mb-4"></div>
+        <h2 class="font-semibold text-lg text-zinc-800 dark:text-zinc-200">Initializing Math Engine...</h2>
+    </div>
+
+    <!-- Export Loading Overlay -->
+    <div id="export-loader" class="fixed inset-0 z-50 bg-black/80 hidden flex flex-col items-center justify-center transition-opacity opacity-0 backdrop-blur-md">
+        <div class="w-12 h-12 border-4 border-white/10 border-t-blue-500 rounded-full animate-spin mb-4"></div>
+        <h2 class="text-xl font-bold text-white mb-2">Rendering Animation</h2>
+        <p class="text-sm text-zinc-400 font-mono font-medium" id="rec-time">Processing 0%</p>
+    </div>
+
+    <!-- Header -->
+    <header class="absolute top-0 w-full h-14 bg-white/80 dark:bg-zinc-900/80 backdrop-blur-2xl border-b border-zinc-200 dark:border-zinc-800 flex items-center justify-between px-4 sm:px-6 z-40 transition-colors duration-300">
+        <!-- Logo -->
+        <div class="flex items-center gap-3">
+            <div class="w-8 h-8 rounded-xl bg-gradient-to-tr from-zinc-800 to-zinc-950 dark:from-zinc-100 dark:to-zinc-300 flex items-center justify-center shadow-md">
+                <i data-lucide="function-square" class="w-4 h-4 text-white dark:text-zinc-900"></i>
+            </div>
+            <h1 class="font-semibold tracking-tight text-base sm:text-lg text-zinc-900 dark:text-zinc-100 hidden sm:block">Rough<span class="font-light">Math</span></h1>
+            
+            <div class="w-px h-5 bg-zinc-300 dark:bg-zinc-700 mx-1 hidden sm:block"></div>
+            
+            <button id="theme-toggle" class="p-1.5 rounded-lg text-zinc-500 hover:text-zinc-900 dark:text-zinc-400 dark:hover:text-zinc-100 hover:bg-zinc-100 dark:hover:bg-zinc-800 transition-colors" title="Toggle Theme">
+                <i data-lucide="moon" class="w-4 h-4 dark:hidden"></i>
+                <i data-lucide="sun" class="w-4 h-4 hidden dark:block"></i>
+            </button>
+        </div>
+
+        <!-- Export & View Controls -->
+        <div class="flex items-center gap-2 sm:gap-3 shrink-0 relative">
+            
+            <!-- Aspect Ratio Dropdown -->
+            <div class="relative hidden md:block" id="aspect-dropdown-container">
+                <button onclick="toggleAspectDropdown()" id="aspect-dropdown-btn" class="flex items-center gap-1.5 px-3 py-1.5 bg-zinc-100 hover:bg-zinc-200 dark:bg-zinc-800 dark:hover:bg-zinc-700 text-zinc-700 dark:text-zinc-300 rounded-lg font-medium transition-colors text-xs ring-1 ring-inset ring-zinc-200 dark:ring-zinc-700">
+                    <i data-lucide="monitor" class="w-3.5 h-3.5"></i>
+                    <span id="aspect-dropdown-label">16:9</span>
+                    <i data-lucide="chevron-down" class="w-3 h-3 opacity-70 ml-0.5"></i>
+                </button>
+                <div id="aspect-dropdown-menu" class="hidden absolute top-full right-0 mt-2 w-32 bg-white dark:bg-zinc-800/95 backdrop-blur-2xl border border-zinc-200 dark:border-white/10 rounded-xl shadow-[0_10px_30px_rgba(0,0,0,0.15)] dark:shadow-[0_10px_30px_rgba(0,0,0,0.5)] z-50 overflow-hidden py-1 mac-dropdown-menu text-xs">
+                    <button onclick="selectAspect('16:9')" class="w-full text-left px-3 py-2 mac-dropdown-item selected flex items-center justify-between text-zinc-700 dark:text-zinc-300" id="opt-aspect-16-9">16:9 Landscape <i data-lucide="check" class="w-3 h-3"></i></button>
+                    <button onclick="selectAspect('4:3')" class="w-full text-left px-3 py-2 mac-dropdown-item flex items-center justify-between text-zinc-700 dark:text-zinc-300" id="opt-aspect-4-3">4:3 Standard <i data-lucide="check" class="w-3 h-3 hidden"></i></button>
+                    <button onclick="selectAspect('1:1')" class="w-full text-left px-3 py-2 mac-dropdown-item flex items-center justify-between text-zinc-700 dark:text-zinc-300" id="opt-aspect-1-1">1:1 Square <i data-lucide="check" class="w-3 h-3 hidden"></i></button>
+                    <button onclick="selectAspect('3:4')" class="w-full text-left px-3 py-2 mac-dropdown-item flex items-center justify-between text-zinc-700 dark:text-zinc-300" id="opt-aspect-3-4">3:4 Portrait <i data-lucide="check" class="w-3 h-3 hidden"></i></button>
+                </div>
+            </div>
+
+            <!-- Resolution Dropdown -->
+            <div class="relative hidden sm:block" id="res-dropdown-container">
+                <button onclick="toggleResDropdown()" id="res-dropdown-btn" class="flex items-center gap-1.5 px-3 py-1.5 bg-zinc-100 hover:bg-zinc-200 dark:bg-zinc-800 dark:hover:bg-zinc-700 text-zinc-700 dark:text-zinc-300 rounded-lg font-medium transition-colors text-xs ring-1 ring-inset ring-zinc-200 dark:ring-zinc-700">
+                    <span id="res-dropdown-label">HD</span>
+                    <i data-lucide="chevron-down" class="w-3 h-3 opacity-70 ml-0.5"></i>
+                </button>
+                <div id="res-dropdown-menu" class="hidden absolute top-full right-0 mt-2 w-32 bg-white dark:bg-zinc-800/95 backdrop-blur-2xl border border-zinc-200 dark:border-white/10 rounded-xl shadow-xl z-50 overflow-hidden py-1 mac-dropdown-menu text-xs">
+                    <button onclick="selectRes('1', 'HD')" class="w-full text-left px-3 py-2 mac-dropdown-item selected flex items-center justify-between text-zinc-700 dark:text-zinc-300" id="opt-res-1">HD (1080p) <i data-lucide="check" class="w-3 h-3"></i></button>
+                    <button onclick="selectRes('1.333', '2K')" class="w-full text-left px-3 py-2 mac-dropdown-item flex items-center justify-between text-zinc-700 dark:text-zinc-300" id="opt-res-1-333">2K (1440p) <i data-lucide="check" class="w-3 h-3 hidden"></i></button>
+                    <button onclick="selectRes('2', '4K')" class="w-full text-left px-3 py-2 mac-dropdown-item flex items-center justify-between text-zinc-700 dark:text-zinc-300" id="opt-res-2">4K (2160p) <i data-lucide="check" class="w-3 h-3 hidden"></i></button>
+                </div>
+            </div>
+
+            <div class="w-px h-5 bg-zinc-300 dark:bg-zinc-700 mx-1 hidden sm:block"></div>
+
+            <!-- Action Buttons -->
+            <button onclick="previewAnimation()" id="btn-play" class="flex items-center gap-1.5 px-3 py-1.5 bg-zinc-100 hover:bg-zinc-200 dark:bg-zinc-800 dark:hover:bg-zinc-700 text-zinc-800 dark:text-zinc-200 rounded-lg font-medium transition-colors text-xs ring-1 ring-inset ring-zinc-200 dark:ring-zinc-700">
+                <i data-lucide="play" class="w-3.5 h-3.5" id="icon-play"></i>
+                <span class="hidden md:inline" id="text-play">Preview</span>
+            </button>
+            
+            <button onclick="exportSnapshot()" id="btn-snapshot" class="flex items-center gap-1.5 px-3 py-1.5 bg-zinc-100 hover:bg-zinc-200 dark:bg-zinc-800 dark:hover:bg-zinc-700 text-zinc-800 dark:text-zinc-200 rounded-lg font-medium transition-colors text-xs ring-1 ring-inset ring-zinc-200 dark:ring-zinc-700">
+                <i data-lucide="camera" class="w-3.5 h-3.5"></i>
+                <span class="hidden lg:inline">PNG</span>
+            </button>
+
+            <button onclick="exportVideo()" id="btn-export" class="flex items-center gap-1.5 px-3 py-1.5 bg-blue-600 hover:bg-blue-500 text-white rounded-lg font-medium transition-colors shadow-sm shadow-blue-500/20 text-xs">
+                <i data-lucide="video" class="w-3.5 h-3.5"></i>
+                <span class="hidden sm:inline">Export</span>
+            </button>
+        </div>
+    </header>
+
+    <!-- Main Layout -->
+    <div class="flex flex-1 pt-14 relative overflow-hidden flex-col md:flex-row">
+        
+        <!-- Left Sidebar -->
+        <aside class="w-full md:w-[380px] flex-shrink-0 bg-white/60 dark:bg-zinc-900/60 backdrop-blur-3xl border-r border-zinc-200 dark:border-white/5 z-30 h-[50%] md:h-full flex flex-col shadow-[0_-10px_40px_rgba(0,0,0,0.1)] dark:shadow-[0_-10px_40px_rgba(0,0,0,0.5)] md:shadow-none order-2 md:order-1 transition-colors duration-300">
+            
+            <div class="p-5 overflow-y-auto space-y-6 pb-20">
+                
+                <!-- Equation Editor -->
+                <div class="flex flex-col gap-2">
+                    <div class="flex justify-between items-center">
+                        <label class="text-[11px] font-bold text-zinc-500 dark:text-zinc-400 uppercase tracking-widest flex items-center gap-1.5">
+                            <i data-lucide="code" class="w-3 h-3"></i> LaTeX Equation
+                        </label>
+                        <a href="https://en.wikibooks.org/wiki/LaTeX/Mathematics" target="_blank" class="text-[10px] text-blue-500 hover:text-blue-600 dark:hover:text-blue-400 hover:underline flex items-center gap-1"><i data-lucide="external-link" class="w-3 h-3"></i> Ref</a>
+                    </div>
+                    <textarea id="latex-input" class="w-full h-28 p-3 rounded-xl border border-zinc-200 dark:border-white/10 bg-zinc-50 dark:bg-black/40 text-zinc-800 dark:text-zinc-200 text-sm font-mono focus:ring-1 focus:ring-blue-500 focus:border-blue-500 outline-none resize-none shadow-inner transition-colors" spellcheck="false">i\hbar\frac{\partial}{\partial t}\Psi(\mathbf{r},t) = \left[-\frac{\hbar^2}{2m}\nabla^2 + V(\mathbf{r},t)\right]\Psi(\mathbf{r},t)</textarea>
+                </div>
+
+                <div class="w-full h-px bg-zinc-200 dark:bg-white/5"></div>
+
+                <!-- Appearance Controls -->
+                <div class="space-y-4">
+                    <label class="text-[11px] font-bold text-zinc-500 dark:text-zinc-400 uppercase tracking-widest flex items-center gap-1.5 mb-1">
+                        <i data-lucide="palette" class="w-3 h-3"></i> Appearance
+                    </label>
+                    
+                    <div class="flex items-center justify-between">
+                        <span class="text-xs font-medium text-zinc-600 dark:text-zinc-300">Ink Color</span>
+                        <div class="flex gap-1.5">
+                            <button class="color-btn w-6 h-6 rounded-full bg-[#18181b] dark:bg-[#fafafa] border border-black/10 dark:border-white/20 transition-all hover:scale-110" data-color="auto" onclick="setColor('auto')" title="Auto (Black/White)"></button>
+                            <button class="color-btn w-6 h-6 rounded-full bg-[#ef4444] border border-black/10 dark:border-white/20 transition-all hover:scale-110" data-color="#ef4444" onclick="setColor('#ef4444')" title="Red"></button>
+                            <button class="color-btn w-6 h-6 rounded-full bg-[#3b82f6] border border-black/10 dark:border-white/20 transition-all hover:scale-110" data-color="#3b82f6" onclick="setColor('#3b82f6')" title="Blue"></button>
+                            <button class="color-btn w-6 h-6 rounded-full bg-[#10b981] border border-black/10 dark:border-white/20 transition-all hover:scale-110" data-color="#10b981" onclick="setColor('#10b981')" title="Green"></button>
+                            
+                            <div class="w-px h-6 bg-zinc-200 dark:bg-white/10 mx-0.5"></div>
+
+                            <div id="custom-color-btn" class="relative w-6 h-6 rounded-full border border-black/10 dark:border-white/20 bg-[url('data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAAAoAAAAKCAYAAACNMs+9AAAAAXNSR0IArs4c6QAAACVJREFUKFNjZCASMDKgAnv37v3/n0QciwZkR+BThM8wUshwQxgAYeAU/6+E4wYAAAAASUVORK5CYII=')] overflow-hidden cursor-pointer transition-all hover:scale-110" title="Custom Color">
+                                <div id="custom-color-display" class="absolute inset-0 pointer-events-none transition-colors" style="background-color: transparent;"></div>
+                                <input type="color" class="absolute w-full h-full opacity-0 inset-0 cursor-pointer" value="#8b5cf6" id="prop-color" onchange="setColor(this.value)" oninput="setColor(this.value)">
+                            </div>
+                        </div>
+                    </div>
+
+                    <div class="flex items-center justify-between">
+                        <span class="text-xs font-medium text-zinc-600 dark:text-zinc-300">Paper Color</span>
+                        <div class="flex gap-1.5 items-center">
+                            <label class="flex items-center gap-1.5 cursor-pointer text-[10px] text-zinc-500 hover:text-zinc-800 dark:hover:text-white transition-colors mr-1">
+                                <input type="checkbox" id="bg-transparent-toggle" class="accent-blue-500 w-3 h-3 rounded-sm" onchange="appState.bgTransparent = this.checked; redrawMath();"> Clear
+                            </label>
+                            
+                            <button class="bg-color-btn w-6 h-6 rounded-full bg-[#ffffff] border border-black/10 dark:border-white/20 transition-all hover:scale-110" data-color="#ffffff" onclick="setBgColor('#ffffff')" title="Pure White"></button>
+                            <button class="bg-color-btn w-6 h-6 rounded-full bg-[#f8fafc] border border-black/10 dark:border-white/20 transition-all hover:scale-110" data-color="#f8fafc" onclick="setBgColor('#f8fafc')" title="Slate Paper"></button>
+                            <button class="bg-color-btn w-6 h-6 rounded-full bg-[#0f172a] border border-black/10 dark:border-white/20 transition-all hover:scale-110" data-color="#0f172a" onclick="setBgColor('#0f172a')" title="Dark Board"></button>
+                            
+                            <div class="relative w-6 h-6 rounded-full border border-black/10 dark:border-white/20 bg-[url('data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAAAoAAAAKCAYAAACNMs+9AAAAAXNSR0IArs4c6QAAACVJREFUKFNjZCASMDKgAnv37v3/n0QciwZkR+BThM8wUshwQxgAYeAU/6+E4wYAAAAASUVORK5CYII=')] overflow-hidden cursor-pointer transition-all hover:scale-110" title="Custom Background">
+                                <div id="custom-bg-display" class="absolute inset-0 pointer-events-none transition-colors" style="background-color: transparent;"></div>
+                                <input type="color" class="absolute w-full h-full opacity-0 inset-0 cursor-pointer" value="#fffbeb" id="bg-color" onchange="setBgColor(this.value)" oninput="setBgColor(this.value)">
+                            </div>
+                        </div>
+                    </div>
+                </div>
+
+                <div class="w-full h-px bg-zinc-200 dark:bg-white/5"></div>
+
+                <!-- Rendering Engine Properties -->
+                <div class="space-y-4">
+                    <label class="text-[11px] font-bold text-zinc-500 dark:text-zinc-400 uppercase tracking-widest flex items-center gap-1.5 mb-1">
+                        <i data-lucide="sliders" class="w-3 h-3"></i> Render Engine
+                    </label>
+                    
+                    <div class="grid grid-cols-2 gap-4">
+                        <div>
+                            <div class="flex justify-between items-center mb-1.5">
+                                <span class="text-xs font-medium text-zinc-600 dark:text-zinc-300">Base Scale</span>
+                                <span id="scale-val" class="text-[10px] text-zinc-500 font-mono">1.0x</span>
+                            </div>
+                            <input type="range" id="math-scale" min="0.2" max="3" step="0.1" value="1.0" class="accent-blue-500 w-full">
+                        </div>
+                        <div>
+                            <div class="flex justify-between items-center mb-1.5">
+                                <span class="text-xs font-medium text-zinc-600 dark:text-zinc-300">Stroke Width</span>
+                                <span id="stroke-w-val" class="text-[10px] text-zinc-500 font-mono">2.0</span>
+                            </div>
+                            <input type="range" id="stroke-width" min="0.5" max="6" step="0.5" value="2.0" class="accent-blue-500 w-full">
+                        </div>
+                        <div>
+                            <div class="flex justify-between items-center mb-1.5">
+                                <span class="text-xs font-medium text-zinc-600 dark:text-zinc-300">Roughness</span>
+                                <span id="roughness-val" class="text-[10px] text-zinc-500 font-mono">1.5</span>
+                            </div>
+                            <input type="range" id="roughness" min="0" max="4" step="0.5" value="1.5" class="accent-blue-500 w-full">
+                        </div>
+                        <div>
+                            <div class="flex justify-between items-center mb-1.5">
+                                <span class="text-xs font-medium text-zinc-600 dark:text-zinc-300">Bowing</span>
+                                <span id="bowing-val" class="text-[10px] text-zinc-500 font-mono">1.0</span>
+                            </div>
+                            <input type="range" id="bowing" min="0" max="10" step="0.5" value="1.0" class="accent-blue-500 w-full">
+                        </div>
+                    </div>
+
+                    <div class="grid grid-cols-2 gap-4 mt-2">
+                        <div>
+                            <label class="text-[10px] font-medium text-zinc-500 block mb-1">Font Style</label>
+                            <select id="math-font-style" onchange="processLatex()" class="w-full bg-zinc-100 dark:bg-black/40 text-xs text-zinc-700 dark:text-zinc-300 border border-zinc-200 dark:border-white/10 rounded-lg px-2 py-1.5 outline-none focus:border-blue-500 appearance-none cursor-pointer shadow-inner">
+                                <option value="normal">Math Roman</option>
+                                <option value="mathsf">Sans-Serif</option>
+                                <option value="mathtt">Typewriter</option>
+                                <option value="mathbf">Bold</option>
+                                <option value="mathit">Italic</option>
+                            </select>
+                        </div>
+                        <div>
+                            <label class="text-[10px] font-medium text-zinc-500 block mb-1">Fill Style</label>
+                            <select id="fill-style" onchange="appState.fillStyle = this.value; redrawMath()" class="w-full bg-zinc-100 dark:bg-black/40 text-xs text-zinc-700 dark:text-zinc-300 border border-zinc-200 dark:border-white/10 rounded-lg px-2 py-1.5 outline-none focus:border-blue-500 appearance-none cursor-pointer shadow-inner">
+                                <option value="solid">Solid Fill</option>
+                                <option value="hachure">Pencil Shading</option>
+                                <option value="cross-hatch">Cross Hatch</option>
+                                <option value="none">Outline Only</option>
+                            </select>
+                        </div>
+                    </div>
+                </div>
+
+                <div class="w-full h-px bg-zinc-200 dark:bg-white/5"></div>
+
+                <!-- Templates Accordion -->
+                <div class="space-y-2">
+                    <button onclick="toggleTemplates()" class="w-full flex items-center justify-between text-[11px] font-bold text-zinc-500 dark:text-zinc-400 uppercase tracking-widest group hover:text-zinc-800 dark:hover:text-zinc-200 transition-colors">
+                        <div class="flex items-center gap-1.5">
+                            <i data-lucide="book-open" class="w-3 h-3"></i>
+                            <span>Equation Templates</span>
+                        </div>
+                        <i data-lucide="chevron-down" id="template-chevron" class="w-4 h-4 transition-transform duration-300"></i>
+                    </button>
+
+                    <div id="template-content" class="hidden mt-2 space-y-2 animate-[dropdownFadeIn_0.2s_ease-out]">
+                        <div class="grid grid-cols-2 gap-2">
+                            <button class="template-btn py-1.5 bg-zinc-100 dark:bg-zinc-800 hover:bg-zinc-200 dark:hover:bg-zinc-700 border border-zinc-200 dark:border-white/5 rounded-lg text-[10px] font-medium transition truncate px-2 text-zinc-700 dark:text-zinc-300 shadow-sm" data-tex="\rho \left( \frac{\partial \mathbf{v}}{\partial t} + \mathbf{v} \cdot \nabla \mathbf{v} \right) = -\nabla p + \mu \nabla^2 \mathbf{v} + \mathbf{f}">Navier-Stokes</button>
+                            <button class="template-btn py-1.5 bg-zinc-100 dark:bg-zinc-800 hover:bg-zinc-200 dark:hover:bg-zinc-700 border border-zinc-200 dark:border-white/5 rounded-lg text-[10px] font-medium transition truncate px-2 text-zinc-700 dark:text-zinc-300 shadow-sm" data-tex="i\hbar\frac{\partial}{\partial t}\Psi(\mathbf{r},t) = \left[-\frac{\hbar^2}{2m}\nabla^2 + V(\mathbf{r},t)\right]\Psi(\mathbf{r},t)">Schrödinger Eq.</button>
+                            <button class="template-btn py-1.5 bg-zinc-100 dark:bg-zinc-800 hover:bg-zinc-200 dark:hover:bg-zinc-700 border border-zinc-200 dark:border-white/5 rounded-lg text-[10px] font-medium transition truncate px-2 text-zinc-700 dark:text-zinc-300 shadow-sm" data-tex="R_{\mu\nu} - \frac{1}{2}Rg_{\mu\nu} + \Lambda g_{\mu\nu} = \frac{8\pi G}{c^4}T_{\mu\nu}">Einstein Field</button>
+                            <button class="template-btn py-1.5 bg-zinc-100 dark:bg-zinc-800 hover:bg-zinc-200 dark:hover:bg-zinc-700 border border-zinc-200 dark:border-white/5 rounded-lg text-[10px] font-medium transition truncate px-2 text-zinc-700 dark:text-zinc-300 shadow-sm" data-tex="\hat{f}(\xi) = \int_{-\infty}^{\infty} f(x) e^{-i 2\pi \xi x} \,dx">Fourier Transform</button>
+                        </div>
+                        <button class="template-btn w-full py-2 bg-zinc-100 dark:bg-zinc-800 hover:bg-zinc-200 dark:hover:bg-zinc-700 border border-zinc-200 dark:border-white/5 rounded-lg text-[10px] font-medium transition px-3 text-left flex items-center justify-between text-zinc-700 dark:text-zinc-300 shadow-sm" 
+                            data-tex="\begin{array}{l}
+\text{Q: A car accelerates uniformly from rest to } 20 \text{ m/s} \\
+\text{in } 5 \text{ seconds. Find the distance traveled.} \\
+\\
+v = u + at \implies 20 = 0 + a(5) \implies a = 4 \text{ m/s}^2 \\
+s = ut + \frac{1}{2}at^2 \implies s = 0 + \frac{1}{2}(4)(5^2) \\
+s = 50 \text{ meters}
+\end{array}">
+                            Physics Kinematics Problem <i data-lucide="arrow-right" class="w-3 h-3"></i>
+                        </button>
+                    </div>
+                </div>
+
+            </div>
+        </aside>
+
+        <!-- CANVAS AREA -->
+        <main class="flex-1 relative bg-zinc-100 dark:bg-[#09090b] pattern-grid overflow-hidden order-1 md:order-2 flex items-center justify-center transition-colors duration-300">
+            
+            <div id="scale-wrapper" class="checker-bg dark:opacity-30 opacity-100">
+                <div id="canvas-container">
+                    <canvas id="main-canvas" class="block"></canvas>
+                </div>
+            </div>
+            
+            <!-- Error State Prompt -->
+            <div id="error-state" class="absolute inset-0 flex flex-col items-center justify-center text-red-500 dark:text-red-400 opacity-0 pointer-events-none transition-opacity duration-300 z-10 backdrop-blur-sm bg-white/50 dark:bg-black/50">
+                <i data-lucide="alert-triangle" class="w-12 h-12 mb-3"></i>
+                <p class="font-semibold text-lg">Invalid LaTeX Equation</p>
+                <p class="text-xs text-zinc-600 dark:text-zinc-400 mt-1">Check your syntax and try again</p>
+            </div>
+        </main>
+    </div>
+
+    <!-- Toasts -->
+    <div id="toast-container" class="fixed top-20 right-6 z-[60] flex flex-col gap-2 pointer-events-none"></div>
+
+    <script>
+        lucide.createIcons();
+
+        const htmlElement = document.documentElement;
+        
+        // --- App State ---
+        const appState = {
+            aspectRatio: '16:9', // 16:9, 4:3, 1:1, 3:4
+            exportScale: 1, // 1=HD, 1.333=2K, 2=4K
+            
+            logicalW: 1920,
+            logicalH: 1080,
+            
+            color: 'auto',
+            bgColor: '#f8fafc',
+            bgTransparent: false,
+            
+            scale: 1.0,
+            roughness: 1.5,
+            bowing: 1.0,
+            strokeWidth: 2.0,
+            fillStyle: 'solid',
+            
+            parsedMath: null,
+            isAnimating: false,
+            isExporting: false
+        };
+
+        // Theme Initialization
+        if (localStorage.theme === 'dark' || (!('theme' in localStorage) && window.matchMedia('(prefers-color-scheme: dark)').matches)) {
+            htmlElement.classList.add('dark');
+            appState.bgColor = '#0f172a';
+        }
+
+        // --- Custom Dropdown Logic ---
+        function closeAllDropdowns() {
+            document.querySelectorAll('.mac-dropdown-menu').forEach(menu => menu.classList.add('hidden'));
+        }
+
+        document.addEventListener('click', (e) => {
+            if (!e.target.closest('#aspect-dropdown-container')) document.getElementById('aspect-dropdown-menu')?.classList.add('hidden');
+            if (!e.target.closest('#res-dropdown-container')) document.getElementById('res-dropdown-menu')?.classList.add('hidden');
+        });
+
+        // Aspect Ratio Dropdown
+        function toggleAspectDropdown() { document.getElementById('aspect-dropdown-menu').classList.toggle('hidden'); }
+        function selectAspect(ratio) {
+            appState.aspectRatio = ratio;
+            document.getElementById('aspect-dropdown-label').innerText = ratio;
+            
+            // Map logical bounds
+            if (ratio === '16:9') { appState.logicalW = 1920; appState.logicalH = 1080; }
+            else if (ratio === '4:3') { appState.logicalW = 1440; appState.logicalH = 1080; }
+            else if (ratio === '1:1') { appState.logicalW = 1080; appState.logicalH = 1080; }
+            else if (ratio === '3:4') { appState.logicalW = 1080; appState.logicalH = 1440; }
+
+            document.querySelectorAll('#aspect-dropdown-menu button').forEach(btn => {
+                btn.classList.remove('selected');
+                const icon = btn.querySelector('svg') || btn.querySelector('i');
+                if (icon) icon.classList.add('hidden');
+            });
+            let id = ratio.replace(':', '-');
+            document.getElementById('opt-aspect-'+id).classList.add('selected');
+            const selectedIcon = document.getElementById('opt-aspect-'+id).querySelector('svg') || document.getElementById('opt-aspect-'+id).querySelector('i');
+            if (selectedIcon) selectedIcon.classList.remove('hidden');
+            closeAllDropdowns();
+            
+            applyLogicalBounds();
+        }
+
+        // Resolution Dropdown
+        function toggleResDropdown() { document.getElementById('res-dropdown-menu').classList.toggle('hidden'); }
+        function selectRes(val, label) {
+            appState.exportScale = parseFloat(val);
+            document.getElementById('res-dropdown-label').innerText = label;
+            
+            document.querySelectorAll('#res-dropdown-menu button').forEach(btn => {
+                btn.classList.remove('selected');
+                const icon = btn.querySelector('svg') || btn.querySelector('i');
+                if (icon) icon.classList.add('hidden');
+            });
+            document.getElementById('opt-res-'+val.replace('.', '-')).classList.add('selected');
+            const selectedIcon = document.getElementById('opt-res-'+val.replace('.', '-')).querySelector('svg') || document.getElementById('opt-res-'+val.replace('.', '-')).querySelector('i');
+            if (selectedIcon) selectedIcon.classList.remove('hidden');
+            closeAllDropdowns();
+        }
+
+        // --- Theme & Appearance Logic ---
+        document.getElementById('theme-toggle').addEventListener('click', () => {
+            htmlElement.classList.toggle('dark');
+            localStorage.theme = htmlElement.classList.contains('dark') ? 'dark' : 'light';
+            
+            // Auto swap defaults if using auto color
+            if (appState.color === 'auto') {
+                redrawMath();
+            }
+        });
+
+        function getActualColor() {
+            if (appState.color !== 'auto') return appState.color;
+            return htmlElement.classList.contains('dark') ? '#ffffff' : '#000000';
+        }
+
+        function isDarkColor(color) {
+            const hex = color.replace('#', '');
+            if(hex.length === 6) {
+                const r = parseInt(hex.substr(0, 2), 16);
+                const g = parseInt(hex.substr(2, 2), 16);
+                const b = parseInt(hex.substr(4, 2), 16);
+                return (r * 0.299 + g * 0.587 + b * 0.114) < 128;
+            }
+            return false;
+        }
+
+        function setColor(hex) {
+            appState.color = hex;
+            if (hex !== 'auto') document.getElementById('prop-color').value = hex;
+            
+            let isStandard = false;
+            document.querySelectorAll('.color-btn').forEach(btn => {
+                if(btn.dataset.color.toLowerCase() === hex.toLowerCase()) {
+                    btn.classList.add('ring-2', 'ring-blue-500', 'scale-110', 'z-10');
+                    btn.classList.remove('hover:scale-110');
+                    isStandard = true;
+                } else {
+                    btn.classList.remove('ring-2', 'ring-blue-500', 'scale-110', 'z-10');
+                    btn.classList.add('hover:scale-110');
+                }
+            });
+
+            const customBtn = document.getElementById('custom-color-btn');
+            const customDisplay = document.getElementById('custom-color-display');
+            if (!isStandard && hex !== 'auto') {
+                customBtn.classList.add('ring-2', 'ring-blue-500', 'scale-110', 'z-10');
+                customBtn.classList.remove('hover:scale-110');
+                customDisplay.style.backgroundColor = hex;
+            } else {
+                customBtn.classList.remove('ring-2', 'ring-blue-500', 'scale-110', 'z-10');
+                customBtn.classList.add('hover:scale-110');
+                customDisplay.style.backgroundColor = 'transparent';
+            }
+            redrawMath();
+        }
+
+        function setBgColor(hex) {
+            appState.bgColor = hex;
+            document.getElementById('bg-color').value = hex;
+            
+            let isStandard = false;
+            document.querySelectorAll('.bg-color-btn').forEach(btn => {
+                if(btn.dataset.color.toLowerCase() === hex.toLowerCase()) {
+                    btn.classList.add('ring-2', 'ring-blue-500', 'scale-110', 'z-10');
+                    btn.classList.remove('hover:scale-110');
+                    isStandard = true;
+                } else {
+                    btn.classList.remove('ring-2', 'ring-blue-500', 'scale-110', 'z-10');
+                    btn.classList.add('hover:scale-110');
+                }
+            });
+
+            const customBtn = document.getElementById('custom-bg-display').parentElement;
+        const customDisplay = document.getElementById('custom-bg-display');
+        if (!isStandard) {
+            customBtn.classList.add('ring-2', 'ring-blue-500', 'scale-110', 'z-10');
+            customBtn.classList.remove('hover:scale-110');
+            customDisplay.style.backgroundColor = hex;
+        } else {
+            customBtn.classList.remove('ring-2', 'ring-blue-500', 'scale-110', 'z-10');
+            customBtn.classList.add('hover:scale-110');
+            customDisplay.style.backgroundColor = 'transparent';
+        }
+        redrawMath();
+    }
+
+    // Properties Sliders
+    document.getElementById('math-scale').addEventListener('input', (e) => {
+            appState.scale = parseFloat(e.target.value);
+            document.getElementById('scale-val').textContent = appState.scale.toFixed(1) + 'x';
+            redrawMath();
+        });
+
+        document.getElementById('roughness').addEventListener('input', (e) => {
+            appState.roughness = parseFloat(e.target.value);
+            document.getElementById('roughness-val').textContent = appState.roughness;
+            redrawMath();
+        });
+
+        document.getElementById('bowing').addEventListener('input', (e) => {
+            appState.bowing = parseFloat(e.target.value);
+            document.getElementById('bowing-val').textContent = appState.bowing.toFixed(1);
+            redrawMath();
+        });
+
+        document.getElementById('stroke-width').addEventListener('input', (e) => {
+            appState.strokeWidth = parseFloat(e.target.value);
+            document.getElementById('stroke-w-val').textContent = appState.strokeWidth.toFixed(1);
+            redrawMath();
+        });
+
+        function toggleTemplates() {
+            const content = document.getElementById('template-content');
+            const chevron = document.getElementById('template-chevron');
+            content.classList.toggle('hidden');
+            chevron.classList.toggle('rotate-180');
+        }
+
+        document.querySelectorAll('.template-btn').forEach(btn => {
+            btn.addEventListener('click', () => {
+                document.getElementById('latex-input').value = btn.getAttribute('data-tex');
+                processLatex();
+            });
+        });
+
+        // --- Canvas Engine ---
+        const mainCanvas = document.getElementById('main-canvas');
+        const canvasContainer = document.getElementById('canvas-container');
+
+        function applyLogicalBounds() {
+            mainCanvas.width = appState.logicalW;
+            mainCanvas.height = appState.logicalH;
+            canvasContainer.style.width = appState.logicalW + 'px';
+            canvasContainer.style.height = appState.logicalH + 'px';
+            updateLayoutScale();
+            redrawMath();
+        }
+
+        function updateLayoutScale() {
+            const wrapper = document.getElementById('scale-wrapper');
+            // Allow 48px padding around canvas
+            const availW = wrapper.clientWidth - 48;
+            const availH = wrapper.clientHeight - 48;
+
+            const scale = Math.min(availW / appState.logicalW, availH / appState.logicalH, 1.0);
+            canvasContainer.style.transform = `scale(${scale})`;
+        }
+        window.addEventListener('resize', updateLayoutScale);
+
+        // --- MathJax Parsing ---
+        function applyTransform(matrix, transformStr) {
+            if (!transformStr) return matrix;
+            const regex = /([a-zA-Z]+)\(([^)]+)\)/g;
+            let m = new DOMMatrix(matrix);
+            let match;
+            while ((match = regex.exec(transformStr)) !== null) {
+                const type = match[1];
+                const args = match[2].split(/[,\s]+/).map(parseFloat);
+                if (type === 'translate') m = m.translate(args[0], args[1] || 0);
+                else if (type === 'scale') m = m.scale(args[0], args[1] !== undefined ? args[1] : args[0]);
+                else if (type === 'matrix') m = m.multiply(new DOMMatrix(args));
+            }
+            return m;
+        }
+
+        function extractPaths(svgElement) {
+            const defs = {};
+            svgElement.querySelectorAll('defs path').forEach(p => { defs[p.id] = p.getAttribute('d'); });
+            const paths = [];
+
+            function traverse(node, currentMatrix) {
+                let matrix = new DOMMatrix(currentMatrix);
+                const transform = node.getAttribute('transform');
+                if (transform) matrix = applyTransform(matrix, transform);
+
+                const x = parseFloat(node.getAttribute('x') || 0);
+                const y = parseFloat(node.getAttribute('y') || 0);
+                if (x !== 0 || y !== 0) matrix = matrix.translate(x, y);
+
+                const tagName = node.tagName.toLowerCase();
+                
+                if (tagName === 'use') {
+                    const href = node.getAttribute('href') || node.getAttribute('xlink:href');
+                    if (href && defs[href.substring(1)]) paths.push({ d: defs[href.substring(1)], matrix: matrix });
+                } else if (tagName === 'path' && !node.closest('defs')) {
+                    const d = node.getAttribute('d');
+                    if (d) paths.push({ d: d, matrix: matrix });
+                } else if (tagName === 'rect') {
+                    const w = parseFloat(node.getAttribute('width') || 0);
+                    const h = parseFloat(node.getAttribute('height') || 0);
+                    if (w > 0 && h > 0) paths.push({ d: `M 0 0 L ${w} 0 L ${w} ${h} L 0 ${h} Z`, matrix });
+                }
+
+                Array.from(node.children).forEach(child => {
+                    if (child.tagName.toLowerCase() !== 'defs') traverse(child, matrix);
+                });
+            }
+
+            traverse(svgElement, new DOMMatrix());
+            let vbArr = [0, 0, 1000, 1000];
+            const viewBox = svgElement.getAttribute('viewBox');
+            if (viewBox) vbArr = viewBox.split(' ').map(parseFloat);
+            
+            return { paths, viewBox: vbArr };
+        }
+
+        let debounceTimer;
+        document.getElementById('latex-input').addEventListener('input', () => {
+            clearTimeout(debounceTimer);
+            debounceTimer = setTimeout(processLatex, 300);
+        });
+
+        async function processLatex() {
+            if (!window.mathJaxLoaded) return;
+            let tex = document.getElementById('latex-input').value.trim();
+            if (!tex) {
+                appState.parsedMath = null;
+                redrawMath();
+                return;
+            }
+
+            const fontStyle = document.getElementById('math-font-style').value;
+            if (fontStyle !== 'normal') tex = `\\${fontStyle}{${tex}}`;
+
+            try {
+                const wrapper = await MathJax.tex2svgPromise(tex, { display: true });
+                const svg = wrapper.querySelector('svg');
+                if (!svg) throw new Error("No SVG generated");
+
+                if (wrapper.querySelector('[data-mml-node="merror"]')) {
+                    document.getElementById('error-state').style.opacity = '1';
+                    appState.parsedMath = null;
+                    redrawMath();
+                    return;
+                }
+                
+                document.getElementById('error-state').style.opacity = '0';
+                appState.parsedMath = extractPaths(svg);
+                redrawMath();
+            } catch (err) {
+                console.error("MathJax rendering error:", err);
+                document.getElementById('error-state').style.opacity = '1';
+                appState.parsedMath = null;
+                redrawMath();
+            }
+        }
+
+        // --- Core Drawing Renderer ---
+        function drawMathToCanvas(targetCanvas, scaleMult, upToPathIndex = -1) {
+            const ctx = targetCanvas.getContext('2d');
+            const w = targetCanvas.width;
+            const h = targetCanvas.height;
+            
+            ctx.clearRect(0, 0, w, h);
+            
+            if (!appState.bgTransparent) {
+                ctx.fillStyle = appState.bgColor;
+                ctx.fillRect(0, 0, w, h);
+                
+                // Draw Grid
+                const isDarkBg = isDarkColor(appState.bgColor);
+                ctx.strokeStyle = isDarkBg ? 'rgba(255,255,255,0.06)' : 'rgba(0,0,0,0.06)';
+                ctx.lineWidth = 1 * scaleMult;
+                ctx.beginPath();
+                const gridSpacing = 30 * scaleMult;
+                for (let x = 0; x <= w; x += gridSpacing) { ctx.moveTo(x, 0); ctx.lineTo(x, h); }
+                for (let y = 0; y <= h; y += gridSpacing) { ctx.moveTo(0, y); ctx.lineTo(w, y); }
+                ctx.stroke();
+            }
+
+            if (!appState.parsedMath || appState.parsedMath.paths.length === 0) return;
+
+            const rc = rough.canvas(targetCanvas);
+            const padding = Math.min(w, h) * 0.15;
+            const vx = appState.parsedMath.viewBox[0];
+            const vy = appState.parsedMath.viewBox[1];
+            const vw = appState.parsedMath.viewBox[2];
+            const vh = appState.parsedMath.viewBox[3];
+
+            const baseScale = Math.min((w - padding*2) / vw, (h - padding*2) / vh);
+            const finalScale = baseScale * appState.scale;
+            const drawColor = getActualColor();
+
+            ctx.save();
+            ctx.translate(w / 2, h / 2);
+            ctx.scale(finalScale, finalScale);
+            ctx.translate(-(vx + vw / 2), -(vy + vh / 2));
+
+            const roughAmp = appState.roughness / finalScale;
+            const adjustedStrokeWidth = (appState.strokeWidth * scaleMult) / finalScale;
+            const pathsToDraw = upToPathIndex >= 0 ? appState.parsedMath.paths.slice(0, upToPathIndex) : appState.parsedMath.paths;
+
+            pathsToDraw.forEach(p => {
+                ctx.save();
+                ctx.transform(p.matrix.a, p.matrix.b, p.matrix.c, p.matrix.d, p.matrix.e, p.matrix.f);
+                
+                let roughOptions = {
+                    stroke: drawColor,
+                    strokeWidth: adjustedStrokeWidth,
+                    roughness: roughAmp,
+                    bowing: appState.bowing
+                };
+
+                if (appState.fillStyle !== 'none') {
+                    roughOptions.fill = drawColor;
+                    roughOptions.fillStyle = appState.fillStyle;
+                    if (appState.fillStyle === 'solid') {
+                        roughOptions.strokeWidth = adjustedStrokeWidth / 2;
+                    } else {
+                        roughOptions.hachureGap = Math.max(3.5 * scaleMult, adjustedStrokeWidth * 0.8 * finalScale) / finalScale;
+                        roughOptions.hachureAngle = 60;
+                        roughOptions.strokeWidth = adjustedStrokeWidth * 0.4;
+                        roughOptions.fillWeight = adjustedStrokeWidth * 0.4;
+                    }
+                } else {
+                    roughOptions.fill = 'none';
+                }
+
+                rc.path(p.d, roughOptions);
+                ctx.restore();
+            });
+
+            ctx.restore();
+        }
+
+        function redrawMath() {
+        if (appState.isAnimating) return;
+        drawMathToCanvas(mainCanvas, 1.0, -1);
+    }
+
+    // Initialize Canvas and UI
+    applyLogicalBounds();
+    setColor(appState.color);
+    setBgColor(appState.bgColor);
+
+
+    // --- UI Feedback Functions ---
+    function showToast(message, type = 'info') {
+            const container = document.getElementById('toast-container');
+            const toast = document.createElement('div');
+            toast.className = `bg-zinc-800/95 backdrop-blur-md text-white px-4 py-3 rounded-xl shadow-2xl ring-1 ring-white/10 flex items-center gap-3 transform transition-all -translate-y-4 opacity-0 z-50`;
+            let icon = type === 'success' ? 'check-circle' : (type === 'error' ? 'alert-triangle' : 'info');
+            let color = type === 'success' ? 'text-green-400' : (type === 'error' ? 'text-red-400' : 'text-blue-400');
+            toast.innerHTML = `<i data-lucide="${icon}" class="w-4 h-4 ${color}"></i> <span class="text-sm font-medium">${message}</span>`;
+            container.appendChild(toast); lucide.createIcons();
+            requestAnimationFrame(() => toast.classList.remove('-translate-y-4', 'opacity-0'));
+            setTimeout(() => { toast.classList.add('-translate-y-4', 'opacity-0'); setTimeout(() => toast.remove(), 300); }, 3000);
+        }
+
+        function setPlayUI(playing, exporting = false) {
+            appState.isAnimating = playing;
+            appState.isExporting = exporting;
+            
+            const btnPlay = document.getElementById('btn-play');
+            const iconPlay = document.getElementById('icon-play');
+            const textPlay = document.getElementById('text-play');
+            
+            document.querySelectorAll('input, select, textarea, button').forEach(b => {
+                if (b.id !== 'btn-play' && b.id !== 'icon-play' && b.id !== 'theme-toggle') {
+                    b.disabled = playing;
+                }
+            });
+
+            if (playing) {
+                btnPlay.classList.replace('bg-zinc-100', 'bg-rose-100');
+                btnPlay.classList.replace('dark:bg-zinc-800', 'dark:bg-rose-900/30');
+                btnPlay.classList.replace('text-zinc-800', 'text-rose-600');
+                btnPlay.classList.replace('dark:text-zinc-200', 'dark:text-rose-400');
+                iconPlay.setAttribute('data-lucide', 'square');
+                textPlay.innerText = 'Stop';
+            } else {
+                btnPlay.classList.replace('bg-rose-100', 'bg-zinc-100');
+                btnPlay.classList.replace('dark:bg-rose-900/30', 'dark:bg-zinc-800');
+                btnPlay.classList.replace('text-rose-600', 'text-zinc-800');
+                btnPlay.classList.replace('dark:text-rose-400', 'dark:text-zinc-200');
+                iconPlay.setAttribute('data-lucide', 'play');
+                textPlay.innerText = 'Preview';
+                redrawMath(); // clean up
+            }
+            lucide.createIcons();
+        }
+
+
+        // --- Actions: Preview, Snapshot, Export ---
+        
+        let animationFrameId;
+
+        async function previewAnimation() {
+            if (appState.isAnimating && !appState.isExporting) {
+                // Stop logic
+                cancelAnimationFrame(animationFrameId);
+                setPlayUI(false);
+                return;
+            }
+            
+            if (!appState.parsedMath || appState.parsedMath.paths.length === 0 || appState.isExporting) return;
+            
+            setPlayUI(true);
+            const totalPaths = appState.parsedMath.paths.length;
+            const targetDurationMs = 2500; 
+            const delay = Math.max(30, Math.min(200, targetDurationMs / totalPaths));
+            
+            let currentPath = 1;
+            
+            function step() {
+                if (!appState.isAnimating) return;
+                drawMathToCanvas(mainCanvas, 1.0, currentPath);
+                currentPath++;
+                if (currentPath <= totalPaths) {
+                    setTimeout(() => { animationFrameId = requestAnimationFrame(step); }, delay);
+                } else {
+                    setTimeout(() => { setPlayUI(false); }, 1000); // hold at end
+                }
+            }
+            step();
+        }
+
+        function exportSnapshot() {
+            if (!appState.parsedMath || appState.parsedMath.paths.length === 0 || appState.isAnimating) return;
+            
+            const targetCanvas = document.createElement('canvas');
+            targetCanvas.width = appState.logicalW * appState.exportScale;
+            targetCanvas.height = appState.logicalH * appState.exportScale;
+            
+            drawMathToCanvas(targetCanvas, appState.exportScale, -1);
+            
+            const url = targetCanvas.toDataURL('image/png');
+            const a = document.createElement('a');
+            a.style.display = 'none';
+            a.href = url;
+            a.download = `roughmath-${targetCanvas.width}x${targetCanvas.height}.png`;
+            document.body.appendChild(a);
+            a.click();
+            setTimeout(() => {
+                document.body.removeChild(a);
+                showToast('Snapshot saved!', 'success');
+            }, 100);
+        }
+
+        async function exportVideo() {
+            if (!appState.parsedMath || appState.parsedMath.paths.length === 0 || appState.isAnimating) return;
+
+            const targetCanvas = document.createElement('canvas');
+            targetCanvas.width = appState.logicalW * appState.exportScale;
+            targetCanvas.height = appState.logicalH * appState.exportScale;
+
+            const stream = targetCanvas.captureStream(60);
+            let recordedChunks = [];
+            
+            let options = { mimeType: 'video/webm;codecs=vp9', videoBitsPerSecond: 10000000 };
+            if (!MediaRecorder.isTypeSupported(options.mimeType)) {
+                options = { mimeType: 'video/webm' };
+            }
+            const mediaRecorder = new MediaRecorder(stream, options);
+
+            mediaRecorder.ondataavailable = (e) => {
+                if (e.data.size > 0) recordedChunks.push(e.data);
+            };
+
+            mediaRecorder.onstop = () => {
+                const blob = new Blob(recordedChunks, { type: options.mimeType.split(';')[0] });
+                const url = URL.createObjectURL(blob);
+                const a = document.createElement('a');
+                a.style.display = 'none';
+                a.href = url;
+                a.download = `roughmath-${targetCanvas.width}x${targetCanvas.height}.webm`;
+                document.body.appendChild(a);
+                a.click();
+                setTimeout(() => {
+                    document.body.removeChild(a);
+                    URL.revokeObjectURL(url);
+                }, 100);
+
+                setPlayUI(false);
+                document.getElementById('export-loader').classList.add('opacity-0');
+                setTimeout(() => document.getElementById('export-loader').classList.add('hidden'), 300);
+                showToast('Video exported successfully!', 'success');
+            };
+
+            setPlayUI(true, true);
+            const loader = document.getElementById('export-loader');
+            loader.classList.remove('hidden');
+            requestAnimationFrame(() => loader.classList.remove('opacity-0'));
+
+            // Pre-fill canvas
+            drawMathToCanvas(targetCanvas, appState.exportScale, 0);
+            drawMathToCanvas(mainCanvas, 1.0, 0);
+
+            // Wait brief moment for canvas to paint
+            await new Promise(r => setTimeout(r, 200));
+            
+            mediaRecorder.start();
+            
+            const totalPaths = appState.parsedMath.paths.length;
+            const targetDurationMs = 2500; 
+            const delay = Math.max(30, Math.min(200, targetDurationMs / totalPaths));
+            let currentPath = 1;
+            
+            function step() {
+                if (!appState.isExporting) return;
+                
+                // Draw to hidden high-res canvas
+                drawMathToCanvas(targetCanvas, appState.exportScale, currentPath);
+                // Sync to main canvas for preview
+                drawMathToCanvas(mainCanvas, 1.0, currentPath);
+                
+                let pct = Math.round((currentPath / totalPaths) * 100);
+                document.getElementById('rec-time').innerText = `Processing ${pct}%`;
+
+                currentPath++;
+                if (currentPath <= totalPaths) {
+                    setTimeout(() => { requestAnimationFrame(step); }, delay);
+                } else {
+                    document.getElementById('rec-time').innerText = `Finalizing File...`;
+                    setTimeout(() => { mediaRecorder.stop(); }, 1000); // hold final frame
+                }
+            }
+            
+            step();
+        }
+
+    </script>
+</body>
+</html>

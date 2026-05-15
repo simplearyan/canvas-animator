@@ -1,0 +1,1146 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Motion Studio Pro - macOS Edition</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    
+    <!-- Preload Fonts for better UX -->
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=Space+Grotesk:wght@500;700&family=Pacifico&family=Bebas+Neue&display=swap" rel="stylesheet">
+    
+    <style>
+        body { 
+            font-family: 'Inter', sans-serif; 
+            overscroll-behavior: none; 
+            background-color: #000;
+            background-image: radial-gradient(circle at 50% 0%, #18181b 0%, #000 100%);
+        }
+        
+        /* macOS Depth & Glassmorphism Utilities */
+        .mac-panel {
+            background: rgba(24, 24, 27, 0.75);
+            backdrop-filter: blur(20px);
+            -webkit-backdrop-filter: blur(20px);
+            border: 1px solid rgba(255, 255, 255, 0.08);
+            box-shadow: 0 25px 50px -12px rgba(0, 0, 0, 0.5), inset 0 1px 0 rgba(255, 255, 255, 0.1);
+        }
+        .mac-header {
+            background: rgba(9, 9, 11, 0.85);
+            backdrop-filter: blur(12px);
+            -webkit-backdrop-filter: blur(12px);
+            border-bottom: 1px solid rgba(255, 255, 255, 0.08);
+        }
+        .mac-input {
+            background: rgba(0, 0, 0, 0.3);
+            border: 1px solid rgba(255, 255, 255, 0.1);
+            box-shadow: inset 0 1px 2px rgba(0, 0, 0, 0.3);
+            color: #f4f4f5;
+            transition: all 0.2s;
+        }
+        .mac-input:focus {
+            border-color: #10b981;
+            outline: none;
+            box-shadow: inset 0 1px 2px rgba(0,0,0,0.3), 0 0 0 2px rgba(16,185,129,0.2);
+        }
+        .mac-btn {
+            background: linear-gradient(180deg, rgba(63, 63, 70, 0.8) 0%, rgba(39, 39, 42, 0.8) 100%);
+            border: 1px solid rgba(255, 255, 255, 0.1);
+            box-shadow: 0 1px 2px rgba(0,0,0,0.2), inset 0 1px 0 rgba(255,255,255,0.1);
+            transition: all 0.15s ease;
+        }
+        .mac-btn:hover { background: linear-gradient(180deg, rgba(82, 82, 91, 0.8) 0%, rgba(63, 63, 70, 0.8) 100%); }
+        .mac-btn:active { background: rgba(39, 39, 42, 0.9); box-shadow: inset 0 2px 4px rgba(0,0,0,0.3); }
+
+        /* Custom macOS Timeline Scrubber */
+        input[type=range] {
+            -webkit-appearance: none;
+            background: transparent;
+        }
+        input[type=range]::-webkit-slider-runnable-track {
+            height: 6px;
+            background: rgba(255, 255, 255, 0.1);
+            border-radius: 4px;
+            box-shadow: inset 0 1px 2px rgba(0,0,0,0.4);
+        }
+        input[type=range]::-webkit-slider-thumb {
+            -webkit-appearance: none;
+            height: 16px;
+            width: 16px;
+            border-radius: 50%;
+            background: #10b981;
+            margin-top: -5px;
+            box-shadow: 0 2px 5px rgba(0,0,0,0.5), inset 0 1px 1px rgba(255,255,255,0.4);
+            cursor: pointer;
+            transition: transform 0.1s;
+        }
+        input[type=range]::-webkit-slider-thumb:active {
+            transform: scale(1.1);
+        }
+
+        /* Scrollbar */
+        ::-webkit-scrollbar { width: 6px; height: 6px; }
+        ::-webkit-scrollbar-track { background: transparent; }
+        ::-webkit-scrollbar-thumb { background: rgba(255,255,255,0.15); border-radius: 4px; }
+        ::-webkit-scrollbar-thumb:hover { background: rgba(255,255,255,0.25); }
+
+        /* Color Picker */
+        input[type=color]::-webkit-color-swatch-wrapper { padding: 0; }
+        input[type=color]::-webkit-color-swatch { border: 1px solid rgba(255,255,255,0.2); border-radius: 6px; box-shadow: inset 0 1px 2px rgba(0,0,0,0.2); }
+        
+        input[type=number]::-webkit-inner-spin-button { -webkit-appearance: none; margin: 0; }
+    </style>
+</head>
+<body class="text-zinc-100 h-screen flex flex-col overflow-hidden selection:bg-emerald-500/30">
+
+    <!-- Header -->
+    <header class="mac-header h-14 flex justify-between items-center px-6 shrink-0 z-30">
+        <div class="flex items-center gap-3">
+            <div class="w-8 h-8 bg-gradient-to-b from-emerald-400 to-emerald-600 rounded-lg flex items-center justify-center text-zinc-950 shadow-[0_2px_8px_rgba(16,185,129,0.4)] border border-emerald-300/30">
+                <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2.5" d="M4 5a1 1 0 011-1h4a1 1 0 011 1v4a1 1 0 01-1 1H5a1 1 0 01-1-1V5zM4 15a1 1 0 011-1h4a1 1 0 011 1v4a1 1 0 01-1 1H5a1 1 0 01-1-1v-4zM14 5a1 1 0 011-1h4a1 1 0 011 1v4a1 1 0 01-1 1h-4a1 1 0 01-1-1V5zM14 15a1 1 0 011-1h4a1 1 0 011 1v4a1 1 0 01-1 1h-4a1 1 0 01-1-1v-4z"></path></svg>
+            </div>
+            <h1 class="text-lg font-bold tracking-tight text-white drop-shadow-sm">MotionStudio <span class="font-normal text-zinc-500 text-sm">Pro</span></h1>
+        </div>
+        <div class="flex items-center gap-6">
+            <div class="text-xs font-medium text-zinc-400 bg-black/30 px-3 py-1.5 rounded-full border border-white/5 shadow-inner">
+                Length: <span id="durationDisplay" class="text-zinc-100 font-mono ml-1">5.0</span>s
+            </div>
+            <button id="exportBtn" class="bg-gradient-to-b from-emerald-400 to-emerald-600 hover:from-emerald-300 hover:to-emerald-500 text-zinc-950 px-5 py-1.5 rounded-full font-bold text-sm shadow-[0_4px_15px_rgba(16,185,129,0.3)] border border-emerald-300/30 transition-all flex items-center gap-2 active:scale-95">
+                <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-4l-4 4m0 0l-4-4m4 4V4"></path></svg>
+                Export
+            </button>
+        </div>
+    </header>
+
+    <!-- Main Workspace -->
+    <main class="flex-1 flex overflow-hidden relative z-10">
+        
+        <!-- LEFT SIDEBAR: Slides & Add Elements -->
+        <aside class="w-64 mac-panel border-r-0 flex flex-col shrink-0 z-20 m-4 rounded-2xl overflow-hidden mr-0">
+            <!-- Left Tabs -->
+            <div class="flex border-b border-white/5 bg-black/20">
+                <button id="tabSlides" class="flex-1 py-3 text-xs font-semibold border-b-2 border-emerald-500 text-emerald-400 transition-colors uppercase tracking-wider">Slides</button>
+                <button id="tabAdd" class="flex-1 py-3 text-xs font-semibold border-b-2 border-transparent text-zinc-500 hover:text-zinc-300 transition-colors uppercase tracking-wider">Add</button>
+            </div>
+
+            <!-- Slides View -->
+            <div id="viewSlides" class="flex-1 flex flex-col overflow-y-auto p-4 gap-3">
+                <button onclick="addSlide()" class="mac-btn w-full py-2.5 rounded-lg text-zinc-300 hover:text-white text-xs font-semibold flex justify-center items-center gap-2">
+                    <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 4v16m8-8H4"></path></svg> New Slide
+                </button>
+                <div class="h-px bg-white/5 my-2"></div>
+                <div id="slideList" class="space-y-2">
+                    <!-- Slides rendered here -->
+                </div>
+            </div>
+
+            <!-- Add Elements View -->
+            <div id="viewAdd" class="hidden flex-1 flex flex-col p-4 gap-3">
+                <h3 class="text-[10px] font-bold text-zinc-500 uppercase tracking-widest mb-1 ml-1">Typography</h3>
+                <button onclick="addElement('text')" class="mac-btn w-full p-3 rounded-xl flex items-center gap-3 text-sm font-medium">
+                    <div class="w-7 h-7 rounded-md bg-black/40 flex items-center justify-center font-serif text-sm font-bold text-emerald-400 border border-white/5 shadow-inner">T</div>
+                    Add Text Layer
+                </button>
+                
+                <h3 class="text-[10px] font-bold text-zinc-500 uppercase tracking-widest mt-4 mb-1 ml-1">Shapes</h3>
+                <button onclick="addElement('rect')" class="mac-btn w-full p-3 rounded-xl flex items-center gap-3 text-sm font-medium">
+                    <div class="w-7 h-7 rounded-md bg-black/40 flex items-center justify-center border border-white/5 shadow-inner">
+                        <div class="w-3.5 h-3.5 border-2 border-blue-400 rounded-[2px]"></div>
+                    </div>
+                    Rectangle
+                </button>
+                <button onclick="addElement('circle')" class="mac-btn w-full p-3 rounded-xl flex items-center gap-3 text-sm font-medium">
+                    <div class="w-7 h-7 rounded-md bg-black/40 flex items-center justify-center border border-white/5 shadow-inner">
+                        <div class="w-3.5 h-3.5 border-2 border-rose-400 rounded-full"></div>
+                    </div>
+                    Circle
+                </button>
+            </div>
+        </aside>
+
+        <!-- CENTER: Canvas & Timeline -->
+        <section class="flex-1 flex flex-col relative min-w-0">
+            <!-- Canvas Container -->
+            <div class="flex-1 p-6 flex items-center justify-center relative overflow-hidden" id="canvasContainer">
+                <div class="relative w-full max-w-4xl aspect-video bg-black rounded-2xl shadow-[0_20px_50px_rgba(0,0,0,0.5)] overflow-hidden ring-1 ring-white/10 group" style="background-image: radial-gradient(rgba(255,255,255,0.05) 1px, transparent 1px); background-size: 24px 24px;">
+                    <canvas id="canvas" class="absolute inset-0 w-full h-full cursor-pointer"></canvas>
+                    <div id="recIndicator" class="absolute top-4 right-4 flex items-center gap-2 hidden z-10 bg-black/80 px-3 py-1.5 rounded-full backdrop-blur-md border border-white/10 shadow-lg">
+                        <div class="w-2.5 h-2.5 bg-red-500 rounded-full animate-pulse shadow-[0_0_8px_rgba(239,68,68,0.8)]"></div>
+                        <span class="text-xs font-bold tracking-widest text-red-500">REC</span>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Global Timeline Controls -->
+            <div class="h-20 mac-panel mx-6 mb-6 rounded-2xl flex items-center gap-6 px-6 shrink-0 z-10">
+                <button id="playPauseBtn" class="bg-gradient-to-b from-emerald-400 to-emerald-600 hover:from-emerald-300 hover:to-emerald-500 text-zinc-950 w-11 h-11 rounded-full flex items-center justify-center transition-all active:scale-90 shadow-[0_4px_15px_rgba(16,185,129,0.3)] border border-emerald-300/30 shrink-0">
+                    <svg id="playIcon" class="w-5 h-5 ml-1 drop-shadow-sm" fill="currentColor" viewBox="0 0 20 20"><path fill-rule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zM9.555 7.168A1 1 0 008 8v4a1 1 0 001.555.832l3-2a1 1 0 000-1.664l-3-2z" clip-rule="evenodd"></path></svg>
+                    <svg id="pauseIcon" class="w-5 h-5 hidden drop-shadow-sm" fill="currentColor" viewBox="0 0 20 20"><path fill-rule="evenodd" d="M18 10a8 8 0 11-16 0 8 8 0 0116 0zM7 8a1 1 0 012 0v4a1 1 0 11-2 0V8zm5-1a1 1 0 00-1 1v4a1 1 0 102 0V8a1 1 0 00-1-1z" clip-rule="evenodd"></path></svg>
+                </button>
+                <div class="font-mono text-sm font-bold text-emerald-400 w-12 shrink-0 bg-black/40 px-2 py-1 rounded border border-white/5 text-center shadow-inner" id="timeDisplay">0.0s</div>
+                <input type="range" id="globalTimeline" min="0" max="5" step="0.01" value="0" class="flex-1 cursor-pointer">
+            </div>
+        </section>
+
+        <!-- RIGHT SIDEBAR: Layers & Properties -->
+        <aside class="w-[340px] mac-panel border-l-0 flex flex-col shrink-0 z-20 m-4 rounded-2xl overflow-hidden ml-0">
+            
+            <div class="flex border-b border-white/5 bg-black/20">
+                <button id="tabLayers" class="flex-1 py-3 text-xs font-semibold border-b-2 border-emerald-500 text-emerald-400 transition-colors uppercase tracking-wider">Layers</button>
+                <button id="tabProps" class="flex-1 py-3 text-xs font-semibold border-b-2 border-transparent text-zinc-500 hover:text-zinc-300 transition-colors uppercase tracking-wider">Properties</button>
+            </div>
+
+            <!-- Layers View -->
+            <div id="viewLayers" class="flex-1 overflow-y-auto p-4 space-y-2">
+                <div id="layerList" class="space-y-2"></div>
+            </div>
+
+            <!-- Properties View -->
+            <div id="viewProps" class="hidden flex-1 overflow-y-auto p-5 relative">
+                
+                <!-- Slide Properties (Shown when no element selected) -->
+                <div id="slidePropEditor" class="space-y-6">
+                    <div class="flex items-center gap-3 pb-4 border-b border-white/10">
+                        <div class="w-8 h-8 rounded-lg bg-emerald-500/20 text-emerald-400 flex items-center justify-center border border-emerald-500/30">
+                            <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 16l4.586-4.586a2 2 0 012.828 0L16 16m-2-2l1.586-1.586a2 2 0 012.828 0L20 14m-6-6h.01M6 20h12a2 2 0 002-2V6a2 2 0 00-2-2H6a2 2 0 00-2 2v12a2 2 0 002 2z"></path></svg>
+                        </div>
+                        <div>
+                            <h2 class="text-sm font-bold text-white leading-tight">Slide Settings</h2>
+                            <p class="text-[10px] text-zinc-400">Configure global slide visuals</p>
+                        </div>
+                    </div>
+
+                    <div class="space-y-4">
+                        <div class="flex items-center justify-between bg-black/20 p-3 rounded-xl border border-white/5 shadow-inner">
+                            <span class="text-xs font-semibold text-zinc-300">Background Color</span>
+                            <input type="color" id="propSlideBg" class="w-8 h-8 rounded cursor-pointer bg-transparent border-0">
+                        </div>
+
+                        <div class="bg-black/20 p-3 rounded-xl border border-white/5 shadow-inner space-y-3">
+                            <h3 class="text-[10px] font-bold text-zinc-500 uppercase tracking-widest">Transition (Out)</h3>
+                            <div>
+                                <label class="text-[10px] text-zinc-400 block mb-1">Effect Type</label>
+                                <select id="propSlideTrans" class="w-full mac-input rounded-lg p-2 text-xs">
+                                    <option value="none">None (Cut)</option>
+                                    <option value="fade">Crossfade</option>
+                                    <option value="slideLeft">Slide Left</option>
+                                    <option value="slideUp">Slide Up</option>
+                                </select>
+                            </div>
+                            <div>
+                                <label class="text-[10px] text-zinc-400 block mb-1 flex justify-between">
+                                    <span>Duration</span> <span id="valSlideTransDur" class="text-emerald-400">0.5s</span>
+                                </label>
+                                <input type="range" id="propSlideTransDur" min="0.1" max="2.0" step="0.1" value="0.5" class="w-full">
+                            </div>
+                        </div>
+                    </div>
+                </div>
+                
+                <!-- Element Properties (Shown when element selected) -->
+                <div id="elementPropEditor" class="space-y-6 hidden">
+                    <div class="flex items-center gap-3 pb-4 border-b border-white/10">
+                        <div class="w-8 h-8 rounded-lg bg-blue-500/20 text-blue-400 flex items-center justify-center border border-blue-500/30">
+                            <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M11 5H6a2 2 0 00-2 2v11a2 2 0 002 2h11a2 2 0 002-2v-5m-1.414-9.414a2 2 0 112.828 2.828L11.828 15H9v-2.828l8.586-8.586z"></path></svg>
+                        </div>
+                        <div>
+                            <h2 class="text-sm font-bold text-white leading-tight">Element Settings</h2>
+                            <p class="text-[10px] text-zinc-400">Customize appearance & motion</p>
+                        </div>
+                    </div>
+
+                    <!-- Content (Text Only) -->
+                    <div id="propTextContainer" class="space-y-2">
+                        <label class="text-[10px] font-bold text-zinc-500 uppercase tracking-widest">Text Content</label>
+                        <input type="text" id="propText" class="w-full mac-input rounded-lg p-2.5 text-sm font-medium">
+                    </div>
+
+                    <!-- Layout & Type -->
+                    <div class="grid grid-cols-2 gap-3">
+                        <div id="propFontContainer">
+                            <label class="text-[10px] font-bold text-zinc-500 uppercase tracking-widest mb-1 block">Font Family</label>
+                            <select id="propFont" class="w-full mac-input rounded-lg p-2 text-xs">
+                                <option value="Inter">Inter</option>
+                                <option value="'Space Grotesk'">Space Grotesk</option>
+                                <option value="'Bebas Neue'">Bebas Neue</option>
+                                <option value="Pacifico">Pacifico</option>
+                            </select>
+                        </div>
+                        <div>
+                            <label class="text-[10px] font-bold text-zinc-500 uppercase tracking-widest mb-1 block">Size / Scale</label>
+                            <input type="number" id="propSize" class="w-full mac-input rounded-lg p-2 text-xs text-center">
+                        </div>
+                    </div>
+
+                    <!-- Appearance Panel -->
+                    <div class="bg-black/20 p-3 rounded-xl border border-white/5 shadow-inner space-y-3">
+                        <h3 class="text-[10px] font-bold text-zinc-500 uppercase tracking-widest mb-2">Style</h3>
+                        <div class="flex items-center justify-between">
+                            <span class="text-xs font-semibold text-zinc-300">Fill Color</span>
+                            <div class="flex items-center gap-2">
+                                <span class="text-[10px] text-zinc-500 uppercase font-mono bg-black/40 px-1.5 py-0.5 rounded border border-white/5" id="fillHex">#FFF</span>
+                                <input type="color" id="propFill" class="w-7 h-7 rounded cursor-pointer bg-transparent border-0">
+                            </div>
+                        </div>
+                        <div class="h-px bg-white/5"></div>
+                        <div class="flex items-center justify-between">
+                            <span class="text-xs font-semibold text-zinc-300">Stroke</span>
+                            <div class="flex items-center gap-2">
+                                <input type="number" id="propStrokeWidth" min="0" max="20" class="w-10 mac-input rounded p-1 text-[10px] text-center" title="Width">
+                                <input type="color" id="propStroke" class="w-7 h-7 rounded cursor-pointer bg-transparent border-0">
+                            </div>
+                        </div>
+                        <div class="h-px bg-white/5"></div>
+                        <div class="flex items-center justify-between">
+                            <span class="text-xs font-semibold text-zinc-300">Shadow</span>
+                            <div class="flex items-center gap-2">
+                                <input type="number" id="propShadowBlur" min="0" class="w-10 mac-input rounded p-1 text-[10px] text-center" title="Blur">
+                                <input type="color" id="propShadowColor" class="w-7 h-7 rounded cursor-pointer bg-transparent border-0">
+                            </div>
+                        </div>
+                        <div class="grid grid-cols-2 gap-2 mt-1">
+                            <div class="flex items-center gap-2"><span class="text-[10px] text-zinc-500 w-4">X:</span><input type="number" id="propShadowX" class="w-full mac-input rounded p-1 text-[10px] text-center"></div>
+                            <div class="flex items-center gap-2"><span class="text-[10px] text-zinc-500 w-4">Y:</span><input type="number" id="propShadowY" class="w-full mac-input rounded p-1 text-[10px] text-center"></div>
+                        </div>
+                    </div>
+
+                    <!-- Animation Control Panel -->
+                    <div class="bg-black/20 p-3 rounded-xl border border-white/5 shadow-inner space-y-3">
+                        <h3 class="text-[10px] font-bold text-zinc-500 uppercase tracking-widest mb-2 flex items-center gap-1">
+                            <svg class="w-3 h-3 text-emerald-500" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M13 10V3L4 14h7v7l9-11h-7z"></path></svg>
+                            Animation Config
+                        </h3>
+                        
+                        <!-- Anim In -->
+                        <div class="grid grid-cols-[1fr_60px] gap-2 items-end border-b border-white/5 pb-2">
+                            <div>
+                                <label class="text-[10px] text-zinc-400 block mb-1">In Effect</label>
+                                <select id="propAnimIn" class="w-full mac-input rounded p-1.5 text-xs">
+                                    <option value="fade">Fade In</option>
+                                    <option value="slideUp">Slide Up</option>
+                                    <option value="scale">Scale Pop</option>
+                                    <option value="none">None</option>
+                                </select>
+                            </div>
+                            <div>
+                                <label class="text-[10px] text-zinc-400 block mb-1">Secs</label>
+                                <input type="number" id="propAnimInDur" step="0.1" min="0" class="w-full mac-input rounded p-1.5 text-[10px] text-center">
+                            </div>
+                        </div>
+
+                        <!-- Anim Loop -->
+                        <div class="grid grid-cols-[1fr_60px] gap-2 items-end border-b border-white/5 pb-2">
+                            <div>
+                                <label class="text-[10px] text-zinc-400 block mb-1">Continuous Loop</label>
+                                <select id="propAnimLoop" class="w-full mac-input rounded p-1.5 text-xs">
+                                    <option value="none">Static</option>
+                                    <option value="float">Floating</option>
+                                    <option value="pulse">Pulsing</option>
+                                </select>
+                            </div>
+                            <div>
+                                <label class="text-[10px] text-zinc-400 block mb-1">Speed</label>
+                                <input type="number" id="propAnimLoopSpeed" step="0.1" min="0.1" class="w-full mac-input rounded p-1.5 text-[10px] text-center">
+                            </div>
+                        </div>
+
+                        <!-- Anim Out -->
+                        <div class="grid grid-cols-[1fr_60px] gap-2 items-end">
+                            <div>
+                                <label class="text-[10px] text-zinc-400 block mb-1">Out Effect</label>
+                                <select id="propAnimOut" class="w-full mac-input rounded p-1.5 text-xs">
+                                    <option value="fade">Fade Out</option>
+                                    <option value="slideDown">Slide Down</option>
+                                    <option value="scale">Scale Shrink</option>
+                                    <option value="none">None</option>
+                                </select>
+                            </div>
+                            <div>
+                                <label class="text-[10px] text-zinc-400 block mb-1">Secs</label>
+                                <input type="number" id="propAnimOutDur" step="0.1" min="0" class="w-full mac-input rounded p-1.5 text-[10px] text-center">
+                            </div>
+                        </div>
+                    </div>
+
+                </div>
+            </div>
+        </aside>
+    </main>
+
+    <script>
+        /**
+         * STATE MANAGEMENT
+         */
+        let slides = [];
+        let activeSlideIndex = 0;
+        let activeElementId = null;
+        
+        const SLIDE_DURATION = 5.0; // Seconds per slide
+        
+        let isPlaying = false;
+        let globalTime = 0;
+        let lastTimestamp = performance.now();
+        let animationFrameId;
+
+        const canvas = document.getElementById('canvas');
+        const ctx = canvas.getContext('2d');
+        
+        // Mouse/Drag State
+        let isDragging = false;
+        let dragOffsetX = 0;
+        let dragOffsetY = 0;
+
+        /**
+         * INITIALIZATION
+         */
+        function init() {
+            // Add initial slide
+            slides.push({
+                id: generateId(),
+                bg: '#18181b', // Default zinc-900
+                transition: 'slideLeft',
+                transDuration: 0.6,
+                elements: [
+                    {
+                        id: generateId(), type: 'circle',
+                        x: 350, y: 250, size: 220,
+                        fill: '#10b981', stroke: '#000000', strokeWidth: 0,
+                        shadowColor: '#000000', shadowBlur: 30, shadowOffsetX: 0, shadowOffsetY: 10,
+                        animIn: 'scale', inDur: 0.6,
+                        animLoop: 'float', loopSpeed: 1.0, 
+                        animOut: 'fade', outDur: 0.4,
+                        start: 0.2, end: 5
+                    },
+                    {
+                        id: generateId(), type: 'text',
+                        text: 'STUDIO', font: "'Space Grotesk'", size: 120,
+                        x: 450, y: 250, 
+                        fill: '#ffffff', stroke: '#000000', strokeWidth: 0,
+                        shadowColor: '#000000', shadowBlur: 20, shadowOffsetX: 0, shadowOffsetY: 10,
+                        animIn: 'slideUp', inDur: 0.5,
+                        animLoop: 'none', loopSpeed: 1.0, 
+                        animOut: 'fade', outDur: 0.4,
+                        start: 0.5, end: 4.8
+                    }
+                ]
+            });
+
+            // Second slide to show off transition
+            slides.push({
+                id: generateId(),
+                bg: '#0f172a', // slate-900
+                transition: 'fade',
+                transDuration: 0.5,
+                elements: [
+                    {
+                        id: generateId(), type: 'text',
+                        text: 'PRO', font: "'Space Grotesk'", size: 160,
+                        x: 450, y: 250, 
+                        fill: '#60a5fa', stroke: '#000000', strokeWidth: 0,
+                        shadowColor: 'transparent', shadowBlur: 0, shadowOffsetX: 0, shadowOffsetY: 0,
+                        animIn: 'scale', inDur: 0.8,
+                        animLoop: 'pulse', loopSpeed: 0.5, 
+                        animOut: 'slideDown', outDur: 0.5,
+                        start: 0, end: 4.8
+                    }
+                ]
+            });
+            
+            // Wait for fonts
+            document.fonts.ready.then(() => {
+                resizeCanvas();
+                updateGlobalDuration();
+                updateUI();
+                renderFrame(0);
+            });
+            
+            window.addEventListener('resize', resizeCanvas);
+            setupCanvasInteraction();
+            setupPropertyListeners();
+        }
+
+        function generateId() { return Math.random().toString(36).substr(2, 9); }
+
+        function resizeCanvas() {
+            const rect = canvas.parentElement.getBoundingClientRect();
+            canvas.width = rect.width * 2; 
+            canvas.height = rect.height * 2;
+            ctx.scale(2, 2);
+            renderFrame(globalTime);
+        }
+
+        /**
+         * CANVAS ENGINE
+         */
+        function drawSlide(slide, localTime, width, height, offsetX = 0, opacity = 1) {
+            ctx.save();
+            ctx.translate(offsetX, 0);
+            ctx.globalAlpha = opacity;
+
+            // Draw Background
+            if (slide.bg !== 'transparent') {
+                ctx.fillStyle = slide.bg;
+                ctx.fillRect(0, 0, width, height);
+            }
+
+            // Draw Elements (Painter's algorithm - lower index is back)
+            slide.elements.forEach(el => {
+                if (localTime < el.start || localTime > el.end) return;
+
+                ctx.save();
+                let elAlpha = 1, scale = 1, dx = 0, dy = 0, rot = 0;
+
+                // IN Animation
+                if (localTime < el.start + el.inDur) {
+                    let t = (localTime - el.start) / el.inDur;
+                    t = 1 - Math.pow(1 - t, 4); // ease out
+                    if (el.animIn === 'fade') elAlpha = t;
+                    if (el.animIn === 'slideUp') { elAlpha = t; dy = (1-t) * 50; }
+                    if (el.animIn === 'scale') { elAlpha = t; scale *= t; }
+                }
+                
+                // OUT Animation
+                if (localTime > el.end - el.outDur) {
+                    let t = (el.end - localTime) / el.outDur;
+                    t = Math.max(0, Math.min(1, t));
+                    if (el.animOut === 'fade') elAlpha = t;
+                    if (el.animOut === 'slideDown') { elAlpha = t; dy = (1-t) * -50; }
+                    if (el.animOut === 'scale') { elAlpha = t; scale *= t; }
+                }
+
+                // LOOP Animation (Runs continuously while active)
+                const activeTime = localTime - el.start;
+                if (el.animLoop === 'float') dy += Math.sin(activeTime * 3 * el.loopSpeed) * 15;
+                if (el.animLoop === 'pulse') scale *= 1 + (Math.sin(activeTime * 5 * el.loopSpeed) * 0.05);
+
+                // Transform
+                ctx.globalAlpha = Math.max(0, Math.min(1, elAlpha)) * opacity;
+                ctx.translate(el.x + dx, el.y + dy);
+                ctx.rotate(rot);
+                ctx.scale(scale, scale);
+
+                // Shadows
+                if (el.shadowColor !== 'transparent' && (el.shadowOffsetX !== 0 || el.shadowOffsetY !== 0 || el.shadowBlur !== 0)) {
+                    ctx.shadowColor = el.shadowColor;
+                    ctx.shadowBlur = el.shadowBlur;
+                    ctx.shadowOffsetX = el.shadowOffsetX;
+                    ctx.shadowOffsetY = el.shadowOffsetY;
+                }
+
+                ctx.fillStyle = el.fill;
+                ctx.strokeStyle = el.stroke;
+                ctx.lineWidth = el.strokeWidth || 0;
+
+                // Draw Shape/Text
+                if (el.type === 'text') {
+                    ctx.font = `700 ${el.size}px ${el.font}`;
+                    ctx.textAlign = 'center';
+                    ctx.textBaseline = 'middle';
+                    ctx.fillText(el.text, 0, 0);
+                    if (el.strokeWidth > 0) ctx.strokeText(el.text, 0, 0);
+                } 
+                else if (el.type === 'rect') {
+                    const w = el.size * 1.5; const h = el.size;
+                    ctx.fillRect(-w/2, -h/2, w, h);
+                    if (el.strokeWidth > 0) ctx.strokeRect(-w/2, -h/2, w, h);
+                } 
+                else if (el.type === 'circle') {
+                    ctx.beginPath();
+                    ctx.arc(0, 0, el.size/2, 0, Math.PI * 2);
+                    ctx.fill();
+                    if (el.strokeWidth > 0) ctx.stroke();
+                }
+
+                ctx.restore();
+
+                // Selection Bounding Box (Only draw if fully opaque and at center, avoiding ghosts during transitions)
+                if (!isPlaying && opacity === 1 && offsetX === 0 && activeElementId === el.id) {
+                    drawBoundingBox(el);
+                }
+            });
+
+            ctx.restore();
+        }
+
+        function renderFrame(time) {
+            const width = canvas.width / 2;
+            const height = canvas.height / 2;
+
+            ctx.clearRect(0, 0, width, height);
+
+            const currentIdx = Math.floor(time / SLIDE_DURATION) % Math.max(1, slides.length);
+            const localTime = time % SLIDE_DURATION;
+            const slide = slides[currentIdx];
+
+            if (!slide) return;
+
+            const transDur = slide.transDuration || 0.5;
+            const isTransitioningOut = (localTime > SLIDE_DURATION - transDur) && (currentIdx < slides.length - 1);
+
+            if (isTransitioningOut && (isPlaying || isExporting)) {
+                // Transition Math
+                let t = (localTime - (SLIDE_DURATION - transDur)) / transDur;
+                t = Math.max(0, Math.min(1, t)); // 0 to 1
+                
+                const nextSlide = slides[currentIdx + 1];
+                const nextLocalTime = t * transDur; // Next slide elements start animating in
+
+                if (slide.transition === 'slideLeft') {
+                    drawSlide(slide, localTime, width, height, -width * t, 1);
+                    drawSlide(nextSlide, nextLocalTime, width, height, width * (1-t), 1);
+                } 
+                else if (slide.transition === 'slideUp') {
+                    drawSlide(slide, localTime, width, height, 0, 1 - t); // fade current while up
+                    ctx.save(); ctx.translate(0, height * (1-t));
+                    drawSlide(nextSlide, nextLocalTime, width, height, 0, 1);
+                    ctx.restore();
+                }
+                else if (slide.transition === 'fade') {
+                    drawSlide(slide, localTime, width, height, 0, 1 - t);
+                    drawSlide(nextSlide, nextLocalTime, width, height, 0, t);
+                }
+                else {
+                    // None (Cut)
+                    drawSlide(slide, localTime, width, height, 0, 1);
+                }
+            } else {
+                // Normal Drawing
+                drawSlide(slide, localTime, width, height, 0, 1);
+            }
+        }
+
+        function drawBoundingBox(el) {
+            ctx.save();
+            ctx.translate(el.x, el.y);
+            
+            let hw = 0, hh = 0;
+            if (el.type === 'text') {
+                ctx.font = `700 ${el.size}px ${el.font}`;
+                hw = (ctx.measureText(el.text).width / 2) + 10;
+                hh = (el.size / 2) + 10;
+            } else if (el.type === 'rect') {
+                hw = (el.size * 1.5 / 2) + 10; hh = (el.size / 2) + 10;
+            } else if (el.type === 'circle') {
+                hw = (el.size / 2) + 10; hh = (el.size / 2) + 10;
+            }
+
+            ctx.strokeStyle = '#3b82f6'; // Blue
+            ctx.lineWidth = 1.5;
+            ctx.setLineDash([6, 6]);
+            ctx.strokeRect(-hw, -hh, hw * 2, hh * 2);
+            
+            // Center dot
+            ctx.fillStyle = '#ffffff';
+            ctx.setLineDash([]);
+            ctx.beginPath();
+            ctx.arc(0, 0, 3, 0, Math.PI*2);
+            ctx.fill();
+            ctx.stroke();
+            
+            ctx.restore();
+        }
+
+        /**
+         * INTERACTION (DRAGGING)
+         */
+        function setupCanvasInteraction() {
+            canvas.addEventListener('mousedown', (e) => {
+                if (isPlaying) return;
+                
+                const rect = canvas.getBoundingClientRect();
+                const x = (e.clientX - rect.left) * (canvas.width / rect.width) / 2;
+                const y = (e.clientY - rect.top) * (canvas.height / rect.height) / 2;
+
+                const slide = slides[activeSlideIndex];
+                let clickedEl = null;
+
+                // Check top to bottom (reverse array)
+                for(let i = slide.elements.length - 1; i >= 0; i--) {
+                    const el = slide.elements[i];
+                    let hw = 50, hh = 50;
+                    
+                    if (el.type === 'text') {
+                        ctx.font = `700 ${el.size}px ${el.font}`;
+                        hw = ctx.measureText(el.text).width / 2;
+                        hh = el.size / 2;
+                    } else if (el.type === 'rect') {
+                        hw = el.size * 1.5 / 2; hh = el.size / 2;
+                    } else if (el.type === 'circle') {
+                        hw = el.size / 2; hh = el.size / 2;
+                    }
+
+                    if (Math.abs(x - el.x) <= hw && Math.abs(y - el.y) <= hh) {
+                        clickedEl = el;
+                        break;
+                    }
+                }
+
+                if (clickedEl) {
+                    activeElementId = clickedEl.id;
+                    isDragging = true;
+                    dragOffsetX = x - clickedEl.x;
+                    dragOffsetY = y - clickedEl.y;
+                    switchRightTab('Props');
+                } else {
+                    // Clicked background -> Select Slide Props
+                    activeElementId = null;
+                    switchRightTab('Props');
+                }
+                
+                updateRightPanel();
+                renderLayerList();
+                renderFrame(globalTime);
+            });
+
+            window.addEventListener('mousemove', (e) => {
+                if (!isDragging || !activeElementId || isPlaying) return;
+                
+                const rect = canvas.getBoundingClientRect();
+                const x = (e.clientX - rect.left) * (canvas.width / rect.width) / 2;
+                const y = (e.clientY - rect.top) * (canvas.height / rect.height) / 2;
+                
+                const el = getActiveElement();
+                if(el) {
+                    el.x = x - dragOffsetX;
+                    el.y = y - dragOffsetY;
+                    renderFrame(globalTime);
+                }
+            });
+
+            window.addEventListener('mouseup', () => { isDragging = false; });
+        }
+
+        /**
+         * PLAYBACK ENGINE
+         */
+        function gameLoop(timestamp) {
+            if (!isPlaying) { lastTimestamp = timestamp; return; }
+            const dt = (timestamp - lastTimestamp) / 1000;
+            lastTimestamp = timestamp;
+            
+            globalTime += dt;
+            const maxDuration = slides.length * SLIDE_DURATION;
+            
+            if (globalTime >= maxDuration) globalTime = 0;
+            
+            // Auto switch active slide visually
+            const newActiveIdx = Math.floor(globalTime / SLIDE_DURATION) % slides.length;
+            if (newActiveIdx !== activeSlideIndex && !isExporting) {
+                activeSlideIndex = newActiveIdx;
+                activeElementId = null;
+                updateUI();
+            }
+
+            document.getElementById('globalTimeline').value = globalTime;
+            document.getElementById('timeDisplay').innerText = globalTime.toFixed(1) + 's';
+            renderFrame(globalTime);
+            animationFrameId = requestAnimationFrame(gameLoop);
+        }
+
+        function togglePlay() {
+            isPlaying = !isPlaying;
+            document.getElementById('playIcon').classList.toggle('hidden', isPlaying);
+            document.getElementById('pauseIcon').classList.toggle('hidden', !isPlaying);
+            
+            if (isPlaying) {
+                lastTimestamp = performance.now();
+                activeElementId = null; 
+                updateRightPanel();
+                animationFrameId = requestAnimationFrame(gameLoop);
+            } else {
+                cancelAnimationFrame(animationFrameId);
+                // Snap to current slide visual
+                const currIdx = Math.floor(globalTime / SLIDE_DURATION);
+                if(currIdx !== activeSlideIndex) {
+                    activeSlideIndex = currIdx;
+                    updateUI();
+                }
+                renderFrame(globalTime);
+            }
+        }
+        document.getElementById('playPauseBtn').addEventListener('click', togglePlay);
+
+        document.getElementById('globalTimeline').addEventListener('input', (e) => {
+            globalTime = parseFloat(e.target.value);
+            document.getElementById('timeDisplay').innerText = globalTime.toFixed(1) + 's';
+            
+            const newActiveIdx = Math.floor(globalTime / SLIDE_DURATION) % Math.max(1, slides.length);
+            if (newActiveIdx !== activeSlideIndex) {
+                activeSlideIndex = newActiveIdx;
+                activeElementId = null;
+                updateUI();
+            }
+            renderFrame(globalTime);
+        });
+
+        /**
+         * CRUD & DATA MGMT
+         */
+        function getActiveElement() {
+            if(!activeElementId) return null;
+            return slides[activeSlideIndex].elements.find(e => e.id === activeElementId);
+        }
+
+        function addSlide() {
+            slides.push({ 
+                id: generateId(), 
+                bg: '#18181b', 
+                transition: 'slideLeft',
+                transDuration: 0.5,
+                elements: [] 
+            });
+            activeSlideIndex = slides.length - 1;
+            activeElementId = null;
+            updateGlobalDuration();
+            updateUI();
+            setGlobalTime(activeSlideIndex * SLIDE_DURATION);
+        }
+
+        function deleteSlide(idx) {
+            if (slides.length <= 1) return showToast("Cannot delete the last slide.");
+            slides.splice(idx, 1);
+            activeSlideIndex = Math.min(activeSlideIndex, slides.length - 1);
+            activeElementId = null;
+            updateGlobalDuration();
+            updateUI();
+            setGlobalTime(activeSlideIndex * SLIDE_DURATION);
+        }
+
+        function setGlobalTime(t) {
+            globalTime = t;
+            document.getElementById('globalTimeline').value = globalTime;
+            document.getElementById('timeDisplay').innerText = globalTime.toFixed(1) + 's';
+            renderFrame(globalTime);
+        }
+
+        function updateGlobalDuration() {
+            const max = slides.length * SLIDE_DURATION;
+            document.getElementById('durationDisplay').innerText = max.toFixed(1);
+            const tl = document.getElementById('globalTimeline');
+            tl.max = max;
+        }
+
+        function addElement(type) {
+            const el = {
+                id: generateId(), type: type,
+                x: 450, y: 250, 
+                fill: type==='text' ? '#ffffff' : '#3b82f6', 
+                stroke: '#000000', strokeWidth: 0,
+                shadowColor: 'transparent', shadowBlur: 0, shadowOffsetX: 0, shadowOffsetY: 0,
+                animIn: 'scale', inDur: 0.5,
+                animLoop: 'none', loopSpeed: 1.0, 
+                animOut: 'fade', outDur: 0.5,
+                start: 0, end: 5
+            };
+            
+            if(type === 'text') {
+                el.text = "NEW TEXT"; el.font = "'Space Grotesk'"; el.size = 80;
+            } else {
+                el.size = 150;
+            }
+
+            slides[activeSlideIndex].elements.push(el);
+            activeElementId = el.id;
+            
+            updateUI();
+            switchRightTab('Props');
+            renderFrame(globalTime);
+        }
+
+        function deleteElement(id) {
+            slides[activeSlideIndex].elements = slides[activeSlideIndex].elements.filter(e => e.id !== id);
+            if (activeElementId === id) activeElementId = null;
+            updateUI();
+            renderFrame(globalTime);
+        }
+
+        /**
+         * UI RENDERING
+         */
+        function updateUI() {
+            renderSlideList();
+            renderLayerList();
+            updateRightPanel();
+        }
+
+        function renderSlideList() {
+            const list = document.getElementById('slideList');
+            list.innerHTML = '';
+            slides.forEach((s, idx) => {
+                const isActive = idx === activeSlideIndex;
+                list.innerHTML += `
+                    <div class="p-3 rounded-xl border transition-all ${isActive ? 'bg-black/40 border-emerald-500 shadow-inner' : 'bg-black/20 border-white/5 hover:border-white/20'} cursor-pointer group" onclick="selectSlide(${idx})">
+                        <div class="flex justify-between items-center mb-2">
+                            <span class="text-xs font-bold ${isActive ? 'text-emerald-400' : 'text-zinc-400'}">Slide ${idx + 1}</span>
+                            <button onclick="event.stopPropagation(); deleteSlide(${idx})" class="text-zinc-600 hover:text-red-400 opacity-0 group-hover:opacity-100 transition-opacity"><svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12"></path></svg></button>
+                        </div>
+                        <div class="text-[10px] text-zinc-500 flex items-center gap-1.5">
+                            <div class="w-3 h-3 rounded-full border border-white/20" style="background:${s.bg}"></div>
+                            Trans: ${s.transition}
+                        </div>
+                    </div>
+                `;
+            });
+        }
+
+        function selectSlide(idx) {
+            activeSlideIndex = idx;
+            activeElementId = null;
+            setGlobalTime(idx * SLIDE_DURATION);
+            updateUI();
+        }
+
+        function renderLayerList() {
+            const list = document.getElementById('layerList');
+            list.innerHTML = '';
+            const els = slides[activeSlideIndex]?.elements || [];
+            
+            if(els.length === 0) {
+                list.innerHTML = '<div class="text-center text-zinc-600 text-xs mt-10">No layers on this slide.</div>';
+                return;
+            }
+
+            [...els].reverse().forEach(el => {
+                const isSelected = el.id === activeElementId;
+                let title = el.type.toUpperCase();
+                let icon = '';
+                if (el.type === 'text') { title = `"${el.text.substring(0,12)}"`; icon = 'T'; }
+                else if(el.type === 'rect') icon = '■';
+                else if(el.type === 'circle') icon = '●';
+
+                list.innerHTML += `
+                    <div class="flex items-center justify-between p-2.5 rounded-xl border transition-all ${isSelected ? 'bg-black/40 border-emerald-500 shadow-inner' : 'bg-black/20 border-white/5 hover:border-white/20'} cursor-pointer" onclick="selectElement('${el.id}')">
+                        <div class="flex items-center gap-3 overflow-hidden">
+                            <div class="w-6 h-6 rounded bg-black/50 text-[10px] flex items-center justify-center font-bold text-zinc-500 border border-white/5">${icon}</div>
+                            <div class="text-xs font-semibold ${isSelected ? 'text-emerald-400' : 'text-zinc-300'} truncate">${title}</div>
+                        </div>
+                        <button onclick="event.stopPropagation(); deleteElement('${el.id}')" class="text-zinc-600 hover:text-red-400 transition-colors p-1"><svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16"></path></svg></button>
+                    </div>
+                `;
+            });
+        }
+
+        function selectElement(id) {
+            activeElementId = id;
+            updateUI();
+            switchRightTab('Props');
+            renderFrame(globalTime);
+        }
+
+        /**
+         * PROPERTIES PANEL SYNC
+         */
+        function updateRightPanel() {
+            const slideEditor = document.getElementById('slidePropEditor');
+            const elEditor = document.getElementById('elementPropEditor');
+            
+            const slide = slides[activeSlideIndex];
+            const el = getActiveElement();
+
+            if (!el) {
+                // Show Slide Properties
+                elEditor.classList.add('hidden');
+                slideEditor.classList.remove('hidden');
+
+                document.getElementById('propSlideBg').value = slide.bg === 'transparent' ? '#000000' : slide.bg;
+                document.getElementById('propSlideTrans').value = slide.transition;
+                document.getElementById('propSlideTransDur').value = slide.transDuration;
+                document.getElementById('valSlideTransDur').innerText = slide.transDuration + 's';
+            } else {
+                // Show Element Properties
+                slideEditor.classList.add('hidden');
+                elEditor.classList.remove('hidden');
+
+                const txtCont = document.getElementById('propTextContainer');
+                const fontCont = document.getElementById('propFontContainer');
+                
+                if (el.type === 'text') {
+                    txtCont.classList.remove('hidden');
+                    fontCont.classList.remove('hidden');
+                    document.getElementById('propText').value = el.text;
+                    document.getElementById('propFont').value = el.font;
+                } else {
+                    txtCont.classList.add('hidden');
+                    fontCont.classList.add('hidden');
+                }
+
+                document.getElementById('propSize').value = el.size;
+                document.getElementById('propFill').value = el.fill;
+                document.getElementById('fillHex').innerText = el.fill;
+                document.getElementById('propStroke').value = el.stroke;
+                document.getElementById('propStrokeWidth').value = el.strokeWidth;
+                
+                document.getElementById('propShadowColor').value = el.shadowColor === 'transparent' ? '#000000' : el.shadowColor;
+                document.getElementById('propShadowX').value = el.shadowOffsetX;
+                document.getElementById('propShadowY').value = el.shadowOffsetY;
+                document.getElementById('propShadowBlur').value = el.shadowBlur;
+
+                // Animations
+                document.getElementById('propAnimIn').value = el.animIn;
+                document.getElementById('propAnimInDur').value = el.inDur;
+                document.getElementById('propAnimLoop').value = el.animLoop;
+                document.getElementById('propAnimLoopSpeed').value = el.loopSpeed;
+                document.getElementById('propAnimOut').value = el.animOut;
+                document.getElementById('propAnimOutDur').value = el.outDur;
+            }
+        }
+
+        function setupPropertyListeners() {
+            // Slide Props
+            document.getElementById('propSlideBg').addEventListener('input', (e) => {
+                slides[activeSlideIndex].bg = e.target.value;
+                updateUI(); renderFrame(globalTime);
+            });
+            document.getElementById('propSlideTrans').addEventListener('change', (e) => {
+                slides[activeSlideIndex].transition = e.target.value;
+                updateUI();
+            });
+            document.getElementById('propSlideTransDur').addEventListener('input', (e) => {
+                slides[activeSlideIndex].transDuration = parseFloat(e.target.value);
+                document.getElementById('valSlideTransDur').innerText = e.target.value + 's';
+            });
+
+            // Element Props Helper
+            const bind = (id, key, parser = a=>a) => {
+                document.getElementById(id).addEventListener('input', (e) => {
+                    const el = getActiveElement();
+                    if(el) {
+                        el[key] = parser(e.target.value);
+                        if(id === 'propFill') document.getElementById('fillHex').innerText = el.fill;
+                        renderFrame(globalTime);
+                        if(id === 'propText') renderLayerList(); // update title
+                    }
+                });
+            };
+
+            bind('propText', 'text');
+            bind('propFont', 'font');
+            bind('propSize', 'size', parseInt);
+            bind('propFill', 'fill');
+            bind('propStroke', 'stroke');
+            bind('propStrokeWidth', 'strokeWidth', parseInt);
+            
+            bind('propShadowColor', 'shadowColor');
+            bind('propShadowX', 'shadowOffsetX', parseInt);
+            bind('propShadowY', 'shadowOffsetY', parseInt);
+            bind('propShadowBlur', 'shadowBlur', parseInt);
+
+            bind('propAnimIn', 'animIn');
+            bind('propAnimInDur', 'inDur', parseFloat);
+            bind('propAnimLoop', 'animLoop');
+            bind('propAnimLoopSpeed', 'loopSpeed', parseFloat);
+            bind('propAnimOut', 'animOut');
+            bind('propAnimOutDur', 'outDur', parseFloat);
+        }
+
+        /**
+         * TAB LOGIC
+         */
+        function switchLeftTab(tab) {
+            document.getElementById('viewSlides').classList.toggle('hidden', tab !== 'Slides');
+            document.getElementById('viewAdd').classList.toggle('hidden', tab !== 'Add');
+            document.getElementById('tabSlides').className = `flex-1 py-3 text-xs font-semibold border-b-2 transition-colors uppercase tracking-wider ${tab === 'Slides' ? 'border-emerald-500 text-emerald-400' : 'border-transparent text-zinc-500 hover:text-zinc-300'}`;
+            document.getElementById('tabAdd').className = `flex-1 py-3 text-xs font-semibold border-b-2 transition-colors uppercase tracking-wider ${tab === 'Add' ? 'border-emerald-500 text-emerald-400' : 'border-transparent text-zinc-500 hover:text-zinc-300'}`;
+        }
+        
+        function switchRightTab(tab) {
+            document.getElementById('viewLayers').classList.toggle('hidden', tab !== 'Layers');
+            document.getElementById('viewProps').classList.toggle('hidden', tab !== 'Props');
+            document.getElementById('tabLayers').className = `flex-1 py-3 text-xs font-semibold border-b-2 transition-colors uppercase tracking-wider ${tab === 'Layers' ? 'border-emerald-500 text-emerald-400' : 'border-transparent text-zinc-500 hover:text-zinc-300'}`;
+            document.getElementById('tabProps').className = `flex-1 py-3 text-xs font-semibold border-b-2 transition-colors uppercase tracking-wider ${tab === 'Props' ? 'border-emerald-500 text-emerald-400' : 'border-transparent text-zinc-500 hover:text-zinc-300'}`;
+        }
+
+        document.getElementById('tabSlides').onclick = () => switchLeftTab('Slides');
+        document.getElementById('tabAdd').onclick = () => switchLeftTab('Add');
+        document.getElementById('tabLayers').onclick = () => switchRightTab('Layers');
+        document.getElementById('tabProps').onclick = () => switchRightTab('Props');
+
+        /**
+         * EXPORT ENGINE
+         */
+        let mediaRecorder;
+        let recordedChunks = [];
+        let isExporting = false;
+
+        async function exportVideo() {
+            if (isExporting || (mediaRecorder && mediaRecorder.state === 'recording')) return;
+
+            const btn = document.getElementById('exportBtn');
+            const indicator = document.getElementById('recIndicator');
+            isExporting = true;
+            
+            try {
+                const stream = canvas.captureStream(30);
+                let options = { mimeType: 'video/webm; codecs=vp9' };
+                if (!MediaRecorder.isTypeSupported(options.mimeType)) {
+                    options = { mimeType: 'video/mp4' };
+                    if (!MediaRecorder.isTypeSupported(options.mimeType)) options = { mimeType: '' };
+                }
+
+                mediaRecorder = new MediaRecorder(stream, options);
+                recordedChunks = [];
+
+                mediaRecorder.ondataavailable = e => { if (e.data.size > 0) recordedChunks.push(e.data); };
+
+                mediaRecorder.onstop = () => {
+                    const blob = new Blob(recordedChunks, { type: options.mimeType || 'video/mp4' });
+                    const url = URL.createObjectURL(blob);
+                    const a = document.createElement('a');
+                    a.href = url;
+                    a.download = `motion-pro-${Date.now()}.${options.mimeType.includes('webm') ? 'webm' : 'mp4'}`;
+                    document.body.appendChild(a);
+                    a.click();
+                    setTimeout(() => { document.body.removeChild(a); window.URL.revokeObjectURL(url); }, 100);
+
+                    btn.innerHTML = '<svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-4l-4 4m0 0l-4-4m4 4V4"></path></svg> Export';
+                    indicator.classList.add('hidden');
+                    isExporting = false;
+                };
+
+                btn.innerHTML = 'Rendering...';
+                indicator.classList.remove('hidden');
+
+                // Start from beginning
+                isPlaying = false;
+                globalTime = 0;
+                activeElementId = null; // deselect to hide bounding boxes
+                updateUI();
+                renderFrame(0);
+
+                mediaRecorder.start();
+                togglePlay();
+
+                const maxDuration = slides.length * SLIDE_DURATION;
+                setTimeout(() => {
+                    if (mediaRecorder.state === 'recording') {
+                        togglePlay();
+                        mediaRecorder.stop();
+                        setGlobalTime(0);
+                    }
+                }, maxDuration * 1000 + 300);
+
+            } catch (err) {
+                console.error("Export failed:", err);
+                showToast("Export failed on this device.");
+                isExporting = false;
+            }
+        }
+        document.getElementById('exportBtn').addEventListener('click', exportVideo);
+
+        // Toast
+        function showToast(msg) {
+            const toast = document.createElement('div');
+            toast.className = 'fixed top-6 right-6 bg-zinc-800 text-white px-6 py-3 rounded-xl shadow-2xl z-50 text-sm font-semibold border border-white/10 animate-bounce';
+            toast.innerText = msg;
+            document.body.appendChild(toast);
+            setTimeout(() => toast.remove(), 3000);
+        }
+
+        // Run
+        init();
+
+    </script>
+</body>
+</html>

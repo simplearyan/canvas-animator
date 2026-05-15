@@ -1,0 +1,1159 @@
+<!DOCTYPE html>
+<html lang="en" class="dark">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+    <title>Kinetic Studio - Sequence & Text Animator</title>
+    
+    <!-- Google Fonts for Typography & Ransom Effects -->
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Anton&family=Bebas+Neue&family=Caveat:wght@700&family=Courier+Prime:wght@700&family=Inter:wght@400;600;800;900&family=Permanent+Marker&family=Playfair+Display:wght@900&family=Righteous&display=swap" rel="stylesheet">
+
+    <!-- Tailwind CSS -->
+    <script src="https://cdn.tailwindcss.com"></script>
+    <script>
+        tailwind.config = {
+            darkMode: 'class',
+            theme: {
+                extend: {
+                    fontFamily: { sans: ['Inter', 'sans-serif'] },
+                    colors: {
+                        studio: {
+                            50: '#f6f6f9',
+                            100: '#ececf1',
+                            200: '#d5d5e0',
+                            800: '#27272a',
+                            900: '#18181b',
+                            950: '#09090b',
+                        },
+                        accent: {
+                            500: '#6366f1', // Indigo
+                            600: '#4f46e5',
+                        }
+                    }
+                }
+            }
+        }
+    </script>
+
+    <!-- Phosphor Icons -->
+    <script src="https://unpkg.com/@phosphor-icons/web"></script>
+
+    <style>
+        body { overscroll-behavior-y: none; background-color: #09090b; color: #ececf1; }
+        
+        .checkerboard {
+            background-color: #18181b; 
+            background-image: 
+                linear-gradient(45deg, #27272a 25%, transparent 25%, transparent 75%, #27272a 75%, #27272a),
+                linear-gradient(45deg, #27272a 25%, transparent 25%, transparent 75%, #27272a 75%, #27272a);
+            background-size: 24px 24px;
+            background-position: 0 0, 12px 12px;
+        }
+
+        /* Custom UI Elements */
+        ::-webkit-scrollbar { width: 6px; height: 6px; }
+        ::-webkit-scrollbar-track { background: transparent; }
+        ::-webkit-scrollbar-thumb { background: #3f3f46; border-radius: 3px; }
+        ::-webkit-scrollbar-thumb:hover { background: #52525b; }
+
+        input[type=range] { -webkit-appearance: none; width: 100%; background: transparent; height: 16px; }
+        input[type=range]::-webkit-slider-thumb { -webkit-appearance: none; height: 12px; width: 12px; border-radius: 50%; background: #ececf1; cursor: pointer; margin-top: -4px; box-shadow: 0 2px 4px rgba(0,0,0,0.5); }
+        input[type=range]::-webkit-slider-runnable-track { width: 100%; height: 4px; cursor: pointer; background: #3f3f46; border-radius: 2px; }
+        input[type=range]:focus::-webkit-slider-runnable-track { background: #52525b; }
+
+        input[type="color"] { -webkit-appearance: none; border: none; width: 100%; height: 100%; padding: 0; cursor: pointer; background: transparent; }
+        input[type="color"]::-webkit-color-swatch-wrapper { padding: 0; }
+        input[type="color"]::-webkit-color-swatch { border: 1px solid rgba(255,255,255,0.1); border-radius: 6px; }
+
+        .ui-panel { background: #18181b; border: 1px solid #27272a; border-radius: 12px; }
+        .ui-input { background: #09090b; border: 1px solid #3f3f46; color: #ececf1; border-radius: 6px; padding: 6px 10px; font-size: 12px; outline: none; transition: border 0.2s; }
+        .ui-input:focus { border-color: #6366f1; }
+        
+        .layer-item.active { background: #27272a; border-left: 3px solid #6366f1; }
+        .slide-item.active { border-color: #6366f1; background: #27272a; }
+
+        .timeline-scrubber::-webkit-slider-thumb { height: 16px; width: 8px; border-radius: 2px; background: #6366f1; margin-top: -6px; }
+    </style>
+</head>
+<body class="h-screen flex flex-col overflow-hidden select-none font-sans">
+
+    <!-- Preload fonts to avoid layout shift in canvas -->
+    <div style="position:absolute; width:0; height:0; overflow:hidden; opacity:0; pointer-events:none;">
+        <span style="font-family: 'Anton';">A</span><span style="font-family: 'Bebas Neue';">A</span>
+        <span style="font-family: 'Caveat';">A</span><span style="font-family: 'Courier Prime';">A</span>
+        <span style="font-family: 'Permanent Marker';">A</span><span style="font-family: 'Playfair Display';">A</span>
+        <span style="font-family: 'Righteous';">A</span><span style="font-family: 'Inter'; font-weight: 800;">A</span>
+    </div>
+
+    <!-- HEADER -->
+    <header class="h-14 bg-studio-900 border-b border-studio-800 flex items-center justify-between px-4 shrink-0 z-20">
+        <div class="flex items-center gap-3">
+            <div class="w-8 h-8 rounded bg-gradient-to-br from-accent-500 to-purple-600 flex items-center justify-center shadow-lg">
+                <i class="ph-bold ph-aperture text-white text-lg"></i>
+            </div>
+            <h1 class="font-bold tracking-tight text-white">Kinetic <span class="text-zinc-500 font-medium">Studio</span></h1>
+        </div>
+        
+        <!-- Center Controls -->
+        <div class="flex items-center gap-2">
+            <div class="flex items-center bg-studio-950 rounded-lg border border-studio-800 p-1">
+                <button onclick="setRatio('16:9')" id="btn-16-9" class="px-3 py-1 text-xs font-bold rounded bg-studio-800 text-white">16:9</button>
+                <button onclick="setRatio('9:16')" id="btn-9-16" class="px-3 py-1 text-xs font-bold rounded text-zinc-400 hover:text-white">9:16</button>
+                <button onclick="setRatio('1:1')" id="btn-1-1" class="px-3 py-1 text-xs font-bold rounded text-zinc-400 hover:text-white">1:1</button>
+            </div>
+        </div>
+
+        <div class="flex items-center gap-3">
+            <div id="rec-indicator" class="hidden items-center gap-2 text-red-500 font-bold text-xs uppercase animate-pulse">
+                <div class="w-2 h-2 rounded-full bg-red-500"></div> REC
+            </div>
+            <button onclick="exportVideo()" id="btn-export" class="flex items-center gap-2 px-4 py-1.5 bg-zinc-100 hover:bg-white text-zinc-900 rounded-lg text-xs font-bold transition-colors">
+                <i class="ph-bold ph-export"></i> Export WebM
+            </button>
+        </div>
+    </header>
+
+    <!-- MAIN WORKSPACE -->
+    <div class="flex-1 flex overflow-hidden">
+        
+        <!-- LEFT SIDEBAR: Tools & Global -->
+        <aside class="w-64 bg-studio-900 border-r border-studio-800 flex flex-col shrink-0 z-10 overflow-y-auto">
+            <div class="p-4 space-y-6">
+                <!-- Add Elements -->
+                <div>
+                    <h3 class="text-[10px] font-bold text-zinc-500 uppercase tracking-widest mb-3">Add Elements to Slide</h3>
+                    <div class="flex flex-col gap-2">
+                        <button onclick="addText()" class="w-full py-2.5 bg-studio-950 hover:bg-studio-800 border border-studio-800 rounded-lg text-xs font-bold text-zinc-200 transition flex items-center justify-center gap-2">
+                            <i class="ph-bold ph-text-t text-base"></i> Standard Text
+                        </button>
+                        <button onclick="addRansomText()" class="w-full py-2.5 bg-studio-950 hover:bg-studio-800 border border-studio-800 border-l-4 border-l-purple-500 rounded-lg text-xs font-bold text-zinc-200 transition flex items-center justify-center gap-2">
+                            <i class="ph-bold ph-scissors text-base"></i> Ransom Cutout
+                        </button>
+                        <button onclick="document.getElementById('img-upload').click()" class="w-full py-2.5 bg-studio-950 hover:bg-studio-800 border border-studio-800 rounded-lg text-xs font-bold text-zinc-200 transition flex items-center justify-center gap-2">
+                            <i class="ph-bold ph-image text-base"></i> Image Layer
+                        </button>
+                        <input type="file" id="img-upload" accept="image/*" class="hidden" onchange="handleImageUpload(event)">
+                    </div>
+                </div>
+
+                <div class="h-px w-full bg-studio-800"></div>
+
+                <!-- Slide Settings -->
+                <div>
+                    <h3 class="text-[10px] font-bold text-zinc-500 uppercase tracking-widest mb-3">Current Slide Settings</h3>
+                    <div class="space-y-4">
+                        <div class="flex flex-col gap-1.5">
+                            <label class="text-[10px] font-semibold text-zinc-400">Background Color</label>
+                            <div class="relative w-full h-8 rounded-lg overflow-hidden border border-studio-800">
+                                <input type="color" id="slide-bg-color" value="#09090b" oninput="updateSlide('bgColor', this.value)">
+                            </div>
+                        </div>
+                        <div class="flex flex-col gap-1.5">
+                            <div class="flex justify-between">
+                                <label class="text-[10px] font-semibold text-zinc-400">Slide Duration (s)</label>
+                                <span id="val-slide-dur" class="text-[10px] text-accent-500 font-mono">4.0</span>
+                            </div>
+                            <input type="range" id="slide-duration" min="1" max="20" step="0.5" value="4" oninput="updateSlide('duration', parseFloat(this.value)); document.getElementById('val-slide-dur').innerText=this.value;">
+                        </div>
+                        <div class="flex flex-col gap-1.5">
+                            <label class="text-[10px] font-semibold text-zinc-400">Transition to Next</label>
+                            <select id="slide-transition" class="ui-input py-1.5" onchange="updateSlide('transition', this.value)">
+                                <option value="none">Cut (None)</option>
+                                <option value="slide-left">Slide Left</option>
+                                <option value="slide-right">Slide Right</option>
+                                <option value="slide-up">Slide Up</option>
+                                <option value="fade">Fade/Dissolve</option>
+                            </select>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </aside>
+
+        <!-- CENTER: Canvas & Timeline -->
+        <main class="flex-1 flex flex-col relative bg-studio-950 min-w-0">
+            <!-- Canvas Wrapper -->
+            <div class="flex-1 relative overflow-hidden flex items-center justify-center p-8" id="canvas-wrapper">
+                <div class="relative checkerboard shadow-2xl ring-1 ring-white/10 rounded-sm overflow-hidden" id="canvas-container">
+                    <canvas id="main-canvas" class="block w-full h-full cursor-crosshair"></canvas>
+                </div>
+            </div>
+            
+            <!-- Slide Manager & Timeline Strip -->
+            <div class="flex flex-col bg-studio-900 border-t border-studio-800 shrink-0">
+                <!-- Slides Thumbnails -->
+                <div class="h-16 flex items-center px-4 gap-2 border-b border-studio-800 overflow-x-auto" id="slides-container">
+                    <!-- Populated by JS -->
+                </div>
+
+                <!-- Playback Timeline -->
+                <div class="h-14 flex items-center px-4 gap-4">
+                    <button id="btn-play" onclick="togglePlay()" class="w-8 h-8 flex items-center justify-center bg-accent-600 hover:bg-accent-500 text-white rounded-full transition shadow-lg shrink-0">
+                        <i id="icon-play" class="ph-fill ph-play text-sm"></i>
+                    </button>
+                    <div class="font-mono text-xs font-bold text-accent-500 w-16 text-right shrink-0">
+                        <span id="time-display">0.0s</span> <span class="text-zinc-500">/ <span id="total-dur-display">0.0s</span></span>
+                    </div>
+                    
+                    <div class="flex-1 relative flex items-center h-full">
+                        <input type="range" id="global-timeline" min="0" max="1000" value="0" class="w-full timeline-scrubber absolute z-10" oninput="scrubTime(this.value)">
+                        <!-- Global Timeline Tracks visualization (simplified) -->
+                        <div class="w-full h-4 bg-studio-950 rounded border border-studio-800 relative pointer-events-none overflow-hidden" id="timeline-tracks"></div>
+                    </div>
+                </div>
+            </div>
+        </main>
+
+        <!-- RIGHT SIDEBAR: Properties & Layers -->
+        <aside class="w-72 bg-studio-900 border-l border-studio-800 flex flex-col shrink-0 z-10">
+            <!-- Tabs -->
+            <div class="flex border-b border-studio-800 bg-studio-950 shrink-0">
+                <button id="tab-props" onclick="switchTab('props')" class="flex-1 py-3 text-xs font-bold text-white border-b-2 border-accent-500 bg-studio-900 transition-colors">Element</button>
+                <button id="tab-layers" onclick="switchTab('layers')" class="flex-1 py-3 text-xs font-bold text-zinc-500 hover:text-white border-b-2 border-transparent transition-colors">Slide Layers</button>
+            </div>
+
+            <!-- Properties Panel -->
+            <div id="panel-props" class="flex-1 overflow-y-auto p-4">
+                <div id="no-selection" class="text-center text-zinc-500 text-xs font-medium mt-10 flex flex-col items-center">
+                    <i class="ph-light ph-cursor-click text-4xl mb-3 opacity-50"></i>
+                    <p>Select an element<br>to edit its properties.</p>
+                </div>
+                <div id="prop-controls" class="hidden flex-col gap-4"></div>
+            </div>
+
+            <!-- Layers Panel -->
+            <div id="panel-layers" class="hidden flex-1 flex-col overflow-hidden bg-studio-950">
+                <div class="p-2 border-b border-studio-800 bg-studio-900 flex justify-between items-center shrink-0">
+                    <span class="text-[10px] font-bold text-zinc-500 uppercase tracking-wider">Slide <span id="layer-slide-id">1</span></span>
+                </div>
+                <div id="layers-list" class="flex-1 overflow-y-auto p-2 flex flex-col gap-1.5"></div>
+            </div>
+        </aside>
+    </div>
+
+    <!-- ========================================== -->
+    <!-- PROPERTY TEMPLATES                         -->
+    <!-- ========================================== -->
+
+    <!-- Common Sequence Template (Injected into both Text and Image) -->
+    <template id="tpl-sequence">
+        <div class="ui-panel p-3 space-y-3 border-accent-500/30 bg-accent-500/5">
+            <label class="text-[10px] font-bold text-accent-400 uppercase tracking-widest flex items-center gap-1.5">
+                <i class="ph-bold ph-clock"></i> Element Timing
+            </label>
+            <div class="grid grid-cols-2 gap-2">
+                <div class="flex flex-col gap-1">
+                    <label class="text-[9px] text-zinc-400 font-semibold" title="Relative to Slide Start">Entry Time (s)</label>
+                    <input type="number" step="0.1" id="prop-time-in" class="ui-input" oninput="updateSelected('timeIn', parseFloat(this.value)||0)">
+                </div>
+                <div class="flex flex-col gap-1">
+                    <label class="text-[9px] text-zinc-400 font-semibold" title="Relative to Slide Start">Exit Time (s)</label>
+                    <input type="number" step="0.1" id="prop-time-out" class="ui-input" oninput="updateSelected('timeOut', parseFloat(this.value)||0)">
+                </div>
+            </div>
+            <div class="grid grid-cols-2 gap-2">
+                <div class="flex flex-col gap-1">
+                    <label class="text-[9px] text-zinc-400 font-semibold">In Anim</label>
+                    <select id="prop-anim-in" class="ui-input py-1.5" onchange="updateSelected('animIn', this.value)">
+                        <option value="none">Cut In</option>
+                        <option value="pop">Pop Scale</option>
+                        <option value="fade">Fade In</option>
+                        <option value="slide-up">Slide Up</option>
+                        <option value="slide-right">Slide Right</option>
+                    </select>
+                </div>
+                <div class="flex flex-col gap-1">
+                    <label class="text-[9px] text-zinc-400 font-semibold">Out Anim</label>
+                    <select id="prop-anim-out" class="ui-input py-1.5" onchange="updateSelected('animOut', this.value)">
+                        <option value="none">Cut Out</option>
+                        <option value="pop">Shrink Out</option>
+                        <option value="fade">Fade Out</option>
+                        <option value="slide-down">Slide Down</option>
+                        <option value="slide-left">Slide Left</option>
+                    </select>
+                </div>
+            </div>
+            <div class="flex flex-col gap-1" id="stagger-control">
+                <label class="text-[9px] text-zinc-400 font-semibold">Stagger Letters (s)</label>
+                <input type="number" step="0.05" id="prop-stagger" class="ui-input" oninput="updateSelected('stagger', parseFloat(this.value)||0)">
+            </div>
+        </div>
+    </template>
+
+    <!-- IMAGE PROPERTIES -->
+    <template id="tpl-image-props">
+        <div id="seq-container-img"></div>
+        
+        <div class="ui-panel p-3 space-y-3">
+            <label class="text-[10px] font-bold text-zinc-300 uppercase tracking-widest flex items-center gap-1.5">
+                <i class="ph-bold ph-image"></i> Image Settings
+            </label>
+            <div class="flex flex-col gap-1">
+                <div class="flex justify-between"><label class="text-[9px] text-zinc-400">Scale</label><span id="val-img-scale" class="text-[9px] text-zinc-300"></span></div>
+                <input type="range" id="prop-img-scale" min="0.1" max="3" step="0.05" oninput="updateSelected('scale', parseFloat(this.value)); document.getElementById('val-img-scale').innerText=this.value;">
+            </div>
+            <div class="flex flex-col gap-1">
+                <div class="flex justify-between"><label class="text-[9px] text-zinc-400">Rotation</label><span id="val-img-rot" class="text-[9px] text-zinc-300"></span></div>
+                <input type="range" id="prop-img-rot" min="-180" max="180" oninput="updateSelected('rotation', parseInt(this.value)); document.getElementById('val-img-rot').innerText=this.value+'°';">
+            </div>
+            <div class="flex flex-col gap-1">
+                <div class="flex justify-between"><label class="text-[9px] text-zinc-400">Corner Radius</label><span id="val-img-rad" class="text-[9px] text-zinc-300"></span></div>
+                <input type="range" id="prop-img-rad" min="0" max="200" oninput="updateSelected('radius', parseInt(this.value)); document.getElementById('val-img-rad').innerText=this.value+'px';">
+            </div>
+        </div>
+    </template>
+
+    <!-- TEXT PROPERTIES -->
+    <template id="tpl-text-props">
+        <div id="seq-container-txt"></div>
+
+        <div class="ui-panel p-3 space-y-3">
+            <textarea class="ui-input w-full resize-y text-sm font-semibold" rows="2" oninput="updateTextContent(this.value)" id="prop-text-val"></textarea>
+            
+            <div class="grid grid-cols-2 gap-2" id="global-text-styles">
+                <div class="flex flex-col gap-1">
+                    <label class="text-[9px] text-zinc-400 font-semibold">Font</label>
+                    <select class="ui-input py-1.5" onchange="updateSelected('fontFamily', this.value)" id="prop-font-family">
+                        <option value="Inter">Inter</option>
+                        <option value="Anton">Anton</option>
+                        <option value="Bebas Neue">Bebas Neue</option>
+                        <option value="Playfair Display">Playfair Display</option>
+                        <option value="Permanent Marker">Marker</option>
+                        <option value="Righteous">Righteous</option>
+                    </select>
+                </div>
+                <div class="flex flex-col gap-1">
+                    <label class="text-[9px] text-zinc-400 font-semibold">Color</label>
+                    <div class="relative w-full h-[28px] rounded overflow-hidden border border-studio-800"><input type="color" id="prop-fill" oninput="updateSelected('fill', this.value)"></div>
+                </div>
+            </div>
+
+            <div class="flex flex-col gap-1">
+                <div class="flex justify-between"><label class="text-[9px] text-zinc-400">Font Size</label><span id="val-font-size" class="text-[9px] text-zinc-300"></span></div>
+                <input type="range" id="prop-font-size" min="10" max="400" oninput="updateSelected('fontSize', parseInt(this.value)); document.getElementById('val-font-size').innerText=this.value;">
+            </div>
+            <div class="flex flex-col gap-1" id="rot-control">
+                <div class="flex justify-between"><label class="text-[9px] text-zinc-400">Rotation</label><span id="val-rotation" class="text-[9px] text-zinc-300"></span></div>
+                <input type="range" id="prop-rotation" min="-180" max="180" oninput="updateSelected('rotation', parseInt(this.value)); document.getElementById('val-rotation').innerText=this.value+'°';">
+            </div>
+        </div>
+
+        <!-- RANSOM EDITOR -->
+        <div class="ui-panel p-3 space-y-3 border-purple-500/30 bg-purple-500/5 hidden" id="ransom-panel">
+            <label class="text-[10px] font-bold text-purple-400 uppercase tracking-widest flex items-center justify-between">
+                <span class="flex items-center gap-1.5"><i class="ph-bold ph-scissors"></i> Ransom Letters</span>
+                <button onclick="randomizeRansom()" class="px-2 py-0.5 bg-purple-500/20 text-purple-300 hover:bg-purple-500/40 rounded text-[9px]">Shuffle All</button>
+            </label>
+            
+            <div class="flex items-center gap-2">
+                <button onclick="prevChar()" class="p-1.5 bg-studio-800 rounded hover:bg-studio-700 text-white"><i class="ph-bold ph-caret-left"></i></button>
+                <div class="flex-1 text-center font-mono text-xs font-bold text-purple-300 bg-studio-950 py-1.5 rounded border border-studio-800" id="char-indicator">Char 1</div>
+                <button onclick="nextChar()" class="p-1.5 bg-studio-800 rounded hover:bg-studio-700 text-white"><i class="ph-bold ph-caret-right"></i></button>
+            </div>
+
+            <div class="grid grid-cols-2 gap-2 mt-2">
+                <div class="flex flex-col gap-1">
+                    <label class="text-[9px] text-zinc-400 font-semibold">Font</label>
+                    <select class="ui-input py-1" id="r-font" onchange="updateChar('fontFamily', this.value)">
+                        <option value="Inter">Inter</option>
+                        <option value="Anton">Anton</option>
+                        <option value="Bebas Neue">Bebas Neue</option>
+                        <option value="Playfair Display">Playfair Display</option>
+                        <option value="Permanent Marker">Marker</option>
+                        <option value="Caveat">Caveat</option>
+                        <option value="Courier Prime">Courier</option>
+                    </select>
+                </div>
+                <div class="flex flex-col gap-1">
+                    <div class="flex justify-between"><label class="text-[9px] text-zinc-400 font-semibold">Rotation</label><span id="r-rot-val" class="text-[9px]">0°</span></div>
+                    <input type="range" id="r-rot" min="-45" max="45" oninput="updateChar('r', parseInt(this.value)); document.getElementById('r-rot-val').innerText=this.value+'°';">
+                </div>
+            </div>
+            
+            <div class="grid grid-cols-2 gap-2">
+                <div class="flex flex-col gap-1">
+                    <label class="text-[9px] text-zinc-400 font-semibold">Text Color</label>
+                    <div class="relative w-full h-[24px] rounded overflow-hidden border border-studio-800"><input type="color" id="r-col" oninput="updateChar('fill', this.value)"></div>
+                </div>
+                <div class="flex flex-col gap-1">
+                    <label class="text-[9px] text-zinc-400 font-semibold">Bg Color</label>
+                    <div class="relative w-full h-[24px] rounded overflow-hidden border border-studio-800"><input type="color" id="r-bg" oninput="updateChar('bgFill', this.value)"></div>
+                </div>
+            </div>
+        </div>
+    </template>
+
+    <script>
+        // --- Core Math & Easings ---
+        const easeOutBack = t => { const c1 = 1.70158; const c3 = c1 + 1; return 1 + c3 * Math.pow(t - 1, 3) + c1 * Math.pow(t - 1, 2); };
+        const easeInOutQuint = t => t < .5 ? 16 * t * t * t * t * t : 1 - Math.pow(-2 * t + 2, 5) / 2;
+        const easeInQuad = t => t * t;
+
+        // Ransom Text Generation Helpers
+        const rFonts = ['Anton', 'Bebas Neue', 'Permanent Marker', 'Caveat', 'Courier Prime', 'Playfair Display', 'Inter'];
+        const rColors = ['#ffffff', '#000000', '#facc15', '#ef4444', '#3b82f6'];
+        const rBgs = ['#000000', '#ffffff', '#ef4444', '#22c55e', '#a855f7', 'transparent'];
+
+        function randomItem(arr) { return arr[Math.floor(Math.random() * arr.length)]; }
+        function createRansomStyles(text) {
+            return text.split('').map(() => {
+                let fill = randomItem(rColors);
+                let bgFill = randomItem(rBgs);
+                if(fill === bgFill) { fill = '#ffffff'; bgFill = '#000000'; } // Ensure contrast
+                return { fontFamily: randomItem(rFonts), fill: fill, bgFill: bgFill, r: (Math.random() - 0.5) * 30, s: 1 };
+            });
+        }
+
+        // --- STATE ARCHITECTURE ---
+        const state = {
+            width: 1920,
+            height: 1080,
+            slides: [],          // Array of Slide objects
+            activeSlideId: null, // Slide currently being edited
+            selectedElementId: null, // Element currently selected inside active slide
+            
+            nextSlideId: 1,
+            nextElementId: 1,
+
+            time: 0,
+            isPlaying: false,
+            lastFrameTime: 0,
+            
+            ransomCharIdx: 0 
+        };
+
+        const canvas = document.getElementById('main-canvas');
+        const ctx = canvas.getContext('2d');
+        const canvasWrapper = document.getElementById('canvas-wrapper');
+        const canvasContainer = document.getElementById('canvas-container');
+        let zoomLevel = 1.0;
+        let renderPending = false;
+
+        // --- Helpers ---
+        function getActiveSlide() { return state.slides.find(s => s.id === state.activeSlideId); }
+        function getSelectedEl() { 
+            const slide = getActiveSlide();
+            return slide ? slide.elements.find(e => e.id === state.selectedElementId) : null; 
+        }
+        function getTotalDuration() { return state.slides.reduce((sum, s) => sum + s.duration, 0) || 1; }
+
+        // --- Init Data ---
+        function initApp() {
+            createSlide({ bgColor: '#09090b', duration: 4.0, transition: 'slide-left' });
+            
+            // Add initial elements to first slide
+            const slide = state.slides[0];
+            slide.elements.push({
+                id: state.nextElementId++, type: 'text', text: 'SLIDE 1', isRansom: false, fontFamily: 'Anton', fontSize: 220, fill: '#ffffff', rotation: 0,
+                x: state.width / 2, y: state.height / 2, timeIn: 0.0, timeOut: 4.0, animIn: 'pop', animOut: 'fade', animDur: 0.5, stagger: 0.05
+            });
+            
+            createSlide({ bgColor: '#ef4444', duration: 4.0, transition: 'fade' });
+            state.slides[1].elements.push({
+                id: state.nextElementId++, type: 'text', text: 'SLIDE 2', isRansom: true, charStyles: createRansomStyles('SLIDE 2'), fontSize: 180, rotation: 0,
+                x: state.width / 2, y: state.height / 2, timeIn: 0.2, timeOut: 3.8, animIn: 'slide-up', animOut: 'slide-down', animDur: 0.6, stagger: 0.1
+            });
+            
+            selectSlide(state.slides[0].id);
+            setRatio('16:9');
+        }
+
+        // --- Canvas Setup ---
+        function setRatio(ratio) {
+            document.getElementById('btn-16-9').className = 'px-3 py-1 text-xs font-bold rounded text-zinc-400 hover:text-white';
+            document.getElementById('btn-9-16').className = 'px-3 py-1 text-xs font-bold rounded text-zinc-400 hover:text-white';
+            document.getElementById('btn-1-1').className = 'px-3 py-1 text-xs font-bold rounded text-zinc-400 hover:text-white';
+            document.getElementById('btn-' + ratio.replace(':','-')).className = 'px-3 py-1 text-xs font-bold rounded bg-studio-800 text-white';
+
+            if(ratio === '16:9') { state.width = 1920; state.height = 1080; }
+            else if(ratio === '9:16') { state.width = 1080; state.height = 1920; }
+            else if(ratio === '1:1') { state.width = 1080; state.height = 1080; }
+
+            canvas.width = state.width; canvas.height = state.height;
+            fitCanvas(); render();
+        }
+
+        function fitCanvas() {
+            const pad = 60;
+            const availW = canvasWrapper.clientWidth - pad;
+            const availH = canvasWrapper.clientHeight - pad;
+            zoomLevel = Math.min(availW / state.width, availH / state.height, 1);
+            canvasContainer.style.width = (state.width * zoomLevel) + 'px';
+            canvasContainer.style.height = (state.height * zoomLevel) + 'px';
+        }
+        window.addEventListener('resize', fitCanvas);
+
+        // --- Slides Management ---
+        function createSlide(overrides = {}) {
+            const newSlide = {
+                id: `s_${state.nextSlideId++}`,
+                bgColor: '#09090b',
+                duration: 4.0,
+                transition: 'none',
+                elements: [],
+                ...overrides
+            };
+            state.slides.push(newSlide);
+            updateSlidesUI();
+            updateTracks();
+            return newSlide;
+        }
+
+        function selectSlide(id) {
+            state.activeSlideId = id;
+            state.selectedElementId = null;
+            
+            // Jump timeline to the start of this slide
+            let t = 0;
+            for(let s of state.slides) { if(s.id === id) break; t += s.duration; }
+            if(!state.isPlaying) scrubTime((t / getTotalDuration()) * 1000);
+            
+            updateSlideSettingsUI();
+            selectElement(null); 
+            updateSlidesUI();
+            updateLayersList();
+        }
+
+        function updateSlide(key, val) {
+            const slide = getActiveSlide();
+            if(slide) { slide[key] = val; updateTracks(); updateSlidesUI(); render(); }
+        }
+
+        function deleteSlide(id, event) {
+            event.stopPropagation();
+            if(state.slides.length <= 1) return; // Must have at least 1
+            state.slides = state.slides.filter(s => s.id !== id);
+            if(state.activeSlideId === id) selectSlide(state.slides[0].id);
+            else { updateSlidesUI(); updateTracks(); render(); }
+        }
+        
+        function duplicateSlide(id, event) {
+            event.stopPropagation();
+            const slide = state.slides.find(s => s.id === id);
+            if(!slide) return;
+            const clone = JSON.parse(JSON.stringify(slide)); // deep clone
+            clone.id = `s_${state.nextSlideId++}`;
+            // Re-assign element IDs
+            clone.elements.forEach(e => e.id = state.nextElementId++);
+            
+            const idx = state.slides.indexOf(slide);
+            state.slides.splice(idx + 1, 0, clone);
+            updateSlidesUI(); updateTracks(); selectSlide(clone.id);
+        }
+
+        function updateSlidesUI() {
+            const container = document.getElementById('slides-container');
+            container.innerHTML = '';
+            
+            state.slides.forEach((s, idx) => {
+                const isActive = s.id === state.activeSlideId;
+                const div = document.createElement('div');
+                div.className = `slide-item w-24 h-12 rounded bg-studio-950 border shrink-0 flex items-center justify-between px-2 cursor-pointer transition ${isActive ? 'active border-accent-500' : 'border-studio-800 hover:border-studio-700'}`;
+                div.onclick = () => selectSlide(s.id);
+                div.innerHTML = `
+                    <div class="flex items-center gap-1.5 overflow-hidden">
+                        <div class="w-3 h-3 rounded-full border border-white/20 shrink-0" style="background-color: ${s.bgColor}"></div>
+                        <span class="text-[10px] font-bold text-zinc-300">S${idx+1}</span>
+                    </div>
+                    <div class="flex flex-col gap-1">
+                        <button onclick="duplicateSlide('${s.id}', event)" class="text-zinc-500 hover:text-white" title="Duplicate"><i class="ph-bold ph-copy text-[10px]"></i></button>
+                        <button onclick="deleteSlide('${s.id}', event)" class="text-zinc-500 hover:text-red-500" title="Delete"><i class="ph-bold ph-x text-[10px]"></i></button>
+                    </div>
+                `;
+                container.appendChild(div);
+            });
+            
+            // Add Button
+            const addBtn = document.createElement('button');
+            addBtn.onclick = () => selectSlide(createSlide().id);
+            addBtn.className = 'w-12 h-12 rounded bg-studio-950 border border-dashed border-studio-700 hover:border-accent-500 hover:text-accent-500 text-zinc-500 flex items-center justify-center shrink-0 transition';
+            addBtn.innerHTML = '<i class="ph-bold ph-plus"></i>';
+            container.appendChild(addBtn);
+        }
+
+        function updateSlideSettingsUI() {
+            const slide = getActiveSlide();
+            if(!slide) return;
+            document.getElementById('slide-bg-color').value = slide.bgColor;
+            document.getElementById('slide-duration').value = slide.duration;
+            document.getElementById('val-slide-dur').innerText = slide.duration;
+            document.getElementById('slide-transition').value = slide.transition;
+            document.getElementById('layer-slide-id').innerText = state.slides.indexOf(slide) + 1;
+        }
+
+        // --- Timeline Engine ---
+        function togglePlay() {
+            state.isPlaying = !state.isPlaying;
+            document.getElementById('icon-play').className = state.isPlaying ? 'ph-fill ph-pause text-sm' : 'ph-fill ph-play text-sm';
+            if (state.isPlaying) {
+                state.lastFrameTime = performance.now();
+                animFrameId = requestAnimationFrame(animLoop);
+            } else {
+                cancelAnimationFrame(animFrameId);
+            }
+        }
+
+        function resetTime() {
+            state.isPlaying = false;
+            document.getElementById('icon-play').className = 'ph-fill ph-play text-sm';
+            cancelAnimationFrame(animFrameId);
+            state.time = 0;
+            updateUI();
+            render();
+        }
+
+        function scrubTime(val) {
+            const total = getTotalDuration();
+            state.time = (parseInt(val) / 1000) * total;
+            
+            // Auto select slide based on scrub position
+            let t = 0;
+            for(let s of state.slides) {
+                if(state.time >= t && state.time < t + s.duration) {
+                    if(state.activeSlideId !== s.id) {
+                        state.activeSlideId = s.id;
+                        updateSlideSettingsUI(); selectElement(null); updateSlidesUI(); updateLayersList();
+                    }
+                    break;
+                }
+                t += s.duration;
+            }
+
+            updateUI(true);
+            render();
+        }
+
+        function animLoop(timestamp) {
+            if(!state.isPlaying) return;
+            const dt = (timestamp - state.lastFrameTime) / 1000;
+            state.time += dt;
+            const total = getTotalDuration();
+            
+            if(state.time >= total) {
+                if(isExporting) { state.time = total; forceRender(); finishExport(); return; }
+                state.time = 0; 
+            }
+            
+            // Auto select slide during playback
+            let t = 0;
+            for(let s of state.slides) {
+                if(state.time >= t && state.time < t + s.duration) {
+                    if(state.activeSlideId !== s.id) {
+                        state.activeSlideId = s.id;
+                        updateSlideSettingsUI(); selectElement(null); updateSlidesUI(); updateLayersList();
+                    }
+                    break;
+                }
+                t += s.duration;
+            }
+
+            state.lastFrameTime = timestamp;
+            updateUI();
+            render();
+            animFrameId = requestAnimationFrame(animLoop);
+        }
+
+        function updateUI(skipSlider = false) {
+            const total = getTotalDuration();
+            document.getElementById('time-display').innerText = state.time.toFixed(1) + 's';
+            document.getElementById('total-dur-display').innerText = total.toFixed(1) + 's';
+            if(!skipSlider) document.getElementById('global-timeline').value = (state.time / total) * 1000;
+        }
+
+        function updateTracks() {
+            const tracks = document.getElementById('timeline-tracks');
+            tracks.innerHTML = '';
+            const total = getTotalDuration();
+            let accumulatedTime = 0;
+
+            state.slides.forEach((s, idx) => {
+                const sPct = (s.duration / total) * 100;
+                const leftPct = (accumulatedTime / total) * 100;
+                
+                // Draw Slide Block
+                const div = document.createElement('div');
+                div.className = `absolute h-full border-r border-studio-800 ${s.id === state.activeSlideId ? 'bg-studio-800' : 'bg-studio-900'} opacity-50`;
+                div.style.left = `${leftPct}%`;
+                div.style.width = `${sPct}%`;
+                tracks.appendChild(div);
+
+                // Draw Elements inside Slide
+                s.elements.forEach((el, eIdx) => {
+                    const eStart = Math.max(0, Math.min(el.timeIn, s.duration));
+                    const eDur = Math.max(0, Math.min(el.timeOut, s.duration)) - eStart;
+                    
+                    const elLeft = ((accumulatedTime + eStart) / total) * 100;
+                    const elW = (eDur / total) * 100;
+                    
+                    const eDiv = document.createElement('div');
+                    const color = el.id === state.selectedElementId ? 'bg-accent-500' : 'bg-studio-600';
+                    eDiv.className = `absolute h-[2px] rounded ${color}`;
+                    eDiv.style.left = `${elLeft}%`;
+                    eDiv.style.width = `${elW}%`;
+                    eDiv.style.top = `${((eIdx * 4) % 12) + 2}px`;
+                    tracks.appendChild(eDiv);
+                });
+
+                accumulatedTime += s.duration;
+            });
+        }
+
+        // --- Element Creation ---
+        const baseAnimProps = { timeIn: 0.0, timeOut: 4.0, animIn: 'pop', animOut: 'fade', animDur: 0.5, stagger: 0.05 };
+
+        function addText() {
+            const slide = getActiveSlide(); if(!slide) return;
+            const el = { id: state.nextElementId++, type: 'text', text: 'TEXT', isRansom: false, fontFamily: 'Inter', fontSize: 180, fill: '#ffffff', rotation: 0, x: state.width / 2, y: state.height / 2, ...baseAnimProps, timeOut: slide.duration };
+            slide.elements.push(el); selectElement(el.id); updateTracks(); render();
+        }
+
+        function addRansomText() {
+            const slide = getActiveSlide(); if(!slide) return;
+            const txt = "RANSOM";
+            const el = { id: state.nextElementId++, type: 'text', text: txt, isRansom: true, charStyles: createRansomStyles(txt), fontSize: 160, x: state.width / 2, y: state.height / 2, ...baseAnimProps, timeOut: slide.duration, animIn: 'pop', stagger: 0.1 };
+            slide.elements.push(el); selectElement(el.id); updateTracks(); render();
+        }
+
+        function handleImageUpload(e) {
+            const slide = getActiveSlide(); if(!slide || !e.target.files[0]) return;
+            const reader = new FileReader();
+            reader.onload = (ev) => {
+                const img = new Image();
+                img.onload = () => {
+                    const el = { id: state.nextElementId++, type: 'image', img: img, w: img.width, h: img.height, scale: Math.min(state.width/(img.width+200), state.height/(img.height+200), 1), rotation: 0, radius: 0, x: state.width / 2, y: state.height / 2, ...baseAnimProps, timeOut: slide.duration, animIn: 'slide-up' };
+                    slide.elements.push(el); selectElement(el.id); updateTracks(); render();
+                };
+                img.src = ev.target.result;
+            };
+            reader.readAsDataURL(e.target.files[0]);
+        }
+
+        // --- Interaction ---
+        let isDragging = false;
+        let dragOffX = 0, dragOffY = 0;
+
+        function getMousePos(e) {
+            const rect = canvas.getBoundingClientRect();
+            return { x: (e.clientX - rect.left) / zoomLevel, y: (e.clientY - rect.top) / zoomLevel };
+        }
+
+        canvas.addEventListener('mousedown', (e) => {
+            const pos = getMousePos(e);
+            let hit = null;
+            const slide = getActiveSlide();
+            if(!slide) return;
+
+            // Simple hit test based on active slide
+            for(let i = slide.elements.length-1; i >= 0; i--) {
+                const el = slide.elements[i];
+                // For editing, let's allow selecting even if not visible in time, or limit it? Better to limit.
+                // Actually, if we are paused, let's allow selecting any element to edit it.
+                
+                const dx = pos.x - el.x; const dy = pos.y - el.y;
+                const rad = -(el.rotation||0) * Math.PI/180;
+                const rx = dx * Math.cos(rad) - dy * Math.sin(rad);
+                const ry = dx * Math.sin(rad) + dy * Math.cos(rad);
+
+                let w = 0, h = 0;
+                if(el.type === 'text') {
+                    ctx.font = `${el.isRansom ? '900' : '800'} ${el.fontSize}px "${el.fontFamily||'Inter'}"`;
+                    w = ctx.measureText(el.text).width;
+                    h = el.fontSize;
+                } else if(el.type === 'image') { w = el.w * el.scale; h = el.h * el.scale; }
+                
+                if(rx >= -w/2 && rx <= w/2 && ry >= -h/2 && ry <= h/2) { hit = el.id; break; }
+            }
+
+            selectElement(hit);
+            if(hit) {
+                isDragging = true; const el = getSelectedEl();
+                dragOffX = pos.x - el.x; dragOffY = pos.y - el.y;
+            }
+        });
+
+        window.addEventListener('mousemove', (e) => {
+            if(!isDragging) return;
+            const pos = getMousePos(e); const el = getSelectedEl();
+            if(el) { el.x = pos.x - dragOffX; el.y = pos.y - dragOffY; render(); }
+        });
+        window.addEventListener('mouseup', () => isDragging = false);
+
+        // --- UI Logic ---
+        function switchTab(t) {
+            document.getElementById('tab-props').className = t==='props' ? 'flex-1 py-3 text-xs font-bold text-white border-b-2 border-accent-500 bg-studio-900 transition-colors' : 'flex-1 py-3 text-xs font-bold text-zinc-500 hover:text-white border-b-2 border-transparent transition-colors';
+            document.getElementById('tab-layers').className = t==='layers' ? 'flex-1 py-3 text-xs font-bold text-white border-b-2 border-accent-500 bg-studio-900 transition-colors' : 'flex-1 py-3 text-xs font-bold text-zinc-500 hover:text-white border-b-2 border-transparent transition-colors';
+            document.getElementById('panel-props').classList.toggle('hidden', t!=='props');
+            document.getElementById('panel-layers').classList.toggle('hidden', t!=='layers');
+            document.getElementById('panel-layers').classList.toggle('flex', t==='layers');
+            if(t==='layers') updateLayersList();
+        }
+
+        function selectElement(id) {
+            state.selectedElementId = id;
+            const el = getSelectedEl();
+            const pNoSel = document.getElementById('no-selection');
+            const pCtrl = document.getElementById('prop-controls');
+            
+            if(!el) { pNoSel.classList.remove('hidden'); pCtrl.classList.add('hidden'); } 
+            else {
+                pNoSel.classList.add('hidden'); pCtrl.classList.remove('hidden'); pCtrl.classList.add('flex');
+                pCtrl.innerHTML = '';
+                const tpl = document.getElementById(el.type === 'text' ? 'tpl-text-props' : 'tpl-image-props');
+                pCtrl.appendChild(tpl.content.cloneNode(true));
+                
+                const seqContainer = document.getElementById(el.type === 'text' ? 'seq-container-txt' : 'seq-container-img');
+                seqContainer.appendChild(document.getElementById('tpl-sequence').content.cloneNode(true));
+
+                document.getElementById('prop-time-in').value = el.timeIn; document.getElementById('prop-time-out').value = el.timeOut;
+                document.getElementById('prop-anim-in').value = el.animIn; document.getElementById('prop-anim-out').value = el.animOut;
+                if(el.type === 'image') document.getElementById('stagger-control').style.display = 'none';
+                else document.getElementById('prop-stagger').value = el.stagger;
+
+                if(el.type === 'image') {
+                    document.getElementById('prop-img-scale').value = el.scale; document.getElementById('val-img-scale').innerText = el.scale;
+                    document.getElementById('prop-img-rot').value = el.rotation; document.getElementById('val-img-rot').innerText = el.rotation + '°';
+                    document.getElementById('prop-img-rad').value = el.radius; document.getElementById('val-img-rad').innerText = el.radius + 'px';
+                } else if(el.type === 'text') {
+                    document.getElementById('prop-text-val').value = el.text;
+                    document.getElementById('prop-font-size').value = el.fontSize; document.getElementById('val-font-size').innerText = el.fontSize;
+                    if(el.isRansom) {
+                        document.getElementById('global-text-styles').style.display = 'none'; document.getElementById('rot-control').style.display = 'none';
+                        document.getElementById('ransom-panel').classList.remove('hidden');
+                        state.ransomCharIdx = 0; updateRansomUI();
+                    } else {
+                        document.getElementById('prop-font-family').value = el.fontFamily; document.getElementById('prop-fill').value = el.fill;
+                        document.getElementById('prop-rotation').value = el.rotation; document.getElementById('val-rotation').innerText = el.rotation + '°';
+                    }
+                }
+            }
+            updateTracks(); updateLayersList(); render();
+        }
+
+        function updateSelected(key, val) { const el = getSelectedEl(); if(el) { el[key] = val; updateTracks(); render(); } }
+
+        function updateTextContent(val) {
+            const el = getSelectedEl(); if(!el) return;
+            el.text = val;
+            if(el.isRansom) {
+                while(el.charStyles.length < val.length) el.charStyles.push(createRansomStyles("A")[0]);
+                if(state.ransomCharIdx >= val.length) state.ransomCharIdx = Math.max(0, val.length - 1);
+                updateRansomUI();
+            }
+            render();
+        }
+
+        function updateLayersList() {
+            const list = document.getElementById('layers-list'); const slide = getActiveSlide();
+            if(!list || !slide) return;
+            list.innerHTML = '';
+            for(let i=slide.elements.length-1; i>=0; i--) {
+                const el = slide.elements[i];
+                const active = el.id === state.selectedElementId ? 'active' : '';
+                const name = el.type === 'text' ? (el.text.substring(0,10) || 'Text') : 'Image Layer';
+                const icon = el.type === 'text' ? (el.isRansom ? 'ph-scissors' : 'ph-text-t') : 'ph-image';
+                
+                const div = document.createElement('div');
+                div.className = `layer-item flex items-center justify-between p-2 rounded cursor-pointer border border-transparent hover:border-studio-700 ${active}`;
+                div.onclick = () => selectElement(el.id);
+                div.innerHTML = `
+                    <div class="flex items-center gap-2 overflow-hidden">
+                        <i class="ph-bold ${icon} text-zinc-400"></i><span class="text-xs font-semibold text-zinc-200 truncate">${name}</span>
+                    </div>
+                    <div class="flex gap-1 shrink-0"><button onclick="event.stopPropagation(); deleteLayer(${el.id})" class="p-1 text-zinc-500 hover:text-red-500"><i class="ph-bold ph-trash"></i></button></div>
+                `;
+                list.appendChild(div);
+            }
+        }
+
+        function deleteLayer(id) {
+            const slide = getActiveSlide(); if(!slide) return;
+            slide.elements = slide.elements.filter(e => e.id !== id);
+            if(state.selectedElementId === id) selectElement(null); else { updateLayersList(); updateTracks(); render(); }
+        }
+
+        // --- Ransom Editor Logic ---
+        function updateRansomUI() {
+            const el = getSelectedEl(); if(!el || !el.isRansom || el.text.length === 0) return;
+            const style = el.charStyles[state.ransomCharIdx];
+            document.getElementById('char-indicator').innerText = `[${state.ransomCharIdx+1}] ${el.text[state.ransomCharIdx]}`;
+            document.getElementById('r-font').value = style.fontFamily;
+            document.getElementById('r-rot').value = Math.round(style.r); document.getElementById('r-rot-val').innerText = Math.round(style.r) + '°';
+            document.getElementById('r-col').value = style.fill; document.getElementById('r-bg').value = style.bgFill;
+        }
+        function updateChar(key, val) { const el = getSelectedEl(); if(el && el.isRansom) { el.charStyles[state.ransomCharIdx][key] = val; render(); } }
+        function prevChar() { const el = getSelectedEl(); if(el && el.isRansom && state.ransomCharIdx > 0) { state.ransomCharIdx--; updateRansomUI(); } }
+        function nextChar() { const el = getSelectedEl(); if(el && el.isRansom && state.ransomCharIdx < el.text.length-1) { state.ransomCharIdx++; updateRansomUI(); } }
+        function randomizeRansom() { const el = getSelectedEl(); if(el && el.isRansom) { el.charStyles = createRansomStyles(el.text); updateRansomUI(); render(); } }
+
+        // --- Render Engine ---
+        function getAnimTransform(el, localTime, localIndex = 0) {
+            let s = 1, alpha = 1, tx = 0, ty = 0;
+            const tIn = el.timeIn + (localIndex * (el.stagger || 0));
+            const tOut = el.timeOut;
+            const dur = el.animDur || 0.5;
+
+            if (localTime < tIn || localTime > tOut) return { s:0, alpha:0, tx:0, ty:0 };
+
+            if (localTime < tIn + dur) {
+                const prog = (localTime - tIn) / dur;
+                if(el.animIn === 'pop') { s = easeOutBack(prog); alpha = prog*2; }
+                else if(el.animIn === 'fade') { alpha = prog; }
+                else if(el.animIn === 'slide-up') { ty = 100 * (1-easeOutBack(prog)); alpha = prog*2; }
+                else if(el.animIn === 'slide-right') { tx = -100 * (1-easeOutBack(prog)); alpha = prog*2; }
+            }
+            else if (localTime > tOut - dur) {
+                const prog = (localTime - (tOut - dur)) / dur; 
+                if(el.animOut === 'pop') { s = 1 - easeInQuad(prog); alpha = 1 - prog; }
+                else if(el.animOut === 'fade') { alpha = 1 - prog; }
+                else if(el.animOut === 'slide-down') { ty = 100 * easeInQuad(prog); alpha = 1 - prog; }
+                else if(el.animOut === 'slide-left') { tx = -100 * easeInQuad(prog); alpha = 1 - prog; }
+            }
+            return { s, alpha: Math.min(Math.max(alpha, 0), 1), tx, ty };
+        }
+
+        function drawSlide(targetCtx, slide, localTime, w, h) {
+            targetCtx.fillStyle = slide.bgColor;
+            targetCtx.fillRect(0, 0, w, h);
+
+            slide.elements.forEach(el => {
+                const animBase = getAnimTransform(el, localTime, 0);
+                if (animBase.alpha <= 0 && el.type === 'image') return; // skip invisible
+
+                targetCtx.save();
+                if (el.type === 'image') {
+                    targetCtx.translate(el.x + animBase.tx, el.y + animBase.ty);
+                    targetCtx.rotate((el.rotation || 0) * Math.PI / 180);
+                    const finalScale = el.scale * animBase.s;
+                    targetCtx.scale(finalScale, finalScale);
+                    targetCtx.globalAlpha = animBase.alpha;
+
+                    const drawW = el.w; const drawH = el.h;
+                    targetCtx.beginPath();
+                    if (targetCtx.roundRect && el.radius > 0) { targetCtx.roundRect(-drawW/2, -drawH/2, drawW, drawH, el.radius); targetCtx.clip(); }
+                    targetCtx.drawImage(el.img, -drawW/2, -drawH/2, drawW, drawH);
+                } 
+                else if (el.type === 'text') {
+                    const lines = el.text.split('\n');
+                    const isBld = el.isRansom ? '900' : '800';
+                    const fontF = el.fontFamily || 'Inter';
+                    targetCtx.font = `${isBld} ${el.fontSize}px "${fontF}"`;
+                    
+                    const lineHeight = el.fontSize * 1.1;
+                    const startY = -(lines.length - 1) * lineHeight / 2;
+                    let globalIdx = 0;
+
+                    lines.forEach((line, lineIdx) => {
+                        let lineW = 0;
+                        for(let c=0; c<line.length; c++) {
+                            if(el.isRansom) targetCtx.font = `900 ${el.fontSize}px "${el.charStyles[globalIdx+c]?.fontFamily || 'Inter'}"`;
+                            lineW += targetCtx.measureText(line[c]).width;
+                        }
+                        
+                        let cursorX = -lineW / 2;
+                        const yOff = startY + (lineIdx * lineHeight);
+
+                        for(let c=0; c<line.length; c++) {
+                            const char = line[c];
+                            const anim = getAnimTransform(el, localTime, globalIdx);
+                            
+                            if (el.isRansom) targetCtx.font = `900 ${el.fontSize}px "${el.charStyles[globalIdx].fontFamily || 'Inter'}"`;
+                            const charW = targetCtx.measureText(char).width;
+
+                            if (anim.alpha > 0) {
+                                targetCtx.save();
+                                targetCtx.translate(el.x + cursorX + charW/2 + anim.tx, el.y + yOff + anim.ty);
+                                
+                                let r = el.rotation || 0; let s = anim.s; let fill = el.fill;
+
+                                if (el.isRansom) {
+                                    const st = el.charStyles[globalIdx];
+                                    r += st.r; fill = st.fill;
+                                    targetCtx.rotate(r * Math.PI/180); targetCtx.scale(s, s); targetCtx.globalAlpha = anim.alpha;
+
+                                    if(st.bgFill && st.bgFill !== 'transparent') {
+                                        targetCtx.fillStyle = st.bgFill;
+                                        const px = el.fontSize * 0.15; const py = el.fontSize * 0.1;
+                                        targetCtx.fillRect(-charW/2 - px, -el.fontSize/2 - py, charW + px*2, el.fontSize + py*2);
+                                    }
+                                } else {
+                                    targetCtx.rotate(r * Math.PI/180); targetCtx.scale(s, s); targetCtx.globalAlpha = anim.alpha;
+                                }
+
+                                targetCtx.fillStyle = fill; targetCtx.textAlign = 'center'; targetCtx.textBaseline = 'middle';
+                                targetCtx.fillText(char, 0, 0);
+                                targetCtx.restore();
+                            }
+                            cursorX += charW; globalIdx++;
+                        }
+                    });
+                }
+                targetCtx.restore();
+            });
+        }
+
+        function renderScene(targetCtx, w, h) {
+            let totalTime = 0;
+            let currentSlide = null, nextSlide = null;
+            let localTime = 0, transProg = 0;
+            const transDur = 0.5; // Fixed half-second slide transition
+
+            // Find current and next slide based on global time
+            for(let i=0; i<state.slides.length; i++) {
+                let s = state.slides[i];
+                if(state.time >= totalTime && state.time < totalTime + s.duration) {
+                    currentSlide = s;
+                    localTime = state.time - totalTime;
+                    
+                    // Check if in transition window to next slide
+                    if(localTime > s.duration - transDur && i < state.slides.length - 1 && s.transition !== 'none') {
+                        nextSlide = state.slides[i+1];
+                        transProg = (localTime - (s.duration - transDur)) / transDur;
+                    }
+                    break;
+                }
+                totalTime += s.duration;
+            }
+
+            // Fallback for end of timeline
+            if(!currentSlide && state.slides.length > 0) {
+                currentSlide = state.slides[state.slides.length-1];
+                localTime = currentSlide.duration;
+            }
+            if(!currentSlide) return;
+
+            targetCtx.save();
+            
+            // Draw with transitions
+            if(nextSlide && transProg > 0) {
+                let eProg = easeInOutQuint(transProg);
+                if(currentSlide.transition === 'slide-left') {
+                    targetCtx.translate(-eProg * w, 0);
+                    drawSlide(targetCtx, currentSlide, localTime, w, h);
+                    targetCtx.translate(w, 0);
+                    drawSlide(targetCtx, nextSlide, transProg * transDur, w, h);
+                } else if(currentSlide.transition === 'slide-right') {
+                    targetCtx.translate(eProg * w, 0);
+                    drawSlide(targetCtx, currentSlide, localTime, w, h);
+                    targetCtx.translate(-w, 0);
+                    drawSlide(targetCtx, nextSlide, transProg * transDur, w, h);
+                } else if(currentSlide.transition === 'slide-up') {
+                    targetCtx.translate(0, -eProg * h);
+                    drawSlide(targetCtx, currentSlide, localTime, w, h);
+                    targetCtx.translate(0, h);
+                    drawSlide(targetCtx, nextSlide, transProg * transDur, w, h);
+                } else if(currentSlide.transition === 'fade') {
+                    drawSlide(targetCtx, currentSlide, localTime, w, h);
+                    targetCtx.globalAlpha = eProg;
+                    drawSlide(targetCtx, nextSlide, transProg * transDur, w, h);
+                }
+            } else {
+                // No transition active
+                drawSlide(targetCtx, currentSlide, localTime, w, h);
+            }
+            
+            targetCtx.restore();
+        }
+
+        function render() {
+            if(!renderPending) { renderPending = true; requestAnimationFrame(() => { forceRender(); renderPending = false; }); }
+        }
+
+        function forceRender() {
+            ctx.clearRect(0, 0, state.width, state.height);
+            renderScene(ctx, state.width, state.height);
+
+            // Draw Selection Box (only if not playing for cleaner preview)
+            const selEl = getSelectedEl();
+            const slide = getActiveSlide();
+            
+            // Only draw selection box if the active slide is currently the one on screen
+            let slideStartTime = 0;
+            for(let s of state.slides) { if(s.id === state.activeSlideId) break; slideStartTime += s.duration; }
+            let isSlideVisible = state.time >= slideStartTime && state.time <= slideStartTime + (slide ? slide.duration : 0);
+
+            if(selEl && !state.isPlaying && isSlideVisible) {
+                ctx.save();
+                ctx.translate(selEl.x, selEl.y);
+                ctx.rotate((selEl.rotation||0) * Math.PI/180);
+                ctx.strokeStyle = '#6366f1'; 
+                ctx.lineWidth = 3 / zoomLevel;
+                
+                let bw=0, bh=0;
+                if(selEl.type === 'text') {
+                    ctx.font = `800 ${selEl.fontSize}px "${selEl.fontFamily||'Inter'}"`;
+                    const lines = selEl.text.split('\n');
+                    lines.forEach(line => {
+                        let lw = 0; for(let c=0; c<line.length; c++) lw += ctx.measureText(line[c]).width;
+                        if(lw > bw) bw = lw;
+                    });
+                    bh = lines.length * (selEl.fontSize * 1.1);
+                } else { bw = selEl.w * selEl.scale; bh = selEl.h * selEl.scale; }
+
+                ctx.strokeRect(-bw/2 - 10, -bh/2 - 10, bw + 20, bh + 20);
+                ctx.fillStyle = '#6366f1';
+                ctx.beginPath(); ctx.arc(0,0, 6/zoomLevel, 0, Math.PI*2); ctx.fill();
+                ctx.restore();
+            }
+
+            if(isExporting && exportCtx) {
+                exportCtx.clearRect(0, 0, state.width, state.height);
+                renderScene(exportCtx, state.width, state.height);
+            }
+        }
+
+        // --- Export Engine ---
+        let isExporting = false;
+        let exportCanvas, exportCtx, mediaRecorder, chunks = [];
+
+        function exportVideo() {
+            if(state.slides.length === 0 || state.isPlaying || isExporting) return;
+            state.time = 0; // Force to 0, not relying on scrub logic that might change active slide immediately
+            
+            exportCanvas = document.createElement('canvas');
+            exportCanvas.width = state.width;
+            exportCanvas.height = state.height;
+            exportCtx = exportCanvas.getContext('2d', { alpha: false });
+            
+            renderScene(exportCtx, state.width, state.height); // frame 0
+
+            const stream = exportCanvas.captureStream(60); // 60 FPS
+            mediaRecorder = new MediaRecorder(stream, { mimeType: 'video/webm; codecs=vp9', videoBitsPerSecond: 15000000 });
+            
+            mediaRecorder.ondataavailable = e => { if(e.data.size > 0) chunks.push(e.data); };
+            mediaRecorder.onstop = () => {
+                const blob = new Blob(chunks, { type: 'video/webm' });
+                const url = URL.createObjectURL(blob);
+                const a = document.createElement('a'); a.href = url;
+                a.download = `kinetic-sequence-${state.width}x${state.height}-${Date.now()}.webm`;
+                a.click(); URL.revokeObjectURL(url);
+                
+                chunks = []; exportCanvas = null; exportCtx = null;
+                document.getElementById('rec-indicator').classList.add('hidden');
+                document.getElementById('rec-indicator').classList.remove('flex');
+                document.getElementById('btn-export').innerHTML = '<i class="ph-bold ph-export"></i> Export WebM';
+                document.getElementById('btn-export').disabled = false;
+                resetTime();
+            };
+
+            isExporting = true;
+            document.getElementById('rec-indicator').classList.remove('hidden'); document.getElementById('rec-indicator').classList.add('flex');
+            document.getElementById('btn-export').innerHTML = 'Processing...'; document.getElementById('btn-export').disabled = true;
+
+            mediaRecorder.start();
+            state.isPlaying = true; state.lastFrameTime = performance.now();
+            animFrameId = requestAnimationFrame(animLoop);
+        }
+
+        function finishExport() {
+            isExporting = false; state.isPlaying = false;
+            if(mediaRecorder && mediaRecorder.state !== 'inactive') setTimeout(() => mediaRecorder.stop(), 100);
+        }
+
+        // --- Start App ---
+        initApp();
+
+    </script>
+</body>
+</html>

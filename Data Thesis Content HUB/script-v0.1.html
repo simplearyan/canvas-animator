@@ -1,0 +1,474 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+    <title>Data Thesis - Script Forge</title>
+    
+    <!-- Google Fonts -->
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800;900&family=JetBrains+Mono:wght@400;500;700&display=swap" rel="stylesheet">
+
+    <!-- Tailwind CSS -->
+    <script src="https://cdn.tailwindcss.com"></script>
+    <script>
+        tailwind.config = {
+            theme: {
+                extend: {
+                    fontFamily: {
+                        sans: ['Inter', 'sans-serif'],
+                        mono: ['JetBrains Mono', 'monospace'],
+                    },
+                    colors: {
+                        blueprint: {
+                            50: '#f0f4f8',
+                            100: '#d9e2ec',
+                            200: '#bcccdc',
+                            300: '#9fb3c8',
+                            800: '#102a43',
+                            900: '#003366',
+                        },
+                        brand: {
+                            red: '#ef4444',
+                            blue: '#3b82f6'
+                        }
+                    }
+                }
+            }
+        }
+    </script>
+
+    <!-- Phosphor Icons -->
+    <script src="https://unpkg.com/@phosphor-icons/web"></script>
+
+    <style>
+        body { overscroll-behavior-y: none; }
+        
+        .blueprint-bg {
+            background-color: #f4f7fa;
+            background-image: 
+                linear-gradient(rgba(0, 51, 102, 0.05) 1px, transparent 1px),
+                linear-gradient(90deg, rgba(0, 51, 102, 0.05) 1px, transparent 1px);
+            background-size: 24px 24px;
+            background-position: center center;
+        }
+
+        /* Custom scrollbars */
+        ::-webkit-scrollbar { width: 6px; height: 6px; }
+        ::-webkit-scrollbar-track { background: transparent; }
+        ::-webkit-scrollbar-thumb { background: #cbd5e1; border-radius: 4px; }
+        ::-webkit-scrollbar-thumb:hover { background: #94a3b8; }
+
+        .teleprompter-bg {
+            background-color: #0f172a;
+            background-image: radial-gradient(#1e293b 1px, transparent 1px);
+            background-size: 20px 20px;
+        }
+    </style>
+</head>
+<body class="blueprint-bg text-slate-800 h-screen flex flex-col overflow-hidden">
+
+    <!-- HEADER -->
+    <header class="h-16 bg-white border-b border-blueprint-900 flex items-center justify-between px-4 sm:px-6 flex-shrink-0 z-20 shadow-sm">
+        <div class="flex items-center gap-3">
+            <div class="border-2 border-blueprint-900 px-2 py-1 flex items-center bg-white shadow-[3px_3px_0px_rgba(0,51,102,0.1)] select-none">
+                <span class="text-lg font-black text-blueprint-900 tracking-tighter uppercase">Data</span>
+                <span class="text-lg font-black text-brand-red tracking-tighter uppercase">Thesis</span>
+            </div>
+            <div class="hidden lg:flex gap-2 text-[10px] font-bold text-blueprint-900 uppercase tracking-widest mt-1">
+                <span class="border border-blueprint-200 px-2 py-0.5 bg-blueprint-50">Script Forge</span>
+                <span class="border border-blueprint-200 px-2 py-0.5 bg-blueprint-50">Template Engine</span>
+            </div>
+        </div>
+
+        <div class="flex items-center gap-2 sm:gap-4">
+            <button onclick="copyFinalScript()" class="text-[10px] sm:text-xs font-bold text-white transition flex items-center gap-2 uppercase tracking-wider bg-blueprint-900 hover:bg-blueprint-800 px-4 py-2 rounded shadow-md">
+                <i class="ph-bold ph-copy text-sm"></i> <span class="hidden sm:inline">Copy Script</span>
+            </button>
+        </div>
+    </header>
+
+    <main class="flex-1 flex flex-col lg:flex-row overflow-hidden relative">
+        
+        <!-- SIDEBAR: TEMPLATE SELECTOR -->
+        <aside class="w-full lg:w-[320px] bg-white border-b lg:border-b-0 lg:border-r border-blueprint-200 flex flex-col z-10 flex-shrink-0 h-[30vh] lg:h-full order-1 shadow-[0_0_15px_rgba(0,0,0,0.02)]">
+            <div class="p-4 border-b border-blueprint-100 bg-blueprint-50">
+                <h2 class="text-xs font-black uppercase tracking-widest text-blueprint-900 flex items-center gap-2">
+                    <i class="ph-fill ph-file-text text-brand-red text-lg"></i> Frameworks
+                </h2>
+                <p class="text-[10px] text-slate-500 mt-1 font-medium">Select a high-retention structure.</p>
+            </div>
+
+            <div id="template-list" class="flex-1 overflow-y-auto p-3 flex flex-col gap-2 custom-scrollbar">
+                <!-- Injected via JS -->
+            </div>
+        </aside>
+
+        <!-- MIDDLE: DYNAMIC INPUTS -->
+        <section class="w-full lg:w-[380px] bg-slate-50 border-b lg:border-b-0 lg:border-r border-blueprint-200 flex flex-col z-10 flex-shrink-0 h-[40vh] lg:h-full order-2">
+            <div class="p-4 border-b border-blueprint-100 bg-white">
+                <h2 class="text-xs font-black uppercase tracking-widest text-blueprint-900 flex items-center gap-2">
+                    <i class="ph-fill ph-sliders text-blue-600 text-lg"></i> Topic Variables
+                </h2>
+                <p class="text-[10px] text-slate-500 mt-1 font-medium">Customize the template for your data.</p>
+            </div>
+            
+            <div id="dynamic-inputs" class="flex-1 overflow-y-auto p-5 flex flex-col gap-4 custom-scrollbar">
+                <div class="text-center text-slate-400 text-xs mt-10 italic">Select a template to view variables.</div>
+            </div>
+        </section>
+
+        <!-- RIGHT: LIVE SCRIPT PREVIEW -->
+        <section class="flex-1 flex flex-col order-3 bg-white h-full relative overflow-hidden">
+            <div class="p-4 border-b border-blueprint-100 bg-white flex justify-between items-center shadow-sm z-10">
+                <div>
+                    <h2 class="text-xs font-black uppercase tracking-widest text-blueprint-900 flex items-center gap-2">
+                        <i class="ph-fill ph-monitor-play text-green-600 text-lg"></i> Studio Teleprompter
+                    </h2>
+                </div>
+                <span class="text-[10px] font-bold bg-green-100 text-green-700 px-2 py-0.5 rounded border border-green-200">Live Preview</span>
+            </div>
+            
+            <div class="flex-1 overflow-y-auto p-4 sm:p-8 teleprompter-bg custom-scrollbar relative">
+                
+                <!-- Director Notes Panel -->
+                <div class="mb-6 bg-slate-800/80 border border-slate-600 p-4 rounded-lg backdrop-blur-sm">
+                    <h3 class="text-[10px] font-bold uppercase tracking-widest text-slate-400 mb-2 border-b border-slate-600 pb-2">Director's Configuration</h3>
+                    <div class="grid grid-cols-2 gap-4">
+                        <div>
+                            <span class="text-[9px] text-slate-500 uppercase block">Audio Profile</span>
+                            <span id="out-audio" class="text-xs font-mono text-blue-300">A clear, deadpan male data analyst.</span>
+                        </div>
+                        <div>
+                            <span class="text-[9px] text-slate-500 uppercase block">Visual Cue</span>
+                            <span id="out-visual" class="text-xs font-mono text-yellow-300">Two intersecting lines on a dark grid.</span>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Script Content -->
+                <div id="script-output" class="max-w-3xl mx-auto flex flex-col gap-4 pb-20">
+                    <div class="text-center text-slate-500 text-sm mt-20 font-mono">Waiting for template generation...</div>
+                </div>
+            </div>
+        </section>
+
+    </main>
+
+    <!-- Toast Container -->
+    <div id="toast-container" class="fixed top-20 right-6 z-[200] flex flex-col gap-3 pointer-events-none w-11/12 sm:w-auto"></div>
+
+    <script>
+        // --- TEMPLATES DATA ---
+        const templates = [
+            {
+                id: 'line-chart',
+                title: 'The Line Chart',
+                theme: 'Exponential Tech / Tipping Points',
+                icon: 'trend-up',
+                color: 'text-blue-500',
+                audioProfile: 'A clear, deadpan male data analyst. Highly articulate, factual, and emotionless. Pace: Fast.',
+                visualCue: 'Two intersecting lines on a dark, neon grid.',
+                variables: [
+                    { id: 'part_num', label: 'Series Part #', default: '14' },
+                    { id: 'topic', label: 'Topic / Assumption', default: 'the electric vehicle transition' },
+                    { id: 'line1_desc', label: 'Line 1 Description', default: 'white line is gas cars' },
+                    { id: 'line1_trend', label: 'Line 1 Action', default: 'flatlining' },
+                    { id: 'line2_desc', label: 'Line 2 Description', default: 'neon green line is EVs' },
+                    { id: 'year', label: 'Intersection Year', default: '2024' }
+                ],
+                generator: (v) => [
+                    { emotion: 'conversational', text: `Data that breaks your brain, part ${v.part_num}.` },
+                    { emotion: 'instructional', text: `You probably think ${v.topic} is moving slowly.` },
+                    { emotion: 'calm', text: `But look at this line chart of global adoption. The ${v.line1_desc}, ${v.line1_trend}. The ${v.line2_desc}.` },
+                    { emotion: 'flat', text: `Watch this exact intersection in ${v.year}. It doesn't just cross; it goes completely vertical.` },
+                    { emotion: 'flat', text: `Numbers don't lie.` }
+                ]
+            },
+            {
+                id: 'parliament',
+                title: 'The Parliament Chart',
+                theme: 'Political Earthquakes / Demographics',
+                icon: 'bank',
+                color: 'text-red-500',
+                audioProfile: 'A clear, deadpan male data analyst. Highly articulate, factual, and emotionless. Pace: Fast.',
+                visualCue: 'A semi-circle "arch" of dots (seats) that aggressively changes colors.',
+                variables: [
+                    { id: 'file_num', label: 'File #', default: '8' },
+                    { id: 'entity', label: 'Governing Entity', default: 'UK government' },
+                    { id: 'year1', label: 'Starting Year', default: '2019' },
+                    { id: 'color1', label: 'Old Power Color', default: 'blue' },
+                    { id: 'year2', label: 'Shift Year', default: '2024' },
+                    { id: 'color2', label: 'New Power Color', default: 'red' }
+                ],
+                generator: (v) => [
+                    { emotion: 'conversational', text: `Visualizing power, file ${v.file_num}.` },
+                    { emotion: 'instructional', text: `A parliament chart is the fastest way to see a political earthquake.` },
+                    { emotion: 'calm', text: `Here is the ${v.entity} in ${v.year1}. The ${v.color1} dots hold the absolute majority.` },
+                    { emotion: 'flat', text: `Now watch the ${v.year2} election data roll in. The ${v.color1} dots get completely wiped out, instantly replaced by a massive ${v.color2} wave sweeping the arch.` },
+                    { emotion: 'flat', text: `A total regime change in one graphic. Unreal.` }
+                ]
+            },
+            {
+                id: 'snake-chart',
+                title: 'The Snake Chart',
+                theme: 'Economic Chaos / Dual Variables',
+                icon: 'chart-line-up',
+                color: 'text-orange-500',
+                audioProfile: 'A clear, deadpan male data analyst. Highly articulate, factual, and emotionless. Pace: Fast.',
+                visualCue: 'A "snake" or connected scatterplot twisting around a 2D grid, tracing years.',
+                variables: [
+                    { id: 'part_num', label: 'Series Part #', default: '22' },
+                    { id: 'var1', label: 'X-Axis Variable', default: 'inflation' },
+                    { id: 'var2', label: 'Y-Axis Variable', default: 'unemployment' },
+                    { id: 'timeframe', label: 'Timeframe', default: 'twenty years' },
+                    { id: 'event1', label: 'Build-up Event', default: '2008 crash' },
+                    { id: 'event2', label: 'Snap Event Year', default: '2020' }
+                ],
+                generator: (v) => [
+                    { emotion: 'conversational', text: `Charts that tell a story, part ${v.part_num}.` },
+                    { emotion: 'instructional', text: `This is a snake chart. Instead of just showing time, it tracks two variables twisting together.` },
+                    { emotion: 'calm', text: `Let's map ${v.var1} against ${v.var2} over ${v.timeframe}.` },
+                    { emotion: 'flat', text: `Watch the snake slowly coil up during the ${v.event1}, and then violently snap sideways right here in ${v.event2}. It literally traces the chaos of the economy.` },
+                    { emotion: 'flat', text: `Perspective shifted.` }
+                ]
+            },
+            {
+                id: 'world-map',
+                title: 'Political Borders Map',
+                theme: 'Impermanence / Geopolitics',
+                icon: 'globe-hemisphere-west',
+                color: 'text-emerald-500',
+                audioProfile: 'A clear, deadpan male data analyst. Highly articulate, factual, and emotionless. Pace: Fast.',
+                visualCue: 'A flat map. Borders animate, dissolve, and redraw rapidly.',
+                variables: [
+                    { id: 'file_num', label: 'File #', default: '10' },
+                    { id: 'region', label: 'Map Region', default: 'Europe' },
+                    { id: 'timeframe', label: 'Timeframe', default: 'last hundred years' },
+                    { id: 'climax_desc', label: 'Action Description', default: 'massive empires dissolve, borders violently redraw themselves, and entire countries pop in and out of existence' }
+                ],
+                generator: (v) => [
+                    { emotion: 'conversational', text: `Maps they don't teach in school, file ${v.file_num}.` },
+                    { emotion: 'instructional', text: `We treat political borders like they are permanent.` },
+                    { emotion: 'calm', text: `But let's animate the map of ${v.region} over just the ${v.timeframe}.` },
+                    { emotion: 'flat', text: `Watch ${v.climax_desc} in seconds. The map isn't static. It's a live battlefield.` },
+                    { emotion: 'flat', text: `Wild.` }
+                ]
+            },
+            {
+                id: 'hindi-data',
+                title: 'The Native Hindi Script',
+                theme: 'Indian Demographics / Hyper-Premium',
+                icon: 'translate',
+                color: 'text-purple-500',
+                audioProfile: 'Native Indian male data analyst. Serious, deadpan, and authoritative (News/Neutral style). Pace: Fast.',
+                visualCue: 'A 3D map of India. Areas go dark, specific plains/coasts glow with intense neon light. Abrupt end with heavy bass drop on "Gajab".',
+                variables: [
+                    { id: 'part_num', label: 'Series Part #', default: '5' },
+                    { id: 'topic_belief', label: 'Common Belief', default: 'India ki aabadi' },
+                    { id: 'map_type', label: 'Map Type', default: '3D population map' },
+                    { id: 'dark_area', label: 'Darkened Area', default: 'baki hisson' },
+                    { id: 'glow_area', label: 'Glowing Area', default: 'Ganga basin aur coastal areas' },
+                    { id: 'insight', label: 'Core Insight', default: 'Zameen kam, log zyada' }
+                ],
+                generator: (v) => [
+                    { emotion: 'conversational', text: `Data jo aapko sochne par majboor kar dega, part ${v.part_num}.` },
+                    { emotion: 'instructional', text: `Hum sochte hain ki ${v.topic_belief} har jagah barabar bati hui hai.` },
+                    { emotion: 'calm', text: `Lekin is ${v.map_type} ko dekhiye. Jaise hi hum ${v.dark_area} ko dark karte hain, sirf ${v.glow_area} glow karne lagte hain.` },
+                    { emotion: 'flat', text: `Is ek chote se hisse mein duniya ke kayi bade deshon se zyada log rahte hain. ${v.insight}.` },
+                    { emotion: 'flat', text: `Data kabhi jhooth nahi bolta. Gajab.` }
+                ]
+            }
+        ];
+
+        // --- APP STATE ---
+        let currentTemplateId = null;
+        let currentValues = {};
+
+        // --- INIT ---
+        window.onload = () => {
+            renderTemplateList();
+            // Auto-select first template
+            if(templates.length > 0) selectTemplate(templates[0].id);
+        };
+
+        // --- UI RENDERING ---
+        function renderTemplateList() {
+            const container = document.getElementById('template-list');
+            container.innerHTML = '';
+
+            templates.forEach(t => {
+                const btn = document.createElement('button');
+                btn.className = `w-full text-left p-3 rounded-md border-2 transition-all flex items-start gap-3 group ${currentTemplateId === t.id ? 'bg-blueprint-50 border-blueprint-900 shadow-sm' : 'bg-white border-blueprint-100 hover:border-blueprint-300'}`;
+                
+                btn.onclick = () => selectTemplate(t.id);
+
+                btn.innerHTML = `
+                    <div class="mt-0.5 ${t.color}">
+                        <i class="ph-fill ph-${t.icon} text-xl"></i>
+                    </div>
+                    <div>
+                        <h3 class="text-sm font-bold text-slate-800 leading-tight">${t.title}</h3>
+                        <p class="text-[10px] text-slate-500 mt-1 uppercase tracking-wider font-semibold">${t.theme}</p>
+                    </div>
+                `;
+                container.appendChild(btn);
+            });
+        }
+
+        function selectTemplate(id) {
+            currentTemplateId = id;
+            renderTemplateList(); // Re-render to update active styling
+            
+            const template = templates.find(t => t.id === id);
+            
+            // Set Director Notes
+            document.getElementById('out-audio').innerText = template.audioProfile;
+            document.getElementById('out-visual').innerText = template.visualCue;
+
+            // Reset current values to defaults for this template
+            currentValues = {};
+            template.variables.forEach(v => {
+                currentValues[v.id] = v.default;
+            });
+
+            renderInputs(template);
+            generateScript();
+        }
+
+        function renderInputs(template) {
+            const container = document.getElementById('dynamic-inputs');
+            container.innerHTML = '';
+
+            template.variables.forEach(v => {
+                const wrapper = document.createElement('div');
+                wrapper.className = 'flex flex-col gap-1.5';
+                
+                wrapper.innerHTML = `
+                    <label class="text-[10px] font-bold text-slate-600 uppercase tracking-widest">${v.label}</label>
+                    <input type="text" 
+                           id="input-${v.id}" 
+                           value="${v.default}" 
+                           oninput="updateValue('${v.id}', this.value)"
+                           class="w-full px-3 py-2 bg-white border border-blueprint-200 text-sm font-medium text-slate-800 rounded outline-none focus:border-blueprint-900 focus:ring-1 focus:ring-blueprint-900 transition-all shadow-sm">
+                `;
+                container.appendChild(wrapper);
+            });
+        }
+
+        function updateValue(id, val) {
+            currentValues[id] = val;
+            generateScript();
+        }
+
+        function generateScript() {
+            if(!currentTemplateId) return;
+            const template = templates.find(t => t.id === currentTemplateId);
+            
+            const lines = template.generator(currentValues);
+            const container = document.getElementById('script-output');
+            container.innerHTML = '';
+
+            lines.forEach((line, index) => {
+                const el = document.createElement('div');
+                el.className = 'flex gap-4 items-start group';
+                
+                // Color code the emotion tags
+                let tagColor = 'bg-slate-700 text-slate-300 border-slate-600';
+                if(line.emotion === 'conversational') tagColor = 'bg-blue-900/50 text-blue-300 border-blue-800';
+                if(line.emotion === 'instructional') tagColor = 'bg-purple-900/50 text-purple-300 border-purple-800';
+                if(line.emotion === 'calm') tagColor = 'bg-emerald-900/50 text-emerald-300 border-emerald-800';
+                if(line.emotion === 'flat') tagColor = 'bg-red-900/50 text-red-300 border-red-800';
+
+                el.innerHTML = `
+                    <div class="flex-shrink-0 w-[120px] pt-1 hidden sm:block">
+                        <span class="inline-block px-2 py-1 text-[9px] font-mono uppercase tracking-widest rounded border ${tagColor}">[${line.emotion}]</span>
+                    </div>
+                    <div class="flex-1 bg-slate-800/40 p-4 rounded-lg border border-slate-700 hover:border-slate-500 transition-colors">
+                        <div class="sm:hidden mb-2">
+                             <span class="inline-block px-2 py-1 text-[9px] font-mono uppercase tracking-widest rounded border ${tagColor}">[${line.emotion}]</span>
+                        </div>
+                        <p class="text-white text-lg sm:text-xl font-medium leading-relaxed tracking-wide">${highlightVariables(line.text, template)}</p>
+                    </div>
+                `;
+                container.appendChild(el);
+            });
+        }
+
+        // Helper to slightly highlight the inserted variables in the text
+        function highlightVariables(text, template) {
+            let processedText = text;
+            // A simple naive replace to bold the inserted values for visual clarity
+            template.variables.forEach(v => {
+                const val = currentValues[v.id];
+                if(val && val.trim() !== '') {
+                    // Use a regex to replace exact matches of the value, avoiding partial matches inside words if possible
+                    // Note: This is a basic highlight for UI purposes.
+                    const regex = new RegExp(`(${escapeRegExp(val)})`, 'g');
+                    processedText = processedText.replace(regex, `<span class="text-yellow-400 font-bold border-b border-yellow-400/30">$1</span>`);
+                }
+            });
+            return processedText;
+        }
+
+        function escapeRegExp(string) {
+            return string.replace(/[.*+?^${}()|[\]\\]/g, '\\$&'); // $& means the whole matched string
+        }
+
+        // --- EXPORT / COPY ---
+        function copyFinalScript() {
+            if(!currentTemplateId) return;
+            const template = templates.find(t => t.id === currentTemplateId);
+            const lines = template.generator(currentValues);
+            
+            let textToCopy = `FORMAT: ${template.title}\n`;
+            textToCopy += `AUDIO: ${template.audioProfile}\n`;
+            textToCopy += `VISUAL: ${template.visualCue}\n\n`;
+            textToCopy += `--- SCRIPT ---\n\n`;
+            
+            lines.forEach(line => {
+                textToCopy += `[${line.emotion.toUpperCase()}] ${line.text}\n\n`;
+            });
+
+            navigator.clipboard.writeText(textToCopy).then(() => {
+                showToast('Script copied to clipboard!', 'success');
+            }).catch(() => {
+                showToast('Failed to copy', 'error');
+            });
+        }
+
+        // --- TOAST SYSTEM ---
+        function showToast(message, type = 'info') {
+            let container = document.getElementById('toast-container');
+            const toast = document.createElement('div');
+            toast.className = `bg-white border-l-4 text-slate-800 px-4 py-3 shadow-xl flex items-center gap-3 transform transition-all -translate-y-4 opacity-0 rounded w-full sm:w-auto`;
+            
+            let icon = 'info';
+            let borderColor = 'border-blueprint-900';
+            let iconColor = 'text-blueprint-900';
+            
+            if (type === 'success') {
+                icon = 'check-circle';
+                borderColor = 'border-green-500';
+                iconColor = 'text-green-500';
+            } else if (type === 'error') {
+                icon = 'warning';
+                borderColor = 'border-brand-red';
+                iconColor = 'text-brand-red';
+            }
+
+            toast.classList.add(borderColor);
+            toast.innerHTML = `<i class="ph-fill ph-${icon} text-lg ${iconColor} shrink-0"></i> <span class="text-xs font-bold uppercase tracking-wide truncate">${message}</span>`;
+            
+            container.appendChild(toast); 
+            requestAnimationFrame(() => toast.classList.remove('-translate-y-4', 'opacity-0'));
+            setTimeout(() => { 
+                toast.classList.add('-translate-y-4', 'opacity-0'); 
+                setTimeout(() => toast.remove(), 300); 
+            }, 3000);
+        }
+
+    </script>
+</body>
+</html>
