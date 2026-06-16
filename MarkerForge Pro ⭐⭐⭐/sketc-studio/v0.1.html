@@ -1,0 +1,707 @@
+<!DOCTYPE html>
+<html lang="en" class="dark">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+    <title>SketchStudio | Real-World Colors</title>
+    
+    <!-- Tailwind CSS -->
+    <script src="https://cdn.tailwindcss.com"></script>
+    <script>
+        tailwind.config = {
+            darkMode: 'class',
+            theme: {
+                extend: {
+                    fontFamily: { sans: ['Inter', 'sans-serif'] },
+                    colors: {
+                        gray: { 850: '#1f2937', 950: '#030712' }
+                    }
+                }
+            }
+        }
+    </script>
+    
+    <!-- Google Fonts & Icons -->
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600&display=swap" rel="stylesheet">
+    <script src="https://unpkg.com/lucide@latest"></script>
+
+    <style>
+        body {
+            font-family: 'Inter', sans-serif;
+            background-color: #0f172a;
+            color: #f8fafc;
+            overflow: hidden;
+            touch-action: none;
+        }
+
+        /* Custom Scrollbar */
+        ::-webkit-scrollbar { width: 4px; height: 4px; }
+        ::-webkit-scrollbar-track { background: transparent; }
+        ::-webkit-scrollbar-thumb { background: rgba(255, 255, 255, 0.1); border-radius: 4px; }
+
+        /* Range Slider Styling */
+        input[type="range"] {
+            -webkit-appearance: none;
+            height: 4px;
+            background: rgba(255,255,255,0.1);
+            border-radius: 2px;
+            outline: none;
+        }
+        input[type="range"]::-webkit-slider-thumb {
+            -webkit-appearance: none;
+            width: 14px;
+            height: 14px;
+            border-radius: 50%;
+            background: #fff;
+            cursor: pointer;
+            box-shadow: 0 0 5px rgba(0,0,0,0.5);
+            transition: transform 0.1s;
+        }
+        input[type="range"]::-webkit-slider-thumb:hover { transform: scale(1.2); }
+
+        /* Canvas Wrapper Setup */
+        #workspace {
+            position: relative;
+            background-color: #e2e8f0; /* Darker backdrop behind paper */
+            background-image: 
+                linear-gradient(45deg, #cbd5e1 25%, transparent 25%), 
+                linear-gradient(-45deg, #cbd5e1 25%, transparent 25%), 
+                linear-gradient(45deg, transparent 75%, #cbd5e1 75%), 
+                linear-gradient(-45deg, transparent 75%, #cbd5e1 75%);
+            background-size: 20px 20px;
+            background-position: 0 0, 0 10px, 10px -10px, -10px 0px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            overflow: hidden;
+        }
+
+        .paper-shadow {
+            box-shadow: 0 25px 50px -12px rgba(0, 0, 0, 0.5), 0 0 0 1px rgba(0,0,0,0.1);
+        }
+
+        canvas {
+            position: absolute;
+            top: 0; left: 0;
+            transform-origin: top left;
+            border-radius: 2px;
+        }
+
+        .tool-btn.active {
+            background-color: rgba(56, 189, 248, 0.15);
+            border-color: rgba(56, 189, 248, 0.5);
+            color: #38bdf8;
+        }
+
+        .color-swatch {
+            transition: all 0.15s;
+        }
+        .color-swatch.active {
+            transform: scale(1.15);
+            box-shadow: 0 0 0 2px #0f172a, 0 0 0 4px #38bdf8;
+            z-index: 10;
+        }
+    </style>
+</head>
+<body class="flex flex-col h-screen text-sm">
+
+    <!-- Top Navigation -->
+    <header class="h-14 bg-gray-950 border-b border-white/10 flex items-center justify-between px-4 z-20 shrink-0">
+        <div class="flex items-center gap-2">
+            <div class="w-8 h-8 rounded bg-gradient-to-br from-indigo-500 to-sky-500 flex items-center justify-center">
+                <i data-lucide="palette" class="w-4 h-4 text-white"></i>
+            </div>
+            <h1 class="font-semibold tracking-tight text-white hidden sm:block">SketchStudio</h1>
+        </div>
+
+        <div class="flex items-center gap-1.5 bg-white/5 p-1 rounded-lg">
+            <button onclick="undo()" class="px-3 py-1.5 rounded text-gray-400 hover:text-white hover:bg-white/10 transition flex items-center gap-2 text-xs" title="Undo (Ctrl+Z)">
+                <i data-lucide="undo" class="w-4 h-4"></i> <span class="hidden md:inline">Undo</span>
+            </button>
+            <div class="w-px h-4 bg-white/10"></div>
+            <button onclick="clearCanvas()" class="px-3 py-1.5 rounded text-rose-400 hover:text-rose-300 hover:bg-rose-500/10 transition flex items-center gap-2 text-xs">
+                <i data-lucide="trash-2" class="w-4 h-4"></i> <span class="hidden md:inline">Clear</span>
+            </button>
+        </div>
+
+        <div class="flex items-center gap-2">
+            <button onclick="togglePreview()" id="btn-preview" class="flex items-center gap-2 px-3 py-1.5 bg-white/5 hover:bg-white/10 rounded-md text-xs font-medium transition border border-white/5">
+                <i data-lucide="play" class="w-4 h-4" id="icon-preview"></i> <span id="text-preview" class="hidden sm:inline">Preview</span>
+            </button>
+            <button onclick="exportImage()" class="flex items-center gap-2 px-3 py-1.5 bg-sky-500 hover:bg-sky-400 text-white rounded-md text-xs font-medium transition shadow-lg shadow-sky-500/20">
+                <i data-lucide="download" class="w-4 h-4"></i> <span class="hidden sm:inline">Export Image</span>
+            </button>
+        </div>
+    </header>
+
+    <!-- Main Workspace -->
+    <div class="flex flex-1 overflow-hidden">
+        
+        <!-- Sidebar Tools -->
+        <aside class="w-64 bg-gray-900 border-r border-white/10 flex flex-col z-10 overflow-y-auto shrink-0">
+            
+            <!-- Tool Selection -->
+            <div class="p-4 border-b border-white/5">
+                <label class="text-[10px] font-semibold text-gray-500 uppercase tracking-wider mb-3 block">Drawing Tools</label>
+                <div class="grid grid-cols-3 gap-2">
+                    <button class="tool-btn active flex flex-col items-center justify-center p-2 rounded-lg border border-white/5 bg-white/5 hover:bg-white/10 transition text-gray-400 gap-1" data-tool="marker" onclick="setTool('marker')">
+                        <i data-lucide="highlighter" class="w-5 h-5"></i>
+                        <span class="text-[10px] font-medium">Marker</span>
+                    </button>
+                    <button class="tool-btn flex flex-col items-center justify-center p-2 rounded-lg border border-white/5 bg-white/5 hover:bg-white/10 transition text-gray-400 gap-1" data-tool="pencil" onclick="setTool('pencil')">
+                        <i data-lucide="pencil" class="w-5 h-5"></i>
+                        <span class="text-[10px] font-medium">Pencil</span>
+                    </button>
+                    <button class="tool-btn flex flex-col items-center justify-center p-2 rounded-lg border border-white/5 bg-white/5 hover:bg-white/10 transition text-gray-400 gap-1" data-tool="eraser" onclick="setTool('eraser')">
+                        <i data-lucide="eraser" class="w-5 h-5"></i>
+                        <span class="text-[10px] font-medium">Eraser</span>
+                    </button>
+                </div>
+            </div>
+
+            <!-- Properties -->
+            <div class="p-4 border-b border-white/5 space-y-4">
+                <div>
+                    <div class="flex justify-between items-center mb-2">
+                        <span class="text-xs text-gray-300">Size</span>
+                        <span id="val-size" class="text-[10px] text-gray-500 font-mono">15px</span>
+                    </div>
+                    <input type="range" id="slider-size" min="1" max="100" value="15" class="w-full" oninput="updateProps()">
+                </div>
+                <div>
+                    <div class="flex justify-between items-center mb-2">
+                        <span class="text-xs text-gray-300">Opacity / Flow</span>
+                        <span id="val-opacity" class="text-[10px] text-gray-500 font-mono">60%</span>
+                    </div>
+                    <input type="range" id="slider-opacity" min="1" max="100" value="60" class="w-full" oninput="updateProps()">
+                </div>
+            </div>
+
+            <!-- Real World Colors -->
+            <div class="p-4 border-b border-white/5 flex-1">
+                <label class="text-[10px] font-semibold text-gray-500 uppercase tracking-wider mb-3 block flex items-center justify-between">
+                    Sketch Palette
+                    <input type="color" id="custom-color" class="w-4 h-4 rounded cursor-pointer border-0 bg-transparent p-0" onchange="setCustomColor(this.value)">
+                </label>
+                
+                <div class="space-y-4">
+                    <!-- Greys -->
+                    <div>
+                        <span class="text-[9px] text-gray-500 block mb-1.5">Warm Greys</span>
+                        <div class="flex gap-1.5" id="palette-warm"></div>
+                    </div>
+                    <div>
+                        <span class="text-[9px] text-gray-500 block mb-1.5">Cool Greys</span>
+                        <div class="flex gap-1.5" id="palette-cool"></div>
+                    </div>
+                    <!-- Skin Tones -->
+                    <div>
+                        <span class="text-[9px] text-gray-500 block mb-1.5">Skin / Earth</span>
+                        <div class="flex gap-1.5 flex-wrap" id="palette-earth"></div>
+                    </div>
+                    <!-- Vibrant -->
+                    <div>
+                        <span class="text-[9px] text-gray-500 block mb-1.5">Vibrant Inks</span>
+                        <div class="flex gap-1.5 flex-wrap" id="palette-vibrant"></div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Reference Image -->
+            <div class="p-4 bg-black/20">
+                <label class="text-[10px] font-semibold text-gray-500 uppercase tracking-wider mb-2 block">Reference Layer</label>
+                <div class="flex gap-2">
+                    <button onclick="document.getElementById('ref-upload').click()" class="flex-1 bg-white/5 hover:bg-white/10 border border-white/10 py-1.5 rounded text-xs transition">Upload Image</button>
+                    <button onclick="clearBackground()" class="px-2 bg-rose-500/10 hover:bg-rose-500/20 text-rose-400 border border-rose-500/20 rounded transition" title="Clear Reference">
+                        <i data-lucide="x" class="w-3.5 h-3.5"></i>
+                    </button>
+                </div>
+                <input type="file" id="ref-upload" class="hidden" accept="image/*" onchange="loadReference(event)">
+                <p class="text-[9px] text-gray-500 mt-2 leading-tight">Image will be placed on a base layer and included in export.</p>
+            </div>
+
+        </aside>
+
+        <!-- Canvas Area -->
+        <main id="workspace" class="flex-1 relative cursor-crosshair">
+            <div id="canvas-container" class="relative paper-shadow bg-white overflow-hidden">
+                <!-- Background Layer (Reference Images) -->
+                <canvas id="bg-canvas"></canvas>
+                <!-- Drawing Layer -->
+                <canvas id="draw-canvas"></canvas>
+            </div>
+            
+            <!-- Toast Notification -->
+            <div id="toast" class="absolute top-4 left-1/2 transform -translate-x-1/2 bg-gray-900 text-white px-4 py-2 rounded shadow-xl border border-white/10 text-xs font-medium opacity-0 pointer-events-none transition-opacity duration-300 z-50">
+                Notification
+            </div>
+        </main>
+    </div>
+
+    <!-- Export Overlay -->
+    <div id="export-overlay" class="fixed inset-0 z-50 bg-black/80 hidden flex-col items-center justify-center backdrop-blur-sm transition-opacity opacity-0">
+        <i data-lucide="loader-2" class="w-8 h-8 text-sky-400 animate-spin mb-4"></i>
+        <h2 class="text-lg font-medium">Processing High-Res Export...</h2>
+    </div>
+
+    <script>
+        // Initialize Icons
+        lucide.createIcons();
+
+        // --- Core Application State ---
+        const state = {
+            tool: 'marker', // marker, pencil, eraser
+            color: '#E5002D', // Current hex
+            size: 15,
+            opacity: 0.6,
+            isDrawing: false,
+            history: [], // Array of stroke objects
+            currentStroke: null,
+            canvasWidth: 1080, // Default Logical Size (Instagram Square)
+            canvasHeight: 1080,
+            isPlaying: false,
+            animFrame: null
+        };
+
+        // --- Palette Configuration (Copic Inspired) ---
+        const palettes = {
+            warm: [
+                { hex: '#EBE6E0', name: 'W1' }, { hex: '#C1BCB6', name: 'W3' }, 
+                { hex: '#95908B', name: 'W5' }, { hex: '#585552', name: 'W7' }
+            ],
+            cool: [
+                { hex: '#E2E6E9', name: 'C1' }, { hex: '#A8AFB4', name: 'C3' }, 
+                { hex: '#7F8285', name: 'C5' }, { hex: '#4B4D50', name: 'C7' }
+            ],
+            earth: [
+                { hex: '#FEF3EC', name: 'Pale Pink' }, { hex: '#FADFC8', name: 'Flesh' }, 
+                { hex: '#E4B898', name: 'Light Oak' }, { hex: '#C05A32', name: 'Burnt Sienna' },
+                { hex: '#713E23', name: 'Umber' }
+            ],
+            vibrant: [
+                { hex: '#E5002D', name: 'Cadmium Red' }, { hex: '#FF7F00', name: 'Chrome Orange' },
+                { hex: '#FFF460', name: 'Lemon' }, { hex: '#244F26', name: 'Sap Green' },
+                { hex: '#00A8E8', name: 'Cyan' }, { hex: '#004CA3', name: 'Ultramarine' },
+                { hex: '#6B3FA0', name: 'Violet' }, { hex: '#000000', name: '100 Black' }
+            ]
+        };
+
+        // --- Canvas Setup ---
+        const container = document.getElementById('canvas-container');
+        const bgCanvas = document.getElementById('bg-canvas');
+        const drawCanvas = document.getElementById('draw-canvas');
+        const bgCtx = bgCanvas.getContext('2d', { willReadFrequently: true });
+        const drawCtx = drawCanvas.getContext('2d', { willReadFrequently: true });
+
+        function initCanvases() {
+            // Handle high DPI displays for crisp drawing
+            const dpr = window.devicePixelRatio || 1;
+            
+            // Set actual DOM element size (CSS)
+            container.style.width = `${state.canvasWidth}px`;
+            container.style.height = `${state.canvasHeight}px`;
+
+            [bgCanvas, drawCanvas].forEach(canvas => {
+                canvas.width = state.canvasWidth * dpr;
+                canvas.height = state.canvasHeight * dpr;
+                canvas.style.width = `${state.canvasWidth}px`;
+                canvas.style.height = `${state.canvasHeight}px`;
+            });
+
+            // Scale contexts to logical size
+            bgCtx.scale(dpr, dpr);
+            drawCtx.scale(dpr, dpr);
+
+            // Fill background with white paper
+            bgCtx.fillStyle = '#ffffff';
+            bgCtx.fillRect(0, 0, state.canvasWidth, state.canvasHeight);
+
+            // Scale visuals to fit workspace
+            scaleToFitWorkspace();
+        }
+
+        function scaleToFitWorkspace() {
+            const workspace = document.getElementById('workspace');
+            const padding = 40;
+            const scaleX = (workspace.clientWidth - padding) / state.canvasWidth;
+            const scaleY = (workspace.clientHeight - padding) / state.canvasHeight;
+            const scale = Math.min(scaleX, scaleY, 1); // Don't scale above 100%
+            
+            container.style.transform = `scale(${scale})`;
+        }
+
+        window.addEventListener('resize', scaleToFitWorkspace);
+
+        // --- Setup UI ---
+        function buildPalette(id, colors) {
+            const el = document.getElementById(id);
+            colors.forEach(c => {
+                const btn = document.createElement('button');
+                btn.className = 'w-6 h-6 rounded-full color-swatch shadow-inner';
+                btn.style.backgroundColor = c.hex;
+                btn.title = c.name;
+                btn.onclick = () => setColor(c.hex, btn);
+                el.appendChild(btn);
+            });
+        }
+
+        function initUI() {
+            buildPalette('palette-warm', palettes.warm);
+            buildPalette('palette-cool', palettes.cool);
+            buildPalette('palette-earth', palettes.earth);
+            buildPalette('palette-vibrant', palettes.vibrant);
+            
+            // Set initial color
+            const firstBtn = document.getElementById('palette-vibrant').firstElementChild;
+            setColor(palettes.vibrant[0].hex, firstBtn);
+        }
+
+        function setTool(tool) {
+            state.tool = tool;
+            document.querySelectorAll('.tool-btn').forEach(btn => {
+                btn.classList.toggle('active', btn.dataset.tool === tool);
+            });
+
+            // Smart defaults based on tool
+            const opSlider = document.getElementById('slider-opacity');
+            if(tool === 'marker') opSlider.value = 60;
+            if(tool === 'pencil') opSlider.value = 90;
+            if(tool === 'eraser') opSlider.value = 100;
+            updateProps();
+        }
+
+        function setColor(hex, btnElement = null) {
+            state.color = hex;
+            document.getElementById('custom-color').value = hex;
+            
+            document.querySelectorAll('.color-swatch').forEach(btn => btn.classList.remove('active'));
+            if(btnElement) btnElement.classList.add('active');
+            
+            // Switch to marker if eraser is active
+            if(state.tool === 'eraser') setTool('marker');
+        }
+
+        function setCustomColor(hex) {
+            setColor(hex);
+        }
+
+        function updateProps() {
+            state.size = parseInt(document.getElementById('slider-size').value);
+            state.opacity = parseInt(document.getElementById('slider-opacity').value) / 100;
+            
+            document.getElementById('val-size').innerText = state.size + 'px';
+            document.getElementById('val-opacity').innerText = Math.round(state.opacity * 100) + '%';
+        }
+
+        // --- Drawing Mechanics ---
+        function getMousePos(evt) {
+            const rect = drawCanvas.getBoundingClientRect();
+            // Map screen coordinates back to logical canvas coordinates based on scale
+            const scaleX = state.canvasWidth / rect.width;
+            const scaleY = state.canvasHeight / rect.height;
+            
+            let clientX = evt.clientX;
+            let clientY = evt.clientY;
+
+            // Handle touch events
+            if (evt.touches && evt.touches.length > 0) {
+                clientX = evt.touches[0].clientX;
+                clientY = evt.touches[0].clientY;
+            }
+
+            return {
+                x: (clientX - rect.left) * scaleX,
+                y: (clientY - rect.top) * scaleY
+            };
+        }
+
+        function startDrawing(e) {
+            if (state.isPlaying) return;
+            e.preventDefault();
+            state.isDrawing = true;
+            const pos = getMousePos(e);
+            
+            state.currentStroke = {
+                tool: state.tool,
+                color: state.color,
+                size: state.size,
+                opacity: state.opacity,
+                points: [pos]
+            };
+
+            // Setup Context for this stroke
+            setupContext(drawCtx, state.currentStroke);
+            
+            drawCtx.beginPath();
+            drawCtx.moveTo(pos.x, pos.y);
+            // Draw a dot on initial click
+            drawCtx.lineTo(pos.x + 0.01, pos.y);
+            drawCtx.stroke();
+        }
+
+        function draw(e) {
+            if (!state.isDrawing || state.isPlaying) return;
+            e.preventDefault();
+            const pos = getMousePos(e);
+            
+            state.currentStroke.points.push(pos);
+            drawCtx.lineTo(pos.x, pos.y);
+            drawCtx.stroke();
+        }
+
+        function stopDrawing(e) {
+            if (!state.isDrawing) return;
+            e.preventDefault();
+            state.isDrawing = false;
+            if (state.currentStroke && state.currentStroke.points.length > 0) {
+                state.history.push(state.currentStroke);
+            }
+            state.currentStroke = null;
+        }
+
+        function setupContext(ctx, strokeConfig) {
+            ctx.lineCap = 'round';
+            ctx.lineJoin = 'round';
+            ctx.lineWidth = strokeConfig.size;
+            
+            // Native Canvas blend modes are the secret sauce here.
+            if (strokeConfig.tool === 'marker') {
+                // Multiply makes ink darken realistically when overlapping
+                ctx.globalCompositeOperation = 'multiply';
+                
+                // Convert hex to rgba to apply opacity natively
+                ctx.strokeStyle = hexToRgba(strokeConfig.color, strokeConfig.opacity);
+            } 
+            else if (strokeConfig.tool === 'pencil') {
+                // Normal drawing, solid feel
+                ctx.globalCompositeOperation = 'source-over';
+                ctx.strokeStyle = hexToRgba(strokeConfig.color, strokeConfig.opacity);
+            }
+            else if (strokeConfig.tool === 'eraser') {
+                // Erase from the drawing layer (revealing background)
+                ctx.globalCompositeOperation = 'destination-out';
+                ctx.strokeStyle = `rgba(0,0,0,${strokeConfig.opacity})`; 
+            }
+        }
+
+        function hexToRgba(hex, alpha) {
+            let r = parseInt(hex.slice(1, 3), 16),
+                g = parseInt(hex.slice(3, 5), 16),
+                b = parseInt(hex.slice(5, 7), 16);
+            return `rgba(${r}, ${g}, ${b}, ${alpha})`;
+        }
+
+        // Event Listeners
+        drawCanvas.addEventListener('mousedown', startDrawing);
+        drawCanvas.addEventListener('mousemove', draw);
+        window.addEventListener('mouseup', stopDrawing);
+
+        drawCanvas.addEventListener('touchstart', startDrawing, {passive: false});
+        drawCanvas.addEventListener('touchmove', draw, {passive: false});
+        window.addEventListener('touchend', stopDrawing);
+
+        // --- Core Actions ---
+        function undo() {
+            if (state.isPlaying || state.history.length === 0) return;
+            state.history.pop();
+            redrawHistory();
+            showToast('Undo successful');
+        }
+
+        function clearCanvas() {
+            if (state.isPlaying) return;
+            state.history = [];
+            drawCtx.clearRect(0, 0, state.canvasWidth, state.canvasHeight);
+            showToast('Drawing cleared');
+        }
+
+        function redrawHistory() {
+            drawCtx.clearRect(0, 0, state.canvasWidth, state.canvasHeight);
+            state.history.forEach(stroke => {
+                setupContext(drawCtx, stroke);
+                drawCtx.beginPath();
+                drawCtx.moveTo(stroke.points[0].x, stroke.points[0].y);
+                stroke.points.forEach(p => drawCtx.lineTo(p.x, p.y));
+                drawCtx.stroke();
+            });
+        }
+
+        // --- Image Reference Handling ---
+        function loadReference(event) {
+            const file = event.target.files[0];
+            if (!file) return;
+
+            const reader = new FileReader();
+            reader.onload = function(e) {
+                const img = new Image();
+                img.onload = function() {
+                    // Draw centered and scaled to fit
+                    bgCtx.fillStyle = '#ffffff';
+                    bgCtx.fillRect(0, 0, state.canvasWidth, state.canvasHeight);
+                    
+                    const scale = Math.min(state.canvasWidth / img.width, state.canvasHeight / img.height);
+                    const w = img.width * scale;
+                    const h = img.height * scale;
+                    const x = (state.canvasWidth - w) / 2;
+                    const y = (state.canvasHeight - h) / 2;
+                    
+                    // Draw faded reference
+                    bgCtx.globalAlpha = 0.5; 
+                    bgCtx.drawImage(img, x, y, w, h);
+                    bgCtx.globalAlpha = 1.0;
+                    
+                    showToast('Reference image loaded');
+                };
+                img.src = e.target.result;
+            };
+            reader.readAsDataURL(file);
+            event.target.value = ''; // Reset
+        }
+
+        function clearBackground() {
+            bgCtx.fillStyle = '#ffffff';
+            bgCtx.fillRect(0, 0, state.canvasWidth, state.canvasHeight);
+            showToast('Reference cleared');
+        }
+
+        // --- Preview Animation (Stroke Replay) ---
+        function togglePreview() {
+            if (state.history.length === 0) {
+                showToast('Draw something first to preview!');
+                return;
+            }
+
+            if (state.isPlaying) {
+                stopPreview();
+                return;
+            }
+
+            state.isPlaying = true;
+            document.getElementById('icon-preview').setAttribute('data-lucide', 'square');
+            document.getElementById('text-preview').innerText = 'Stop';
+            document.getElementById('btn-preview').classList.replace('bg-white/5', 'bg-rose-500/20');
+            document.getElementById('btn-preview').classList.add('text-rose-400', 'border-rose-500/50');
+            lucide.createIcons();
+
+            drawCtx.clearRect(0, 0, state.canvasWidth, state.canvasHeight);
+            
+            let strokeIdx = 0;
+            let pointIdx = 0;
+
+            function animateNext() {
+                if (!state.isPlaying) return;
+
+                if (strokeIdx >= state.history.length) {
+                    stopPreview();
+                    return;
+                }
+
+                const stroke = state.history[strokeIdx];
+                
+                if (pointIdx === 0) {
+                    setupContext(drawCtx, stroke);
+                    drawCtx.beginPath();
+                    drawCtx.moveTo(stroke.points[0].x, stroke.points[0].y);
+                }
+
+                // Draw next few points per frame to speed it up depending on stroke length
+                let pointsPerFrame = Math.max(1, Math.floor(stroke.points.length / 20));
+                
+                for(let i=0; i<pointsPerFrame; i++) {
+                    if (pointIdx < stroke.points.length) {
+                        const p = stroke.points[pointIdx];
+                        drawCtx.lineTo(p.x, p.y);
+                        drawCtx.stroke();
+                        
+                        // Begin new path so it doesn't stroke the whole thing repeatedly
+                        drawCtx.beginPath();
+                        drawCtx.moveTo(p.x, p.y);
+                        
+                        pointIdx++;
+                    }
+                }
+
+                if (pointIdx >= stroke.points.length) {
+                    strokeIdx++;
+                    pointIdx = 0;
+                }
+
+                state.animFrame = requestAnimationFrame(animateNext);
+            }
+
+            animateNext();
+        }
+
+        function stopPreview() {
+            state.isPlaying = false;
+            cancelAnimationFrame(state.animFrame);
+            
+            document.getElementById('icon-preview').setAttribute('data-lucide', 'play');
+            document.getElementById('text-preview').innerText = 'Preview';
+            document.getElementById('btn-preview').classList.replace('bg-rose-500/20', 'bg-white/5');
+            document.getElementById('btn-preview').classList.remove('text-rose-400', 'border-rose-500/50');
+            lucide.createIcons();
+            
+            // Instantly draw final state
+            redrawHistory();
+        }
+
+        // --- Export Feature ---
+        function exportImage() {
+            if(state.isPlaying) stopPreview();
+
+            const overlay = document.getElementById('export-overlay');
+            overlay.classList.remove('hidden');
+            overlay.classList.remove('opacity-0');
+
+            setTimeout(() => {
+                // Combine background and drawing onto a temporary canvas
+                const tempCanvas = document.createElement('canvas');
+                tempCanvas.width = state.canvasWidth;
+                tempCanvas.height = state.canvasHeight;
+                const tCtx = tempCanvas.getContext('2d');
+
+                // Draw Background
+                tCtx.drawImage(bgCanvas, 0, 0, state.canvasWidth, state.canvasHeight);
+                // Draw Strokes
+                tCtx.drawImage(drawCanvas, 0, 0, state.canvasWidth, state.canvasHeight);
+
+                // Export
+                const dataURL = tempCanvas.toDataURL('image/png');
+                const link = document.createElement('a');
+                link.download = `SketchStudio_Export_${Date.now()}.png`;
+                link.href = dataURL;
+                link.click();
+
+                overlay.classList.add('opacity-0');
+                setTimeout(() => overlay.classList.add('hidden'), 300);
+                showToast('Image exported successfully!');
+            }, 500); // UI visual delay
+        }
+
+        // --- Utils ---
+        function showToast(msg) {
+            const toast = document.getElementById('toast');
+            toast.innerText = msg;
+            toast.classList.remove('opacity-0');
+            setTimeout(() => toast.classList.add('opacity-0'), 2500);
+        }
+
+        // Keyboard Shortcuts
+        window.addEventListener('keydown', (e) => {
+            if ((e.ctrlKey || e.metaKey) && e.key === 'z') {
+                e.preventDefault();
+                undo();
+            }
+        });
+
+        // Initialize App
+        window.onload = () => {
+            initCanvases();
+            initUI();
+            updateProps();
+        };
+
+    </script>
+</body>
+</html>

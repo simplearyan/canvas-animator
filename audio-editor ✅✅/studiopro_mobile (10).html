@@ -1,0 +1,1197 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+    <title>StudioPro | Responsive Creator Studio</title>
+    
+    <!-- Fonts -->
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&display=swap" rel="stylesheet">
+    
+    <!-- Tailwind CSS -->
+    <script src="https://cdn.tailwindcss.com"></script>
+    <script>
+        tailwind.config = {
+            theme: {
+                extend: {
+                    fontFamily: { sans: ['Inter', 'sans-serif'] },
+                    height: { 'dvh': '100dvh' },
+                    colors: {
+                        neutral: { 750: '#2d2d2d', 850: '#1f1f1f', 950: '#0a0a0a' },
+                        brand: { 50: '#eff6ff', 100: '#dbeafe', 500: '#3b82f6', 600: '#2563eb', 700: '#1d4ed8' }
+                    }
+                }
+            }
+        }
+    </script>
+
+    <!-- Icons -->
+    <script src="https://unpkg.com/lucide@latest"></script>
+
+    <style>
+        /* Hide scrollbars for clean mobile app feel */
+        ::-webkit-scrollbar { display: none; }
+        * { -ms-overflow-style: none; scrollbar-width: none; -webkit-tap-highlight-color: transparent; }
+        body { overscroll-behavior: none; background-color: #0a0a0a; color: white; }
+
+        /* Timeline & Scrolling */
+        .timeline-scroll-area {
+            touch-action: pan-x; /* Allow horizontal native scrolling */
+            scroll-behavior: auto;
+        }
+        
+        .timeline-bg {
+            background-color: #171717; /* neutral-900 */
+            background-image: linear-gradient(to right, #262626 1px, transparent 1px);
+            background-size: 50px 100%;
+            background-attachment: local;
+        }
+
+        /* Clips */
+        .clip {
+            transition: transform 0.1s ease, filter 0.2s ease;
+            touch-action: none; 
+            border-radius: 8px;
+            box-shadow: 0 4px 6px -1px rgba(0,0,0,0.3);
+            border: 1px solid rgba(255,255,255,0.1);
+            overflow: hidden;
+        }
+        .clip.selected {
+            border: 2px solid white !important;
+            z-index: 45;
+        }
+        .clip.dragging {
+            opacity: 0.9; z-index: 50 !important;
+            transform: scale(1.02);
+            box-shadow: 0 10px 20px rgba(0,0,0,0.5);
+        }
+        .clip.overlapping {
+            border: 2px solid #ef4444 !important;
+            background-image: repeating-linear-gradient(-45deg, rgba(239,68,68,0.3), rgba(239,68,68,0.3) 10px, transparent 10px, transparent 20px) !important;
+        }
+
+        /* Trim Handles */
+        .trim-handle {
+            position: absolute; top: 0; bottom: 0; width: 30px; 
+            display: flex; align-items: center; justify-content: center;
+            cursor: col-resize; z-index: 30; touch-action: none;
+        }
+        .trim-handle::after {
+            content: ''; width: 6px; height: 32px; border-radius: 4px;
+            background: white; opacity: 0; transition: opacity 0.2s;
+            box-shadow: 0 0 4px rgba(0,0,0,0.5);
+        }
+        .clip.selected .trim-handle::after { opacity: 1; }
+        .trim-handle.left { left: -12px; }
+        .trim-handle.right { right: -12px; }
+
+        /* Custom Slider */
+        input[type=range].yt-slider { background: rgba(255,255,255,0.2); height: 4px; border-radius: 2px; }
+        input[type=range].yt-slider::-webkit-slider-thumb {
+            -webkit-appearance: none; height: 20px; width: 20px; border-radius: 50%;
+            background: white; cursor: pointer; box-shadow: 0 2px 5px rgba(0,0,0,0.5);
+            margin-top: -8px;
+        }
+
+        .fade-in { animation: fadeIn 0.2s ease-out forwards; }
+        @keyframes fadeIn { from { opacity: 0; transform: translateY(10px); } to { opacity: 1; transform: translateY(0); } }
+        .safe-area-pb { padding-bottom: env(safe-area-inset-bottom, 16px); }
+    </style>
+</head>
+<body class="h-dvh flex flex-col font-sans w-full relative bg-neutral-950 shadow-2xl overflow-hidden">
+
+    <!-- Premium Drag Tooltip -->
+    <div id="dragTooltip" class="fixed hidden bg-brand-600 text-white text-[11px] font-mono font-bold px-3 py-1.5 rounded-full shadow-lg z-[200] transform -translate-x-1/2 pointer-events-none transition-opacity duration-75">
+        00:00
+    </div>
+
+    <!-- Export Overlay -->
+    <div id="exportOverlay" class="fixed inset-0 bg-black/95 backdrop-blur-md z-[100] hidden flex-col items-center justify-center p-6">
+        <div class="bg-neutral-900 border border-neutral-800 p-8 rounded-3xl flex flex-col items-center max-w-xs w-full shadow-2xl">
+            <div class="relative w-16 h-16 mb-6">
+                <svg class="animate-spin w-full h-full text-neutral-700" viewBox="0 0 24 24"><circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4" fill="none"></circle><path class="opacity-75" fill="white" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path></svg>
+            </div>
+            <h3 class="text-lg font-bold text-white mb-2">Exporting...</h3>
+            <p class="text-xs text-neutral-400 mb-6 text-center">Don't close the app or lock your screen.</p>
+            <div class="w-full bg-neutral-800 h-2.5 rounded-full overflow-hidden">
+                <div id="exportProgressBar" class="h-full bg-white w-0 transition-all duration-[50ms] ease-linear"></div>
+            </div>
+            <p id="exportProgressText" class="text-xs font-bold text-neutral-300 mt-3">0%</p>
+        </div>
+    </div>
+
+    <!-- Hidden File Input -->
+    <input type="file" id="mediaInput" accept="audio/*,video/*" class="hidden" multiple>
+
+    <!-- Global Header -->
+    <header class="h-14 flex items-center justify-between px-4 shrink-0 z-30 bg-neutral-950 border-b border-neutral-900">
+        <div class="flex items-center gap-2">
+            <button class="w-8 h-8 flex items-center justify-center text-white"><i data-lucide="chevron-left" class="w-6 h-6"></i></button>
+            <h1 class="text-sm font-bold tracking-wide">My Project</h1>
+        </div>
+        <button id="btnExport" class="bg-white text-black px-5 py-1.5 rounded-full text-xs font-bold active:scale-95 transition-transform">
+            Export
+        </button>
+    </header>
+
+    <!-- Main Workspace (Responsive Split View) -->
+    <main class="flex-1 flex flex-col md:flex-row overflow-hidden relative w-full">
+        
+        <!-- Left Pane: Preview Area -->
+        <div id="previewContainer" class="flex-[0.55] sm:flex-[0.6] md:flex-none md:w-[50%] lg:w-[45%] w-full relative p-2 md:p-4 flex flex-col items-center justify-center bg-neutral-950 shrink-0 z-10 min-h-0 min-w-0">
+            <!-- Fullscreen Exit Button -->
+            <button id="btnExitFullscreen" class="absolute top-4 right-4 sm:top-6 sm:right-6 z-50 p-2.5 bg-black/60 backdrop-blur-sm rounded-full text-white hidden hover:bg-black/80 transition-colors">
+                <i data-lucide="minimize" class="w-6 h-6"></i>
+            </button>
+
+            <div id="canvasAspectWrapper" class="relative bg-neutral-900 rounded-xl shadow-lg overflow-hidden flex items-center justify-center border border-white/5 shrink-0">
+                <canvas id="renderCanvas" class="absolute inset-0 w-full h-full object-contain hidden"></canvas>
+                <div class="absolute inset-0 bg-neutral-900 flex flex-col items-center justify-center text-neutral-600 gap-2 pointer-events-none">
+                    <i data-lucide="image" class="w-8 h-8 opacity-50"></i>
+                    <span class="text-xs font-medium tracking-widest uppercase">Preview</span>
+                </div>
+            </div>
+        </div>
+
+        <!-- Right Pane: Timeline & Controls Area -->
+        <div class="flex-1 flex flex-col overflow-hidden bg-neutral-900 rounded-t-3xl md:rounded-tl-3xl md:rounded-tr-none relative mt-1 md:mt-0 border-t md:border-t-0 md:border-l border-neutral-800 shadow-[0_-10px_40px_rgba(0,0,0,0.3)] md:shadow-none">
+            
+            <!-- Playback & Controls Row -->
+            <div class="h-14 px-4 flex items-center justify-between shrink-0 bg-neutral-900/80 backdrop-blur-md z-20 rounded-t-3xl md:rounded-tl-3xl md:rounded-tr-none">
+                <!-- Left: Time Display & Quick Tools -->
+                <div class="w-1/3 flex items-center justify-start gap-1 sm:gap-2">
+                    <div class="font-mono text-[11px] sm:text-sm font-semibold tracking-wider text-neutral-300 w-9 sm:w-12 shrink-0">
+                        <span id="timeDisplay">00:00</span>
+                    </div>
+                    <div class="flex items-center gap-0.5 border-l border-neutral-700 pl-1 sm:pl-2 shrink-0">
+                        <button id="btnHeaderSplit" class="text-neutral-400 hover:text-white active:text-white transition-colors p-1" title="Split Clip">
+                            <i data-lucide="scissors" class="w-4 h-4 md:w-5 md:h-5"></i>
+                        </button>
+                        <button id="btnHeaderDelete" class="text-neutral-400 hover:text-red-400 active:text-red-400 transition-colors p-1" title="Delete Clip">
+                            <i data-lucide="trash-2" class="w-4 h-4 md:w-5 md:h-5"></i>
+                        </button>
+                    </div>
+                </div>
+                
+                <!-- Center: Play Button -->
+                <div class="w-1/3 flex items-center justify-center">
+                    <button id="btnPlay" class="text-white flex items-center justify-center p-2">
+                        <span id="wrapperPlay" class="flex items-center justify-center"><i data-lucide="play" class="w-7 h-7 md:w-8 md:h-8 ml-0.5 fill-current"></i></span>
+                        <span id="wrapperPause" class="hidden items-center justify-center"><i data-lucide="pause" class="w-7 h-7 md:w-8 md:h-8 fill-current"></i></span>
+                    </button>
+                </div>
+                
+                <!-- Right: Toggles -->
+                <div class="w-1/3 flex items-center justify-end gap-2 sm:gap-3">
+                    <button id="btnTogglePreview" class="text-neutral-400 hover:text-white active:text-white transition-colors p-1" title="Hide/Show Preview">
+                        <i data-lucide="eye" id="iconEye" class="w-5 h-5 md:w-6 md:h-6"></i>
+                    </button>
+                    <button id="btnFullscreen" class="text-neutral-400 hover:text-white active:text-white transition-colors p-1" title="Fullscreen">
+                        <i data-lucide="maximize" class="w-5 h-5 md:w-6 md:h-6"></i>
+                    </button>
+                    <button id="btnToggleAspect" class="text-neutral-400 hover:text-white active:text-white transition-colors p-1 hidden md:flex" title="Toggle Aspect Ratio">
+                        <i data-lucide="monitor-smartphone" id="iconAspect" class="w-5 h-5 md:w-6 md:h-6"></i>
+                    </button>
+                    <button id="btnToggleAspectMobile" class="text-neutral-400 active:text-white transition-colors p-1 flex md:hidden" title="Toggle Aspect Ratio">
+                        <i data-lucide="smartphone" id="iconAspectMobile" class="w-5 h-5 md:w-6 md:h-6"></i>
+                    </button>
+                </div>
+            </div>
+
+            <!-- Timeline Scroll View -->
+            <div id="timelineScrollArea" class="flex-1 timeline-scroll-area overflow-x-auto relative timeline-bg">
+                <!-- Dynamic Canvas Ruler -->
+                <canvas id="rulerCanvas" class="sticky top-0 left-0 h-6 z-10 pointer-events-none"></canvas>
+                
+                <!-- Tracks Content (Clips) -->
+                <div id="tracksContent" class="relative min-h-[150px] pb-6 md:pb-12">
+                    <!-- Clips injected here -->
+                </div>
+            </div>
+
+            <!-- Fixed Center Playhead -->
+            <div class="absolute top-[56px] bottom-0 left-1/2 w-[1.5px] bg-white z-[100] transform -translate-x-1/2 pointer-events-none shadow-[0_0_10px_rgba(255,255,255,0.5)]">
+                <div class="absolute -top-1 left-1/2 transform -translate-x-1/2 w-0 h-0 border-l-[6px] border-l-transparent border-r-[6px] border-r-transparent border-t-[8px] border-t-white"></div>
+            </div>
+            
+            <!-- YouTube Create Style Action Toolbar -->
+            <div id="actionToolbar" class="bg-neutral-900 border-t border-neutral-800 shrink-0 safe-area-pb">
+                
+                <!-- STATE 1: Global Tools -->
+                <div id="barGlobal" class="h-20 flex items-center justify-start sm:justify-center px-2 sm:px-6 overflow-x-auto gap-2 sm:gap-4 no-scrollbar fade-in">
+                    <button onclick="document.getElementById('mediaInput').click()" class="flex flex-col items-center justify-center gap-1.5 min-w-[72px] h-full hover:bg-neutral-800 active:bg-neutral-800 rounded-xl transition-colors">
+                        <div class="w-8 h-8 md:w-10 md:h-10 rounded-full bg-white/10 flex items-center justify-center"><i data-lucide="plus" class="w-4 h-4 md:w-5 md:h-5 text-white"></i></div>
+                        <span class="text-[10px] md:text-xs font-semibold text-neutral-300">Media</span>
+                    </button>
+                    <button onclick="addTrack('video')" class="flex flex-col items-center justify-center gap-1.5 min-w-[72px] h-full hover:bg-neutral-800 active:bg-neutral-800 rounded-xl transition-colors">
+                        <div class="w-8 h-8 md:w-10 md:h-10 rounded-full bg-white/5 flex items-center justify-center"><i data-lucide="film" class="w-4 h-4 md:w-5 md:h-5 text-neutral-400"></i></div>
+                        <span class="text-[10px] md:text-xs font-semibold text-neutral-300">Video</span>
+                    </button>
+                    <button onclick="addTrack('audio')" class="flex flex-col items-center justify-center gap-1.5 min-w-[72px] h-full hover:bg-neutral-800 active:bg-neutral-800 rounded-xl transition-colors">
+                        <div class="w-8 h-8 md:w-10 md:h-10 rounded-full bg-white/5 flex items-center justify-center"><i data-lucide="music" class="w-4 h-4 md:w-5 md:h-5 text-neutral-400"></i></div>
+                        <span class="text-[10px] md:text-xs font-semibold text-neutral-300">Audio</span>
+                    </button>
+                    <button class="flex flex-col items-center justify-center gap-1.5 min-w-[72px] h-full rounded-xl transition-colors opacity-50 cursor-not-allowed">
+                        <div class="w-8 h-8 md:w-10 md:h-10 rounded-full bg-white/5 flex items-center justify-center"><i data-lucide="type" class="w-4 h-4 md:w-5 md:h-5 text-neutral-400"></i></div>
+                        <span class="text-[10px] md:text-xs font-semibold text-neutral-300">Text</span>
+                    </button>
+                </div>
+
+                <!-- STATE 2: Clip Tools -->
+                <div id="barClip" class="h-20 hidden items-center justify-start sm:justify-center px-2 sm:px-6 overflow-x-auto gap-2 sm:gap-4 no-scrollbar fade-in">
+                    <button onclick="deselectClip()" class="flex flex-col items-center justify-center gap-1.5 min-w-[64px] h-full hover:bg-neutral-800 active:bg-neutral-800 rounded-xl transition-colors mr-1 sm:mr-2">
+                        <div class="w-8 h-8 md:w-10 md:h-10 rounded-full bg-neutral-800 flex items-center justify-center"><i data-lucide="chevron-left" class="w-4 h-4 md:w-5 md:h-5 text-white"></i></div>
+                        <span class="text-[10px] md:text-xs font-semibold text-neutral-400">Back</span>
+                    </button>
+                    <button id="btnSplit" class="flex flex-col items-center justify-center gap-1.5 min-w-[72px] h-full hover:bg-neutral-800 active:bg-neutral-800 rounded-xl transition-colors">
+                        <div class="w-8 h-8 md:w-10 md:h-10 rounded-full bg-white/10 flex items-center justify-center"><i data-lucide="scissors" class="w-4 h-4 md:w-5 md:h-5 text-white"></i></div>
+                        <span class="text-[10px] md:text-xs font-semibold text-neutral-200">Split</span>
+                    </button>
+                    <button id="btnDelete" class="flex flex-col items-center justify-center gap-1.5 min-w-[72px] h-full hover:bg-red-900/30 active:bg-red-900/50 rounded-xl transition-colors">
+                        <div class="w-8 h-8 md:w-10 md:h-10 rounded-full bg-red-500/20 flex items-center justify-center"><i data-lucide="trash-2" class="w-4 h-4 md:w-5 md:h-5 text-red-400"></i></div>
+                        <span class="text-[10px] md:text-xs font-semibold text-red-400">Delete</span>
+                    </button>
+                    <div id="effectTools" class="flex items-center h-full gap-2 sm:gap-4"></div>
+                </div>
+
+                <!-- STATE 3: Slider Control -->
+                <div id="barSlider" class="h-20 hidden items-center justify-center px-4 md:px-12 gap-4 md:gap-8 fade-in">
+                    <button onclick="closeSliderBar()" class="w-10 h-10 md:w-12 md:h-12 rounded-full bg-white text-black flex items-center justify-center shrink-0 hover:bg-neutral-200 active:scale-95 transition-transform">
+                        <i data-lucide="check" class="w-5 h-5 md:w-6 md:h-6"></i>
+                    </button>
+                    <div class="flex-1 max-w-md flex flex-col gap-2 md:gap-3">
+                        <div class="flex justify-between items-center">
+                            <span id="sliderTitle" class="text-xs md:text-sm font-bold text-neutral-300">Volume</span>
+                            <span id="sliderValue" class="text-xs md:text-sm font-mono font-bold text-white">100%</span>
+                        </div>
+                        <input type="range" id="activeSlider" class="w-full yt-slider appearance-none outline-none">
+                    </div>
+                </div>
+
+            </div>
+        </div>
+    </main>
+
+    <script>
+        lucide.createIcons();
+
+        const AudioContext = window.AudioContext || window.webkitAudioContext;
+        let audioCtx;
+        
+        // Dark-mode optimized palettes
+        const PALETTES = [
+            { bg: '#3730a3', border: '#818cf8', wave: '#c7d2fe', text: '#e0e7ff' }, // Indigo
+            { bg: '#065f46', border: '#34d399', wave: '#a7f3d0', text: '#d1fae5' }, // Emerald
+            { bg: '#831843', border: '#f43f5e', wave: '#fecdd3', text: '#ffe4e6' }, // Rose
+            { bg: '#78350f', border: '#f59e0b', wave: '#fde68a', text: '#fef3c7' }, // Amber
+            { bg: '#0c4a6e', border: '#38bdf8', wave: '#bae6fd', text: '#e0f2fe' }  // Sky
+        ];
+
+        const State = {
+            pixelsPerSecond: 60,
+            duration: 30, // Start with 30s
+            currentTime: 0,
+            isPlaying: false,
+            isExporting: false,
+            lastRenderTime: 0,
+            selectedClipId: null,
+            activePropertyTab: null, 
+            masterStreamNode: null, 
+            tracks: [
+                { id: 'v1', type: 'video', name: 'V1', height: 70, colorIndex: 0 }, 
+                { id: 'a1', type: 'audio', name: 'A1', height: 70, colorIndex: 1 }
+            ],
+            clips: [],
+            drag: { 
+                active: false, type: null, clipId: null, 
+                startX: 0, currentX: 0, currentY: 0,
+                initialStart: 0, initialDuration: 0, initialSourceOffset: 0, initialTrackId: null,
+                initialScrollLeft: 0, isAutoScrolling: false
+            },
+            preview: { isVertical: true },
+            windowWidth: 0
+        };
+
+        const EFFECTS = [
+            { id: 'volume', icon: 'volume-2', label: 'Volume', max: 2 },
+            { id: 'noiseRed', icon: 'mic-off', label: 'Denoise', max: 1 },
+            { id: 'echo', icon: 'waves', label: 'Echo', max: 1 },
+            { id: 'cinematic', icon: 'speaker', label: 'Bass', max: 1 },
+            { id: 'robot', icon: 'bot', label: 'Robot', max: 1 },
+            { id: 'cartoon', icon: 'smile', label: 'Toon', max: 1 }
+        ];
+
+        // DOM
+        const tracksContent = document.getElementById('tracksContent');
+        const timelineScrollArea = document.getElementById('timelineScrollArea');
+        const rulerCanvas = document.getElementById('rulerCanvas');
+        const timeDisplay = document.getElementById('timeDisplay');
+        
+        const btnPlay = document.getElementById('btnPlay');
+        const wrapperPlay = document.getElementById('wrapperPlay');
+        const wrapperPause = document.getElementById('wrapperPause');
+        const btnSplit = document.getElementById('btnSplit');
+        const btnDelete = document.getElementById('btnDelete');
+        const btnHeaderSplit = document.getElementById('btnHeaderSplit');
+        const btnHeaderDelete = document.getElementById('btnHeaderDelete');
+        const mediaInput = document.getElementById('mediaInput');
+        
+        const barGlobal = document.getElementById('barGlobal');
+        const barClip = document.getElementById('barClip');
+        const barSlider = document.getElementById('barSlider');
+        const effectToolsContainer = document.getElementById('effectTools');
+        const sliderTitle = document.getElementById('sliderTitle');
+        const sliderValue = document.getElementById('sliderValue');
+        const activeSlider = document.getElementById('activeSlider');
+
+        const btnTogglePreview = document.getElementById('btnTogglePreview');
+        const iconEye = document.getElementById('iconEye');
+        const btnFullscreen = document.getElementById('btnFullscreen');
+        const btnExitFullscreen = document.getElementById('btnExitFullscreen');
+        const previewContainer = document.getElementById('previewContainer');
+        const dragTooltip = document.getElementById('dragTooltip');
+
+        // --- Viewport & Fit Math ---
+        function updateCanvasFit() {
+            const container = document.getElementById('previewContainer');
+            const wrapper = document.getElementById('canvasAspectWrapper');
+            if (!container || !wrapper) return;
+            
+            const style = window.getComputedStyle(container);
+            const availWidth = container.clientWidth - parseFloat(style.paddingLeft) - parseFloat(style.paddingRight);
+            const availHeight = container.clientHeight - parseFloat(style.paddingTop) - parseFloat(style.paddingBottom);
+            
+            if (availWidth <= 0 || availHeight <= 0) return;
+
+            const targetRatio = State.preview.isVertical ? (9/16) : (16/9);
+            wrapper.style.aspectRatio = State.preview.isVertical ? '9/16' : '16/9';
+            
+            if ((availWidth / availHeight) > targetRatio) {
+                wrapper.style.height = `${availHeight}px`;
+                wrapper.style.width = `${availHeight * targetRatio}px`;
+            } else {
+                wrapper.style.width = `${availWidth}px`;
+                wrapper.style.height = `${availWidth / targetRatio}px`;
+            }
+        }
+
+        function init() {
+            State.windowWidth = timelineScrollArea.clientWidth;
+            const resizeObserver = new ResizeObserver(entries => {
+                let timelineResized = false;
+                for (let entry of entries) {
+                    if (entry.target === timelineScrollArea) {
+                        const newWidth = entry.contentRect.width;
+                        if (newWidth !== State.windowWidth && newWidth > 0) {
+                            State.windowWidth = newWidth;
+                            timelineResized = true;
+                        }
+                    }
+                }
+                if (timelineResized) {
+                    updateTimelineWidth();
+                    renderClips(); 
+                    drawRuler();
+                }
+                updateCanvasFit();
+            });
+            resizeObserver.observe(timelineScrollArea);
+            resizeObserver.observe(document.getElementById('previewContainer'));
+
+            // Inject Effect buttons
+            effectToolsContainer.innerHTML = EFFECTS.map(t => `
+                <button onclick="openSliderBar('${t.id}')" class="flex flex-col items-center justify-center gap-1.5 min-w-[72px] h-full hover:bg-neutral-800 active:bg-neutral-800 rounded-xl transition-colors">
+                    <div class="w-8 h-8 md:w-10 md:h-10 rounded-full bg-white/5 flex items-center justify-center"><i data-lucide="${t.icon}" class="w-4 h-4 md:w-5 md:h-5 text-neutral-400"></i></div>
+                    <span class="text-[10px] md:text-xs font-semibold text-neutral-300">${t.label}</span>
+                </button>
+            `).join('');
+
+            renderTracks();
+            updateTimelineWidth();
+            setupEventListeners();
+            lucide.createIcons();
+            
+            // Start exactly at 00:00
+            setTimeout(() => {
+                State.currentTime = 0;
+                timelineScrollArea.scrollLeft = 0;
+                requestAnimationFrame(drawRuler);
+                updatePlayheadUI();
+            }, 50);
+        }
+
+        function ensureAudioContext() {
+            if (!audioCtx) {
+                audioCtx = new AudioContext();
+                State.masterStreamNode = audioCtx.createMediaStreamDestination();
+            }
+            if (audioCtx.state === 'suspended') audioCtx.resume();
+        }
+
+        // --- Layout & Toolbar Logic ---
+        window.deselectClip = () => {
+            State.selectedClipId = null;
+            State.activePropertyTab = null;
+            renderClips();
+            updateToolbar();
+        };
+
+        window.openSliderBar = (effectId) => {
+            State.activePropertyTab = effectId;
+            updateToolbar();
+        };
+
+        window.closeSliderBar = () => {
+            State.activePropertyTab = null;
+            updateToolbar();
+        };
+
+        function updateToolbar() {
+            barGlobal.classList.add('hidden'); barGlobal.classList.remove('flex');
+            barClip.classList.add('hidden'); barClip.classList.remove('flex');
+            barSlider.classList.add('hidden'); barSlider.classList.remove('flex');
+
+            if (!State.selectedClipId) {
+                barGlobal.classList.remove('hidden'); barGlobal.classList.add('flex');
+                return;
+            }
+
+            const clip = State.clips.find(c => c.id === State.selectedClipId);
+            if (!clip) return;
+
+            if (State.activePropertyTab) {
+                barSlider.classList.remove('hidden'); barSlider.classList.add('flex');
+                const effect = EFFECTS.find(e => e.id === State.activePropertyTab);
+                sliderTitle.textContent = effect.label;
+                
+                const val = clip.effects[State.activePropertyTab];
+                activeSlider.min = 0; activeSlider.max = effect.max; activeSlider.step = 0.05;
+                activeSlider.value = val;
+                
+                const updateVis = (v) => {
+                    const pct = (v / effect.max) * 100;
+                    activeSlider.style.background = `linear-gradient(to right, white ${pct}%, rgba(255,255,255,0.2) ${pct}%)`;
+                    sliderValue.textContent = `${Math.round(v * 100)}%`;
+                };
+                updateVis(val);
+
+                activeSlider.oninput = (e) => {
+                    setClipEffect(clip.id, State.activePropertyTab, e.target.value);
+                    updateVis(e.target.value);
+                };
+            } else {
+                barClip.classList.remove('hidden'); barClip.classList.add('flex');
+            }
+        }
+
+        // --- Audio Graph Engine ---
+        function buildAudioGraph(clip) {
+            ensureAudioContext(); if (clip.audioNodes) return; 
+            try {
+                const source = audioCtx.createMediaElementSource(clip.audioEl);
+                const noiseRed = audioCtx.createBiquadFilter(); noiseRed.type = 'lowpass'; noiseRed.frequency.value = 20000;
+                const eq = audioCtx.createBiquadFilter(); eq.type = 'lowshelf'; eq.frequency.value = 120;
+                const tinny = audioCtx.createBiquadFilter(); tinny.type = 'highpass'; tinny.frequency.value = 0;
+                const volume = audioCtx.createGain();
+                const delay = audioCtx.createDelay(5.0); delay.delayTime.value = 0.3;
+                const echoFeedback = audioCtx.createGain(); echoFeedback.gain.value = 0.4;
+                const echoVolume = audioCtx.createGain();
+                const roboDelay = audioCtx.createDelay(0.1); roboDelay.delayTime.value = 0.025; 
+                const roboFeedback = audioCtx.createGain(); roboFeedback.gain.value = 0.8;
+                const roboVolume = audioCtx.createGain();
+
+                source.connect(noiseRed); noiseRed.connect(eq); eq.connect(tinny);
+                tinny.connect(volume); volume.connect(audioCtx.destination); volume.connect(State.masterStreamNode); 
+                tinny.connect(delay); delay.connect(echoFeedback); echoFeedback.connect(delay); delay.connect(echoVolume); echoVolume.connect(audioCtx.destination); echoVolume.connect(State.masterStreamNode);
+                tinny.connect(roboDelay); roboDelay.connect(roboFeedback); roboFeedback.connect(roboDelay); roboDelay.connect(roboVolume); roboVolume.connect(audioCtx.destination); roboVolume.connect(State.masterStreamNode);
+
+                clip.audioNodes = { source, noiseRed, eq, tinny, volume, delay, echoFeedback, echoVolume, roboDelay, roboFeedback, roboVolume };
+                if(!clip.effects) clip.effects = { volume: 1, echo: 0, cartoon: 0, cinematic: 0, robot: 0, noiseRed: 0 };
+                applyAudioEffects(clip);
+            } catch (err) { console.error(err); }
+        }
+
+        function applyAudioEffects(clip) {
+            if (!clip.audioNodes) return;
+            const fx = clip.effects;
+            clip.audioNodes.volume.gain.value = fx.volume;
+            clip.audioNodes.echoVolume.gain.value = fx.echo;
+            clip.audioNodes.roboVolume.gain.value = fx.robot;
+            clip.audioNodes.eq.gain.value = fx.cinematic * 15; 
+            clip.audioNodes.tinny.frequency.value = fx.cartoon * 1500; 
+            clip.audioNodes.noiseRed.frequency.value = 20000 - (fx.noiseRed * 17000); 
+        }
+
+        function setClipEffect(clipId, effectName, value) {
+            const clip = State.clips.find(c => c.id === clipId);
+            if (clip) { clip.effects[effectName] = parseFloat(value); applyAudioEffects(clip); }
+        }
+
+        // --- Tracks & Clips Rendering ---
+        window.addTrack = (type) => {
+            State.tracks.push({ id: type.charAt(0) + Date.now(), type: type, height: 70, colorIndex: State.tracks.length % PALETTES.length });
+            renderTracks(); renderClips();
+        };
+
+        function updateTimelineWidth() {
+            if (State.windowWidth === 0) return;
+            const totalWidth = Math.max(State.duration, 30) * State.pixelsPerSecond;
+            const halfW = State.windowWidth / 2;
+            
+            // Total width accommodates the absolute duration PLUS edge padding for center screen alignment
+            tracksContent.style.width = `${totalWidth + (halfW * 2)}px`;
+            rulerCanvas.width = State.windowWidth;
+        }
+
+        function renderTracks() {
+            tracksContent.querySelectorAll('.track-lane').forEach(e => e.remove());
+            let currentY = 24; 
+            State.tracks.forEach(track => {
+                const el = document.createElement('div');
+                el.className = `track-lane absolute left-0 right-0 border-b border-white/5`;
+                el.style.top = `${currentY}px`;
+                el.style.height = `${track.height}px`;
+                el.dataset.trackId = track.id;
+                tracksContent.appendChild(el);
+                currentY += track.height;
+            });
+        }
+
+        function renderClips() {
+            document.querySelectorAll('.clip').forEach(e => e.remove());
+            const halfW = State.windowWidth / 2;
+
+            State.clips.forEach(clip => {
+                const track = State.tracks.find(t => t.id === clip.trackId); if (!track) return;
+                const lane = tracksContent.querySelector(`.track-lane[data-track-id="${clip.trackId}"]`); if (!lane) return;
+
+                const el = document.createElement('div'); const palette = PALETTES[track.colorIndex];
+                let extraClasses = ''; if(clip.overlapping) extraClasses += ' overlapping'; if(State.selectedClipId === clip.id) extraClasses += ' selected';
+
+                el.className = `clip absolute top-[4px] bottom-[4px] cursor-pointer ${extraClasses}`;
+                el.dataset.clipId = clip.id;
+                
+                el.style.left = `${halfW + (clip.start * State.pixelsPerSecond)}px`; 
+                el.style.width = `${clip.duration * State.pixelsPerSecond}px`;
+                el.style.backgroundColor = palette.bg; el.style.borderColor = palette.border;
+
+                const icon = clip.type === 'audio' ? 'music' : 'film';
+                const hasWaveform = clip.peaks && clip.peaks.length > 0;
+                
+                el.innerHTML = `
+                    <div class="absolute inset-x-0 top-0 h-5 flex items-center px-2 gap-1 border-b border-black/20 z-20 pointer-events-none" style="background-color: ${palette.bg}">
+                        <i data-lucide="${icon}" class="w-3 h-3 shrink-0" style="color: ${palette.text}"></i>
+                        <span class="text-[10px] font-bold truncate" style="color: ${palette.text}">${clip.title}</span>
+                    </div>
+                    <div class="trim-handle left" data-action="trimLeft"></div>
+                    <div class="trim-handle right" data-action="trimRight"></div>
+                    ${hasWaveform ? `<canvas class="waveform-canvas absolute inset-0 w-full h-full z-10"></canvas>` : ''}
+                `;
+                lane.appendChild(el);
+                if(hasWaveform) drawCachedWaveform(el.querySelector('.waveform-canvas'), clip, palette);
+            });
+            lucide.createIcons();
+        }
+
+        function drawCachedWaveform(canvas, clip, palette) {
+            if (!clip.peaks || clip.peaks.length === 0) return;
+            const cssWidth = clip.duration * State.pixelsPerSecond; const cssHeight = State.tracks.find(t=>t.id===clip.trackId).height; 
+            canvas.style.width = '100%'; canvas.style.height = '100%';
+            const internalWidth = Math.min(Math.ceil(cssWidth), 4096); 
+            canvas.width = internalWidth; canvas.height = cssHeight;
+            const ctx = canvas.getContext('2d'); ctx.clearRect(0, 0, internalWidth, cssHeight);
+            const midY = (cssHeight / 2) + 10; const maxAmplitude = (cssHeight / 2) * 0.65; 
+            
+            ctx.fillStyle = palette.wave; ctx.beginPath(); ctx.moveTo(0, midY);
+            const startPeakIdx = clip.sourceOffset * clip.peaksPerSecond; const durationPeaks = clip.duration * clip.peaksPerSecond; const peaksPerPixel = durationPeaks / internalWidth;
+            
+            for (let x = 0; x < internalWidth; x++) {
+                let max = 0; const peakStart = Math.floor(startPeakIdx + x * peaksPerPixel); const peakEnd = Math.floor(startPeakIdx + (x + 1) * peaksPerPixel);
+                for(let p = peakStart; p < peakEnd && p < clip.peaks.length; p++) { if(clip.peaks[p].max > max) max = clip.peaks[p].max; }
+                ctx.lineTo(x, midY - (max * maxAmplitude));
+            }
+            for (let x = internalWidth - 1; x >= 0; x--) {
+                let min = 0; const peakStart = Math.floor(startPeakIdx + x * peaksPerPixel); const peakEnd = Math.floor(startPeakIdx + (x + 1) * peaksPerPixel);
+                for(let p = peakStart; p < peakEnd && p < clip.peaks.length; p++) { if(clip.peaks[p].min < min) min = clip.peaks[p].min; }
+                ctx.lineTo(x, midY - (min * maxAmplitude));
+            }
+            ctx.closePath(); ctx.fill();
+        }
+
+        // Dynamic Ruler drawing
+        function drawRuler() {
+            if (State.windowWidth === 0) return;
+            const ctx = rulerCanvas.getContext('2d'); 
+            const w = rulerCanvas.width; const h = 24;
+            
+            ctx.clearRect(0, 0, w, h);
+            ctx.fillStyle = '#737373'; 
+            ctx.font = '9px Inter'; ctx.textAlign = 'center'; ctx.textBaseline = 'top';
+
+            const pps = State.pixelsPerSecond;
+            const halfW = w / 2;
+            
+            const startTime = State.currentTime - (halfW / pps);
+            const endTime = State.currentTime + (halfW / pps);
+
+            let majorTickSecs = 1; 
+            if (pps < 20) majorTickSecs = 5; 
+
+            const firstTick = Math.max(0, Math.floor(startTime / majorTickSecs) * majorTickSecs);
+
+            for (let sec = firstTick; sec <= endTime; sec += majorTickSecs) {
+                const x = halfW + ((sec - State.currentTime) * pps);
+                ctx.beginPath(); ctx.moveTo(x, h - 5); ctx.lineTo(x, h); ctx.strokeStyle = '#525252'; ctx.stroke();
+                
+                const mins = Math.floor(sec / 60); const secs = Math.floor(sec % 60).toString().padStart(2, '0');
+                ctx.fillText(`${mins}:${secs}`, x, 2); 
+                
+                for(let j=1; j<5; j++) {
+                    const mx = x + (j * majorTickSecs / 5) * pps;
+                    if (mx >= 0 && mx <= w && (sec + (j * majorTickSecs / 5)) >= 0) { 
+                        ctx.beginPath(); ctx.moveTo(mx, h - 3); ctx.lineTo(mx, h); ctx.strokeStyle = '#404040'; ctx.stroke(); 
+                    }
+                }
+            }
+        }
+
+        // --- Interaction Logic ---
+        mediaInput.addEventListener('change', async (e) => {
+            const files = Array.from(e.target.files); if (!files.length) return;
+            ensureAudioContext();
+
+            await Promise.all(files.map(async (file) => {
+                const isVideo = file.type.startsWith('video/'); const trackType = isVideo ? 'video' : 'audio';
+                try {
+                    const objectUrl = URL.createObjectURL(file); const audioEl = new Audio(objectUrl); audioEl.crossOrigin = "anonymous";
+                    let duration = 5; let peaks = []; let peaksPerSecond = 100; 
+                    try {
+                        const arrayBuffer = await file.arrayBuffer(); const audioBuffer = await audioCtx.decodeAudioData(arrayBuffer); duration = audioBuffer.duration;
+                        const data = audioBuffer.getChannelData(0); const step = Math.floor(audioBuffer.sampleRate / peaksPerSecond);
+                        for (let i = 0; i < data.length; i += step) {
+                            let max = 0, min = 0; for (let j = 0; j < step && i + j < data.length; j++) { const val = data[i + j]; if (val > max) max = val; if (val < min) min = val; }
+                            peaks.push({ max, min });
+                        }
+                    } catch(err) {
+                        if (!isVideo) throw err; 
+                        await new Promise((resolve) => { const v = document.createElement('video'); v.onloadedmetadata = () => { duration = v.duration; resolve(); }; v.onerror = resolve; v.src = objectUrl; });
+                    }
+                    
+                    if (State.currentTime + duration > State.duration) { State.duration = Math.ceil(State.currentTime + duration + 10); updateTimelineWidth(); }
+
+                    let targetTrackId = null;
+                    for (const track of State.tracks.filter(t => t.type === trackType)) {
+                        const hasOverlap = State.clips.some(c => c.trackId === track.id && (State.currentTime < c.start + c.duration && State.currentTime + duration > c.start));
+                        if (!hasOverlap) { targetTrackId = track.id; break; }
+                    }
+                    if (!targetTrackId) { addTrack(trackType); targetTrackId = State.tracks[State.tracks.length-1].id; }
+                    
+                    const newClip = {
+                        id: 'c_' + Date.now() + Math.random().toString(36).substr(2, 5), trackId: targetTrackId, type: trackType,
+                        title: file.name, start: Math.max(0, State.currentTime), duration: duration, sourceOffset: 0, audioEl: audioEl,
+                        peaks: peaks, peaksPerSecond: peaksPerSecond, maxDuration: duration, fileUrl: objectUrl,
+                        effects: { volume: 1, echo: 0, cartoon: 0, cinematic: 0, robot: 0, noiseRed: 0 }
+                    };
+                    buildAudioGraph(newClip); State.clips.push(newClip);
+                } catch (err) { console.error(err); }
+            }));
+            calcOverlaps(); renderClips(); mediaInput.value = ''; 
+        });
+
+        function performDelete() {
+            let targetId = State.selectedClipId;
+            // Fallback: If nothing is selected, delete the topmost clip directly under playhead
+            if (!targetId) {
+                const time = State.currentTime;
+                const clipsUnderPlayhead = State.clips.filter(c => time >= c.start && time <= c.start + c.duration);
+                if (clipsUnderPlayhead.length > 0) targetId = clipsUnderPlayhead[clipsUnderPlayhead.length - 1].id;
+            }
+            if (!targetId) return;
+
+            const clipToDelete = State.clips.find(c => c.id === targetId);
+            if (clipToDelete && clipToDelete.audioEl) { clipToDelete.audioEl.pause(); clipToDelete.audioEl.removeAttribute('src'); if(clipToDelete.audioNodes) clipToDelete.audioNodes.source.disconnect(); }
+            State.clips = State.clips.filter(c => c.id !== targetId);
+            
+            if (State.selectedClipId === targetId) deselectClip(); 
+            calcOverlaps(); renderClips();
+        }
+
+        function performSplit() {
+            const time = State.currentTime; let targetClip = null;
+            if (State.selectedClipId) {
+                const c = State.clips.find(c => c.id === State.selectedClipId);
+                if (c && time > c.start + 0.05 && time < c.start + c.duration - 0.05) targetClip = c;
+            }
+            // Fallback: If nothing is selected, split the topmost clip directly under playhead
+            if (!targetClip) {
+                const clipsUnderPlayhead = State.clips.filter(c => time > c.start + 0.05 && time < c.start + c.duration - 0.05);
+                if (clipsUnderPlayhead.length > 0) targetClip = clipsUnderPlayhead[clipsUnderPlayhead.length - 1]; 
+            }
+            if (!targetClip) return;
+            
+            const leftDuration = time - targetClip.start; const rightDuration = targetClip.duration - leftDuration;
+            const newAudioEl = targetClip.audioEl ? new Audio(targetClip.fileUrl) : null; if (newAudioEl) newAudioEl.crossOrigin = "anonymous";
+            
+            const newClip = {
+                ...targetClip, id: 'c_' + Date.now() + Math.random().toString(36).substr(2, 5), start: time,
+                sourceOffset: targetClip.sourceOffset + leftDuration, duration: rightDuration, audioEl: newAudioEl,
+                effects: { ...targetClip.effects }, audioNodes: null 
+            };
+            if (newClip.audioEl) buildAudioGraph(newClip);
+            targetClip.duration = leftDuration; State.clips.push(newClip); State.selectedClipId = newClip.id; 
+            calcOverlaps(); renderClips(); updateToolbar();
+        }
+
+        btnDelete.addEventListener('click', performDelete);
+        btnHeaderDelete.addEventListener('click', performDelete);
+
+        btnSplit.addEventListener('click', performSplit);
+        btnHeaderSplit.addEventListener('click', performSplit);
+
+        function calcOverlaps() {
+            State.clips.forEach(c => c.overlapping = false);
+            for(let i=0; i<State.clips.length; i++) {
+                for(let j=i+1; j<State.clips.length; j++) {
+                    const c1 = State.clips[i]; const c2 = State.clips[j];
+                    if(c1.trackId === c2.trackId) {
+                        if(c1.start < c2.start + c2.duration - 0.01 && c1.start + c1.duration > c2.start + 0.01) { c1.overlapping = true; c2.overlapping = true; }
+                    }
+                }
+            }
+        }
+
+        function getClientX(e) { return e.touches ? e.touches[0].clientX : e.clientX; }
+        function getClientY(e) { return e.touches ? e.touches[0].clientY : e.clientY; }
+
+        let touchTimer = null;
+
+        function startClipDrag(e, clipEl, dragType) {
+            const clipId = clipEl.dataset.clipId; 
+            const clip = State.clips.find(c => c.id === clipId); 
+            if (!clip) return;
+
+            if (State.selectedClipId !== clipId) { 
+                State.selectedClipId = clipId; 
+                renderClips(); 
+                updateToolbar(); 
+            }
+
+            State.drag.active = true; 
+            State.drag.clipId = clipId; 
+            State.drag.initialStart = clip.start;
+            State.drag.initialDuration = clip.duration; 
+            State.drag.initialSourceOffset = clip.sourceOffset;
+            State.drag.initialTrackId = clip.trackId; 
+            
+            State.drag.startX = getClientX(e);
+            State.drag.currentX = getClientX(e);
+            State.drag.currentY = getClientY(e);
+            State.drag.initialScrollLeft = timelineScrollArea.scrollLeft;
+            
+            State.drag.type = dragType;
+            if (dragType === 'move') {
+                document.querySelector(`.clip[data-clip-id="${clip.id}"]`)?.classList.add('dragging'); 
+            }
+
+            dragTooltip.classList.remove('hidden');
+            
+            State.drag.isAutoScrolling = true;
+            requestAnimationFrame(dragAutoScrollLoop);
+            processDrag();
+        }
+
+        function setupEventListeners() {
+            btnPlay.addEventListener('click', togglePlay);
+
+            // Realtime accurate timeline scrubbing
+            timelineScrollArea.addEventListener('scroll', () => {
+                if (!State.isPlaying) {
+                    State.currentTime = timelineScrollArea.scrollLeft / State.pixelsPerSecond;
+                    updatePlayheadUI();
+                    syncAudioElements();
+                    
+                    if (State.drag.active) processDrag(); 
+                }
+            });
+
+            const handlePointerDown = (e) => {
+                const clipEl = e.target.closest('.clip'); 
+                const trimHandle = e.target.closest('.trim-handle'); 
+
+                if (!clipEl) { 
+                    deselectClip(); 
+                    return; 
+                }
+
+                if (trimHandle) {
+                    if(e.cancelable) e.preventDefault();
+                    startClipDrag(e, clipEl, trimHandle.dataset.action);
+                } else {
+                    if (e.type === 'touchstart') {
+                        touchTimer = setTimeout(() => {
+                            startClipDrag(e, clipEl, 'move');
+                        }, 200); 
+                    } else {
+                        startClipDrag(e, clipEl, 'move');
+                    }
+                }
+            };
+
+            tracksContent.addEventListener('mousedown', handlePointerDown);
+            tracksContent.addEventListener('touchstart', handlePointerDown, {passive: true});
+            
+            const handlePointerMove = (e) => {
+                if (State.drag.active) {
+                    if(e.cancelable) e.preventDefault(); 
+                    State.drag.currentX = getClientX(e);
+                    State.drag.currentY = getClientY(e);
+                    processDrag();
+                } else if (touchTimer && e.type === 'touchmove') {
+                    clearTimeout(touchTimer); 
+                    touchTimer = null;
+                }
+            };
+
+            const handlePointerUp = (e) => {
+                if (touchTimer) {
+                    clearTimeout(touchTimer);
+                    touchTimer = null;
+                    const clipEl = e.target.closest('.clip');
+                    if (clipEl && !State.drag.active) {
+                        const clipId = clipEl.dataset.clipId;
+                        if (State.selectedClipId !== clipId) {
+                            State.selectedClipId = clipId;
+                            renderClips();
+                            updateToolbar();
+                        }
+                    }
+                }
+
+                if (State.drag.active) {
+                    State.drag.isAutoScrolling = false;
+                    dragTooltip.classList.add('hidden');
+                    document.querySelector(`.clip[data-clip-id="${State.drag.clipId}"]`)?.classList.remove('dragging');
+                    State.drag.active = false; calcOverlaps(); renderClips(); syncAudioElements(); 
+                }
+            };
+
+            document.addEventListener('mousemove', handlePointerMove, {passive: false});
+            document.addEventListener('touchmove', handlePointerMove, {passive: false});
+            document.addEventListener('mouseup', handlePointerUp);
+            document.addEventListener('touchend', handlePointerUp);
+
+            const toggleAspect = () => {
+                const iconDesktop = document.getElementById('iconAspect');
+                const iconMobile = document.getElementById('iconAspectMobile');
+                State.preview.isVertical = !State.preview.isVertical;
+                if(State.preview.isVertical) { 
+                    iconDesktop.setAttribute('data-lucide', 'monitor-smartphone'); 
+                    iconMobile.setAttribute('data-lucide', 'smartphone'); 
+                } else { 
+                    iconDesktop.setAttribute('data-lucide', 'monitor'); 
+                    iconMobile.setAttribute('data-lucide', 'monitor'); 
+                }
+                lucide.createIcons();
+                updateCanvasFit();
+            };
+
+            document.getElementById('btnToggleAspect').addEventListener('click', toggleAspect);
+            document.getElementById('btnToggleAspectMobile').addEventListener('click', toggleAspect);
+
+            btnTogglePreview.addEventListener('click', () => {
+                const isHidden = previewContainer.classList.contains('hidden');
+                if (!isHidden) {
+                    previewContainer.classList.add('hidden');
+                    iconEye.setAttribute('data-lucide', 'eye-off');
+                } else {
+                    previewContainer.classList.remove('hidden');
+                    iconEye.setAttribute('data-lucide', 'eye');
+                }
+                lucide.createIcons();
+                setTimeout(() => {
+                    State.windowWidth = timelineScrollArea.clientWidth;
+                    updateTimelineWidth();
+                    drawRuler();
+                    updateCanvasFit();
+                }, 10);
+            });
+
+            btnFullscreen.addEventListener('click', () => {
+                previewContainer.classList.add('fixed', 'inset-0', 'z-[100]', 'bg-black', 'p-6');
+                previewContainer.classList.remove('flex-[0.55]', 'sm:flex-[0.6]', 'md:flex-none', 'md:w-[50%]', 'lg:w-[45%]', 'relative', 'p-2', 'md:p-4');
+                btnExitFullscreen.classList.remove('hidden');
+                setTimeout(updateCanvasFit, 10);
+            });
+
+            btnExitFullscreen.addEventListener('click', () => {
+                previewContainer.classList.remove('fixed', 'inset-0', 'z-[100]', 'bg-black', 'p-6');
+                previewContainer.classList.add('flex-[0.55]', 'sm:flex-[0.6]', 'md:flex-none', 'md:w-[50%]', 'lg:w-[45%]', 'relative', 'p-2', 'md:p-4');
+                btnExitFullscreen.classList.add('hidden');
+                setTimeout(updateCanvasFit, 10);
+            });
+
+            document.getElementById('btnExport').addEventListener('click', startExport);
+        }
+
+        // --- Compound Edge Drag Auto-Scrolling ---
+        function dragAutoScrollLoop() {
+            if (!State.drag.active || !State.drag.isAutoScrolling) return;
+
+            const edgeThreshold = 60; 
+            const maxScrollSpeed = 15; 
+            
+            const rect = timelineScrollArea.getBoundingClientRect();
+            const relativeX = State.drag.currentX - rect.left;
+
+            let scrollDelta = 0;
+            if (relativeX < edgeThreshold) {
+                const intensity = 1 - (Math.max(0, relativeX) / edgeThreshold);
+                scrollDelta = -maxScrollSpeed * intensity;
+            } else if (relativeX > rect.width - edgeThreshold) {
+                const dist = rect.width - relativeX;
+                const intensity = 1 - (Math.max(0, dist) / edgeThreshold);
+                scrollDelta = maxScrollSpeed * intensity;
+            }
+
+            if (scrollDelta !== 0) {
+                const prevScroll = timelineScrollArea.scrollLeft;
+                timelineScrollArea.scrollLeft = Math.max(0, timelineScrollArea.scrollLeft + scrollDelta);
+                
+                if (timelineScrollArea.scrollLeft !== prevScroll) {
+                    State.currentTime = timelineScrollArea.scrollLeft / State.pixelsPerSecond;
+                    updatePlayheadUI();
+                    processDrag(); 
+                }
+            }
+
+            requestAnimationFrame(dragAutoScrollLoop);
+        }
+
+        function processDrag() {
+            if (!State.drag.active) return;
+
+            const clip = State.clips.find(c => c.id === State.drag.clipId); const clipEl = document.querySelector(`.clip[data-clip-id="${clip.id}"]`); if (!clip || !clipEl) return;
+
+            // Compound Delta Math
+            const screenDeltaX = State.drag.currentX - State.drag.startX; 
+            const scrollDeltaX = timelineScrollArea.scrollLeft - State.drag.initialScrollLeft;
+            const totalDeltaX = screenDeltaX + scrollDeltaX;
+            let deltaTime = totalDeltaX / State.pixelsPerSecond;
+
+            const track = State.tracks.find(t=>t.id===clip.trackId); const palette = PALETTES[track.colorIndex];
+            const halfW = State.windowWidth / 2;
+
+            if (State.drag.type === 'move') {
+                let intendedStart = State.drag.initialStart + deltaTime; 
+                
+                // Infinite Positive Timeline Shift (Zero-Point Shift)
+                if (intendedStart < 0) {
+                    const shiftAmount = -intendedStart;
+                    
+                    // Shift all other clips positively
+                    State.clips.forEach(c => {
+                        if (c.id !== clip.id) c.start += shiftAmount;
+                    });
+                    
+                    State.duration += shiftAmount;
+                    State.drag.initialStart += shiftAmount; 
+                    
+                    // Auto scroll timeline to maintain visual position
+                    const scrollShiftPixels = shiftAmount * State.pixelsPerSecond;
+                    timelineScrollArea.scrollLeft += scrollShiftPixels;
+                    State.drag.initialScrollLeft += scrollShiftPixels;
+                    
+                    clip.start = 0;
+                    updateTimelineWidth();
+                    State.currentTime = timelineScrollArea.scrollLeft / State.pixelsPerSecond;
+                    updatePlayheadUI();
+                } else {
+                    clip.start = intendedStart;
+                }
+
+                clipEl.style.left = `${halfW + (clip.start * State.pixelsPerSecond)}px`;
+                
+                const rect = tracksContent.getBoundingClientRect(); const yPos = State.drag.currentY - rect.top;
+                let currentY = 24; let hoveredTrackId = null;
+                for (const tr of State.tracks) { if (yPos >= currentY && yPos < currentY + tr.height) { hoveredTrackId = tr.id; break; } currentY += tr.height; }
+
+                if (hoveredTrackId && hoveredTrackId !== clip.trackId) {
+                    const tgtTrack = State.tracks.find(t=>t.id===hoveredTrackId);
+                    if (tgtTrack.type === clip.type) {
+                        clip.trackId = hoveredTrackId; tracksContent.querySelector(`.track-lane[data-track-id="${hoveredTrackId}"]`)?.appendChild(clipEl);
+                        const newPalette = PALETTES[tgtTrack.colorIndex]; clipEl.style.backgroundColor = newPalette.bg; clipEl.style.borderColor = newPalette.border;
+                        clipEl.querySelector('div').style.backgroundColor = newPalette.bg; clipEl.querySelectorAll('span, i').forEach(el => el.style.color = newPalette.text);
+                        drawCachedWaveform(clipEl.querySelector('.waveform-canvas'), clip, newPalette);
+                    }
+                }
+            } else if (State.drag.type === 'trimLeft') {
+                let newStart = State.drag.initialStart + deltaTime; 
+                let newSourceOffset = State.drag.initialSourceOffset + deltaTime; 
+                let newDuration = State.drag.initialDuration - deltaTime;
+                
+                if (newSourceOffset < 0) {
+                    const diff = -newSourceOffset;
+                    newStart += diff;
+                    newSourceOffset = 0;
+                    newDuration -= diff;
+                }
+
+                // If trimming forces start past zero, shift timeline!
+                if (newStart < 0) {
+                    const shiftAmount = -newStart;
+                    State.clips.forEach(c => {
+                        if (c.id !== clip.id) c.start += shiftAmount;
+                    });
+                    State.duration += shiftAmount;
+                    State.drag.initialStart += shiftAmount;
+                    const scrollShiftPixels = shiftAmount * State.pixelsPerSecond;
+                    timelineScrollArea.scrollLeft += scrollShiftPixels;
+                    State.drag.initialScrollLeft += scrollShiftPixels;
+                    
+                    newStart = 0;
+                    updateTimelineWidth();
+                    State.currentTime = timelineScrollArea.scrollLeft / State.pixelsPerSecond;
+                    updatePlayheadUI();
+                }
+
+                if (newDuration < 0.2) { newDuration = 0.2; newStart = (State.drag.initialStart + State.drag.initialDuration) - 0.2; newSourceOffset = (State.drag.initialSourceOffset + State.drag.initialDuration) - 0.2; }
+                
+                clip.start = newStart; clip.sourceOffset = newSourceOffset; clip.duration = newDuration;
+                clipEl.style.left = `${halfW + (clip.start * State.pixelsPerSecond)}px`; 
+                clipEl.style.width = `${clip.duration * State.pixelsPerSecond}px`;
+                drawCachedWaveform(clipEl.querySelector('.waveform-canvas'), clip, palette);
+            } else if (State.drag.type === 'trimRight') {
+                let newDuration = State.drag.initialDuration + deltaTime; const maxAllowedDuration = clip.maxDuration - clip.sourceOffset;
+                if (newDuration > maxAllowedDuration) newDuration = maxAllowedDuration; if (newDuration < 0.2) newDuration = 0.2;
+                clip.duration = newDuration; clipEl.style.width = `${clip.duration * State.pixelsPerSecond}px`;
+                drawCachedWaveform(clipEl.querySelector('.waveform-canvas'), clip, palette);
+            }
+
+            // Update Premium Drag Tooltip live rendering
+            if (State.drag.type === 'trimRight') dragTooltip.textContent = formatTime(clip.start + clip.duration);
+            else dragTooltip.textContent = formatTime(clip.start);
+            dragTooltip.style.left = `${State.drag.currentX}px`;
+            dragTooltip.style.top = `${State.drag.currentY - 45}px`;
+
+            calcOverlaps(); if(clip.overlapping) clipEl.classList.add('overlapping'); else clipEl.classList.remove('overlapping');
+
+            if (clip.start + clip.duration > State.duration - 5) {
+                State.duration = Math.ceil(clip.start + clip.duration + 10);
+                updateTimelineWidth();
+            }
+        }
+
+        // --- Playback ---
+        function formatTime(s) { 
+            s = Math.max(0, s);
+            const m = Math.floor(s/60).toString().padStart(2,'0'); 
+            const sc = Math.floor(s%60).toString().padStart(2,'0'); 
+            const ms = Math.floor((s%1)*10).toString().substring(0,1);
+            return `${m}:${sc}.${ms}`; 
+        }
+
+        function updatePlayheadUI() {
+            timeDisplay.textContent = formatTime(State.currentTime); 
+            drawRuler(); // Re-draw ruler based on new center
+        }
+
+        function togglePlay() {
+            ensureAudioContext(); if (State.currentTime >= State.duration) { State.currentTime = 0; timelineScrollArea.scrollLeft = 0; }
+            State.isPlaying = !State.isPlaying; State.lastRenderTime = performance.now();
+            if (State.isPlaying) {
+                wrapperPlay.classList.add('hidden'); wrapperPlay.classList.remove('flex');
+                wrapperPause.classList.remove('hidden'); wrapperPause.classList.add('flex');
+                syncAudioElements(); requestAnimationFrame(loop);
+            } else {
+                pauseMedia();
+            }
+        }
+
+        function pauseMedia() {
+            State.isPlaying = false;
+            wrapperPause.classList.add('hidden'); wrapperPause.classList.remove('flex');
+            wrapperPlay.classList.remove('hidden'); wrapperPlay.classList.add('flex');
+            stopAllAudio(); 
+            updatePlayheadUI(); // Keeps playhead exactly where paused
+        }
+
+        function loop(now) {
+            if (!State.isPlaying && !State.isExporting) return;
+            State.currentTime += (now - State.lastRenderTime) / 1000; State.lastRenderTime = now;
+            
+            timelineScrollArea.scrollLeft = State.currentTime * State.pixelsPerSecond;
+            updatePlayheadUI();
+
+            if (State.currentTime >= State.duration) { if(!State.isExporting) pauseMedia(); return; }
+            if(!State.isExporting) syncAudioElements();
+            
+            requestAnimationFrame(loop);
+        }
+
+        function syncAudioElements() {
+            State.clips.forEach(clip => {
+                if (clip.audioEl) {
+                    const shouldPlay = State.isPlaying && State.currentTime >= clip.start && State.currentTime <= clip.start + clip.duration;
+                    if (shouldPlay) {
+                        applyAudioEffects(clip); 
+                        const targetAudioTime = clip.sourceOffset + (State.currentTime - clip.start);
+                        // Prevent trying to play audio before sourceOffset
+                        if (targetAudioTime >= 0 && Math.abs(clip.audioEl.currentTime - targetAudioTime) > 0.15) {
+                            clip.audioEl.currentTime = targetAudioTime;
+                        }
+                        if (clip.audioEl.paused) clip.audioEl.play().catch(e=>{});
+                    } else {
+                        if (!clip.audioEl.paused) clip.audioEl.pause();
+                        if (!State.isPlaying && State.currentTime >= clip.start && State.currentTime <= clip.start + clip.duration) {
+                            const targetTime = clip.sourceOffset + (State.currentTime - clip.start);
+                            if (targetTime >= 0) clip.audioEl.currentTime = targetTime;
+                        }
+                    }
+                }
+            });
+        }
+        function stopAllAudio() { State.clips.forEach(clip => { if (clip.audioEl && !clip.audioEl.paused) clip.audioEl.pause(); }); }
+
+        // --- Export ---
+        function startExport() {
+            if (State.isExporting) return; ensureAudioContext();
+            State.isExporting = true; exportOverlay.classList.remove('hidden'); exportOverlay.classList.add('flex');
+            pauseMedia(); State.currentTime = 0; timelineScrollArea.scrollLeft = 0;
+            
+            const canvasEl = document.getElementById('renderCanvas');
+            const canvasStream = canvasEl.captureStream(30); const audioTracks = State.masterStreamNode.stream.getAudioTracks();
+            const finalStream = audioTracks.length > 0 ? new MediaStream([...canvasStream.getVideoTracks(), ...audioTracks]) : canvasStream;
+            let mimeType = 'video/webm;codecs=vp9,opus';
+            if (!MediaRecorder.isTypeSupported(mimeType)) mimeType = 'video/webm';
+
+            const recorder = new MediaRecorder(finalStream, { mimeType }); const chunks = [];
+            recorder.ondataavailable = e => { if (e.data.size > 0) chunks.push(e.data); };
+            recorder.onstop = () => {
+                const url = URL.createObjectURL(new Blob(chunks, { type: mimeType }));
+                const a = document.createElement('a'); a.href = url; a.download = `StudioPro_Video.webm`; a.click(); URL.revokeObjectURL(url);
+                State.isExporting = false; exportOverlay.classList.add('hidden'); exportOverlay.classList.remove('flex'); pauseMedia();
+            };
+
+            State.lastRenderTime = performance.now(); updatePlayheadUI();
+            State.clips.forEach(clip => { if (clip.audioEl) { applyAudioEffects(clip); clip.audioEl.currentTime = clip.sourceOffset; clip.audioEl.play().catch(e=>{}); }});
+            recorder.start();
+            
+            function exportLoop(now) {
+                if (!State.isExporting) return;
+                State.currentTime += (now - State.lastRenderTime) / 1000; State.lastRenderTime = now;
+                timelineScrollArea.scrollLeft = State.currentTime * State.pixelsPerSecond;
+                State.clips.forEach(clip => { if (clip.audioEl && State.currentTime > clip.start + clip.duration) { if (!clip.audioEl.paused) clip.audioEl.pause(); }});
+                const progress = Math.min(100, Math.round((State.currentTime / State.duration) * 100));
+                exportProgressBar.style.width = `${progress}%`; exportProgressText.textContent = `${progress}%`;
+                if (State.currentTime >= State.duration) { recorder.stop(); return; }
+                updatePlayheadUI(); requestAnimationFrame(exportLoop);
+            }
+            requestAnimationFrame(exportLoop);
+        }
+
+        init();
+    </script>
+</body>
+</html>

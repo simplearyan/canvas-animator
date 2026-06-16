@@ -1,0 +1,570 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+    <title>FaceSync Animator</title>
+    
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Nunito:wght@400;600;700;800&display=swap" rel="stylesheet">
+    <script src="https://cdn.tailwindcss.com"></script>
+    <script src="https://unpkg.com/@phosphor-icons/web"></script>
+    
+    <script>
+        tailwind.config = {
+            theme: {
+                extend: {
+                    fontFamily: {
+                        sans: ['"Nunito"', 'sans-serif'],
+                    },
+                    colors: {
+                        brand: {
+                            500: '#3b82f6',
+                            600: '#2563eb',
+                            900: '#1e3a8a'
+                        }
+                    }
+                }
+            }
+        }
+    </script>
+
+    <style>
+        body { background-color: #f1f5f9; overscroll-behavior-y: none; }
+        
+        ::-webkit-scrollbar { width: 6px; height: 6px; }
+        ::-webkit-scrollbar-track { background: transparent; }
+        ::-webkit-scrollbar-thumb { background: #cbd5e1; border-radius: 10px; }
+        ::-webkit-scrollbar-thumb:hover { background: #94a3b8; }
+
+        input[type="color"] { -webkit-appearance: none; border: none; width: 100%; height: 100%; padding: 0; cursor: pointer; background: transparent; border-radius: 50%; overflow: hidden; }
+        input[type="color"]::-webkit-color-swatch-wrapper { padding: 0; }
+        input[type="color"]::-webkit-color-swatch { border: none; border-radius: 50%; border: 2px solid rgba(0,0,0,0.1); }
+        
+        .canvas-bg {
+            background-color: #f8fafc;
+            background-image: radial-gradient(#cbd5e1 1px, transparent 1px);
+            background-size: 20px 20px;
+        }
+    </style>
+</head>
+<body class="text-slate-800 h-screen flex flex-col overflow-hidden">
+
+    <header class="h-16 bg-white border-b border-slate-200 flex items-center justify-between px-6 flex-shrink-0 z-20 shadow-sm relative">
+        <div class="flex items-center gap-3">
+            <div class="w-8 h-8 rounded-full bg-brand-500 flex items-center justify-center text-white">
+                <i class="ph-bold ph-smiley text-xl"></i>
+            </div>
+            <h1 class="text-xl font-bold tracking-tight text-slate-800">FaceSync <span class="text-slate-400 font-normal text-sm ml-1 hidden sm:inline">Pro Studio</span></h1>
+        </div>
+        <button id="btn-export" class="flex items-center gap-2 px-5 py-2 bg-slate-800 hover:bg-black text-white font-semibold rounded-full transition-colors text-sm shadow-md">
+            <i class="ph-bold ph-video-camera text-lg"></i>
+            <span class="hidden sm:inline">Export WebM</span>
+        </button>
+    </header>
+
+    <main class="flex-1 flex flex-col md:flex-row overflow-hidden relative">
+        
+        <div id="recording-overlay" class="absolute inset-0 bg-white/80 backdrop-blur-sm z-50 hidden flex-col items-center justify-center">
+            <div class="bg-white p-8 rounded-2xl shadow-2xl flex flex-col items-center gap-4 max-w-sm w-full border border-slate-100">
+                <div class="relative">
+                    <div class="w-16 h-16 border-4 border-slate-200 border-t-brand-500 rounded-full animate-spin"></div>
+                    <i class="ph-fill ph-record absolute top-1/2 left-1/2 transform -translate-x-1/2 -translate-y-1/2 text-brand-500 text-xl animate-pulse"></i>
+                </div>
+                <h3 class="text-lg font-bold text-slate-800">Recording Animation...</h3>
+                <div class="w-full bg-slate-100 rounded-full h-2.5 overflow-hidden">
+                    <div id="record-progress" class="bg-brand-500 h-2.5 rounded-full transition-all duration-100 w-0"></div>
+                </div>
+            </div>
+        </div>
+
+        <aside class="w-full md:w-[360px] bg-white border-b md:border-b-0 md:border-r border-slate-200 flex flex-col z-10 flex-shrink-0 h-[50vh] md:h-full order-2 md:order-1">
+            
+            <div class="flex-1 overflow-y-auto p-5 space-y-6">
+                
+                <div>
+                    <h2 class="text-xs font-bold uppercase tracking-wider text-slate-400 mb-3">Character Colors</h2>
+                    <div class="grid grid-cols-4 gap-3">
+                        <div class="flex flex-col items-center gap-1.5">
+                            <div class="w-10 h-10 rounded-full border-2 border-slate-200 p-0.5"><input type="color" id="color-skin" value="#ffddbb"></div>
+                            <span class="text-[10px] font-bold text-slate-500">Skin</span>
+                        </div>
+                        <div class="flex flex-col items-center gap-1.5">
+                            <div class="w-10 h-10 rounded-full border-2 border-slate-200 p-0.5"><input type="color" id="color-hair" value="#1a2b4c"></div>
+                            <span class="text-[10px] font-bold text-slate-500">Hair</span>
+                        </div>
+                        <div class="flex flex-col items-center gap-1.5">
+                            <div class="w-10 h-10 rounded-full border-2 border-slate-200 p-0.5"><input type="color" id="color-eye" value="#111111"></div>
+                            <span class="text-[10px] font-bold text-slate-500">Eyes</span>
+                        </div>
+                        <div class="flex flex-col items-center gap-1.5">
+                            <div class="w-10 h-10 rounded-full border-2 border-slate-200 p-0.5"><input type="color" id="color-bg" value="#f8fafc"></div>
+                            <span class="text-[10px] font-bold text-slate-500">BG</span>
+                        </div>
+                    </div>
+                </div>
+
+                <hr class="border-slate-100">
+
+                <div>
+                    <h2 class="text-xs font-bold uppercase tracking-wider text-slate-400 mb-3 flex items-center gap-2">
+                        <i class="ph-bold ph-waveform"></i> Dialogue & Lip Sync
+                    </h2>
+                    <textarea id="script-input" class="w-full h-24 p-3 rounded-xl border border-slate-300 bg-slate-50 text-sm font-medium focus:ring-2 focus:ring-brand-500 focus:border-brand-500 outline-none resize-none leading-relaxed" placeholder="Type here...">Hello! I am a smart character with precise mouth movements. Watch me speak!</textarea>
+                    
+                    <div class="flex items-center gap-3 mt-3">
+                        <button id="btn-speak" class="w-full py-3 bg-brand-500 hover:bg-brand-600 text-white font-bold rounded-xl transition-colors flex items-center justify-center gap-2">
+                            <i class="ph-fill ph-play-circle text-lg"></i> Animate & Speak
+                        </button>
+                    </div>
+                </div>
+
+                <hr class="border-slate-100">
+
+                <div>
+                    <h2 class="text-xs font-bold uppercase tracking-wider text-slate-400 mb-3">Live Viseme Test</h2>
+                    <div class="grid grid-cols-4 gap-2">
+                        <!-- Phonemes based on provided image -->
+                        <button class="viseme-btn py-1.5 bg-slate-100 hover:bg-brand-100 text-xs font-bold rounded text-slate-600 hover:text-brand-600 transition" data-v="Neutral">Rest</button>
+                        <button class="viseme-btn py-1.5 bg-slate-100 hover:bg-brand-100 text-xs font-bold rounded text-slate-600 hover:text-brand-600 transition" data-v="Ah">Ah</button>
+                        <button class="viseme-btn py-1.5 bg-slate-100 hover:bg-brand-100 text-xs font-bold rounded text-slate-600 hover:text-brand-600 transition" data-v="Ee">Ee</button>
+                        <button class="viseme-btn py-1.5 bg-slate-100 hover:bg-brand-100 text-xs font-bold rounded text-slate-600 hover:text-brand-600 transition" data-v="Oh">Oh</button>
+                        <button class="viseme-btn py-1.5 bg-slate-100 hover:bg-brand-100 text-xs font-bold rounded text-slate-600 hover:text-brand-600 transition" data-v="Uh">Uh</button>
+                        <button class="viseme-btn py-1.5 bg-slate-100 hover:bg-brand-100 text-xs font-bold rounded text-slate-600 hover:text-brand-600 transition" data-v="Woo">Woo</button>
+                        <button class="viseme-btn py-1.5 bg-slate-100 hover:bg-brand-100 text-xs font-bold rounded text-slate-600 hover:text-brand-600 transition" data-v="S">S</button>
+                        <button class="viseme-btn py-1.5 bg-slate-100 hover:bg-brand-100 text-xs font-bold rounded text-slate-600 hover:text-brand-600 transition" data-v="D">D</button>
+                        <button class="viseme-btn py-1.5 bg-slate-100 hover:bg-brand-100 text-xs font-bold rounded text-slate-600 hover:text-brand-600 transition" data-v="F">F</button>
+                        <button class="viseme-btn py-1.5 bg-slate-100 hover:bg-brand-100 text-xs font-bold rounded text-slate-600 hover:text-brand-600 transition" data-v="L">L</button>
+                        <button class="viseme-btn py-1.5 bg-slate-100 hover:bg-brand-100 text-xs font-bold rounded text-slate-600 hover:text-brand-600 transition" data-v="M">M</button>
+                        <button class="viseme-btn py-1.5 bg-slate-100 hover:bg-brand-100 text-xs font-bold rounded text-slate-600 hover:text-brand-600 transition" data-v="R">R</button>
+                    </div>
+                </div>
+
+            </div>
+            
+        </aside>
+
+        <section id="canvas-wrapper" class="flex-1 relative overflow-hidden flex items-center justify-center p-4 sm:p-8 order-1 md:order-2 canvas-bg">
+            <div class="relative w-full max-w-[600px] aspect-square shadow-2xl rounded-3xl overflow-hidden bg-white border border-slate-200">
+                <canvas id="render-canvas" class="w-full h-full"></canvas>
+            </div>
+            <div id="toast-container" class="absolute top-6 right-6 z-50 flex flex-col gap-2 pointer-events-none"></div>
+        </section>
+
+    </main>
+
+    <script>
+        const state = {
+            colors: {
+                skin: '#ffddbb',
+                hair: '#1a2b4c',
+                eye: '#111111',
+                bg: '#f8fafc',
+                outline: '#000000',
+                tongue: '#e63946',
+                mouthDark: '#111111',
+                teeth: '#ffffff'
+            },
+            currentViseme: 'Neutral',
+            isAnimating: false,
+            isRecording: false,
+            time: 0,
+            lineWidth: 5
+        };
+
+        // Custom phonetic map specifically matched to the 12 reference mouth shapes
+        const phonemeMap = {
+            'a': 'Ah', 'e': 'Ee', 'i': 'Ee', 'o': 'Oh', 'u': 'Uh',
+            'w': 'Woo', 'q': 'Woo',
+            's': 'S', 'z': 'S', 'c': 'S',
+            'd': 'D', 't': 'D', 'g': 'D', 'k': 'D', 'n': 'D', 'y': 'Ee',
+            'f': 'F', 'v': 'F',
+            'l': 'L',
+            'm': 'M', 'b': 'M', 'p': 'M',
+            'r': 'R', 'h': 'Ah', 'j': 'S', 'x': 'S',
+            ' ': 'Neutral', '.': 'Neutral', ',': 'Neutral', '!': 'Ah', '?': 'Neutral'
+        };
+
+        const canvas = document.getElementById('render-canvas');
+        const ctx = canvas.getContext('2d', { alpha: false });
+        const RENDER_SIZE = 1000;
+        canvas.width = RENDER_SIZE;
+        canvas.height = RENDER_SIZE;
+
+        function fillStroke(fillColor) {
+            ctx.fillStyle = fillColor;
+            ctx.fill();
+            ctx.lineWidth = state.lineWidth;
+            ctx.strokeStyle = state.colors.outline;
+            ctx.stroke();
+        }
+
+        function drawBackground() {
+            ctx.fillStyle = state.colors.bg;
+            ctx.fillRect(0, 0, RENDER_SIZE, RENDER_SIZE);
+        }
+
+        function drawHead(cx, cy, scale) {
+            ctx.save();
+            ctx.translate(cx, cy);
+
+            // Breathing / Slighting bob
+            const sway = Math.sin(state.time * 2);
+            ctx.translate(0, Math.sin(state.time * 4) * 3);
+            ctx.scale(scale, scale);
+
+            // EARS
+            ctx.beginPath();
+            ctx.ellipse(-150, 20, 25, 40, -0.2, 0, Math.PI*2);
+            fillStroke(state.colors.skin);
+            // Inner ear lines
+            ctx.beginPath(); ctx.moveTo(-160, 10); ctx.quadraticCurveTo(-140, 20, -150, 40); ctx.stroke();
+
+            ctx.beginPath();
+            ctx.ellipse(150, 20, 25, 40, 0.2, 0, Math.PI*2);
+            fillStroke(state.colors.skin);
+            ctx.beginPath(); ctx.moveTo(160, 10); ctx.quadraticCurveTo(140, 20, 150, 40); ctx.stroke();
+
+            // BACK HAIR (Silhouette)
+            ctx.beginPath();
+            ctx.ellipse(0, -60, 180, 160, 0, 0, Math.PI*2);
+            fillStroke(state.colors.hair);
+
+            // FACE SHAPE (Jaw/Cheeks)
+            ctx.beginPath();
+            ctx.moveTo(-150, -50);
+            ctx.bezierCurveTo(-150, 150, -80, 220, 0, 220);
+            ctx.bezierCurveTo(80, 220, 150, 150, 150, -50);
+            ctx.closePath();
+            fillStroke(state.colors.skin);
+
+            // CHEEK BLUSH
+            ctx.fillStyle = 'rgba(239, 68, 68, 0.2)'; // Soft red overlay
+            ctx.beginPath(); ctx.arc(-90, 80, 35, 0, Math.PI*2); ctx.fill();
+            ctx.beginPath(); ctx.arc(90, 80, 35, 0, Math.PI*2); ctx.fill();
+
+            // FRONT HAIR (Messy Bangs)
+            ctx.beginPath();
+            ctx.moveTo(-170, -20);
+            ctx.quadraticCurveTo(-150, -100, -80, -120);
+            ctx.quadraticCurveTo(0, -150, 100, -100);
+            ctx.quadraticCurveTo(160, -80, 170, 0);
+            // Spikes pointing down
+            ctx.quadraticCurveTo(150, -40, 130, -20);
+            ctx.quadraticCurveTo(110, -50, 90, -30);
+            ctx.quadraticCurveTo(70, -70, 40, -10);
+            ctx.quadraticCurveTo(10, -60, -20, -20);
+            ctx.quadraticCurveTo(-50, -60, -90, -10);
+            ctx.quadraticCurveTo(-120, -40, -140, -10);
+            ctx.quadraticCurveTo(-160, -30, -170, -20);
+            ctx.closePath();
+            fillStroke(state.colors.hair);
+
+            // EYEBROWS
+            ctx.lineWidth = 6;
+            ctx.lineCap = 'round';
+            ctx.beginPath(); ctx.moveTo(-100, -20); ctx.quadraticCurveTo(-70, -35, -40, -25); ctx.stroke();
+            ctx.beginPath(); ctx.moveTo(40, -25); ctx.quadraticCurveTo(70, -35, 100, -20); ctx.stroke();
+
+            // EYES
+            const blink = (Date.now() % 4500) > 4300;
+            if (blink) {
+                ctx.beginPath(); ctx.moveTo(-90, 20); ctx.quadraticCurveTo(-65, 10, -40, 20); ctx.stroke();
+                ctx.beginPath(); ctx.moveTo(40, 20); ctx.quadraticCurveTo(65, 10, 90, 20); ctx.stroke();
+            } else {
+                ctx.beginPath(); ctx.ellipse(-65, 20, 15, 20, 0, 0, Math.PI*2); fillStroke(state.colors.eye);
+                ctx.beginPath(); ctx.ellipse(65, 20, 15, 20, 0, 0, Math.PI*2); fillStroke(state.colors.eye);
+                
+                // White highlights
+                ctx.fillStyle = '#ffffff';
+                ctx.beginPath(); ctx.arc(-60, 12, 5, 0, Math.PI*2); ctx.fill();
+                ctx.beginPath(); ctx.arc(70, 12, 5, 0, Math.PI*2); ctx.fill();
+            }
+
+            // NOSE
+            ctx.beginPath();
+            ctx.moveTo(0, 60);
+            ctx.quadraticCurveTo(-15, 75, 5, 80);
+            ctx.stroke();
+
+            // MOUTH
+            drawMouth(0, 130);
+
+            ctx.restore();
+        }
+
+        // Draw individual visemes based exactly on the user's reference image
+        function drawMouth(ox, oy) {
+            ctx.save();
+            ctx.translate(ox, oy);
+            ctx.lineWidth = state.lineWidth;
+            ctx.strokeStyle = state.colors.outline;
+            ctx.lineJoin = 'round';
+            ctx.lineCap = 'round';
+
+            const v = state.currentViseme;
+
+            // Helpers
+            const fillDark = () => { ctx.fillStyle = state.colors.mouthDark; ctx.fill(); ctx.stroke(); };
+            const drawTeethTop = (w, h, yOff) => { ctx.fillStyle = state.colors.teeth; ctx.fillRect(-w/2, yOff, w, h); ctx.strokeRect(-w/2, yOff, w, h); };
+            const drawTeethBot = (w, h, yOff) => { ctx.fillStyle = state.colors.teeth; ctx.fillRect(-w/2, yOff - h, w, h); ctx.strokeRect(-w/2, yOff - h, w, h); };
+            const drawTongue = (yOff, r) => { ctx.fillStyle = state.colors.tongue; ctx.beginPath(); ctx.arc(0, yOff, r, Math.PI, 0); ctx.fill(); ctx.stroke(); };
+
+            // Mouth bounding box clipping helper
+            const clipMouth = (pathFn) => {
+                ctx.save();
+                pathFn();
+                fillDark();
+                ctx.clip();
+            };
+
+            switch (v) {
+                case 'Neutral':
+                    ctx.beginPath(); ctx.moveTo(-30, 0); ctx.quadraticCurveTo(0, 15, 30, 0); ctx.stroke();
+                    break;
+                case 'Ah':
+                    clipMouth(() => {
+                        ctx.beginPath(); ctx.moveTo(-45, -10); ctx.lineTo(45, -10);
+                        ctx.quadraticCurveTo(45, 40, 0, 40); ctx.quadraticCurveTo(-45, 40, -45, -10);
+                    });
+                    drawTeethTop(90, 10, -10);
+                    drawTongue(45, 30);
+                    ctx.restore();
+                    break;
+                case 'Ee':
+                    clipMouth(() => {
+                        ctx.beginPath(); ctx.moveTo(-50, -10); ctx.quadraticCurveTo(0, -15, 50, -10);
+                        ctx.quadraticCurveTo(45, 20, 0, 25); ctx.quadraticCurveTo(-45, 20, -50, -10);
+                    });
+                    // Top and bottom teeth almost touching
+                    ctx.fillStyle = state.colors.teeth;
+                    ctx.beginPath(); ctx.moveTo(-50, -10); ctx.lineTo(50, -10); ctx.lineTo(45, 20); ctx.lineTo(-45, 20); ctx.fill(); ctx.stroke();
+                    // Separation line
+                    ctx.beginPath(); ctx.moveTo(-48, 5); ctx.lineTo(48, 5); ctx.lineWidth = 3; ctx.stroke();
+                    ctx.restore();
+                    break;
+                case 'Oh':
+                    clipMouth(() => { ctx.beginPath(); ctx.ellipse(0, 0, 25, 20, 0, 0, Math.PI*2); });
+                    drawTongue(20, 18);
+                    ctx.restore();
+                    break;
+                case 'Uh':
+                    clipMouth(() => {
+                        ctx.beginPath(); ctx.moveTo(-35, -5); ctx.quadraticCurveTo(0, -15, 35, -5);
+                        ctx.quadraticCurveTo(35, 20, 0, 25); ctx.quadraticCurveTo(-35, 20, -35, -5);
+                    });
+                    drawTeethTop(65, 8, -5);
+                    drawTongue(30, 25);
+                    ctx.restore();
+                    break;
+                case 'Woo':
+                    ctx.beginPath(); ctx.arc(0, 0, 15, 0, Math.PI*2); fillDark();
+                    ctx.save(); ctx.clip(); drawTongue(15, 12); ctx.restore();
+                    break;
+                case 'S':
+                    clipMouth(() => {
+                        ctx.beginPath(); ctx.moveTo(-40, -5); ctx.quadraticCurveTo(0, -10, 40, -5);
+                        ctx.quadraticCurveTo(35, 15, 0, 20); ctx.quadraticCurveTo(-35, 15, -40, -5);
+                    });
+                    // Clenched teeth, slightly curved up
+                    ctx.fillStyle = state.colors.teeth;
+                    ctx.fillRect(-40, -5, 80, 25); ctx.strokeRect(-40, -5, 80, 25);
+                    ctx.restore();
+                    break;
+                case 'D':
+                    clipMouth(() => {
+                        ctx.beginPath(); ctx.moveTo(-40, -5); ctx.quadraticCurveTo(0, -10, 40, -5);
+                        ctx.quadraticCurveTo(35, 25, 0, 30); ctx.quadraticCurveTo(-35, 25, -40, -5);
+                    });
+                    drawTeethTop(75, 12, -5);
+                    ctx.restore();
+                    break;
+                case 'F':
+                    clipMouth(() => {
+                        ctx.beginPath(); ctx.moveTo(-35, -5); ctx.lineTo(35, -5);
+                        ctx.quadraticCurveTo(30, 15, 0, 15); ctx.quadraticCurveTo(-30, 15, -35, -5);
+                    });
+                    drawTeethTop(70, 8, -5);
+                    ctx.restore();
+                    break;
+                case 'L':
+                    clipMouth(() => {
+                        ctx.beginPath(); ctx.moveTo(-40, -5); ctx.quadraticCurveTo(0, -10, 40, -5);
+                        ctx.quadraticCurveTo(35, 25, 0, 30); ctx.quadraticCurveTo(-35, 25, -40, -5);
+                    });
+                    drawTeethTop(75, 8, -5);
+                    // Tongue elevated touching teeth
+                    ctx.fillStyle = state.colors.tongue;
+                    ctx.beginPath(); ctx.ellipse(0, 8, 30, 15, 0, 0, Math.PI*2); ctx.fill(); ctx.stroke();
+                    ctx.restore();
+                    break;
+                case 'M':
+                    ctx.beginPath(); ctx.moveTo(-45, 0); ctx.quadraticCurveTo(0, 10, 45, 0); ctx.stroke();
+                    break;
+                case 'R':
+                    clipMouth(() => {
+                        ctx.beginPath(); ctx.moveTo(-45, -5); ctx.lineTo(45, -5);
+                        ctx.quadraticCurveTo(45, 25, 0, 30); ctx.quadraticCurveTo(-45, 25, -45, -5);
+                    });
+                    drawTeethTop(90, 8, -5);
+                    // Tongue back
+                    ctx.fillStyle = state.colors.tongue;
+                    ctx.beginPath(); ctx.ellipse(0, 35, 35, 20, 0, Math.PI, Math.PI*2); ctx.fill(); ctx.stroke();
+                    ctx.restore();
+                    break;
+            }
+
+            ctx.restore();
+        }
+
+        function render() {
+            state.time = Date.now() / 1000;
+            ctx.clearRect(0, 0, RENDER_SIZE, RENDER_SIZE);
+            drawBackground();
+            drawHead(RENDER_SIZE / 2, RENDER_SIZE / 2 - 30, 1.2);
+            requestAnimationFrame(render);
+        }
+
+        function generateTimeline(text) {
+            const timeline = [];
+            let currentTime = 0;
+            const chars = text.toLowerCase().split('');
+            const speedMs = 85; 
+
+            for (let i = 0; i < chars.length; i++) {
+                const char = chars[i];
+                let viseme = phonemeMap[char] || 'Neutral';
+                
+                let duration = speedMs;
+                if (char === ' ') duration = speedMs * 1.5;
+                if (['.', ',', '!', '?'].includes(char)) duration = speedMs * 4;
+
+                timeline.push({ char, viseme, duration, startTime: currentTime });
+                currentTime += duration;
+            }
+            timeline.push({ char: '', viseme: 'Neutral', duration: 500, startTime: currentTime });
+            return { timeline, totalDuration: currentTime + 500 };
+        }
+
+        async function playLipSync(recordCallback = null) {
+            if (state.isAnimating) return;
+            
+            const text = document.getElementById('script-input').value.trim();
+            if (!text) return;
+
+            state.isAnimating = true;
+            document.getElementById('btn-speak').disabled = true;
+
+            const { timeline, totalDuration } = generateTimeline(text);
+            
+            // Text to Speech
+            if (!recordCallback) {
+                window.speechSynthesis.cancel();
+                const utterance = new SpeechSynthesisUtterance(text);
+                const estimatedMs = text.length * 70;
+                utterance.rate = Math.max(0.5, Math.min(2, estimatedMs / totalDuration));
+                utterance.pitch = 1.0;
+                window.speechSynthesis.speak(utterance);
+            }
+
+            if (recordCallback) await recordCallback();
+
+            const startTime = performance.now();
+
+            return new Promise((resolve) => {
+                function loop(currentTime) {
+                    const elapsed = currentTime - startTime;
+                    let activeFrame = timeline[timeline.length - 1]; 
+                    
+                    for (let i = 0; i < timeline.length; i++) {
+                        if (elapsed >= timeline[i].startTime && elapsed < timeline[i].startTime + timeline[i].duration) {
+                            activeFrame = timeline[i];
+                            break;
+                        }
+                    }
+
+                    state.currentViseme = activeFrame.viseme;
+
+                    if (elapsed < totalDuration) {
+                        requestAnimationFrame(loop);
+                    } else {
+                        state.currentViseme = 'Neutral';
+                        state.isAnimating = false;
+                        document.getElementById('btn-speak').disabled = false;
+                        resolve();
+                    }
+                }
+                requestAnimationFrame(loop);
+            });
+        }
+
+        // Setup UI Listeners
+        document.getElementById('btn-speak').addEventListener('click', () => playLipSync());
+
+        document.querySelectorAll('.viseme-btn').forEach(btn => {
+            btn.addEventListener('click', (e) => {
+                if(!state.isAnimating) state.currentViseme = e.currentTarget.dataset.v;
+            });
+        });
+
+        ['skin', 'hair', 'eye', 'bg'].forEach(key => {
+            document.getElementById(`color-${key}`).addEventListener('input', e => {
+                state.colors[key] = e.target.value;
+            });
+        });
+
+        // Export Logic
+        const btnExport = document.getElementById('btn-export');
+        const overlay = document.getElementById('recording-overlay');
+        const progressFill = document.getElementById('record-progress');
+
+        btnExport.addEventListener('click', async () => {
+            if (state.isRecording || state.isAnimating) return;
+            
+            try {
+                const stream = canvas.captureStream(60);
+                const options = { mimeType: MediaRecorder.isTypeSupported('video/webm;codecs=vp9') ? 'video/webm;codecs=vp9' : 'video/webm' };
+                const mediaRecorder = new MediaRecorder(stream, options);
+                const chunks = [];
+
+                mediaRecorder.ondataavailable = e => { if (e.data.size > 0) chunks.push(e.data); };
+                mediaRecorder.onstop = () => {
+                    const blob = new Blob(chunks, { type: 'video/webm' });
+                    const url = URL.createObjectURL(blob);
+                    const a = document.createElement('a');
+                    a.href = url; a.download = `facesync-avatar-${Date.now()}.webm`;
+                    a.click(); URL.revokeObjectURL(url);
+                    
+                    state.isRecording = false;
+                    overlay.classList.replace('flex', 'hidden');
+                    progressFill.style.width = '0%';
+                };
+
+                state.isRecording = true;
+                overlay.classList.replace('hidden', 'flex');
+                
+                mediaRecorder.start();
+                await playLipSync(); 
+                
+                setTimeout(() => mediaRecorder.stop(), 500);
+
+                let p = 0;
+                const pInt = setInterval(() => {
+                    p += 2; progressFill.style.width = `${Math.min(100, p)}%`;
+                    if(p >= 100) clearInterval(pInt);
+                }, 100);
+
+            } catch (err) {
+                console.error(err);
+                state.isRecording = false;
+                overlay.classList.replace('flex', 'hidden');
+                alert("Recording failed.");
+            }
+        });
+
+        // Start Loop
+        render();
+    </script>
+</body>
+</html>

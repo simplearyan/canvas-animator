@@ -1,0 +1,913 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>CSS 3D Shapes - Interactive Depth Scene</title>
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+
+        body {
+            min-height: 100vh;
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+            overflow: hidden;
+        }
+
+        .scene-container {
+            width: 100vw;
+            height: 100vh;
+            perspective: 1200px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            position: relative;
+            background: linear-gradient(180deg, rgba(102, 126, 234, 0.1) 0%, rgba(0, 0, 0, 0.3) 100%);
+        }
+
+        .scene {
+            width: 100%;
+            height: 100%;
+            position: relative;
+            transform-style: preserve-3d;
+            transform: rotateX(20deg) rotateZ(10deg);
+        }
+
+        /* Ground Plane */
+        .ground {
+            position: absolute;
+            bottom: 0;
+            width: 200%;
+            height: 600px;
+            left: -50%;
+            background: linear-gradient(135deg, 
+                rgba(100, 80, 120, 0.3) 0%,
+                rgba(60, 40, 80, 0.4) 50%,
+                rgba(40, 20, 60, 0.5) 100%);
+            transform: rotateX(90deg) translateZ(-150px);
+            transform-style: preserve-3d;
+            box-shadow: 
+                0 0 100px 50px rgba(0, 0, 0, 0.2) inset,
+                0 -20px 60px 10px rgba(0, 0, 0, 0.3);
+            filter: blur(2px);
+        }
+
+        .ground::before {
+            content: '';
+            position: absolute;
+            width: 100%;
+            height: 100%;
+            background-image: 
+                repeating-linear-gradient(0deg, transparent, transparent 50px, rgba(255,255,255,0.03) 50px, rgba(255,255,255,0.03) 100px),
+                repeating-linear-gradient(90deg, transparent, transparent 50px, rgba(255,255,255,0.03) 50px, rgba(255,255,255,0.03) 100px);
+            pointer-events: none;
+        }
+
+        /* Shape Container */
+        .shapes-container {
+            position: absolute;
+            width: 100%;
+            height: 100%;
+            top: 0;
+            left: 0;
+            transform-style: preserve-3d;
+        }
+
+        .shape {
+            position: absolute;
+            top: 50%;
+            left: 50%;
+            transform-style: preserve-3d;
+            transition: all 0.3s ease;
+        }
+
+        /* Sphere Shape */
+        .sphere {
+            width: 100px;
+            height: 100px;
+            border-radius: 50%;
+            background: radial-gradient(circle at 35% 35%, rgba(255, 255, 255, 0.8), rgba(255, 255, 255, 0) 50%, rgba(0, 0, 0, 0.4));
+            box-shadow: 
+                inset -20px -20px 40px rgba(0, 0, 0, 0.5),
+                inset 20px 20px 40px rgba(255, 255, 255, 0.3),
+                -30px 30px 60px rgba(0, 0, 0, 0.4),
+                0 50px 100px rgba(0, 0, 0, 0.3);
+            filter: drop-shadow(0 10px 20px rgba(0, 0, 0, 0.3));
+        }
+
+        /* Cube Shape */
+        .cube {
+            width: 100px;
+            height: 100px;
+            position: relative;
+            transform-style: preserve-3d;
+        }
+
+        .cube-face {
+            position: absolute;
+            width: 100px;
+            height: 100px;
+            background: linear-gradient(135deg, rgba(100, 200, 255, 0.9), rgba(50, 150, 255, 0.9));
+            border: 1px solid rgba(255, 255, 255, 0.3);
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-weight: bold;
+            color: rgba(255, 255, 255, 0.6);
+            font-size: 12px;
+        }
+
+        .cube-face:nth-child(1) { 
+            transform: rotateY(0deg) translateZ(50px);
+            background: linear-gradient(135deg, rgba(100, 200, 255, 0.9), rgba(80, 180, 255, 0.9));
+            box-shadow: inset -10px -10px 20px rgba(0, 0, 0, 0.2), 20px 20px 40px rgba(0, 0, 0, 0.3);
+        }
+        .cube-face:nth-child(2) { 
+            transform: rotateY(180deg) translateZ(50px);
+            background: linear-gradient(135deg, rgba(80, 180, 255, 0.7), rgba(60, 160, 255, 0.7));
+            box-shadow: inset -10px -10px 20px rgba(0, 0, 0, 0.3), -20px 20px 40px rgba(0, 0, 0, 0.3);
+        }
+        .cube-face:nth-child(3) { 
+            transform: rotateY(90deg) translateZ(50px);
+            background: linear-gradient(135deg, rgba(120, 200, 255, 0.8), rgba(100, 180, 255, 0.8));
+            box-shadow: inset -10px -10px 20px rgba(0, 0, 0, 0.2), 10px 20px 40px rgba(0, 0, 0, 0.3);
+        }
+        .cube-face:nth-child(4) { 
+            transform: rotateY(-90deg) translateZ(50px);
+            background: linear-gradient(135deg, rgba(70, 160, 255, 0.8), rgba(50, 140, 255, 0.8));
+            box-shadow: inset -10px -10px 20px rgba(0, 0, 0, 0.3), -10px 20px 40px rgba(0, 0, 0, 0.3);
+        }
+        .cube-face:nth-child(5) { 
+            transform: rotateX(90deg) translateZ(50px);
+            background: linear-gradient(135deg, rgba(110, 190, 255, 0.85), rgba(90, 170, 255, 0.85));
+            box-shadow: inset -10px -10px 20px rgba(0, 0, 0, 0.2), 0 30px 40px rgba(0, 0, 0, 0.3);
+        }
+        .cube-face:nth-child(6) { 
+            transform: rotateX(-90deg) translateZ(50px);
+            background: linear-gradient(135deg, rgba(60, 150, 255, 0.6), rgba(40, 130, 255, 0.6));
+            box-shadow: inset -10px -10px 20px rgba(0, 0, 0, 0.4), 0 -30px 40px rgba(0, 0, 0, 0.3);
+        }
+
+        /* Rectangle Box */
+        .box {
+            width: 140px;
+            height: 80px;
+            position: relative;
+            transform-style: preserve-3d;
+        }
+
+        .box-face {
+            position: absolute;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            border: 1px solid rgba(255, 255, 255, 0.3);
+            background: linear-gradient(135deg, rgba(255, 150, 100, 0.9), rgba(255, 100, 50, 0.9));
+            font-weight: bold;
+            color: rgba(255, 255, 255, 0.6);
+            font-size: 10px;
+        }
+
+        .box-face-front {
+            width: 140px;
+            height: 80px;
+            transform: translateZ(30px);
+            background: linear-gradient(135deg, rgba(255, 170, 120, 0.95), rgba(255, 120, 70, 0.95));
+            box-shadow: inset -15px -15px 30px rgba(0, 0, 0, 0.2), 30px 30px 50px rgba(0, 0, 0, 0.3);
+        }
+        .box-face-back {
+            width: 140px;
+            height: 80px;
+            transform: rotateY(180deg) translateZ(30px);
+            background: linear-gradient(135deg, rgba(255, 130, 80, 0.8), rgba(255, 80, 30, 0.8));
+            box-shadow: inset -15px -15px 30px rgba(0, 0, 0, 0.3), -30px 30px 50px rgba(0, 0, 0, 0.3);
+        }
+        .box-face-right {
+            width: 60px;
+            height: 80px;
+            left: 140px;
+            transform: rotateY(90deg) translateZ(30px);
+            background: linear-gradient(135deg, rgba(255, 180, 130, 0.9), rgba(255, 130, 80, 0.9));
+            box-shadow: inset -10px -15px 30px rgba(0, 0, 0, 0.2), 20px 30px 50px rgba(0, 0, 0, 0.3);
+        }
+        .box-face-left {
+            width: 60px;
+            height: 80px;
+            transform: rotateY(-90deg) translateZ(30px);
+            background: linear-gradient(135deg, rgba(255, 110, 60, 0.85), rgba(255, 60, 10, 0.85));
+            box-shadow: inset -10px -15px 30px rgba(0, 0, 0, 0.3), -20px 30px 50px rgba(0, 0, 0, 0.3);
+        }
+        .box-face-top {
+            width: 140px;
+            height: 60px;
+            top: 0;
+            left: 0;
+            transform: rotateX(90deg) translateZ(40px);
+            background: linear-gradient(135deg, rgba(255, 200, 150, 0.95), rgba(255, 160, 100, 0.95));
+            box-shadow: inset -10px -10px 20px rgba(0, 0, 0, 0.15), 0 40px 50px rgba(0, 0, 0, 0.3);
+        }
+        .box-face-bottom {
+            width: 140px;
+            height: 60px;
+            bottom: 0;
+            left: 0;
+            transform: rotateX(-90deg) translateZ(40px);
+            background: linear-gradient(135deg, rgba(255, 90, 40, 0.7), rgba(255, 40, 0, 0.7));
+            box-shadow: inset -10px -10px 20px rgba(0, 0, 0, 0.4), 0 -40px 50px rgba(0, 0, 0, 0.3);
+        }
+
+        /* Cylinder */
+        .cylinder {
+            width: 100px;
+            height: 120px;
+            position: relative;
+            transform-style: preserve-3d;
+        }
+
+        .cylinder-side {
+            position: absolute;
+            width: 314px;
+            height: 120px;
+            background: linear-gradient(to right, 
+                rgba(150, 200, 100, 0.3) 0%,
+                rgba(180, 220, 130, 0.9) 20%,
+                rgba(200, 230, 150, 0.95) 50%,
+                rgba(180, 220, 130, 0.9) 80%,
+                rgba(150, 200, 100, 0.3) 100%);
+            border-top: 2px solid rgba(255, 255, 255, 0.4);
+            border-bottom: 2px solid rgba(0, 0, 0, 0.3);
+            transform: rotateY(0deg) translateZ(50px);
+            transform-origin: 157px 0;
+        }
+
+        .cylinder-top {
+            position: absolute;
+            width: 100px;
+            height: 100px;
+            background: radial-gradient(ellipse at 50% 30%, rgba(255, 255, 255, 0.6), rgba(200, 230, 150, 0.9) 40%, rgba(150, 180, 100, 0.8));
+            border: 2px solid rgba(100, 150, 50, 0.4);
+            border-radius: 50%;
+            top: 0;
+            left: 0;
+            box-shadow: inset -10px -10px 30px rgba(0, 0, 0, 0.3), 15px 15px 30px rgba(0, 0, 0, 0.4);
+            transform: rotateX(90deg) translateZ(60px);
+        }
+
+        .cylinder-bottom {
+            position: absolute;
+            width: 100px;
+            height: 100px;
+            background: radial-gradient(ellipse at 50% 70%, rgba(100, 150, 50, 0.5), rgba(150, 180, 100, 0.7) 50%, rgba(80, 120, 30, 0.8));
+            border: 2px solid rgba(60, 100, 20, 0.5);
+            border-radius: 50%;
+            bottom: 0;
+            left: 0;
+            box-shadow: inset -10px -10px 30px rgba(0, 0, 0, 0.4), -15px -15px 30px rgba(0, 0, 0, 0.4);
+            transform: rotateX(-90deg) translateZ(60px);
+        }
+
+        /* Shadow under shape */
+        .shape::before {
+            content: '';
+            position: absolute;
+            width: 120%;
+            height: 30px;
+            bottom: -80px;
+            left: -10%;
+            background: radial-gradient(ellipse, rgba(0, 0, 0, 0.4), rgba(0, 0, 0, 0) 70%);
+            border-radius: 50%;
+            filter: blur(8px);
+            transform: rotateX(90deg) translateZ(-1px);
+        }
+
+        /* Header */
+        .header {
+            position: fixed;
+            top: 4px;
+            left: 4px;
+            z-index: 100;
+            background: rgba(0, 0, 0, 0.6);
+            backdrop-filter: blur(10px);
+            padding: 8px 12px;
+            border-radius: 6px;
+            border: 1px solid rgba(255, 255, 255, 0.1);
+        }
+
+        .header h1 {
+            font-size: 14px;
+            font-weight: bold;
+            color: white;
+            margin: 0;
+            letter-spacing: 1px;
+        }
+
+        /* Control Panel */
+        .control-panel {
+            position: fixed;
+            right: 20px;
+            top: 50%;
+            transform: translateY(-50%);
+            width: 320px;
+            max-height: 90vh;
+            background: rgba(0, 0, 0, 0.7);
+            backdrop-filter: blur(10px);
+            border: 1px solid rgba(255, 255, 255, 0.1);
+            border-radius: 12px;
+            padding: 20px;
+            overflow-y: auto;
+            z-index: 100;
+            color: white;
+            font-size: 13px;
+        }
+
+        .control-panel::-webkit-scrollbar {
+            width: 6px;
+        }
+
+        .control-panel::-webkit-scrollbar-track {
+            background: rgba(255, 255, 255, 0.05);
+            border-radius: 3px;
+        }
+
+        .control-panel::-webkit-scrollbar-thumb {
+            background: rgba(255, 255, 255, 0.2);
+            border-radius: 3px;
+        }
+
+        .control-panel::-webkit-scrollbar-thumb:hover {
+            background: rgba(255, 255, 255, 0.3);
+        }
+
+        .control-section {
+            margin-bottom: 20px;
+            padding-bottom: 20px;
+            border-bottom: 1px solid rgba(255, 255, 255, 0.1);
+        }
+
+        .control-section:last-child {
+            border-bottom: none;
+        }
+
+        .control-label {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            margin-bottom: 8px;
+            font-weight: 500;
+            font-size: 12px;
+            text-transform: uppercase;
+            letter-spacing: 0.5px;
+        }
+
+        .control-value {
+            font-weight: bold;
+            color: #667eea;
+        }
+
+        input[type="range"] {
+            width: 100%;
+            height: 4px;
+            border-radius: 2px;
+            background: rgba(255, 255, 255, 0.1);
+            outline: none;
+            -webkit-appearance: none;
+            accent-color: #667eea;
+        }
+
+        input[type="range"]::-webkit-slider-thumb {
+            -webkit-appearance: none;
+            appearance: none;
+            width: 14px;
+            height: 14px;
+            border-radius: 50%;
+            background: #667eea;
+            cursor: pointer;
+            box-shadow: 0 0 10px rgba(102, 126, 234, 0.5);
+        }
+
+        input[type="range"]::-moz-range-thumb {
+            width: 14px;
+            height: 14px;
+            border-radius: 50%;
+            background: #667eea;
+            cursor: pointer;
+            border: none;
+            box-shadow: 0 0 10px rgba(102, 126, 234, 0.5);
+        }
+
+        input[type="color"] {
+            width: 100%;
+            height: 36px;
+            border: 1px solid rgba(255, 255, 255, 0.2);
+            border-radius: 6px;
+            cursor: pointer;
+            margin-top: 4px;
+        }
+
+        .checkbox-group {
+            display: flex;
+            gap: 10px;
+            flex-wrap: wrap;
+        }
+
+        .checkbox-item {
+            display: flex;
+            align-items: center;
+            gap: 6px;
+            padding: 6px 10px;
+            background: rgba(255, 255, 255, 0.05);
+            border: 1px solid rgba(255, 255, 255, 0.1);
+            border-radius: 4px;
+            cursor: pointer;
+            transition: all 0.3s ease;
+        }
+
+        .checkbox-item:hover {
+            background: rgba(255, 255, 255, 0.1);
+        }
+
+        .checkbox-item input {
+            cursor: pointer;
+            accent-color: #667eea;
+        }
+
+        .button-group {
+            display: grid;
+            grid-template-columns: 1fr 1fr;
+            gap: 8px;
+            margin-top: 10px;
+        }
+
+        button {
+            padding: 8px 12px;
+            background: rgba(102, 126, 234, 0.3);
+            border: 1px solid rgba(102, 126, 234, 0.6);
+            border-radius: 6px;
+            color: white;
+            cursor: pointer;
+            font-size: 12px;
+            font-weight: 600;
+            transition: all 0.3s ease;
+        }
+
+        button:hover {
+            background: rgba(102, 126, 234, 0.5);
+            border-color: rgba(102, 126, 234, 0.8);
+            box-shadow: 0 0 15px rgba(102, 126, 234, 0.3);
+        }
+
+        button:active {
+            transform: scale(0.95);
+        }
+
+        .shape-toggle {
+            font-size: 11px;
+        }
+
+        .title {
+            font-size: 14px;
+            font-weight: bold;
+            margin-bottom: 12px;
+            text-transform: uppercase;
+            letter-spacing: 1px;
+            color: #a8bbff;
+        }
+    </style>
+</head>
+<body>
+    <div class="header">
+        <h1>CSS 3D Shapes</h1>
+    </div>
+
+    <div class="scene-container">
+        <div class="scene">
+            <div class="ground"></div>
+            <div class="shapes-container" id="shapesContainer"></div>
+        </div>
+    </div>
+
+    <!-- Control Panel -->
+    <div class="control-panel">
+        <div class="title">Configuration</div>
+
+        <!-- Shape Selection -->
+        <div class="control-section">
+            <div class="control-label">Shapes to Display</div>
+            <div class="checkbox-group">
+                <label class="checkbox-item">
+                    <input type="checkbox" id="showSphere" checked>
+                    <span class="shape-toggle">Sphere</span>
+                </label>
+                <label class="checkbox-item">
+                    <input type="checkbox" id="showCube" checked>
+                    <span class="shape-toggle">Cube</span>
+                </label>
+                <label class="checkbox-item">
+                    <input type="checkbox" id="showBox" checked>
+                    <span class="shape-toggle">Box</span>
+                </label>
+                <label class="checkbox-item">
+                    <input type="checkbox" id="showCylinder" checked>
+                    <span class="shape-toggle">Cylinder</span>
+                </label>
+            </div>
+        </div>
+
+        <!-- Spacing -->
+        <div class="control-section">
+            <div class="control-label">
+                <span>Shape Spacing</span>
+                <span class="control-value" id="spacingVal">80</span>
+            </div>
+            <input type="range" id="spacingSlider" min="20" max="200" value="80">
+        </div>
+
+        <!-- Scene Rotation -->
+        <div class="control-section">
+            <div class="control-label">
+                <span>Scene Tilt X</span>
+                <span class="control-value" id="tiltXVal">20</span>°
+            </div>
+            <input type="range" id="tiltXSlider" min="-45" max="45" value="20">
+
+            <div class="control-label" style="margin-top: 12px;">
+                <span>Scene Tilt Z</span>
+                <span class="control-value" id="tiltZVal">10</span>°
+            </div>
+            <input type="range" id="tiltZSlider" min="-45" max="45" value="10">
+        </div>
+
+        <!-- Lighting -->
+        <div class="control-section">
+            <div class="control-label">
+                <span>Light Intensity</span>
+                <span class="control-value" id="lightIntVal">1.0</span>
+            </div>
+            <input type="range" id="lightIntSlider" min="0" max="2" step="0.1" value="1">
+
+            <div class="control-label" style="margin-top: 12px;">
+                <span>Shadow Strength</span>
+                <span class="control-value" id="shadowVal">0.5</span>
+            </div>
+            <input type="range" id="shadowSlider" min="0" max="1" step="0.1" value="0.5">
+        </div>
+
+        <!-- Colors -->
+        <div class="control-section">
+            <div class="control-label">Scene Background</div>
+            <input type="color" id="bgColor" value="#667eea">
+
+            <div class="control-label" style="margin-top: 12px;">
+                <span>Ground Color</span>
+            </div>
+            <input type="color" id="groundColor" value="#3d2a61">
+        </div>
+
+        <!-- Animation -->
+        <div class="control-section">
+            <div class="checkbox-item" style="padding: 8px; margin-bottom: 10px;">
+                <input type="checkbox" id="enableAnimation" checked>
+                <span>Enable Animation</span>
+            </div>
+
+            <div class="control-label" id="animSpeedLabel">
+                <span>Animation Speed</span>
+                <span class="control-value" id="animSpeedVal">1.0</span>x
+            </div>
+            <input type="range" id="animSpeedSlider" min="0" max="3" step="0.1" value="1">
+
+            <div class="control-label" id="rotationLabel" style="margin-top: 12px;">
+                <span>Rotation Amount</span>
+                <span class="control-value" id="rotationVal">1.0</span>x
+            </div>
+            <input type="range" id="rotationSlider" min="0" max="2" step="0.1" value="1">
+        </div>
+
+        <!-- Actions -->
+        <div class="control-section">
+            <div class="button-group">
+                <button onclick="resetScene()">↻ Reset</button>
+                <button onclick="randomize()">🎲 Randomize</button>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        const config = {
+            showSphere: true,
+            showCube: true,
+            showBox: true,
+            showCylinder: true,
+            spacing: 80,
+            tiltX: 20,
+            tiltZ: 10,
+            lightIntensity: 1.0,
+            shadowStrength: 0.5,
+            bgColor: '#667eea',
+            groundColor: '#3d2a61',
+            enableAnimation: true,
+            animSpeed: 1.0,
+            rotation: 1.0
+        };
+
+        const shapesContainer = document.getElementById('shapesContainer');
+        const scene = shapesContainer.parentElement;
+        let animationTime = 0;
+
+        // Shape Templates
+        const shapes = {
+            sphere: {
+                name: 'sphere',
+                html: '<div class="sphere"></div>'
+            },
+            cube: {
+                name: 'cube',
+                html: `
+                    <div class="cube">
+                        <div class="cube-face">Front</div>
+                        <div class="cube-face">Back</div>
+                        <div class="cube-face">Right</div>
+                        <div class="cube-face">Left</div>
+                        <div class="cube-face">Top</div>
+                        <div class="cube-face">Bottom</div>
+                    </div>
+                `
+            },
+            box: {
+                name: 'box',
+                html: `
+                    <div class="box">
+                        <div class="box-face box-face-front">Front</div>
+                        <div class="box-face box-face-back">Back</div>
+                        <div class="box-face box-face-right">Right</div>
+                        <div class="box-face box-face-left">Left</div>
+                        <div class="box-face box-face-top">Top</div>
+                        <div class="box-face box-face-bottom">Bottom</div>
+                    </div>
+                `
+            },
+            cylinder: {
+                name: 'cylinder',
+                html: `
+                    <div class="cylinder">
+                        <div class="cylinder-side"></div>
+                        <div class="cylinder-top"></div>
+                        <div class="cylinder-bottom"></div>
+                    </div>
+                `
+            }
+        };
+
+        function createShapes() {
+            shapesContainer.innerHTML = '';
+            const shapeList = [];
+
+            if (config.showSphere) shapeList.push(shapes.sphere);
+            if (config.showCube) shapeList.push(shapes.cube);
+            if (config.showBox) shapeList.push(shapes.box);
+            if (config.showCylinder) shapeList.push(shapes.cylinder);
+
+            const count = shapeList.length;
+            const angleStep = (Math.PI * 2) / count;
+
+            shapeList.forEach((shape, index) => {
+                const angle = angleStep * index;
+                const distance = config.spacing * 2;
+                const x = Math.cos(angle) * distance;
+                const z = Math.sin(angle) * distance;
+
+                const shapeEl = document.createElement('div');
+                shapeEl.className = 'shape';
+                shapeEl.innerHTML = shape.html;
+                shapeEl.dataset.shape = shape.name;
+                shapeEl.dataset.index = index;
+                shapeEl.style.transform = `translate3d(calc(-50% + ${x}px), -50%, ${z}px)`;
+
+                shapesContainer.appendChild(shapeEl);
+            });
+        }
+
+        function updateScene() {
+            scene.style.transform = `rotateX(${config.tiltX}deg) rotateZ(${config.tiltZ}deg)`;
+            
+            document.body.style.background = `linear-gradient(135deg, ${config.bgColor} 0%, ${adjustColor(config.bgColor, -30)} 100%)`;
+            document.querySelector('.ground').style.background = `linear-gradient(135deg, 
+                ${adjustColor(config.groundColor, 20)} 0%,
+                ${config.groundColor} 50%,
+                ${adjustColor(config.groundColor, -20)} 100%)`;
+
+            // Update shapes shadows based on shadow strength
+            document.querySelectorAll('.shape').forEach(shape => {
+                const opacity = config.shadowStrength * 0.5;
+                shape.style.setProperty('--shadow-opacity', opacity);
+            });
+
+            // Apply CSS variable for light intensity
+            document.documentElement.style.setProperty('--light-intensity', config.lightIntensity);
+        }
+
+        function adjustColor(color, amount) {
+            const usePound = color[0] === "#";
+            const col = usePound ? color.slice(1) : color;
+            const num = parseInt(col, 16);
+            const r = Math.min(255, Math.max(0, (num >> 16) + amount));
+            const g = Math.min(255, Math.max(0, (num >> 8 & 0x00FF) + amount));
+            const b = Math.min(255, Math.max(0, (num & 0x0000FF) + amount));
+            return (usePound ? "#" : "") + (0x1000000 + r * 0x10000 + g * 0x100 + b).toString(16).slice(1);
+        }
+
+        function animateShapes() {
+            if (!config.enableAnimation) return;
+
+            animationTime += 0.01 * config.animSpeed;
+
+            document.querySelectorAll('.shape').forEach((shape, index) => {
+                const offset = (index * Math.PI * 2) / document.querySelectorAll('.shape').length;
+                const yOffset = Math.sin(animationTime + offset) * 10;
+                const rotX = Math.sin(animationTime * 0.5 + offset) * 15 * config.rotation;
+                const rotY = Math.cos(animationTime * 0.3 + offset) * 20 * config.rotation;
+
+                const currentTransform = shape.style.transform;
+                const translateMatch = currentTransform.match(/translate3d\(([^,]+),\s*([^,]+),\s*([^)]+)\)/);
+
+                if (translateMatch) {
+                    shape.style.transform = `translate3d(${translateMatch[1]}, calc(-50% + ${yOffset}px), ${translateMatch[3]}) rotateX(${rotX}deg) rotateY(${rotY}deg)`;
+                }
+            });
+        }
+
+        // Event Listeners
+        document.getElementById('showSphere').addEventListener('change', (e) => {
+            config.showSphere = e.target.checked;
+            createShapes();
+        });
+
+        document.getElementById('showCube').addEventListener('change', (e) => {
+            config.showCube = e.target.checked;
+            createShapes();
+        });
+
+        document.getElementById('showBox').addEventListener('change', (e) => {
+            config.showBox = e.target.checked;
+            createShapes();
+        });
+
+        document.getElementById('showCylinder').addEventListener('change', (e) => {
+            config.showCylinder = e.target.checked;
+            createShapes();
+        });
+
+        document.getElementById('spacingSlider').addEventListener('input', (e) => {
+            config.spacing = parseFloat(e.target.value);
+            document.getElementById('spacingVal').textContent = e.target.value;
+            createShapes();
+        });
+
+        document.getElementById('tiltXSlider').addEventListener('input', (e) => {
+            config.tiltX = parseFloat(e.target.value);
+            document.getElementById('tiltXVal').textContent = e.target.value;
+            updateScene();
+        });
+
+        document.getElementById('tiltZSlider').addEventListener('input', (e) => {
+            config.tiltZ = parseFloat(e.target.value);
+            document.getElementById('tiltZVal').textContent = e.target.value;
+            updateScene();
+        });
+
+        document.getElementById('lightIntSlider').addEventListener('input', (e) => {
+            config.lightIntensity = parseFloat(e.target.value);
+            document.getElementById('lightIntVal').textContent = e.target.value.toFixed(1);
+            updateScene();
+        });
+
+        document.getElementById('shadowSlider').addEventListener('input', (e) => {
+            config.shadowStrength = parseFloat(e.target.value);
+            document.getElementById('shadowVal').textContent = e.target.value.toFixed(1);
+            updateScene();
+        });
+
+        document.getElementById('bgColor').addEventListener('input', (e) => {
+            config.bgColor = e.target.value;
+            updateScene();
+        });
+
+        document.getElementById('groundColor').addEventListener('input', (e) => {
+            config.groundColor = e.target.value;
+            updateScene();
+        });
+
+        document.getElementById('enableAnimation').addEventListener('change', (e) => {
+            config.enableAnimation = e.target.checked;
+            document.getElementById('animSpeedLabel').style.opacity = e.target.checked ? '1' : '0.5';
+            document.getElementById('rotationLabel').style.opacity = e.target.checked ? '1' : '0.5';
+            document.getElementById('animSpeedSlider').disabled = !e.target.checked;
+            document.getElementById('rotationSlider').disabled = !e.target.checked;
+        });
+
+        document.getElementById('animSpeedSlider').addEventListener('input', (e) => {
+            config.animSpeed = parseFloat(e.target.value);
+            document.getElementById('animSpeedVal').textContent = e.target.value.toFixed(1);
+        });
+
+        document.getElementById('rotationSlider').addEventListener('input', (e) => {
+            config.rotation = parseFloat(e.target.value);
+            document.getElementById('rotationVal').textContent = e.target.value.toFixed(1);
+        });
+
+        function resetScene() {
+            Object.assign(config, {
+                showSphere: true,
+                showCube: true,
+                showBox: true,
+                showCylinder: true,
+                spacing: 80,
+                tiltX: 20,
+                tiltZ: 10,
+                lightIntensity: 1.0,
+                shadowStrength: 0.5,
+                bgColor: '#667eea',
+                groundColor: '#3d2a61',
+                enableAnimation: true,
+                animSpeed: 1.0,
+                rotation: 1.0
+            });
+
+            document.getElementById('spacingSlider').value = 80;
+            document.getElementById('tiltXSlider').value = 20;
+            document.getElementById('tiltZSlider').value = 10;
+            document.getElementById('lightIntSlider').value = 1;
+            document.getElementById('shadowSlider').value = 0.5;
+            document.getElementById('bgColor').value = '#667eea';
+            document.getElementById('groundColor').value = '#3d2a61';
+            document.getElementById('enableAnimation').checked = true;
+            document.getElementById('animSpeedSlider').value = 1;
+            document.getElementById('rotationSlider').value = 1;
+
+            document.getElementById('showSphere').checked = true;
+            document.getElementById('showCube').checked = true;
+            document.getElementById('showBox').checked = true;
+            document.getElementById('showCylinder').checked = true;
+
+            document.getElementById('spacingVal').textContent = '80';
+            document.getElementById('tiltXVal').textContent = '20';
+            document.getElementById('tiltZVal').textContent = '10';
+            document.getElementById('lightIntVal').textContent = '1.0';
+            document.getElementById('shadowVal').textContent = '0.5';
+            document.getElementById('animSpeedVal').textContent = '1.0';
+            document.getElementById('rotationVal').textContent = '1.0';
+
+            createShapes();
+            updateScene();
+        }
+
+        function randomize() {
+            config.spacing = Math.random() * 120 + 40;
+            config.tiltX = Math.random() * 60 - 30;
+            config.tiltZ = Math.random() * 60 - 30;
+            config.lightIntensity = Math.random() * 1.5 + 0.5;
+            config.shadowStrength = Math.random();
+            config.bgColor = '#' + Math.floor(Math.random()*16777215).toString(16).padStart(6, '0');
+            config.groundColor = '#' + Math.floor(Math.random()*16777215).toString(16).padStart(6, '0');
+            config.animSpeed = Math.random() * 2 + 0.5;
+            config.rotation = Math.random() * 1.5 + 0.5;
+
+            document.getElementById('spacingSlider').value = config.spacing.toFixed(0);
+            document.getElementById('tiltXSlider').value = config.tiltX.toFixed(0);
+            document.getElementById('tiltZSlider').value = config.tiltZ.toFixed(0);
+            document.getElementById('lightIntSlider').value = config.lightIntensity.toFixed(1);
+            document.getElementById('shadowSlider').value = config.shadowStrength.toFixed(1);
+            document.getElementById('bgColor').value = config.bgColor;
+            document.getElementById('groundColor').value = config.groundColor;
+            document.getElementById('animSpeedSlider').value = config.animSpeed.toFixed(1);
+            document.getElementById('rotationSlider').value = config.rotation.toFixed(1);
+
+            document.getElementById('spacingVal').textContent = config.spacing.toFixed(0);
+            document.getElementById('tiltXVal').textContent = config.tiltX.toFixed(0);
+            document.getElementById('tiltZVal').textContent = config.tiltZ.toFixed(0);
+            document.getElementById('lightIntVal').textContent = config.lightIntensity.toFixed(1);
+            document.getElementById('shadowVal').textContent = config.shadowStrength.toFixed(1);
+            document.getElementById('animSpeedVal').textContent = config.animSpeed.toFixed(1);
+            document.getElementById('rotationVal').textContent = config.rotation.toFixed(1);
+
+            createShapes();
+            updateScene();
+        }
+
+        // Animation Loop
+        function animate() {
+            animateShapes();
+            requestAnimationFrame(animate);
+        }
+
+        // Initialize
+        createShapes();
+        updateScene();
+        animate();
+    </script>
+</body>
+</html>

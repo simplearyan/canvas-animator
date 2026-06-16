@@ -1,0 +1,1026 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+    <title>Brand Identity Studio Pro - Graphics Editor</title>
+
+    <!-- Google Fonts -->
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Carrois+Gothic&family=Caveat:wght@600;700&family=Inter:wght@400;500;600;700;800;900&family=JetBrains+Mono:wght@400;500;700&family=Playfair+Display:wght@400;600;700&family=Roboto:wght@400;500;700;900&family=Outfit:wght@400;600;800&family=Rubik:wght@400;600;800&family=Poppins:wght@400;600;800&family=Montserrat:wght@400;700;900&family=Space+Grotesk:wght@400;600;700&family=Syne:wght@400;700;800&display=swap" rel="stylesheet">
+
+    <!-- Tailwind CSS -->
+    <script src="https://cdn.tailwindcss.com"></script>
+    <script>
+        tailwind.config = {
+            theme: {
+                extend: {
+                    fontFamily: {
+                        sans: ['Inter', 'sans-serif'],
+                        mono: ['JetBrains Mono', 'monospace'],
+                    },
+                    colors: {
+                        blueprint: {
+                            50: '#f0f4f8',
+                            100: '#d9e2ec',
+                            200: '#bcccdc',
+                            300: '#9fb3c8',
+                            800: '#102a43',
+                            900: '#003366', 
+                        },
+                        brand: {
+                            red: '#ef4444',
+                            blue: '#3b82f6',
+                            pink: '#fbcfe8'
+                        }
+                    }
+                }
+            }
+        }
+    </script>
+
+    <!-- Phosphor Icons -->
+    <script src="https://unpkg.com/@phosphor-icons/web"></script>
+    <!-- JSZip for Favicon Package Export -->
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/jszip/3.10.1/jszip.min.js"></script>
+
+    <style>
+        body { overscroll-behavior-y: none; }
+        
+        .blueprint-bg {
+            background-color: #f4f7fa;
+            background-image: 
+                linear-gradient(rgba(0, 51, 102, 0.08) 1px, transparent 1px),
+                linear-gradient(90deg, rgba(0, 51, 102, 0.08) 1px, transparent 1px);
+            background-size: 24px 24px;
+            background-position: center center;
+        }
+
+        input[type=range] {
+            -webkit-appearance: none;
+            width: 100%;
+            background: transparent;
+        }
+        input[type=range]::-webkit-slider-thumb {
+            -webkit-appearance: none;
+            height: 16px;
+            width: 16px;
+            border-radius: 50%;
+            background: #003366;
+            cursor: pointer;
+            margin-top: -6px;
+            box-shadow: 0 1px 3px rgba(0,0,0,0.3);
+        }
+        input[type=range]::-webkit-slider-runnable-track {
+            width: 100%;
+            height: 4px;
+            cursor: pointer;
+            background: #cbd5e1;
+            border-radius: 2px;
+        }
+        input[type=range]:focus::-webkit-slider-runnable-track { background: #94a3b8; }
+
+        ::-webkit-scrollbar { width: 8px; height: 8px; }
+        ::-webkit-scrollbar-track { background: transparent; }
+        ::-webkit-scrollbar-thumb { background: #cbd5e1; border-radius: 0px; border: 1px solid #f4f7fa; }
+        ::-webkit-scrollbar-thumb:hover { background: #94a3b8; }
+
+        input[type="color"] {
+            -webkit-appearance: none;
+            border: none;
+            width: 100%;
+            height: 100%;
+            padding: 0;
+            cursor: pointer;
+            background: transparent;
+        }
+        input[type="color"]::-webkit-color-swatch-wrapper { padding: 0; }
+        input[type="color"]::-webkit-color-swatch { border: none; }
+
+        .blueprint-shadow { box-shadow: 6px 6px 0px rgba(0, 51, 102, 0.1); }
+        .editor-btn.active { background-color: #003366; color: white; border-color: #003366; }
+        
+        .hidden-ui { display: none !important; }
+    </style>
+</head>
+<body class="blueprint-bg text-slate-800 h-screen flex flex-col overflow-hidden">
+
+    <!-- HEADER -->
+    <header class="h-16 bg-white border-b border-blueprint-900 flex items-center justify-between px-4 sm:px-8 flex-shrink-0 z-20">
+        <div class="flex items-center gap-4">
+            <div class="border-2 border-blueprint-900 px-3 py-1 flex items-center bg-white blueprint-shadow select-none">
+                <span class="text-xl sm:text-2xl font-black text-blueprint-900 tracking-tighter uppercase">Brand</span>
+                <span class="text-xl sm:text-2xl font-black text-brand-blue tracking-tighter uppercase">Identity</span>
+            </div>
+            <div class="hidden md:flex gap-2 text-[10px] font-bold text-blueprint-900 uppercase tracking-widest mt-1">
+                <span class="border border-blueprint-200 px-2 py-0.5 bg-blueprint-50">Graphics</span>
+                <span class="border border-blueprint-200 px-2 py-0.5 bg-blueprint-50">Studio</span>
+            </div>
+        </div>
+
+        <div class="flex items-center justify-end gap-3 shrink-0">
+            <label class="hidden md:flex items-center gap-1.5 cursor-pointer bg-white hover:bg-slate-50 px-2.5 py-1.5 border border-blueprint-200 transition" title="Export as transparent SVG, PNG, or WebP">
+                <input type="checkbox" id="header-transparent" class="w-3.5 h-3.5 accent-blueprint-900 rounded-none cursor-pointer">
+                <span class="text-[11px] font-bold text-blueprint-800 uppercase tracking-wide">Transparent BG</span>
+            </label>
+            
+            <div class="flex bg-blueprint-900 border-2 border-blueprint-900 shadow-[2px_2px_0px_rgba(0,51,102,0.5)]">
+                <select id="export-res" class="bg-white text-blueprint-900 font-bold pl-3 pr-2 py-1.5 outline-none cursor-pointer appearance-none text-xs border-r-2 border-blueprint-900 hidden sm:block uppercase">
+                    <option value="1">1x (Standard)</option>
+                    <option value="2" selected>2x (High Res)</option>
+                    <option value="4">4x (Ultra HD)</option>
+                </select>
+                <select id="export-fmt" class="bg-white text-blueprint-900 font-bold pl-3 pr-2 py-1.5 outline-none cursor-pointer appearance-none text-xs uppercase" onchange="document.getElementById('text-export').innerText = this.options[this.selectedIndex].text.split(' ')[0]">
+                    <option value="png" selected>PNG</option>
+                    <option value="jpg">JPG</option>
+                    <option value="webp">WEBP</option>
+                    <option value="svg">SVG (Vector)</option>
+                    <option value="favicon">ZIP (Favicon)</option>
+                </select>
+                <button id="btn-header-export" class="flex items-center gap-2 px-4 py-1.5 text-white font-black hover:bg-blueprint-800 transition-colors text-xs uppercase tracking-widest">
+                    <i class="ph-bold ph-download text-sm"></i>
+                    <span class="hidden sm:inline" id="text-export">PNG</span>
+                </button>
+            </div>
+        </div>
+    </header>
+
+    <!-- MAIN APP AREA -->
+    <main class="flex-1 flex flex-col md:flex-row overflow-hidden relative">
+
+        <!-- TOOLBAR / SIDEBAR -->
+        <aside class="w-full md:w-[420px] bg-white border-b md:border-b-0 md:border-r border-blueprint-900 p-5 md:p-6 flex flex-col gap-6 overflow-y-auto z-10 flex-shrink-0 h-[50vh] md:h-full order-2 md:order-1 shadow-[0_-4px_10px_rgba(0,0,0,0.05)] md:shadow-none custom-scrollbar">
+            
+            <div class="text-[10px] font-black text-blueprint-900 uppercase tracking-widest bg-blueprint-100 px-2 py-1 inline-block w-max mb-[-12px]">Design Properties</div>
+
+            <!-- Quick Templates -->
+            <div class="flex flex-col gap-2 flex-shrink-0">
+                <h2 class="text-[11px] font-bold uppercase tracking-widest text-slate-500 flex items-center gap-2">
+                    <i class="ph-fill ph-magic-wand text-brand-blue text-lg"></i> Gallery Presets
+                </h2>
+                <div class="grid grid-cols-2 gap-2 mt-1">
+                    <button class="template-btn py-2 bg-white border border-blueprint-200 hover:border-blueprint-900 text-xs font-semibold text-slate-700 transition px-3 text-left truncate" data-template="canvasLabsLight">✨ CanvasLabs (Light)</button>
+                    <button class="template-btn py-2 bg-white border border-blueprint-200 hover:border-blueprint-900 text-xs font-semibold text-slate-700 transition px-3 text-left truncate" data-template="canvasGalleryVibrant">🔥 CanvasGallery</button>
+                    <button class="template-btn py-2 bg-white border border-blueprint-200 hover:border-blueprint-900 text-xs font-semibold text-slate-700 transition px-3 text-left truncate" data-template="elevatePink">🌸 ElevateDesigns</button>
+                    <button class="template-btn py-2 bg-white border border-blueprint-200 hover:border-blueprint-900 text-xs font-semibold text-slate-700 transition px-3 text-left truncate" data-template="techStartup">🚀 Tech Startup</button>
+                    <button class="template-btn py-2 bg-white border border-blueprint-200 hover:border-blueprint-900 text-xs font-semibold text-slate-700 transition px-3 text-left truncate" data-template="modernMinimal">⬛ Modern Minimal</button>
+                    <button class="template-btn py-2 bg-white border border-blueprint-200 hover:border-blueprint-900 text-xs font-semibold text-slate-700 transition px-3 text-left truncate" data-template="retroPop">🎨 Retro Pop</button>
+                    <button class="template-btn py-2 bg-white border border-blueprint-200 hover:border-blueprint-900 text-xs font-semibold text-slate-700 transition px-3 text-left truncate" data-template="financePro">📈 Finance Pro</button>
+                    <button class="template-btn py-2 bg-white border border-blueprint-200 hover:border-blueprint-900 text-xs font-semibold text-slate-700 transition px-3 text-left truncate" data-template="canvasLabsDark">🌙 CanvasLabs (Dark)</button>
+                </div>
+            </div>
+
+            <div class="w-full border-b border-dashed border-blueprint-300 mt-1"></div>
+
+            <!-- Content Editor -->
+            <div class="flex flex-col gap-3 flex-shrink-0">
+                <h2 class="text-[11px] font-bold uppercase tracking-widest text-slate-500">Brand Elements</h2>
+                
+                <div class="grid grid-cols-3 gap-2">
+                    <div class="col-span-1">
+                        <label class="block text-[10px] font-bold uppercase tracking-wider text-blueprint-900 mb-1">Initials</label>
+                        <input type="text" id="brand-initials" value="CG" class="w-full px-3 py-2 bg-slate-50 border border-blueprint-200 text-sm font-semibold outline-none focus:ring-1 focus:ring-blueprint-900 focus:border-blueprint-900 transition-all text-center">
+                    </div>
+                    <div class="col-span-2">
+                        <label class="block text-[10px] font-bold uppercase tracking-wider text-blueprint-900 mb-1">Prefix (Bold)</label>
+                        <input type="text" id="brand-prefix" value="Canvas" class="w-full px-3 py-2 bg-slate-50 border border-blueprint-200 text-sm font-semibold outline-none focus:ring-1 focus:ring-blueprint-900 focus:border-blueprint-900 transition-all">
+                    </div>
+                </div>
+                <div class="grid grid-cols-3 gap-2">
+                    <div class="col-span-1 flex flex-col justify-end">
+                        <label class="flex items-center gap-2 cursor-pointer bg-slate-50 px-2 py-2 border border-blueprint-200 h-[38px]">
+                            <input type="checkbox" id="show-text" checked class="w-4 h-4 accent-blueprint-900">
+                            <span class="text-[10px] font-bold text-slate-700 uppercase">Show Text</span>
+                        </label>
+                    </div>
+                    <div class="col-span-2">
+                        <label class="block text-[10px] font-bold uppercase tracking-wider text-blueprint-900 mb-1">Suffix (Regular)</label>
+                        <input type="text" id="brand-suffix" value="Gallery" class="w-full px-3 py-2 bg-slate-50 border border-blueprint-200 text-sm outline-none focus:ring-1 focus:ring-blueprint-900 focus:border-blueprint-900 transition-all">
+                    </div>
+                </div>
+            </div>
+
+            <div class="w-full border-b border-dashed border-blueprint-300"></div>
+
+            <!-- Format & Layout -->
+            <div class="flex flex-col gap-4 flex-shrink-0">
+                <h2 class="text-[11px] font-bold uppercase tracking-widest text-slate-500">Format & Layout</h2>
+                
+                <div class="grid grid-cols-2 gap-4">
+                    <div class="flex flex-col">
+                        <label class="block text-[10px] font-bold uppercase tracking-wider text-blueprint-900 mb-1.5">Canvas Target</label>
+                        <select id="canvas-ratio" class="w-full px-3 py-2 bg-slate-50 border border-blueprint-200 text-xs font-semibold outline-none focus:border-blueprint-900 cursor-pointer">
+                            <option value="1:1" selected>Square (1080x1080)</option>
+                            <option value="16:9">Banner (1920x1080)</option>
+                            <option value="3:1">Header (1500x500)</option>
+                            <option value="4:5">Portrait (1080x1350)</option>
+                            <option value="custom">Custom Resolution</option>
+                        </select>
+                        <div id="custom-res-container" class="hidden gap-2 mt-2">
+                            <div class="flex-1 relative">
+                                <span class="absolute text-[9px] text-slate-400 left-2 top-[10px]">W</span>
+                                <input type="number" id="custom-w" value="1200" class="w-full pl-6 pr-2 py-1.5 bg-white border border-blueprint-200 text-xs font-medium outline-none focus:border-blueprint-900">
+                            </div>
+                            <div class="flex-1 relative">
+                                <span class="absolute text-[9px] text-slate-400 left-2 top-[10px]">H</span>
+                                <input type="number" id="custom-h" value="630" class="w-full pl-6 pr-2 py-1.5 bg-white border border-blueprint-200 text-xs font-medium outline-none focus:border-blueprint-900">
+                            </div>
+                        </div>
+                    </div>
+                    <div>
+                        <label class="block text-[10px] font-bold uppercase tracking-wider text-blueprint-900 mb-1.5">Font Family</label>
+                        <select id="font-family" class="w-full px-3 py-2 bg-slate-50 border border-blueprint-200 text-xs font-semibold outline-none focus:border-blueprint-900 cursor-pointer">
+                            <option value="Inter" selected>Inter (Modern)</option>
+                            <option value="Outfit">Outfit (Clean)</option>
+                            <option value="Playfair Display">Playfair (Serif)</option>
+                            <option value="JetBrains Mono">JetBrains Mono</option>
+                            <option value="Rubik">Rubik (Friendly)</option>
+                            <option value="Poppins">Poppins (Geometric)</option>
+                            <option value="Montserrat">Montserrat (Classic)</option>
+                            <option value="Space Grotesk">Space Grotesk (Tech)</option>
+                            <option value="Syne">Syne (Display)</option>
+                        </select>
+                    </div>
+                </div>
+
+                <div class="grid grid-cols-3 gap-2">
+                    <button class="editor-btn active py-1.5 text-[10px] font-bold uppercase border border-blueprint-200 transition" data-align="horizontal">Row</button>
+                    <button class="editor-btn py-1.5 text-[10px] font-bold uppercase border border-blueprint-200 transition" data-align="vertical">Stack</button>
+                    <button class="editor-btn py-1.5 text-[10px] font-bold uppercase border border-blueprint-200 transition" data-align="icon-only">Icon Only</button>
+                </div>
+            </div>
+
+            <div class="w-full border-b border-dashed border-blueprint-300"></div>
+
+            <!-- Appearance Settings -->
+            <div class="flex flex-col gap-4 flex-shrink-0">
+                <h2 class="text-[11px] font-bold uppercase tracking-widest text-slate-500">Styling & Colors</h2>
+                
+                <div class="flex flex-col gap-3">
+                    <label class="block text-[10px] font-bold uppercase tracking-wider text-blueprint-900">Background Style</label>
+                    <select id="bg-type" class="w-full px-3 py-2 bg-slate-50 border border-blueprint-200 text-xs font-medium outline-none focus:border-blueprint-900 cursor-pointer">
+                        <optgroup label="Custom Builder">
+                            <option value="custom-gradient-br" selected>Custom Gradient (Diag)</option>
+                            <option value="custom-gradient-r">Custom Gradient (Horiz)</option>
+                            <option value="solid">Custom Solid Color</option>
+                        </optgroup>
+                        <optgroup label="Premium Gradients">
+                            <option value="preset-sunset">Sunset Vibes</option>
+                            <option value="preset-ocean">Deep Ocean</option>
+                            <option value="preset-cyber">Cyberpunk Edge</option>
+                            <option value="preset-aurora">Aurora Borealis</option>
+                            <option value="preset-peach">Peach Pastel</option>
+                        </optgroup>
+                    </select>
+                    
+                    <div class="flex gap-2" id="custom-colors-container">
+                        <div class="flex-1">
+                            <label class="block text-[10px] font-bold uppercase tracking-wider text-slate-500 mb-1.5" id="lbl-bg1">Color 1</label>
+                            <div class="relative w-full h-8 border border-blueprint-200 overflow-hidden"><input type="color" id="bg-color-1" value="#e0f2fe"></div>
+                        </div>
+                        <div class="flex-1" id="bg-color-2-container">
+                            <label class="block text-[10px] font-bold uppercase tracking-wider text-slate-500 mb-1.5">Color 2</label>
+                            <div class="relative w-full h-8 border border-blueprint-200 overflow-hidden"><input type="color" id="bg-color-2" value="#fdf4ff"></div>
+                        </div>
+                    </div>
+                </div>
+
+                <div class="grid grid-cols-3 gap-4">
+                    <div>
+                        <label class="block text-[10px] font-bold uppercase tracking-wider text-blueprint-900 mb-1.5">Icon Block</label>
+                        <div class="relative w-full h-8 border border-blueprint-200 overflow-hidden"><input type="color" id="icon-bg-color" value="#1e293b"></div>
+                    </div>
+                    <div>
+                        <label class="block text-[10px] font-bold uppercase tracking-wider text-blueprint-900 mb-1.5">Initials</label>
+                        <div class="relative w-full h-8 border border-blueprint-200 overflow-hidden"><input type="color" id="icon-text-color" value="#ffffff"></div>
+                    </div>
+                    <div>
+                        <label class="block text-[10px] font-bold uppercase tracking-wider text-blueprint-900 mb-1.5">Main Text</label>
+                        <div class="relative w-full h-8 border border-blueprint-200 overflow-hidden"><input type="color" id="main-text-color" value="#1e293b"></div>
+                    </div>
+                </div>
+
+                <div class="grid grid-cols-2 gap-3 mt-1">
+                    <label class="flex items-center gap-2 cursor-pointer bg-slate-50 px-3 py-2 border border-blueprint-200 transition hover:bg-slate-100">
+                        <input type="checkbox" id="icon-shadow" checked class="w-4 h-4 accent-blueprint-900">
+                        <span class="text-[10px] font-bold text-slate-700 uppercase tracking-wider">Icon Shadow</span>
+                    </label>
+                    <label class="flex items-center gap-2 cursor-pointer bg-slate-50 px-3 py-2 border border-blueprint-200 transition hover:bg-slate-100">
+                        <input type="checkbox" id="text-shadow" class="w-4 h-4 accent-blueprint-900">
+                        <span class="text-[10px] font-bold text-slate-700 uppercase tracking-wider">Text Shadow</span>
+                    </label>
+                </div>
+            </div>
+
+            <!-- Advanced Sliders -->
+            <div class="flex flex-col gap-4 p-3 bg-slate-50 border border-blueprint-100">
+                <div>
+                    <div class="flex justify-between items-center mb-2">
+                        <label class="block text-[10px] font-bold text-slate-500 uppercase tracking-wider">Accent Dot Size & Visibility</label>
+                        <input type="checkbox" id="show-dot" checked class="w-3.5 h-3.5 accent-blueprint-900">
+                    </div>
+                    <div class="flex items-center gap-3">
+                        <div class="relative w-8 h-8 border border-blueprint-200 overflow-hidden shrink-0"><input type="color" id="dot-color" value="#fbcfe8"></div>
+                        <input type="range" id="dot-size" min="10" max="60" step="2" value="32" class="flex-1">
+                    </div>
+                </div>
+
+                <div>
+                    <div class="flex justify-between items-center mb-2">
+                        <label class="block text-[10px] font-bold text-slate-500 uppercase tracking-wider">Icon Corner Radius</label>
+                        <span id="radius-val" class="text-[10px] text-blueprint-900 font-bold">48px</span>
+                    </div>
+                    <input type="range" id="icon-radius" min="0" max="150" step="4" value="48">
+                </div>
+
+                <div>
+                    <div class="flex justify-between items-center mb-2">
+                        <label class="block text-[10px] font-bold text-slate-500 uppercase tracking-wider">Overall Scale (Zoom)</label>
+                        <span id="zoom-val" class="text-[10px] text-blueprint-900 font-bold">1.0x</span>
+                    </div>
+                    <input type="range" id="chart-zoom" min="0.3" max="2.5" step="0.05" value="1.0">
+                </div>
+                
+                <div class="grid grid-cols-2 gap-4">
+                    <div>
+                        <div class="flex justify-between items-center mb-2">
+                            <label class="block text-[10px] font-bold text-slate-500 uppercase tracking-wider">Pan X</label>
+                        </div>
+                        <input type="range" id="chart-pan-x" min="-1000" max="1000" step="10" value="0">
+                    </div>
+                    <div>
+                        <div class="flex justify-between items-center mb-2">
+                            <label class="block text-[10px] font-bold text-slate-500 uppercase tracking-wider">Pan Y</label>
+                        </div>
+                        <input type="range" id="chart-pan-y" min="-1000" max="1000" step="10" value="0">
+                    </div>
+                </div>
+            </div>
+        </aside>
+
+        <!-- CANVAS AREA -->
+        <section id="canvas-container" class="flex-1 relative overflow-hidden flex items-center justify-center p-4 sm:p-12 order-1 md:order-2">
+            <!-- Fixed Base Layout Canvas (scales visually via CSS) -->
+            <div class="relative p-0 bg-[url('data:image/svg+xml;base64,PHN2ZyB4bWxucz0iaHR0cDovL3d3dy53My5vcmcvMjAwMC9zdmciIHdpZHRoPSIyMCIgaGVpZ2h0PSIyMCI+CjxyZWN0IHdpZHRoPSIxMCIgaGVpZ2h0PSIxMCIgZmlsbD0iI2YwZjBmMCIvPgo8cmVjdCB4PSIxMCIgeT0iMTAiIHdpZHRoPSIxMCIgaGVpZ2h0PSIxMCIgZmlsbD0iI2YwZjBmMCIvPgo8L3N2Zz4=')] border-2 border-blueprint-900 blueprint-shadow flex items-center justify-center transition-all duration-300" id="canvas-wrapper">
+                <canvas id="main-canvas" class="block max-w-full max-h-full object-contain"></canvas>
+            </div>
+        </section>
+
+    </main>
+
+    <script>
+        // --- State Management ---
+        const state = {
+            preset: "canvasLabsLight",
+            aspectRatio: "1:1", // 1:1, 16:9, 3:1, 4:5, custom
+            customW: 1200,
+            customH: 630,
+            bgType: "custom-gradient-br",
+            colorBg1: "#eef2ff",
+            colorBg2: "#fdf4ff",
+            
+            initials: "EL",
+            brandPrefix: "Canvas",
+            brandSuffix: "Labs",
+            showText: true,
+            layoutAlign: "horizontal",
+            
+            fontFamily: "Inter",
+            
+            iconBg: "#1e293b",
+            iconTextColor: "#ffffff",
+            mainTextColor: "#1e293b",
+            iconRadius: 60,
+            
+            showDot: true,
+            dotColor: "#fbcfe8",
+            dotSize: 34,
+            
+            iconShadow: true,
+            textShadow: false,
+            
+            zoom: 1.0,
+            panX: 0,
+            panY: 0,
+            transparentBg: false
+        };
+
+        const RESOLUTIONS = {
+            "1:1": { w: 1080, h: 1080 },
+            "16:9": { w: 1920, h: 1080 },
+            "3:1": { w: 1500, h: 500 },
+            "4:5": { w: 1080, h: 1350 }
+        };
+
+        const PREMIUM_GRADIENTS = {
+            "preset-sunset": ["#f43f5e", "#f97316"],
+            "preset-ocean": ["#0369a1", "#0ea5e9"],
+            "preset-cyber": ["#d946ef", "#06b6d4"],
+            "preset-aurora": ["#10b981", "#3b82f6"],
+            "preset-peach": ["#fbcfe8", "#fecaca"]
+        };
+
+        const PRESETS = {
+            "canvasLabsLight": {
+                aspectRatio: "1:1", bgType: "custom-gradient-br", colorBg1: "#f0f9ff", colorBg2: "#fdf4ff",
+                initials: "EL", brandPrefix: "Canvas", brandSuffix: "Labs", showText: true, layoutAlign: "horizontal",
+                fontFamily: "Inter", iconBg: "#1e293b", iconTextColor: "#ffffff", mainTextColor: "#1e293b",
+                iconRadius: 60, showDot: true, dotColor: "#fbcfe8", dotSize: 34, zoom: 1.0, iconShadow: true, textShadow: false
+            },
+            "canvasGalleryVibrant": {
+                aspectRatio: "1:1", bgType: "custom-gradient-br", colorBg1: "#d946ef", colorBg2: "#f43f5e",
+                initials: "CG", brandPrefix: "Canvas", brandSuffix: "Gallery", showText: true, layoutAlign: "horizontal",
+                fontFamily: "Inter", iconBg: "#1e293b", iconTextColor: "#ffffff", mainTextColor: "#ffffff",
+                iconRadius: 60, showDot: true, dotColor: "#fbcfe8", dotSize: 34, zoom: 1.0, iconShadow: true, textShadow: false
+            },
+            "elevatePink": {
+                aspectRatio: "1:1", bgType: "custom-gradient-br", colorBg1: "#fdf2f8", colorBg2: "#fce7f3",
+                initials: "CL", brandPrefix: "Elevate", brandSuffix: "Designs", showText: true, layoutAlign: "horizontal",
+                fontFamily: "Outfit", iconBg: "#1e293b", iconTextColor: "#ffffff", mainTextColor: "#111827",
+                iconRadius: 60, showDot: true, dotColor: "#8b5cf6", dotSize: 38, zoom: 1.0, iconShadow: true, textShadow: false
+            },
+            "techStartup": {
+                aspectRatio: "16:9", bgType: "custom-gradient-r", colorBg1: "#e0e7ff", colorBg2: "#c7d2fe",
+                initials: "TS", brandPrefix: "Tech", brandSuffix: "Startup", showText: true, layoutAlign: "horizontal",
+                fontFamily: "Poppins", iconBg: "#4f46e5", iconTextColor: "#ffffff", mainTextColor: "#312e81",
+                iconRadius: 48, showDot: true, dotColor: "#10b981", dotSize: 30, zoom: 1.1, iconShadow: true, textShadow: false
+            },
+            "modernMinimal": {
+                aspectRatio: "1:1", bgType: "solid", colorBg1: "#ffffff", colorBg2: "#ffffff",
+                initials: "MM", brandPrefix: "Modern", brandSuffix: "Minimal", showText: true, layoutAlign: "vertical",
+                fontFamily: "Space Grotesk", iconBg: "#000000", iconTextColor: "#ffffff", mainTextColor: "#000000",
+                iconRadius: 120, showDot: false, dotColor: "#000000", dotSize: 0, zoom: 1.2, iconShadow: false, textShadow: false
+            },
+            "retroPop": {
+                aspectRatio: "4:5", bgType: "preset-peach", colorBg1: "#000000", colorBg2: "#000000",
+                initials: "RP", brandPrefix: "Retro", brandSuffix: "Pop", showText: true, layoutAlign: "vertical",
+                fontFamily: "Syne", iconBg: "#f43f5e", iconTextColor: "#ffffff", mainTextColor: "#881337",
+                iconRadius: 20, showDot: true, dotColor: "#fde047", dotSize: 45, zoom: 1.05, iconShadow: true, textShadow: true
+            },
+            "financePro": {
+                aspectRatio: "3:1", bgType: "preset-ocean", colorBg1: "#000000", colorBg2: "#000000",
+                initials: "FP", brandPrefix: "Finance", brandSuffix: "Pro", showText: true, layoutAlign: "horizontal",
+                fontFamily: "Montserrat", iconBg: "#0f172a", iconTextColor: "#ffffff", mainTextColor: "#ffffff",
+                iconRadius: 30, showDot: true, dotColor: "#38bdf8", dotSize: 24, zoom: 1.1, iconShadow: true, textShadow: false
+            },
+            "canvasLabsDark": {
+                aspectRatio: "16:9", bgType: "solid", colorBg1: "#0f172a", colorBg2: "#0f172a",
+                initials: "CL", brandPrefix: "Canvas", brandSuffix: "Labs", showText: true, layoutAlign: "horizontal",
+                fontFamily: "Playfair Display", iconBg: "#ffffff", iconTextColor: "#0f172a", mainTextColor: "#f8fafc",
+                iconRadius: 40, showDot: true, dotColor: "#fbcfe8", dotSize: 34, zoom: 1.2, iconShadow: false, textShadow: false
+            }
+        };
+
+        // --- DOM Elements ---
+        const canvasWrapper = document.getElementById('canvas-wrapper');
+        const canvas = document.getElementById('main-canvas');
+        const ctx = canvas.getContext('2d');
+
+        const uiElements = {
+            aspectRatio: document.getElementById('canvas-ratio'),
+            customResContainer: document.getElementById('custom-res-container'),
+            customW: document.getElementById('custom-w'),
+            customH: document.getElementById('custom-h'),
+
+            bgType: document.getElementById('bg-type'),
+            customColorsContainer: document.getElementById('custom-colors-container'),
+            colorBg1: document.getElementById('bg-color-1'),
+            colorBg2: document.getElementById('bg-color-2'),
+            colorBg2Container: document.getElementById('bg-color-2-container'),
+            lblBg1: document.getElementById('lbl-bg1'),
+            
+            initials: document.getElementById('brand-initials'),
+            brandPrefix: document.getElementById('brand-prefix'),
+            brandSuffix: document.getElementById('brand-suffix'),
+            showText: document.getElementById('show-text'),
+            
+            fontFamily: document.getElementById('font-family'),
+            iconBg: document.getElementById('icon-bg-color'),
+            iconTextColor: document.getElementById('icon-text-color'),
+            mainTextColor: document.getElementById('main-text-color'),
+            
+            iconShadow: document.getElementById('icon-shadow'),
+            textShadow: document.getElementById('text-shadow'),
+
+            showDot: document.getElementById('show-dot'),
+            dotColor: document.getElementById('dot-color'),
+            dotSize: document.getElementById('dot-size'),
+            iconRadius: document.getElementById('icon-radius'),
+            
+            zoom: document.getElementById('chart-zoom'),
+            panX: document.getElementById('chart-pan-x'),
+            panY: document.getElementById('chart-pan-y'),
+            
+            transparentToggle: document.getElementById('header-transparent'),
+            btnExport: document.getElementById('btn-header-export'),
+            exportRes: document.getElementById('export-res'),
+            exportFmt: document.getElementById('export-fmt')
+        };
+
+        // --- Core Application Logic ---
+        function init() {
+            Object.keys(uiElements).forEach(key => {
+                const el = uiElements[key];
+                if(el && (el.tagName === 'INPUT' || el.tagName === 'SELECT')) {
+                    if (el.type === 'checkbox') {
+                        el.addEventListener('change', syncUiToState);
+                    } else {
+                        el.addEventListener('input', syncUiToState);
+                    }
+                }
+            });
+
+            document.querySelectorAll('[data-align]').forEach(btn => {
+                btn.addEventListener('click', (e) => {
+                    document.querySelectorAll('[data-align]').forEach(b => b.classList.remove('active'));
+                    e.target.classList.add('active');
+                    state.layoutAlign = e.target.getAttribute('data-align');
+                    if(state.layoutAlign === 'icon-only') uiElements.showText.checked = false;
+                    else uiElements.showText.checked = true;
+                    syncUiToState();
+                });
+            });
+
+            document.querySelectorAll('.template-btn').forEach(btn => {
+                btn.addEventListener('click', (e) => {
+                    const tpl = e.target.getAttribute('data-template');
+                    applyPreset(PRESETS[tpl]);
+                });
+            });
+
+            uiElements.btnExport.addEventListener('click', exportCanvas);
+            document.fonts.ready.then(() => applyPreset(PRESETS.canvasLabsLight));
+        }
+
+        function applyPreset(p) {
+            if(!p) return;
+            Object.keys(p).forEach(k => { state[k] = p[k]; });
+            syncStateToUi();
+            render();
+        }
+
+        function syncUiToState() {
+            state.aspectRatio = uiElements.aspectRatio.value;
+            if(state.aspectRatio === 'custom') {
+                uiElements.customResContainer.classList.remove('hidden');
+                uiElements.customResContainer.classList.add('flex');
+                state.customW = parseInt(uiElements.customW.value) || 1200;
+                state.customH = parseInt(uiElements.customH.value) || 630;
+            } else {
+                uiElements.customResContainer.classList.add('hidden');
+                uiElements.customResContainer.classList.remove('flex');
+            }
+
+            state.bgType = uiElements.bgType.value;
+            state.colorBg1 = uiElements.colorBg1.value;
+            state.colorBg2 = uiElements.colorBg2.value;
+            
+            state.initials = uiElements.initials.value;
+            state.brandPrefix = uiElements.brandPrefix.value;
+            state.brandSuffix = uiElements.brandSuffix.value;
+            state.showText = uiElements.showText.checked;
+            
+            state.fontFamily = uiElements.fontFamily.value;
+            state.iconBg = uiElements.iconBg.value;
+            state.iconTextColor = uiElements.iconTextColor.value;
+            state.mainTextColor = uiElements.mainTextColor.value;
+            
+            state.iconShadow = uiElements.iconShadow.checked;
+            state.textShadow = uiElements.textShadow.checked;
+
+            state.showDot = uiElements.showDot.checked;
+            state.dotColor = uiElements.dotColor.value;
+            state.dotSize = parseInt(uiElements.dotSize.value);
+            state.iconRadius = parseInt(uiElements.iconRadius.value);
+            
+            state.zoom = parseFloat(uiElements.zoom.value);
+            state.panX = parseInt(uiElements.panX.value);
+            state.panY = parseInt(uiElements.panY.value);
+            state.transparentBg = uiElements.transparentToggle.checked;
+
+            document.getElementById('radius-val').innerText = `${state.iconRadius}px`;
+            document.getElementById('zoom-val').innerText = `${state.zoom.toFixed(2)}x`;
+            
+            if (state.bgType.startsWith('preset-')) {
+                uiElements.customColorsContainer.classList.add('hidden-ui');
+                uiElements.customColorsContainer.classList.remove('flex');
+            } else {
+                uiElements.customColorsContainer.classList.remove('hidden-ui');
+                uiElements.customColorsContainer.classList.add('flex');
+                
+                if (state.bgType === 'solid') {
+                    uiElements.colorBg2Container.style.display = 'none';
+                    uiElements.lblBg1.innerText = 'Color';
+                } else {
+                    uiElements.colorBg2Container.style.display = 'block';
+                    uiElements.lblBg1.innerText = 'Color 1';
+                }
+            }
+
+            if(state.showText && state.layoutAlign === 'icon-only') {
+                state.layoutAlign = 'horizontal';
+                document.querySelectorAll('[data-align]').forEach(b => b.classList.remove('active'));
+                document.querySelector('[data-align="horizontal"]').classList.add('active');
+            }
+            render();
+        }
+
+        function syncStateToUi() {
+            uiElements.aspectRatio.value = state.aspectRatio;
+            uiElements.customW.value = state.customW;
+            uiElements.customH.value = state.customH;
+            uiElements.bgType.value = state.bgType;
+            uiElements.colorBg1.value = state.colorBg1;
+            uiElements.colorBg2.value = state.colorBg2;
+            uiElements.initials.value = state.initials;
+            uiElements.brandPrefix.value = state.brandPrefix;
+            uiElements.brandSuffix.value = state.brandSuffix;
+            uiElements.showText.checked = state.showText;
+            uiElements.fontFamily.value = state.fontFamily;
+            uiElements.iconBg.value = state.iconBg;
+            uiElements.iconTextColor.value = state.iconTextColor;
+            uiElements.mainTextColor.value = state.mainTextColor;
+            uiElements.iconShadow.checked = state.iconShadow;
+            uiElements.textShadow.checked = state.textShadow;
+            uiElements.showDot.checked = state.showDot;
+            uiElements.dotColor.value = state.dotColor;
+            uiElements.dotSize.value = state.dotSize;
+            uiElements.iconRadius.value = state.iconRadius;
+            uiElements.zoom.value = state.zoom;
+            uiElements.panX.value = state.panX;
+            uiElements.panY.value = state.panY;
+            uiElements.transparentToggle.checked = state.transparentBg;
+
+            document.querySelectorAll('[data-align]').forEach(b => b.classList.remove('active'));
+            const alignBtn = document.querySelector(`[data-align="${state.layoutAlign}"]`);
+            if(alignBtn) alignBtn.classList.add('active');
+            syncUiToState(); 
+        }
+
+        // --- Render Engine ---
+        function roundedRect(ctx, x, y, width, height, radius) {
+            ctx.beginPath();
+            ctx.moveTo(x + radius, y);
+            ctx.lineTo(x + width - radius, y);
+            ctx.quadraticCurveTo(x + width, y, x + width, y + radius);
+            ctx.lineTo(x + width, y + height - radius);
+            ctx.quadraticCurveTo(x + width, y + height, x + width - radius, y + height);
+            ctx.lineTo(x + radius, y + height);
+            ctx.quadraticCurveTo(x, y + height, x, y + height - radius);
+            ctx.lineTo(x, y + radius);
+            ctx.quadraticCurveTo(x, y, x + radius, y);
+            ctx.closePath();
+        }
+
+        function getBaseDimensions() {
+            if (state.aspectRatio === 'custom') return { w: state.customW, h: state.customH };
+            return RESOLUTIONS[state.aspectRatio];
+        }
+
+        function extractCalculatedLayout(baseRes, exportScale) {
+            const W = baseRes.w * exportScale;
+            const H = baseRes.h * exportScale;
+            const baseScale = Math.min(baseRes.w, baseRes.h) / 1080; 
+            
+            const iconSize = 240 * baseScale * exportScale;
+            const iconRad = state.iconRadius * baseScale * exportScale;
+            const dotR = state.dotSize * baseScale * exportScale;
+            const gap = 40 * baseScale * exportScale;
+            
+            const fontScale = baseScale * exportScale;
+            const initialFontSize = 96 * fontScale;
+            const textFontSize = 100 * fontScale;
+            const baseFontFamily = state.fontFamily;
+
+            // Dummy context strictly for measurement matching Canvas behaviour
+            const dummyCtx = document.createElement('canvas').getContext('2d');
+            let prefixWidth = 0, suffixWidth = 0;
+            if(state.showText) {
+                dummyCtx.font = `800 ${textFontSize}px "${baseFontFamily}"`;
+                prefixWidth = dummyCtx.measureText(state.brandPrefix).width;
+                dummyCtx.font = `400 ${textFontSize}px "${baseFontFamily}"`;
+                suffixWidth = dummyCtx.measureText(state.brandSuffix).width;
+            }
+            const totalTextWidth = prefixWidth + suffixWidth;
+            
+            let startX = 0, startY = 0;
+            let iconX = 0, iconY = 0;
+            let textStartX = 0, textStartY = 0;
+
+            if (state.layoutAlign === 'horizontal' && state.showText) {
+                const totalWidth = iconSize + gap + totalTextWidth;
+                startX = -totalWidth / 2;
+                iconX = startX;
+                iconY = -iconSize / 2;
+                textStartX = iconX + iconSize + gap;
+                textStartY = 0; 
+            } else if (state.layoutAlign === 'vertical' && state.showText) {
+                const totalHeight = iconSize + gap + textFontSize;
+                startY = -totalHeight / 2;
+                iconX = -iconSize / 2;
+                iconY = startY;
+                textStartX = -totalTextWidth / 2;
+                textStartY = iconY + iconSize + gap + (textFontSize * 0.4);
+            } else {
+                iconX = -iconSize / 2;
+                iconY = -iconSize / 2;
+            }
+
+            return { W, H, iconX, iconY, iconSize, iconRad, dotR, textStartX, textStartY, prefixWidth, suffixWidth, initialFontSize, textFontSize, baseFontFamily };
+        }
+
+        function render(targetCtx = ctx, exportScale = 1.0) {
+            const baseRes = getBaseDimensions();
+            const layout = extractCalculatedLayout(baseRes, exportScale);
+
+            if(targetCtx === ctx) {
+                if (canvas.width !== layout.W) canvas.width = layout.W;
+                if (canvas.height !== layout.H) canvas.height = layout.H;
+                
+                let cw = '100%', ch = '100%';
+                if (baseRes.w > baseRes.h) ch = `${(baseRes.h / baseRes.w) * 100}%`;
+                else if (baseRes.h > baseRes.w) { cw = `${(baseRes.w / baseRes.h) * 100}%`; ch = '90%'; } 
+                else { cw = 'min(100%, 75vh)'; ch = 'min(100%, 75vh)'; }
+                
+                canvasWrapper.style.width = cw;
+                canvasWrapper.style.height = ch;
+                canvasWrapper.style.aspectRatio = `${baseRes.w} / ${baseRes.h}`;
+            }
+
+            targetCtx.clearRect(0, 0, layout.W, layout.H);
+
+            if (!state.transparentBg) {
+                let c1 = state.colorBg1, c2 = state.colorBg2;
+                if (state.bgType.startsWith('preset-')) {
+                    const presetColors = PREMIUM_GRADIENTS[state.bgType];
+                    if(presetColors) { c1 = presetColors[0]; c2 = presetColors[1]; }
+                }
+
+                if (state.bgType === 'solid') {
+                    targetCtx.fillStyle = c1;
+                    targetCtx.fillRect(0, 0, layout.W, layout.H);
+                } else {
+                    let grad;
+                    if (state.bgType === 'custom-gradient-br' || state.bgType.startsWith('preset-')) grad = targetCtx.createLinearGradient(0, 0, layout.W, layout.H);
+                    else grad = targetCtx.createLinearGradient(0, 0, layout.W, 0);
+                    grad.addColorStop(0, c1);
+                    grad.addColorStop(1, c2);
+                    targetCtx.fillStyle = grad;
+                    targetCtx.fillRect(0, 0, layout.W, layout.H);
+                }
+            }
+
+            targetCtx.save();
+            targetCtx.translate(layout.W/2 + (state.panX * exportScale), layout.H/2 + (state.panY * exportScale));
+            targetCtx.scale(state.zoom, state.zoom);
+            
+            // Draw Icon Block
+            targetCtx.save();
+            if(state.iconShadow && !state.transparentBg) {
+                targetCtx.shadowColor = 'rgba(0, 0, 0, 0.2)';
+                targetCtx.shadowBlur = 40 * exportScale;
+                targetCtx.shadowOffsetY = 20 * exportScale;
+            }
+            targetCtx.fillStyle = state.iconBg;
+            roundedRect(targetCtx, layout.iconX, layout.iconY, layout.iconSize, layout.iconSize, layout.iconRad);
+            targetCtx.fill();
+            targetCtx.restore(); 
+
+            // Draw Initials
+            targetCtx.fillStyle = state.iconTextColor;
+            targetCtx.textAlign = 'center';
+            targetCtx.textBaseline = 'middle';
+            targetCtx.font = `800 ${layout.initialFontSize}px "${layout.baseFontFamily}"`;
+            targetCtx.fillText(state.initials, layout.iconX + layout.iconSize/2, layout.iconY + layout.iconSize/2 + (layout.initialFontSize*0.05));
+
+            // Draw Accent Dot
+            if (state.showDot) {
+                targetCtx.beginPath();
+                targetCtx.arc(layout.iconX + layout.iconSize, layout.iconY + layout.iconSize, layout.dotR, 0, Math.PI * 2);
+                targetCtx.fillStyle = state.dotColor;
+                targetCtx.fill();
+            }
+
+            // Draw Text
+            if (state.showText) {
+                targetCtx.save();
+                if(state.textShadow && !state.transparentBg) {
+                    targetCtx.shadowColor = 'rgba(0, 0, 0, 0.15)';
+                    targetCtx.shadowBlur = 16 * exportScale;
+                    targetCtx.shadowOffsetY = 8 * exportScale;
+                }
+
+                targetCtx.fillStyle = state.mainTextColor;
+                targetCtx.textAlign = 'left';
+                targetCtx.textBaseline = 'middle';
+                
+                let currentTextX = layout.textStartX;
+                if (state.brandPrefix) {
+                    targetCtx.font = `800 ${layout.textFontSize}px "${layout.baseFontFamily}"`;
+                    targetCtx.fillText(state.brandPrefix, currentTextX, layout.textStartY + (layout.textFontSize*0.05));
+                    currentTextX += layout.prefixWidth;
+                }
+                if (state.brandSuffix) {
+                    targetCtx.font = `400 ${layout.textFontSize}px "${layout.baseFontFamily}"`;
+                    targetCtx.fillText(state.brandSuffix, currentTextX, layout.textStartY + (layout.textFontSize*0.05));
+                }
+                targetCtx.restore();
+            }
+            targetCtx.restore();
+        }
+
+        // --- Export Generators ---
+        
+        function generateSVGString(multiplier, isTransparent) {
+            const baseRes = getBaseDimensions();
+            const layout = extractCalculatedLayout(baseRes, multiplier);
+            const { W, H, iconX, iconY, iconSize, iconRad, dotR, textStartX, textStartY, initialFontSize, textFontSize, baseFontFamily } = layout;
+
+            // Google Fonts import for SVG
+            const fontUrl = "https://fonts.googleapis.com/css2?family=Carrois+Gothic&amp;family=Caveat:wght@600;700&amp;family=Inter:wght@400;500;600;700;800;900&amp;family=JetBrains+Mono:wght@400;500;700&amp;family=Playfair+Display:wght@400;600;700&amp;family=Roboto:wght@400;500;700;900&amp;family=Outfit:wght@400;600;800&amp;family=Rubik:wght@400;600;800&amp;family=Poppins:wght@400;600;800&amp;family=Montserrat:wght@400;700;900&amp;family=Space+Grotesk:wght@400;600;700&amp;family=Syne:wght@400;700;800&amp;display=swap";
+            
+            let defs = `<defs>\n<style>@import url('${fontUrl}');</style>\n`;
+            let bgRect = '';
+
+            if (!isTransparent) {
+                let c1 = state.colorBg1, c2 = state.colorBg2;
+                if (state.bgType.startsWith('preset-')) {
+                    const presetColors = PREMIUM_GRADIENTS[state.bgType];
+                    if(presetColors) { c1 = presetColors[0]; c2 = presetColors[1]; }
+                }
+                if (state.bgType === 'solid') {
+                    bgRect = `<rect width="${W}" height="${H}" fill="${c1}" />`;
+                } else {
+                    const isHorizontal = state.bgType === 'custom-gradient-r';
+                    defs += `<linearGradient id="bgGrad" x1="0%" y1="0%" x2="${isHorizontal ? '100%' : '100%'}" y2="${isHorizontal ? '0%' : '100%'}">
+                        <stop offset="0%" stop-color="${c1}" />
+                        <stop offset="100%" stop-color="${c2}" />
+                    </linearGradient>`;
+                    bgRect = `<rect width="${W}" height="${H}" fill="url(#bgGrad)" />`;
+                }
+            }
+
+            if (state.iconShadow && !isTransparent) {
+                defs += `<filter id="iconShadow" x="-20%" y="-20%" width="140%" height="140%"><feDropShadow dx="0" dy="${20*multiplier}" stdDeviation="${20*multiplier}" flood-color="#000000" flood-opacity="0.2"/></filter>\n`;
+            }
+            if (state.textShadow && !isTransparent) {
+                defs += `<filter id="textShadow" x="-20%" y="-20%" width="140%" height="140%"><feDropShadow dx="0" dy="${8*multiplier}" stdDeviation="${8*multiplier}" flood-color="#000000" flood-opacity="0.15"/></filter>\n`;
+            }
+            defs += `</defs>`;
+
+            let textElement = '';
+            if (state.showText) {
+                let txtAnchor = state.layoutAlign === 'vertical' ? 'middle' : 'start';
+                let txtX = state.layoutAlign === 'vertical' ? 0 : textStartX;
+                textElement = `<text x="${txtX}" y="${textStartY + (textFontSize*0.05)}" fill="${state.mainTextColor}" font-family="${baseFontFamily}" font-size="${textFontSize}px" dominant-baseline="central" text-anchor="${txtAnchor}" ${state.textShadow && !isTransparent ? 'filter="url(#textShadow)"' : ''}>
+                    <tspan font-weight="800">${state.brandPrefix}</tspan><tspan font-weight="400">${state.brandSuffix}</tspan>
+                </text>`;
+            }
+
+            return `<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 ${W} ${H}" width="${W}" height="${H}">
+                ${defs}
+                ${bgRect}
+                <g transform="translate(${W/2 + state.panX*multiplier}, ${H/2 + state.panY*multiplier}) scale(${state.zoom})">
+                    <rect x="${iconX}" y="${iconY}" width="${iconSize}" height="${iconSize}" rx="${iconRad}" fill="${state.iconBg}" ${state.iconShadow && !isTransparent ? 'filter="url(#iconShadow)"' : ''} />
+                    <text x="${iconX + iconSize/2}" y="${iconY + iconSize/2 + (initialFontSize*0.05)}" fill="${state.iconTextColor}" font-family="${baseFontFamily}" font-weight="800" font-size="${initialFontSize}px" text-anchor="middle" dominant-baseline="central">${state.initials}</text>
+                    ${state.showDot ? `<circle cx="${iconX + iconSize}" cy="${iconY + iconSize}" r="${dotR}" fill="${state.dotColor}" />` : ''}
+                    ${textElement}
+                </g>
+            </svg>`;
+        }
+
+        async function exportFaviconPackage() {
+            if (typeof JSZip === 'undefined') {
+                alert("JSZip library is still loading. Please try again in a second.");
+                return;
+            }
+
+            const zip = new JSZip();
+            
+            // Favicons must be square. Temporarily force aspect ratio to 1:1
+            const originalRatio = state.aspectRatio;
+            state.aspectRatio = "1:1";
+            
+            const sizes = [
+                { name: "android-chrome-192x192.png", size: 192 },
+                { name: "android-chrome-512x512.png", size: 512 },
+                { name: "apple-touch-icon.png", size: 180 },
+                { name: "favicon-16x16.png", size: 16 },
+                { name: "favicon-32x32.png", size: 32 }
+            ];
+
+            const baseRes = 1080; // 1:1 is natively 1080x1080 in our system
+
+            for (let s of sizes) {
+                const expCanvas = document.createElement('canvas');
+                expCanvas.width = s.size;
+                expCanvas.height = s.size;
+                const expCtx = expCanvas.getContext('2d');
+                
+                const scale = s.size / baseRes;
+                render(expCtx, scale);
+                
+                const blob = await new Promise(r => expCanvas.toBlob(r, "image/png"));
+                zip.file(s.name, blob);
+                
+                if (s.size === 32) zip.file("favicon.ico", blob);
+            }
+
+            let bgHex = state.colorBg1;
+            if (state.bgType.startsWith('preset-')) bgHex = PREMIUM_GRADIENTS[state.bgType][0];
+
+            const manifest = {
+                "name": `${state.brandPrefix} ${state.brandSuffix}`,
+                "short_name": state.initials,
+                "icons": [
+                    { "src": "/android-chrome-192x192.png", "sizes": "192x192", "type": "image/png" },
+                    { "src": "/android-chrome-512x512.png", "sizes": "512x512", "type": "image/png" }
+                ],
+                "theme_color": state.iconBg,
+                "background_color": state.transparentBg ? "#ffffff" : bgHex,
+                "display": "standalone"
+            };
+            zip.file("site.webmanifest", JSON.stringify(manifest, null, 2));
+
+            // Restore state
+            state.aspectRatio = originalRatio;
+            
+            const zipBlob = await zip.generateAsync({type:"blob"});
+            const a = document.createElement('a');
+            a.href = URL.createObjectURL(zipBlob);
+            a.download = `${state.brandPrefix.toLowerCase()}_favicon_package.zip`;
+            document.body.appendChild(a);
+            a.click();
+            document.body.removeChild(a);
+            
+            render(); // Re-render primary canvas
+        }
+
+        async function exportCanvas() {
+            const fmt = uiElements.exportFmt.value;
+            const multiplier = parseInt(uiElements.exportRes.value);
+            let isTransparent = uiElements.transparentToggle.checked;
+
+            if (fmt === 'favicon') {
+                const btnIcon = uiElements.btnExport.innerHTML;
+                uiElements.btnExport.innerHTML = `<div class="w-4 h-4 border-2 border-white border-t-transparent rounded-full animate-spin"></div> ZIP`;
+                await exportFaviconPackage();
+                uiElements.btnExport.innerHTML = btnIcon;
+                return;
+            }
+
+            if (fmt === 'svg') {
+                const svgString = generateSVGString(multiplier, isTransparent);
+                const blob = new Blob([svgString], {type: "image/svg+xml;charset=utf-8"});
+                const url = URL.createObjectURL(blob);
+                const a = document.createElement('a');
+                a.href = url;
+                const ratioName = state.aspectRatio === 'custom' ? `${state.customW}x${state.customH}` : state.aspectRatio.replace(':','x');
+                const bgStatus = isTransparent ? 'transparent' : 'solid';
+                a.download = `${state.brandPrefix}${state.brandSuffix}-${ratioName}-${bgStatus}.svg`;
+                document.body.appendChild(a);
+                a.click();
+                document.body.removeChild(a);
+                URL.revokeObjectURL(url);
+                return;
+            }
+
+            // Normal PNG / JPG / WEBP Export
+            if (fmt === 'jpg' && isTransparent) {
+                isTransparent = false; 
+                state.transparentBg = false;
+                syncStateToUi();
+            }
+
+            const baseRes = getBaseDimensions();
+            const targetW = baseRes.w * multiplier;
+            const targetH = baseRes.h * multiplier;
+
+            const expCanvas = document.createElement('canvas');
+            expCanvas.width = targetW;
+            expCanvas.height = targetH;
+            const expCtx = expCanvas.getContext('2d');
+
+            render(expCtx, multiplier);
+
+            const mimeType = fmt === 'jpg' ? 'image/jpeg' : `image/${fmt}`;
+            const url = expCanvas.toDataURL(mimeType, 0.95);
+            
+            const a = document.createElement('a');
+            a.href = url;
+            const bgStatus = isTransparent ? 'transparent' : 'solid';
+            const ratioName = state.aspectRatio === 'custom' ? `${state.customW}x${state.customH}` : state.aspectRatio.replace(':','x');
+            a.download = `${state.brandPrefix}${state.brandSuffix}-${ratioName}-${multiplier}x-${bgStatus}.${fmt}`;
+            
+            document.body.appendChild(a);
+            a.click();
+            document.body.removeChild(a);
+        }
+
+        // Boot
+        init();
+
+    </script>
+</body>
+</html>

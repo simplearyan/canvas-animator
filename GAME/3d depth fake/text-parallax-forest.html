@@ -1,0 +1,746 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>3D Text Parallax Forest</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/three.js/r128/three.min.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/opentype.js@latest/dist/opentype.min.js"></script>
+    <script src="https://unpkg.com/lucide@latest"></script>
+    <style>
+        body {
+            margin: 0;
+            overflow: hidden;
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+        }
+        
+        canvas {
+            display: block;
+            width: 100vw;
+            height: 100vh;
+            cursor: grab;
+        }
+        
+        canvas:active {
+            cursor: grabbing;
+        }
+        
+        .sidebar {
+            backdrop-filter: blur(10px);
+            background: rgba(0, 0, 0, 0.6);
+            border: 1px solid rgba(255, 255, 255, 0.1);
+        }
+        
+        .sidebar::-webkit-scrollbar {
+            width: 8px;
+        }
+        
+        .sidebar::-webkit-scrollbar-track {
+            background: rgba(255, 255, 255, 0.05);
+        }
+        
+        .sidebar::-webkit-scrollbar-thumb {
+            background: rgba(255, 255, 255, 0.2);
+            border-radius: 4px;
+        }
+        
+        .sidebar::-webkit-scrollbar-thumb:hover {
+            background: rgba(255, 255, 255, 0.3);
+        }
+        
+        input[type="range"] {
+            accent-color: #667eea;
+        }
+        
+        input[type="color"] {
+            cursor: pointer;
+            border: none;
+            border-radius: 4px;
+        }
+        
+        .preset-btn {
+            transition: all 0.3s ease;
+        }
+        
+        .preset-btn:hover {
+            transform: translateY(-2px);
+            box-shadow: 0 8px 16px rgba(102, 126, 234, 0.3);
+        }
+        
+        .preset-btn.active {
+            background: #667eea;
+            border-color: #667eea;
+        }
+    </style>
+</head>
+<body class="text-white">
+    <div class="absolute inset-0 flex flex-col md:flex-row">
+        <!-- Main Canvas -->
+        <main class="flex-1 flex items-center justify-center relative">
+            <div class="absolute top-4 left-4 z-20 flex items-center gap-3 bg-black/50 backdrop-blur-sm px-4 py-2 rounded-lg border border-white/10">
+                <span class="font-bold text-xl tracking-tighter">3D TEXT FOREST</span>
+            </div>
+            <canvas id="main-canvas"></canvas>
+        </main>
+
+        <!-- Control Sidebar -->
+        <aside class="w-full md:w-96 h-[50vh] md:h-full overflow-y-auto sidebar p-6 space-y-6 flex flex-col">
+            
+            <!-- Text Input Section -->
+            <div class="space-y-3">
+                <h3 class="font-bold text-sm uppercase tracking-wide">Text Content</h3>
+                <input 
+                    id="text-input" 
+                    type="text" 
+                    placeholder="Enter your text..." 
+                    value="3D FOREST"
+                    class="w-full bg-white/10 border border-white/20 rounded px-3 py-2 text-white placeholder-gray-400 focus:outline-none focus:border-white/40 transition"
+                >
+            </div>
+
+            <!-- Presets Section -->
+            <div class="space-y-3">
+                <h3 class="font-bold text-sm uppercase tracking-wide">Presets</h3>
+                <div class="grid grid-cols-2 gap-2">
+                    <button class="preset-btn active px-3 py-2 bg-white/10 border border-white/20 rounded text-xs font-semibold hover:bg-white/20 transition" data-preset="forest">
+                        🌲 Forest
+                    </button>
+                    <button class="preset-btn px-3 py-2 bg-white/10 border border-white/20 rounded text-xs font-semibold hover:bg-white/20 transition" data-preset="ocean">
+                        🌊 Ocean
+                    </button>
+                    <button class="preset-btn px-3 py-2 bg-white/10 border border-white/20 rounded text-xs font-semibold hover:bg-white/20 transition" data-preset="sunset">
+                        🌅 Sunset
+                    </button>
+                    <button class="preset-btn px-3 py-2 bg-white/10 border border-white/20 rounded text-xs font-semibold hover:bg-white/20 transition" data-preset="midnight">
+                        🌙 Midnight
+                    </button>
+                    <button class="preset-btn px-3 py-2 bg-white/10 border border-white/20 rounded text-xs font-semibold hover:bg-white/20 transition" data-preset="neon">
+                        ⚡ Neon
+                    </button>
+                    <button class="preset-btn px-3 py-2 bg-white/10 border border-white/20 rounded text-xs font-semibold hover:bg-white/20 transition" data-preset="cyber">
+                        🤖 Cyber
+                    </button>
+                </div>
+            </div>
+
+            <hr class="border-white/10">
+
+            <!-- Text Settings -->
+            <div class="space-y-3">
+                <h3 class="font-bold text-sm uppercase tracking-wide">Text Settings</h3>
+                
+                <div>
+                    <div class="flex justify-between text-xs mb-2">
+                        <span>Text Scale</span>
+                        <span id="val-scale">1.0</span>
+                    </div>
+                    <input type="range" id="ctrl-scale" min="0.5" max="2" step="0.1" value="1" class="w-full">
+                </div>
+
+                <div>
+                    <div class="flex justify-between text-xs mb-2">
+                        <span>Tube Thickness</span>
+                        <span id="val-thickness">0.7</span>
+                    </div>
+                    <input type="range" id="ctrl-thickness" min="0.3" max="2" step="0.1" value="0.7" class="w-full">
+                </div>
+
+                <div>
+                    <div class="flex justify-between text-xs mb-2">
+                        <span>Detail Level</span>
+                        <span id="val-detail">128</span>
+                    </div>
+                    <input type="range" id="ctrl-detail" min="32" max="256" step="16" value="128" class="w-full">
+                </div>
+            </div>
+
+            <hr class="border-white/10">
+
+            <!-- Tree Settings -->
+            <div class="space-y-3">
+                <h3 class="font-bold text-sm uppercase tracking-wide">Parallax Trees</h3>
+                
+                <div>
+                    <div class="flex justify-between text-xs mb-2">
+                        <span>Tree Density</span>
+                        <span id="val-trees">30</span>
+                    </div>
+                    <input type="range" id="ctrl-trees" min="10" max="60" step="5" value="30" class="w-full">
+                </div>
+
+                <div>
+                    <div class="flex justify-between text-xs mb-2">
+                        <span>Parallax Intensity</span>
+                        <span id="val-parallax">1.0</span>
+                    </div>
+                    <input type="range" id="ctrl-parallax" min="0.3" max="2" step="0.1" value="1" class="w-full">
+                </div>
+
+                <div>
+                    <label class="flex items-center gap-2 text-xs cursor-pointer">
+                        <input type="checkbox" id="ctrl-animation" checked class="w-4 h-4 cursor-pointer accent-white">
+                        <span>Enable Animation</span>
+                    </label>
+                </div>
+            </div>
+
+            <hr class="border-white/10">
+
+            <!-- Color Settings -->
+            <div class="space-y-3">
+                <h3 class="font-bold text-sm uppercase tracking-wide">Colors</h3>
+                
+                <div class="grid grid-cols-2 gap-2">
+                    <div>
+                        <label class="text-xs block mb-1">Primary Text Color</label>
+                        <input type="color" id="ctrl-text-color" value="#00d4ff" class="w-full h-8 rounded cursor-pointer">
+                    </div>
+                    <div>
+                        <label class="text-xs block mb-1">Background Color</label>
+                        <input type="color" id="ctrl-bg-color" value="#667eea" class="w-full h-8 rounded cursor-pointer">
+                    </div>
+                </div>
+
+                <div>
+                    <label class="text-xs block mb-1">Tree Color Base</label>
+                    <input type="color" id="ctrl-tree-color" value="#2d5016" class="w-full h-8 rounded cursor-pointer">
+                </div>
+            </div>
+
+            <hr class="border-white/10">
+
+            <!-- Camera Controls -->
+            <div class="space-y-3">
+                <h3 class="font-bold text-sm uppercase tracking-wide">Camera & Zoom</h3>
+                
+                <div>
+                    <div class="flex justify-between text-xs mb-2">
+                        <span>Zoom Level</span>
+                        <span id="val-zoom">1.0x</span>
+                    </div>
+                    <input type="range" id="ctrl-zoom" min="0.5" max="3" step="0.1" value="1" class="w-full">
+                    <div class="flex gap-2 mt-2">
+                        <button id="btn-zoom-out" class="flex-1 px-2 py-1.5 bg-white/10 border border-white/20 rounded text-xs font-semibold hover:bg-white/20 transition">− Zoom Out</button>
+                        <button id="btn-zoom-in" class="flex-1 px-2 py-1.5 bg-white/10 border border-white/20 rounded text-xs font-semibold hover:bg-white/20 transition">+ Zoom In</button>
+                    </div>
+                </div>
+
+                <div>
+                    <label class="flex items-center gap-2 text-xs cursor-pointer">
+                        <input type="checkbox" id="ctrl-auto-rotate" class="w-4 h-4 cursor-pointer accent-white">
+                        <span>Auto Rotate Text</span>
+                    </label>
+                </div>
+            </div>
+
+            <!-- Action Buttons -->
+            <div class="mt-auto pt-4 space-y-2">
+                <button id="btn-reset" class="w-full px-4 py-2.5 bg-white/10 border border-white/20 rounded text-xs font-semibold hover:bg-white/20 transition">
+                    ↻ Reset All
+                </button>
+            </div>
+        </aside>
+    </div>
+
+    <script>
+        // ===== APPLICATION STATE =====
+        const state = {
+            text: '3D FOREST',
+            textScale: 1.0,
+            thickness: 0.7,
+            detail: 128,
+            treeCount: 30,
+            parallaxIntensity: 1.0,
+            enableAnimation: true,
+            cameraDistance: 150,
+            autoRotate: false,
+            zoom: 1.0,
+            textColor: '#00d4ff',
+            bgColor: '#667eea',
+            treeColor: '#2d5016',
+            currentPreset: 'forest'
+        };
+
+        // Preset Definitions
+        const PRESETS = {
+            forest: {
+                textColor: '#00ff88',
+                bgColor: '#1a472a',
+                treeColor: '#0d5c1f',
+                thickness: 0.8,
+                parallaxIntensity: 1.2
+            },
+            ocean: {
+                textColor: '#00ffff',
+                bgColor: '#0d47a1',
+                treeColor: '#006064',
+                thickness: 0.6,
+                parallaxIntensity: 1.5
+            },
+            sunset: {
+                textColor: '#ffaa00',
+                bgColor: '#ff6b35',
+                treeColor: '#d62828',
+                thickness: 0.9,
+                parallaxIntensity: 0.8
+            },
+            midnight: {
+                textColor: '#b19cd9',
+                bgColor: '#0a0e27',
+                treeColor: '#1a1f4a',
+                thickness: 0.7,
+                parallaxIntensity: 1.0
+            },
+            neon: {
+                textColor: '#ff006e',
+                bgColor: '#1a1a2e',
+                treeColor: '#16213e',
+                thickness: 0.5,
+                parallaxIntensity: 2.0
+            },
+            cyber: {
+                textColor: '#39ff14',
+                bgColor: '#0f0f23',
+                treeColor: '#1d1d3f',
+                thickness: 0.75,
+                parallaxIntensity: 1.3
+            }
+        };
+
+        // ===== THREE.JS SETUP =====
+        const canvas = document.getElementById('main-canvas');
+        const renderer = new THREE.WebGLRenderer({ canvas, antialias: true, alpha: true });
+        renderer.setPixelRatio(window.devicePixelRatio);
+        renderer.setClearColor(0x000000, 0);
+
+        const scene = new THREE.Scene();
+        const camera = new THREE.PerspectiveCamera(50, window.innerWidth / window.innerHeight, 0.1, 500);
+        camera.position.z = state.cameraDistance;
+
+        // Lighting Setup
+        const ambientLight = new THREE.AmbientLight(0xffffff, 0.8);
+        scene.add(ambientLight);
+
+        const dirLight = new THREE.DirectionalLight(0xffffff, 0.9);
+        dirLight.position.set(100, 150, 100);
+        scene.add(dirLight);
+
+        // Group for text
+        const textGroup = new THREE.Group();
+        scene.add(textGroup);
+
+        // Group for trees
+        const treeGroup = new THREE.Group();
+        scene.add(treeGroup);
+
+        // ===== CORE FUNCTIONS =====
+
+        function updateBackground() {
+            document.body.style.background = `linear-gradient(135deg, ${state.bgColor} 0%, ${adjustColor(state.bgColor, -30)} 100%)`;
+        }
+
+        function adjustColor(color, amount) {
+            const usePound = color.charAt(0) === "#";
+            const col = usePound ? color.slice(1) : color;
+            const num = parseInt(col, 16);
+            const r = Math.min(255, Math.max(0, (num >> 16) + amount));
+            const g = Math.min(255, Math.max(0, (num >> 8 & 0x00FF) + amount));
+            const b = Math.min(255, Math.max(0, (num & 0x0000FF) + amount));
+            return (usePound ? "#" : "") + (0x1000000 + r * 0x10000 + g * 0x100 + b).toString(16).slice(1);
+        }
+
+        function createRainbowTexture() {
+            const texCanvas = document.createElement('canvas');
+            texCanvas.width = 1024;
+            texCanvas.height = 1;
+            const ctx = texCanvas.getContext('2d');
+            const gradient = ctx.createLinearGradient(0, 0, 1024, 0);
+            
+            gradient.addColorStop(0.0, state.textColor);
+            gradient.addColorStop(0.5, adjustColor(state.textColor, 50));
+            gradient.addColorStop(1.0, state.textColor);
+
+            ctx.fillStyle = gradient;
+            ctx.fillRect(0, 0, 1024, 1);
+
+            const texture = new THREE.CanvasTexture(ctx.canvas);
+            texture.wrapS = THREE.RepeatWrapping;
+            return texture;
+        }
+
+        function createTextMaterial() {
+            const texture = createRainbowTexture();
+            return new THREE.MeshStandardMaterial({
+                map: texture,
+                emissive: state.textColor,
+                emissiveIntensity: 0.3,
+                metalness: 0.6,
+                roughness: 0.4
+            });
+        }
+
+        function loadFontAndBuild() {
+            const fontUrl = 'https://cdnjs.cloudflare.com/ajax/libs/ink/3.1.10/fonts/Roboto/roboto-regular-webfont.ttf';
+            
+            fetch(fontUrl)
+                .then(res => res.arrayBuffer())
+                .then(buffer => {
+                    const font = opentype.parse(buffer);
+                    buildTextGeometry(font);
+                })
+                .catch(err => console.error('Font load failed:', err));
+        }
+
+        function buildTextGeometry(font) {
+            while (textGroup.children.length > 0) {
+                textGroup.remove(textGroup.children[0]);
+            }
+
+            const fontSize = 100 * state.textScale;
+            const fontPath = font.getPath(state.text, 0, 0, fontSize);
+            const bbox = fontPath.getBoundingBox();
+            
+            const offsetX = -(bbox.x2 - bbox.x1) / 2 - bbox.x1;
+            const offsetY = (bbox.y2 - bbox.y1) / 2 + bbox.y1;
+
+            const shapePath = new THREE.ShapePath();
+            
+            fontPath.commands.forEach(cmd => {
+                if (cmd.type === 'M') shapePath.moveTo(cmd.x + offsetX, cmd.y + offsetY);
+                else if (cmd.type === 'L') shapePath.lineTo(cmd.x + offsetX, cmd.y + offsetY);
+                else if (cmd.type === 'C') shapePath.bezierCurveTo(cmd.x1 + offsetX, cmd.y1 + offsetY, cmd.x2 + offsetX, cmd.y2 + offsetY, cmd.x + offsetX, cmd.y + offsetY);
+                else if (cmd.type === 'Q') shapePath.quadraticCurveTo(cmd.x1 + offsetX, cmd.y1 + offsetY, cmd.x + offsetX, cmd.y + offsetY);
+            });
+
+            const shapes = shapePath.toShapes(true, false);
+            const material = createTextMaterial();
+
+            shapes.forEach(shape => {
+                const points = shape.extractPoints(Math.max(4, Math.floor(state.detail / 8))).shape;
+                if (points.length > 2) {
+                    createTubeFromPoints(points, material);
+                }
+            });
+        }
+
+        function createTubeFromPoints(points2d, material) {
+            if (points2d.length < 2) return;
+            
+            const vec3Points = points2d.map(p => new THREE.Vector3(p.x, p.y, Math.sin(p.x * 0.01) * 10));
+            vec3Points.push(vec3Points[0].clone());
+
+            const curve = new THREE.CatmullRomCurve3(vec3Points, true, 'centripetal', 0.5);
+            const geometry = new THREE.TubeGeometry(curve, state.detail, state.thickness, 8, true);
+
+            const mesh = new THREE.Mesh(geometry, material);
+            textGroup.add(mesh);
+        }
+
+        function generateTrees() {
+            while (treeGroup.children.length > 0) {
+                treeGroup.remove(treeGroup.children[0]);
+            }
+
+            const baseColor = parseInt(state.treeColor.replace('#', ''), 16);
+            
+            for (let i = 0; i < state.treeCount; i++) {
+                const x = (Math.random() - 0.5) * 400;
+                const z = -Math.random() * 300;
+                const depthFactor = Math.abs(z) / 300; // 0 to 1
+                const scale = 0.5 + depthFactor * 1.5; // Smaller trees in distance
+                
+                // Create main trunk
+                const trunkHeight = 50 + Math.random() * 80;
+                const trunkRadius = 2 + Math.random() * 3;
+                
+                // Vary trunk color based on depth
+                const colorVariation = Math.floor(-15 * (1 - depthFactor));
+                const trunkColor = adjustColor(state.treeColor, colorVariation);
+                const trunkMaterial = new THREE.MeshStandardMaterial({
+                    color: trunkColor,
+                    metalness: 0.2,
+                    roughness: 0.8,
+                    emissive: adjustColor(state.treeColor, colorVariation - 15),
+                    emissiveIntensity: 0.15
+                });
+                
+                // Create trunk
+                const trunkGeometry = new THREE.ConeGeometry(trunkRadius, trunkHeight, 6);
+                const trunk = new THREE.Mesh(trunkGeometry, trunkMaterial);
+                
+                const treeContainer = new THREE.Group();
+                treeContainer.position.set(x, -trunkHeight / 2, z);
+                treeContainer.scale.set(scale, scale, scale);
+                
+                trunk.position.y = 0;
+                treeContainer.add(trunk);
+                
+                // Create foliage (multiple spheres stacked)
+                const foliageColor = new THREE.Color(parseInt(state.treeColor.replace('#', ''), 16));
+                foliageColor.multiplyScalar(0.7 + depthFactor * 0.3);
+                
+                const foliageMaterial = new THREE.MeshStandardMaterial({
+                    color: foliageColor,
+                    metalness: 0.1,
+                    roughness: 0.9,
+                    emissive: foliageColor,
+                    emissiveIntensity: 0.1
+                });
+                
+                // Create tiered foliage
+                const foliageLayers = 3 + Math.floor(Math.random() * 2);
+                for (let layer = 0; layer < foliageLayers; layer++) {
+                    const layerRadius = trunkRadius * 8 - layer * 2;
+                    const layerHeight = trunkHeight * 0.3 - layer * 3;
+                    
+                    const foliageGeometry = new THREE.SphereGeometry(layerRadius, 8, 8);
+                    const foliage = new THREE.Mesh(foliageGeometry, foliageMaterial.clone());
+                    
+                    foliage.position.y = trunkHeight * 0.2 + layer * 15;
+                    foliage.scale.z = 0.6; // Flatten spheres for more tree-like shape
+                    
+                    // Add some randomness
+                    foliage.position.x = (Math.random() - 0.5) * 3;
+                    foliage.position.z = (Math.random() - 0.5) * 3;
+                    
+                    treeContainer.add(foliage);
+                }
+                
+                // Add small branches (visual detail)
+                for (let branch = 0; branch < 3 + Math.floor(Math.random() * 3); branch++) {
+                    const branchLength = 10 + Math.random() * 15;
+                    const branchRadius = 0.5;
+                    const branchGeometry = new THREE.ConeGeometry(branchRadius, branchLength, 4);
+                    const branchMaterial = new THREE.MeshStandardMaterial({
+                        color: adjustColor(trunkColor, -20),
+                        metalness: 0.15,
+                        roughness: 0.8
+                    });
+                    const branchMesh = new THREE.Mesh(branchGeometry, branchMaterial);
+                    
+                    const angle = (branch / 3) * Math.PI * 2;
+                    const branchY = trunkHeight * 0.3 + Math.random() * 30;
+                    
+                    branchMesh.position.y = branchY;
+                    branchMesh.position.x = Math.cos(angle) * 5;
+                    branchMesh.position.z = Math.sin(angle) * 5;
+                    branchMesh.rotation.z = angle + (Math.PI / 3);
+                    
+                    treeContainer.add(branchMesh);
+                }
+                
+                treeContainer.userData.baseZ = z;
+                treeContainer.userData.baseX = x;
+                treeGroup.add(treeContainer);
+            }
+        }
+
+        // ===== EVENT LISTENERS =====
+
+        // Text input
+        document.getElementById('text-input').addEventListener('input', (e) => {
+            state.text = e.target.value || ' ';
+            loadFontAndBuild();
+        });
+
+        // Presets
+        document.querySelectorAll('[data-preset]').forEach(btn => {
+            btn.addEventListener('click', () => {
+                state.currentPreset = btn.dataset.preset;
+                const preset = PRESETS[state.currentPreset];
+                
+                state.textColor = preset.textColor;
+                state.bgColor = preset.bgColor;
+                state.treeColor = preset.treeColor;
+                state.thickness = preset.thickness;
+                state.parallaxIntensity = preset.parallaxIntensity;
+
+                // Update UI
+                document.querySelectorAll('[data-preset]').forEach(b => b.classList.remove('active'));
+                btn.classList.add('active');
+                
+                document.getElementById('ctrl-text-color').value = state.textColor;
+                document.getElementById('ctrl-bg-color').value = state.bgColor;
+                document.getElementById('ctrl-tree-color').value = state.treeColor;
+                document.getElementById('ctrl-thickness').value = state.thickness;
+                document.getElementById('ctrl-parallax').value = state.parallaxIntensity;
+
+                updateBackground();
+                loadFontAndBuild();
+                generateTrees();
+            });
+        });
+
+        // Range inputs
+        const rangeInputs = {
+            'ctrl-scale': { key: 'textScale', update: loadFontAndBuild, display: 'val-scale' },
+            'ctrl-thickness': { key: 'thickness', update: loadFontAndBuild, display: 'val-thickness' },
+            'ctrl-detail': { key: 'detail', update: loadFontAndBuild, display: 'val-detail' },
+            'ctrl-trees': { key: 'treeCount', update: generateTrees, display: 'val-trees' },
+            'ctrl-parallax': { key: 'parallaxIntensity', update: () => {}, display: 'val-parallax' },
+            'ctrl-zoom': { key: 'zoom', update: () => {}, display: 'val-zoom' }
+        };
+
+        Object.entries(rangeInputs).forEach(([id, config]) => {
+            const input = document.getElementById(id);
+            const display = document.getElementById(config.display);
+            input.addEventListener('input', (e) => {
+                state[config.key] = parseFloat(e.target.value);
+                display.textContent = e.target.value;
+                config.update();
+            });
+        });
+
+        // Checkboxes
+        document.getElementById('ctrl-animation').addEventListener('change', (e) => {
+            state.enableAnimation = e.target.checked;
+        });
+
+        document.getElementById('ctrl-auto-rotate').addEventListener('change', (e) => {
+            state.autoRotate = e.target.checked;
+        });
+
+        // Color inputs
+        document.getElementById('ctrl-text-color').addEventListener('input', (e) => {
+            state.textColor = e.target.value;
+            loadFontAndBuild();
+        });
+
+        document.getElementById('ctrl-bg-color').addEventListener('input', (e) => {
+            state.bgColor = e.target.value;
+            updateBackground();
+        });
+
+        document.getElementById('ctrl-tree-color').addEventListener('input', (e) => {
+            state.treeColor = e.target.value;
+            generateTrees();
+        });
+
+        // Reset button
+        document.getElementById('btn-reset').addEventListener('click', () => {
+            Object.assign(state, {
+                text: '3D FOREST',
+                textScale: 1.0,
+                thickness: 0.7,
+                detail: 128,
+                treeCount: 30,
+                parallaxIntensity: 1.0,
+                enableAnimation: true,
+                cameraDistance: 150,
+                autoRotate: false,
+                zoom: 1.0,
+                textColor: '#00ff88',
+                bgColor: '#1a472a',
+                treeColor: '#0d5c1f',
+                currentPreset: 'forest'
+            });
+
+            document.getElementById('text-input').value = state.text;
+            document.getElementById('ctrl-scale').value = state.textScale;
+            document.getElementById('ctrl-thickness').value = state.thickness;
+            document.getElementById('ctrl-detail').value = state.detail;
+            document.getElementById('ctrl-trees').value = state.treeCount;
+            document.getElementById('ctrl-parallax').value = state.parallaxIntensity;
+            document.getElementById('ctrl-zoom').value = state.zoom;
+            document.getElementById('ctrl-animation').checked = state.enableAnimation;
+            document.getElementById('ctrl-auto-rotate').checked = state.autoRotate;
+            document.getElementById('ctrl-text-color').value = state.textColor;
+            document.getElementById('ctrl-bg-color').value = state.bgColor;
+            document.getElementById('ctrl-tree-color').value = state.treeColor;
+
+            updateBackground();
+            loadFontAndBuild();
+            generateTrees();
+        });
+
+        // Zoom Controls
+        document.getElementById('btn-zoom-in').addEventListener('click', () => {
+            state.zoom = Math.min(3, state.zoom + 0.1);
+            document.getElementById('ctrl-zoom').value = state.zoom;
+            document.getElementById('val-zoom').textContent = state.zoom.toFixed(1) + 'x';
+        });
+
+        document.getElementById('btn-zoom-out').addEventListener('click', () => {
+            state.zoom = Math.max(0.5, state.zoom - 0.1);
+            document.getElementById('ctrl-zoom').value = state.zoom;
+            document.getElementById('val-zoom').textContent = state.zoom.toFixed(1) + 'x';
+        });
+
+        // Mouse wheel zoom
+        canvas.addEventListener('wheel', (e) => {
+            e.preventDefault();
+            const delta = e.deltaY > 0 ? -0.1 : 0.1;
+            state.zoom = Math.max(0.5, Math.min(3, state.zoom + delta));
+            document.getElementById('ctrl-zoom').value = state.zoom;
+            document.getElementById('val-zoom').textContent = state.zoom.toFixed(1) + 'x';
+        }, { passive: false });
+
+        // ===== WINDOW RESIZE =====
+        window.addEventListener('resize', () => {
+            const width = window.innerWidth;
+            const height = window.innerHeight;
+            camera.aspect = width / height;
+            camera.updateProjectionMatrix();
+            renderer.setSize(width, height);
+        });
+
+        // ===== MOUSE INTERACTION =====
+        let isDragging = false;
+        let previousMousePosition = { x: 0, y: 0 };
+
+        canvas.addEventListener('mousedown', () => { isDragging = true; });
+        canvas.addEventListener('mouseup', () => { isDragging = false; });
+        canvas.addEventListener('mousemove', (e) => {
+            if (isDragging) {
+                const deltaX = e.clientX - previousMousePosition.x;
+                const deltaY = e.clientY - previousMousePosition.y;
+                textGroup.rotation.y += deltaX * 0.005;
+                textGroup.rotation.x += deltaY * 0.005;
+            }
+            previousMousePosition = { x: e.clientX, y: e.clientY };
+        });
+
+        // ===== ANIMATION LOOP =====
+        const clock = new THREE.Clock();
+
+        function animate() {
+            requestAnimationFrame(animate);
+            const time = clock.getElapsedTime();
+
+            // Update camera zoom using FOV
+            camera.fov = 50 / state.zoom;
+            camera.updateProjectionMatrix();
+
+            // Auto rotation
+            if (state.autoRotate && !isDragging) {
+                textGroup.rotation.y += 0.0005;
+            }
+
+            // Parallax effect on trees
+            treeGroup.children.forEach(tree => {
+                const parallaxEffect = textGroup.rotation.y * state.parallaxIntensity;
+                tree.position.x = tree.userData.baseX + Math.sin(parallaxEffect) * 20;
+            });
+
+            // Animation effect
+            if (state.enableAnimation) {
+                textGroup.children.forEach((mesh, i) => {
+                    mesh.position.y = Math.sin(time * 0.5 + i * 0.3) * 2;
+                    mesh.rotation.z = Math.sin(time * 0.3 + i * 0.2) * 0.1;
+                });
+            }
+
+            renderer.render(scene, camera);
+        }
+
+        // ===== INITIALIZATION =====
+        renderer.setSize(window.innerWidth, window.innerHeight);
+        updateBackground();
+        loadFontAndBuild();
+        generateTrees();
+        animate();
+    </script>
+</body>
+</html>

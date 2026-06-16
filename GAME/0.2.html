@@ -1,0 +1,545 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+    <title>Wanderer - Atmospheric Journey</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <style>
+        @import url('https://fonts.googleapis.com/css2?family=Montserrat:wght@200;400;700&display=swap');
+        
+        body { 
+            margin: 0; 
+            overflow: hidden; 
+            background-color: #000; 
+            touch-action: none; 
+            font-family: 'Montserrat', sans-serif;
+            user-select: none;
+        }
+        
+        canvas { 
+            display: block; 
+            width: 100vw; 
+            height: 100vh;
+        }
+
+        /* SVG Noise Filter for cinematic texture */
+        .cinematic-grain {
+            position: fixed;
+            top: 0; left: 0; right: 0; bottom: 0;
+            pointer-events: none;
+            z-index: 50;
+            opacity: 0.35;
+            mix-blend-mode: overlay;
+        }
+
+        /* UI Animations */
+        .fade-in { animation: fadeIn 1s ease-out forwards; }
+        .fade-out { animation: fadeOut 0.5s ease-in forwards; }
+        
+        @keyframes fadeIn { from { opacity: 0; } to { opacity: 1; } }
+        @keyframes fadeOut { from { opacity: 1; } to { opacity: 0; } }
+        
+        .pulse { animation: pulse 2s infinite; }
+        @keyframes pulse {
+            0% { opacity: 0.6; }
+            50% { opacity: 1; text-shadow: 0 0 10px rgba(255,255,255,0.5); }
+            100% { opacity: 0.6; }
+        }
+    </style>
+</head>
+<body>
+
+    <!-- Cinematic Grain Overlay -->
+    <svg style="display:none;">
+        <filter id="noiseFilter">
+            <feTurbulence type="fractalNoise" baseFrequency="0.75" numOctaves="3" stitchTiles="stitch"/>
+            <feColorMatrix type="matrix" values="1 0 0 0 0, 0 1 0 0 0, 0 0 1 0 0, 0 0 0 0.1 0" />
+        </filter>
+    </svg>
+    <div class="cinematic-grain" style="filter: url(#noiseFilter);"></div>
+
+    <!-- UI Layer -->
+    <div id="ui" class="absolute inset-0 flex flex-col justify-between p-8 z-10 pointer-events-none text-white">
+        
+        <div class="flex justify-between items-start w-full">
+            <div class="tracking-[0.3em] text-sm uppercase opacity-70">Distance: <span id="scoreDisplay" class="font-bold text-white opacity-100">0</span>m</div>
+        </div>
+
+        <div id="startScreen" class="absolute inset-0 flex flex-col items-center justify-center bg-black/40 backdrop-blur-sm transition-opacity duration-500">
+            <h1 class="text-6xl font-extralight tracking-[0.4em] mb-4 text-center">WANDERER</h1>
+            <p class="text-sm uppercase tracking-[0.2em] opacity-70 pulse mb-12">Press Space or Tap to Begin</p>
+            <div class="flex gap-4 opacity-50 text-xs tracking-widest">
+                <span>Avoid Spikes</span> &bull; <span>Keep Moving</span>
+            </div>
+        </div>
+        
+        <div id="gameOverScreen" class="absolute inset-0 flex flex-col items-center justify-center bg-black/60 backdrop-blur-md hidden opacity-0 transition-opacity duration-500">
+            <h2 class="text-4xl font-light tracking-[0.2em] mb-2 text-red-200">JOURNEY ENDED</h2>
+            <p class="text-lg opacity-80 mb-8">Distance Traveled: <span id="finalScore" class="font-bold">0</span>m</p>
+            <p class="text-sm uppercase tracking-[0.2em] opacity-70 pulse">Tap to Wander Again</p>
+        </div>
+    </div>
+
+    <!-- Main Game Canvas -->
+    <canvas id="gameCanvas"></canvas>
+
+    <script>
+        /**
+         * WANDERER Engine
+         * Built with Canvas 2D focusing on organic paths, curves, and atmospheric gradients.
+         */
+        const canvas = document.getElementById('gameCanvas');
+        const ctx = canvas.getContext('2d');
+        const scoreDisplay = document.getElementById('scoreDisplay');
+        const startScreen = document.getElementById('startScreen');
+        const gameOverScreen = document.getElementById('gameOverScreen');
+        const finalScore = document.getElementById('finalScore');
+
+        let width, height;
+        let gameState = 'START'; // START, PLAYING, GAMEOVER
+        let score = 0;
+        let globalTime = 0;
+        
+        // Handle High-DPI Displays for sharpness
+        function resize() {
+            width = window.innerWidth;
+            height = window.innerHeight;
+            const dpr = window.devicePixelRatio || 1;
+            canvas.width = width * dpr;
+            canvas.height = height * dpr;
+            ctx.scale(dpr, dpr);
+        }
+        window.addEventListener('resize', resize);
+        resize();
+
+        // --- MAPPINGS & COLORS ---
+        
+        // Colors extracted to match the painted atmospheric reference
+        const PALETTE = {
+            skyTop: '#173b52',
+            skyMid: '#4b7082',
+            skyBot: '#e8b29c',
+            layers: [
+                { hex: '#405c6d', speed: 0.1, scale: 0.6, yOffset: 200 }, // Far Background
+                { hex: '#2b3e4d', speed: 0.3, scale: 0.8, yOffset: 120 }, // Midground
+                { hex: '#161c23', speed: 0.6, scale: 1.0, yOffset: 50 },  // Mid-Foreground
+                { hex: '#0a0a0d', speed: 1.2, scale: 1.2, yOffset: 0 }    // Foreground (Pure silhouette)
+            ]
+        };
+
+        // --- MATH & UTILS ---
+
+        // Simple 1D Noise function for organic terrain generation
+        function noise(x) {
+            return Math.sin(x * 0.01) * 30 + Math.sin(x * 0.023) * 15 + Math.sin(x * 0.005) * 50;
+        }
+
+        // Get ground Y coordinate at a specific X position for a specific layer
+        function getGroundY(x, layerIndex) {
+            const l = PALETTE.layers[layerIndex];
+            const baseHeight = height - 150 + l.yOffset;
+            return baseHeight + noise(x * 0.5); 
+        }
+
+        // --- ENTITIES ---
+
+        let trees = [];
+        let enemies = [];
+        let particles = [];
+
+        const player = {
+            x: 0,
+            y: 0,
+            size: 24,
+            vy: 0,
+            gravity: 0.45,
+            jumpStrength: -11,
+            grounded: false,
+            runCycle: 0
+        };
+
+        // Initialize elements
+        function initGame() {
+            score = 0;
+            globalTime = 0;
+            player.x = width * 0.2; // 20% from left
+            player.y = getGroundY(player.x, 3) - 50;
+            player.vy = 0;
+            trees = [[], [], [], []];
+            enemies = [];
+            particles = [];
+            
+            // Pre-populate trees for all layers
+            for(let l = 0; l < 4; l++) {
+                for(let x = 0; x < width + 1000; x += Math.random() * 300 + 150) {
+                    spawnTree(l, x);
+                }
+            }
+        }
+
+        function spawnTree(layerIdx, x) {
+            const scale = PALETTE.layers[layerIdx].scale * (Math.random() * 0.4 + 0.8);
+            trees[layerIdx].push({
+                x: x,
+                scale: scale,
+                // Randomize canopy blobs
+                blobs: [
+                    { x: 0, y: 0, rx: 60, ry: 25 }, // Base
+                    { x: -25, y: -15, rx: 40, ry: 35 }, // Left
+                    { x: 30, y: -10, rx: 45, ry: 30 }, // Right
+                    { x: 5, y: -30, rx: 50, ry: 40 } // Top
+                ].map(b => ({
+                    x: b.x * (Math.random()*0.4 + 0.8),
+                    y: b.y * (Math.random()*0.4 + 0.8),
+                    rx: b.rx * (Math.random()*0.4 + 0.8),
+                    ry: b.ry * (Math.random()*0.4 + 0.8)
+                })),
+                trunkWidth: 15 * scale,
+                trunkHeight: (Math.random() * 150 + 150) * scale,
+                curveOffset: (Math.random() - 0.5) * 40 // Make trunk slightly crooked
+            });
+        }
+
+        function spawnEnemy() {
+            const x = width + globalTime * PALETTE.layers[3].speed + 100;
+            enemies.push({
+                x: x,
+                size: Math.random() * 10 + 15,
+                bobOffset: Math.random() * Math.PI * 2
+            });
+        }
+
+        function spawnParticle(x, y) {
+            particles.push({
+                x: x, y: y,
+                vx: (Math.random() - 0.5) * 2,
+                vy: (Math.random() - 0.5) * 2 - 1,
+                life: 1.0,
+                size: Math.random() * 2 + 1
+            });
+        }
+
+        // --- DRAWING FUNCTIONS ---
+
+        function drawBackground() {
+            const grad = ctx.createLinearGradient(0, 0, 0, height);
+            grad.addColorStop(0, PALETTE.skyTop);
+            grad.addColorStop(0.5, PALETTE.skyMid);
+            grad.addColorStop(1, PALETTE.skyBot);
+            ctx.fillStyle = grad;
+            ctx.fillRect(0, 0, width, height);
+        }
+
+        // Draws organic, lumpy silhouette trees
+        function drawTree(tree, globalX, layerIdx) {
+            const l = PALETTE.layers[layerIdx];
+            const screenX = tree.x - globalX * l.speed;
+            
+            // Optimization: Don't draw if off-screen
+            if (screenX < -200 || screenX > width + 200) return;
+
+            const groundY = getGroundY(tree.x, layerIdx);
+            
+            ctx.fillStyle = l.hex;
+            
+            // Draw Trunk (Organic Bezier Curve)
+            ctx.beginPath();
+            ctx.moveTo(screenX - tree.trunkWidth/2, groundY + 10);
+            ctx.quadraticCurveTo(screenX + tree.curveOffset, groundY - tree.trunkHeight/2, screenX - tree.trunkWidth/3, groundY - tree.trunkHeight);
+            ctx.lineTo(screenX + tree.trunkWidth/3, groundY - tree.trunkHeight);
+            ctx.quadraticCurveTo(screenX + tree.curveOffset + 10, groundY - tree.trunkHeight/2, screenX + tree.trunkWidth/2, groundY + 10);
+            ctx.fill();
+
+            // Draw Canopy (Overlapping Ellipses)
+            const canopyY = groundY - tree.trunkHeight;
+            ctx.beginPath();
+            tree.blobs.forEach(b => {
+                ctx.ellipse(screenX + b.x * tree.scale, canopyY + b.y * tree.scale, b.rx * tree.scale, b.ry * tree.scale, 0, 0, Math.PI*2);
+            });
+            ctx.fill();
+        }
+
+        function drawGroundLayer(layerIdx, globalX) {
+            const l = PALETTE.layers[layerIdx];
+            
+            ctx.fillStyle = l.hex;
+            ctx.beginPath();
+            ctx.moveTo(0, height);
+            
+            // Draw ground curve across screen
+            for(let x = 0; x <= width + 20; x += 20) {
+                const worldX = x + (globalX * l.speed);
+                const y = getGroundY(worldX, layerIdx);
+                ctx.lineTo(x, y);
+            }
+            
+            ctx.lineTo(width, height);
+            ctx.fill();
+
+            // Atmospheric Fog between layers
+            if (layerIdx < 3) {
+                const fogGrad = ctx.createLinearGradient(0, height - 200, 0, height);
+                fogGrad.addColorStop(0, 'rgba(232, 178, 156, 0)');
+                fogGrad.addColorStop(1, `rgba(232, 178, 156, ${0.4 - layerIdx*0.1})`); // Peach fog
+                ctx.fillStyle = fogGrad;
+                ctx.fillRect(0, 0, width, height);
+            }
+        }
+
+        function drawPlayer() {
+            const groundY = getGroundY(player.x + (globalTime * PALETTE.layers[3].speed), 3);
+            
+            // Bobbing effect when running
+            const bob = player.grounded ? Math.sin(player.runCycle) * 3 : 0;
+            const py = player.y + bob;
+            const px = player.x;
+
+            ctx.fillStyle = PALETTE.layers[3].hex;
+            
+            // --- Body (Blob shape) ---
+            ctx.beginPath();
+            // Using bezier to make a slightly bottom-heavy teardrop/blob
+            ctx.moveTo(px, py - player.size);
+            ctx.bezierCurveTo(px + player.size, py - player.size, px + player.size + 5, py + player.size - 5, px, py + player.size);
+            ctx.bezierCurveTo(px - player.size - 5, py + player.size - 5, px - player.size, py - player.size, px, py - player.size);
+            ctx.fill();
+
+            // --- Spiky Crown/Hair ---
+            ctx.beginPath();
+            ctx.moveTo(px - 10, py - player.size + 2);
+            ctx.lineTo(px - 15, py - player.size - 12);
+            ctx.lineTo(px - 5, py - player.size - 2);
+            ctx.lineTo(px, py - player.size - 18);
+            ctx.lineTo(px + 5, py - player.size - 2);
+            ctx.lineTo(px + 15, py - player.size - 12);
+            ctx.lineTo(px + 10, py - player.size + 2);
+            ctx.fill();
+
+            // --- Legs (animated) ---
+            if (player.grounded) {
+                const legSwing = Math.sin(player.runCycle) * 10;
+                ctx.lineWidth = 4;
+                ctx.lineCap = 'round';
+                ctx.strokeStyle = PALETTE.layers[3].hex;
+                ctx.beginPath(); ctx.moveTo(px - 8, py + player.size - 2); ctx.lineTo(px - 8 + legSwing, py + player.size + 10); ctx.stroke();
+                ctx.beginPath(); ctx.moveTo(px + 8, py + player.size - 2); ctx.lineTo(px + 8 - legSwing, py + player.size + 10); ctx.stroke();
+            }
+
+            // --- Staff (Held by player) ---
+            const staffAngle = player.grounded ? Math.sin(player.runCycle * 0.5) * 0.1 : 0.2;
+            ctx.save();
+            ctx.translate(px - 20, py + 5);
+            ctx.rotate(staffAngle);
+            ctx.lineWidth = 3;
+            ctx.beginPath(); ctx.moveTo(0, 15); ctx.lineTo(0, -45); ctx.stroke();
+            
+            // Staff Glowing Gem
+            ctx.shadowBlur = 15;
+            ctx.shadowColor = '#fff';
+            ctx.fillStyle = '#fff';
+            ctx.beginPath(); ctx.arc(0, -47, 3, 0, Math.PI*2); ctx.fill();
+            ctx.restore();
+
+            // --- Glowing Eyes ---
+            ctx.shadowBlur = 12;
+            ctx.shadowColor = '#fff';
+            ctx.fillStyle = '#fff';
+            
+            // Eyes look slightly forward/up based on velocity
+            const lookY = player.vy * 0.2; 
+            
+            ctx.beginPath(); ctx.arc(px + 5, py - 5 + lookY, 3.5, 0, Math.PI*2); ctx.fill(); // Right eye
+            ctx.beginPath(); ctx.arc(px - 7, py - 5 + lookY, 2.5, 0, Math.PI*2); ctx.fill(); // Left eye (smaller for perspective)
+            
+            ctx.shadowBlur = 0; // Reset shadow
+        }
+
+        function drawEnemies(globalX) {
+            ctx.fillStyle = PALETTE.layers[3].hex;
+            
+            enemies.forEach(en => {
+                const screenX = en.x - globalX * PALETTE.layers[3].speed;
+                if (screenX < -50 || screenX > width + 50) return;
+
+                const groundY = getGroundY(en.x, 3);
+                const bob = Math.sin(globalTime * 0.1 + en.bobOffset) * 4;
+                const py = groundY - en.size + bob;
+                
+                // Draw Spiky little creatures
+                ctx.beginPath();
+                ctx.arc(screenX, py, en.size, 0, Math.PI*2); // Body
+                ctx.fill();
+
+                // Spikes
+                ctx.beginPath();
+                ctx.moveTo(screenX - en.size, py);
+                ctx.lineTo(screenX - en.size - 10, py - 10);
+                ctx.lineTo(screenX - en.size/2, py - en.size/2);
+                
+                ctx.moveTo(screenX, py - en.size);
+                ctx.lineTo(screenX, py - en.size - 15);
+                ctx.lineTo(screenX + en.size/2, py - en.size/2);
+                
+                ctx.moveTo(screenX + en.size, py);
+                ctx.lineTo(screenX + en.size + 10, py - 10);
+                ctx.lineTo(screenX + en.size/2, py - en.size/2);
+                ctx.fill();
+
+                // Tiny glowing eyes
+                ctx.shadowBlur = 8;
+                ctx.shadowColor = '#fff';
+                ctx.fillStyle = '#fff';
+                ctx.beginPath(); ctx.arc(screenX - 3, py - 2, 1.5, 0, Math.PI*2); ctx.fill();
+                ctx.beginPath(); ctx.arc(screenX + 3, py - 2, 1.5, 0, Math.PI*2); ctx.fill();
+                ctx.shadowBlur = 0;
+            });
+        }
+
+        function drawParticles() {
+            ctx.fillStyle = '#fff';
+            particles.forEach((p, i) => {
+                p.x += p.vx;
+                p.y += p.vy;
+                p.life -= 0.02;
+                
+                ctx.globalAlpha = p.life * 0.5;
+                ctx.beginPath();
+                ctx.arc(p.x, p.y, p.size, 0, Math.PI*2);
+                ctx.fill();
+                
+                if (p.life <= 0) particles.splice(i, 1);
+            });
+            ctx.globalAlpha = 1.0;
+        }
+
+        // --- GAME LOGIC ---
+
+        function jump() {
+            if (gameState === 'START' || gameState === 'GAMEOVER') {
+                startGame();
+                return;
+            }
+            if (player.grounded) {
+                player.vy = player.jumpStrength;
+                player.grounded = false;
+                // Dust particles
+                for(let i=0; i<8; i++) spawnParticle(player.x, player.y + player.size);
+            }
+        }
+
+        function startGame() {
+            initGame();
+            gameState = 'PLAYING';
+            startScreen.classList.add('hidden');
+            gameOverScreen.classList.add('hidden');
+            gameOverScreen.classList.remove('opacity-100');
+            gameOverScreen.classList.add('opacity-0');
+        }
+
+        function gameOver() {
+            gameState = 'GAMEOVER';
+            finalScore.innerText = Math.floor(score);
+            gameOverScreen.classList.remove('hidden');
+            setTimeout(() => {
+                gameOverScreen.classList.remove('opacity-0');
+                gameOverScreen.classList.add('opacity-100');
+            }, 50);
+        }
+
+        function update() {
+            if (gameState !== 'PLAYING') return;
+
+            globalTime += 6; // Move world forward
+            score += 0.1;
+            scoreDisplay.innerText = Math.floor(score);
+
+            const worldX = player.x + (globalTime * PALETTE.layers[3].speed);
+            const groundY = getGroundY(worldX, 3);
+
+            // Physics
+            player.vy += player.gravity;
+            player.y += player.vy;
+
+            // Ground Collision
+            if (player.y + player.size >= groundY) {
+                player.y = groundY - player.size;
+                player.vy = 0;
+                player.grounded = true;
+                player.runCycle += 0.2;
+            } else {
+                player.grounded = false;
+            }
+
+            // Spawn Entities
+            if (Math.random() < 0.01 + (score/10000)) spawnEnemy(); // gets slightly harder
+            
+            // Manage Arrays (cull offscreen, generate new)
+            PALETTE.layers.forEach((l, idx) => {
+                // Remove passed trees
+                trees[idx] = trees[idx].filter(t => t.x - globalTime * l.speed > -300);
+                // Generate new trees
+                if (trees[idx].length > 0) {
+                    let lastTree = trees[idx][trees[idx].length - 1];
+                    let screenX = lastTree.x - globalTime * l.speed;
+                    if (screenX < width) {
+                        spawnTree(idx, lastTree.x + Math.random() * 300 + 150);
+                    }
+                }
+            });
+
+            enemies = enemies.filter(en => en.x - globalTime * PALETTE.layers[3].speed > -100);
+
+            // Collision Detection with Enemies
+            enemies.forEach(en => {
+                const screenX = en.x - globalTime * PALETTE.layers[3].speed;
+                const groundY = getGroundY(en.x, 3);
+                const ey = groundY - en.size;
+                
+                // Simple circular collision
+                const dx = player.x - screenX;
+                const dy = player.y - ey;
+                const dist = Math.sqrt(dx*dx + dy*dy);
+                
+                if (dist < player.size * 0.8 + en.size * 0.8) {
+                    gameOver();
+                }
+            });
+        }
+
+        // --- MAIN LOOP ---
+
+        function loop() {
+            ctx.clearRect(0, 0, width, height);
+            
+            drawBackground();
+            
+            // Draw Parallax Layers (Back to Front)
+            for(let i = 0; i < 4; i++) {
+                trees[i].forEach(tree => drawTree(tree, globalTime, i));
+                drawGroundLayer(i, globalTime);
+                
+                // Foreground elements
+                if (i === 3) {
+                    drawEnemies(globalTime);
+                    if (gameState === 'PLAYING') drawPlayer();
+                    drawParticles();
+                }
+            }
+
+            update();
+            requestAnimationFrame(loop);
+        }
+
+        // Event Listeners
+        window.addEventListener('keydown', (e) => { if(e.code === 'Space') jump(); });
+        window.addEventListener('touchstart', (e) => { e.preventDefault(); jump(); }, {passive: false});
+        window.addEventListener('mousedown', jump);
+
+        // Start engine
+        initGame();
+        requestAnimationFrame(loop);
+
+    </script>
+</body>
+</html>

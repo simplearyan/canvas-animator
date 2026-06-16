@@ -1,0 +1,1018 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+    <title>Global Geo-Animator Pro</title>
+    
+    <!-- Google Fonts -->
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;600;800;900&family=Montserrat:wght@700;900&display=swap" rel="stylesheet">
+
+    <!-- Tailwind CSS -->
+    <script src="https://cdn.tailwindcss.com"></script>
+    <script>
+        tailwind.config = {
+            theme: {
+                extend: {
+                    fontFamily: {
+                        sans: ['Inter', 'sans-serif'],
+                        display: ['Montserrat', 'sans-serif'],
+                    },
+                    colors: {
+                        geo: {
+                            ocean: '#0f172a',
+                            land: '#334155',
+                            border: '#64748b',
+                            accent: '#facc15',
+                            danger: '#ef4444'
+                        }
+                    }
+                }
+            }
+        }
+    </script>
+
+    <!-- Libraries: D3, TopoJSON, Phosphor Icons, GIF.js -->
+    <script src="https://d3js.org/d3.v7.min.js"></script>
+    <script src="https://unpkg.com/topojson-client@3"></script>
+    <script src="https://unpkg.com/@phosphor-icons/web"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/gif.js/0.2.0/gif.js"></script>
+
+    <style>
+        body { overscroll-behavior-y: none; background-color: #0f172a; }
+        
+        .dark-grid-bg {
+            background-color: #020617;
+            background-image: 
+                linear-gradient(rgba(255, 255, 255, 0.03) 1px, transparent 1px),
+                linear-gradient(90deg, rgba(255, 255, 255, 0.03) 1px, transparent 1px);
+            background-size: 30px 30px;
+        }
+
+        /* Custom scrollbars */
+        ::-webkit-scrollbar { width: 6px; height: 6px; }
+        ::-webkit-scrollbar-track { background: transparent; }
+        ::-webkit-scrollbar-thumb { background: #334155; border-radius: 3px; }
+        ::-webkit-scrollbar-thumb:hover { background: #475569; }
+
+        /* Range Sliders */
+        input[type=range] { -webkit-appearance: none; width: 100%; background: transparent; }
+        input[type=range]::-webkit-slider-thumb {
+            -webkit-appearance: none; height: 14px; width: 14px; border-radius: 50%;
+            background: #facc15; cursor: pointer; margin-top: -5px;
+        }
+        input[type=range]::-webkit-slider-runnable-track { width: 100%; height: 4px; background: #334155; border-radius: 2px; }
+
+        .nav-btn { transition: all 0.2s ease; }
+        .nav-btn.active { color: #facc15; background-color: rgba(255,255,255,0.05); border-left: 2px solid #facc15; }
+        .nav-btn:not(.active) { color: #94a3b8; border-left: 2px solid transparent; }
+        .nav-btn:not(.active):hover { color: #f8fafc; background-color: rgba(255,255,255,0.02); }
+        
+        #canvas-wrapper { cursor: grab; }
+        #canvas-wrapper:active { cursor: grabbing; }
+    </style>
+</head>
+<body class="dark-grid-bg text-slate-200 h-screen flex flex-col overflow-hidden font-sans">
+
+    <!-- HEADER -->
+    <header class="h-14 bg-slate-900 border-b border-slate-800 flex items-center justify-between px-4 sm:px-6 flex-shrink-0 z-20 shadow-md w-full">
+        <div class="flex items-center gap-3 shrink-0">
+            <div class="px-2 py-0.5 flex items-center bg-slate-800 rounded border border-slate-700 select-none">
+                <span class="text-lg font-black text-slate-200 tracking-tighter uppercase font-display">Geo</span>
+                <span class="text-lg font-black text-geo-accent tracking-tighter uppercase font-display">Animator</span>
+            </div>
+            <span class="hidden md:inline text-[10px] font-bold text-slate-500 uppercase tracking-widest px-2 py-0.5 bg-slate-800 rounded">Global Explainer Engine</span>
+        </div>
+
+        <div class="flex items-center justify-end gap-3 shrink-0">
+            <button id="btn-play-story" class="flex items-center justify-center px-4 py-1.5 bg-geo-accent hover:bg-yellow-300 text-slate-900 font-bold transition-colors text-xs rounded uppercase tracking-wider shadow-[0_0_15px_rgba(250,204,21,0.3)]">
+                <i class="ph-fill ph-play-circle text-lg mr-1.5" id="icon-play"></i>
+                <span id="text-play">Preview Story</span>
+            </button>
+            
+            <div class="flex bg-slate-800 rounded border border-slate-700 overflow-hidden">
+                <select id="export-res" class="bg-transparent text-slate-300 font-semibold pl-3 pr-2 py-1.5 outline-none cursor-pointer text-xs border-r border-slate-700 uppercase">
+                    <option value="1280">720p</option>
+                    <option value="1920" selected>1080p</option>
+                    <option value="2560">4K</option>
+                </select>
+                <button id="btn-export" class="flex items-center gap-1.5 px-4 py-1.5 hover:bg-slate-700 text-white font-bold transition-colors text-xs uppercase tracking-widest">
+                    <i class="ph-bold ph-video-camera text-sm"></i> Export WEBM
+                </button>
+            </div>
+        </div>
+    </header>
+
+    <!-- MAIN APP AREA -->
+    <main class="flex-1 flex flex-col md:flex-row overflow-hidden relative">
+        
+        <!-- Sidebar Controls -->
+        <aside class="w-full md:w-[360px] bg-slate-900/80 backdrop-blur-md border-r border-slate-800 flex flex-col z-30 flex-shrink-0 h-[45vh] md:h-full order-2 md:order-1">
+            
+            <div class="flex flex-row md:flex-col border-b border-slate-800 md:border-b-0 md:w-20 shrink-0 bg-slate-950/50 md:absolute md:left-0 md:top-0 md:bottom-0">
+                <button class="nav-btn active flex-1 md:flex-none py-3 md:py-5 flex flex-col items-center gap-1" data-target="scenarios">
+                    <i class="ph-fill ph-film-strip text-xl"></i>
+                    <span class="text-[9px] uppercase tracking-wider font-bold">Stories</span>
+                </button>
+                <button class="nav-btn flex-1 md:flex-none py-3 md:py-5 flex flex-col items-center gap-1" data-target="camera">
+                    <i class="ph-fill ph-globe-hemisphere-west text-xl"></i>
+                    <span class="text-[9px] uppercase tracking-wider font-bold">Camera</span>
+                </button>
+                <button class="nav-btn flex-1 md:flex-none py-3 md:py-5 flex flex-col items-center gap-1" data-target="theme">
+                    <i class="ph-fill ph-palette text-xl"></i>
+                    <span class="text-[9px] uppercase tracking-wider font-bold">Theme</span>
+                </button>
+            </div>
+
+            <!-- Panel Contents -->
+            <div class="flex-1 overflow-y-auto custom-scrollbar relative md:ml-20">
+                
+                <!-- 1. Scenarios Pane -->
+                <div class="tab-pane flex flex-col p-5 w-full gap-5" data-tab="scenarios">
+                    <div class="flex flex-col gap-2">
+                        <h2 class="text-xs font-black text-slate-200 uppercase tracking-widest font-display">Cinematic Storyboards</h2>
+                        <p class="text-[10px] text-slate-400 leading-relaxed">Select a pre-programmed timeline. The engine will handle the camera, colors, and overlays automatically.</p>
+                    </div>
+
+                    <div class="flex flex-col gap-3">
+                        <!-- Storyboard Card -->
+                        <div class="bg-slate-800 border-2 border-geo-accent rounded-lg p-4 cursor-pointer relative overflow-hidden group">
+                            <div class="absolute inset-0 bg-gradient-to-r from-red-500/10 to-yellow-500/10 opacity-50"></div>
+                            <div class="relative z-10 flex flex-col gap-2">
+                                <div class="flex items-start justify-between">
+                                    <h3 class="text-sm font-bold text-white font-display">The Hormuz Chokepoint</h3>
+                                    <span class="px-2 py-0.5 bg-geo-accent text-slate-900 text-[9px] font-black uppercase rounded">10 Sec</span>
+                                </div>
+                                <p class="text-[10px] text-slate-300">Explainer sequence highlighting Iran, zooming into the Persian Gulf, and tracing vital global shipping routes.</p>
+                                <ul class="text-[9px] text-slate-400 mt-2 list-disc list-inside space-y-0.5">
+                                    <li>Macro globe view & colorize</li>
+                                    <li>Parallax push to Middle East</li>
+                                    <li>Data markers & animated path</li>
+                                </ul>
+                            </div>
+                        </div>
+                        
+                        <div class="bg-slate-800/50 border border-slate-700 rounded-lg p-4 opacity-50 flex items-center justify-center min-h-[100px]">
+                            <p class="text-[10px] text-slate-500 font-bold uppercase tracking-widest text-center">+ Custom Storyboard Builder<br>(Coming Soon)</p>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- 2. Camera Pane -->
+                <div class="tab-pane hidden flex-col p-5 w-full gap-5" data-tab="camera">
+                    <div class="flex flex-col gap-2">
+                        <h2 class="text-xs font-black text-slate-200 uppercase tracking-widest font-display">Free Roam Camera</h2>
+                        <p class="text-[10px] text-slate-400">Click and drag on the canvas to rotate the globe manually.</p>
+                    </div>
+
+                    <div class="flex flex-col gap-4 bg-slate-800 p-4 rounded-lg border border-slate-700">
+                        <div>
+                            <div class="flex justify-between items-center mb-1">
+                                <label class="text-[10px] font-bold text-slate-400 uppercase">Camera Scale (Zoom)</label>
+                                <span id="val-zoom" class="text-[10px] font-bold text-geo-accent">350</span>
+                            </div>
+                            <input type="range" id="cam-zoom" min="100" max="2500" step="10" value="350">
+                        </div>
+                        <div class="grid grid-cols-2 gap-4">
+                            <div>
+                                <div class="flex justify-between items-center mb-1">
+                                    <label class="text-[10px] font-bold text-slate-400 uppercase">Lon (X)</label>
+                                    <span id="val-lon" class="text-[10px] font-bold text-slate-200">0°</span>
+                                </div>
+                                <input type="range" id="cam-lon" min="-180" max="180" step="1" value="0">
+                            </div>
+                            <div>
+                                <div class="flex justify-between items-center mb-1">
+                                    <label class="text-[10px] font-bold text-slate-400 uppercase">Lat (Y)</label>
+                                    <span id="val-lat" class="text-[10px] font-bold text-slate-200">0°</span>
+                                </div>
+                                <input type="range" id="cam-lat" min="-90" max="90" step="1" value="0">
+                            </div>
+                        </div>
+                        <button id="btn-reset-cam" class="w-full py-1.5 mt-2 bg-slate-700 hover:bg-slate-600 text-xs font-bold uppercase tracking-wider rounded transition">Reset Globe</button>
+                    </div>
+                </div>
+
+                <!-- 3. Theme Pane -->
+                <div class="tab-pane hidden flex-col p-5 w-full gap-5" data-tab="theme">
+                    <div class="flex flex-col gap-2">
+                        <h2 class="text-xs font-black text-slate-200 uppercase tracking-widest font-display">Global Aesthetics</h2>
+                    </div>
+
+                    <div class="flex flex-col gap-4">
+                        <label class="text-[10px] font-bold text-slate-400 uppercase tracking-wider">Projection Style</label>
+                        <div class="flex bg-slate-800 p-1 rounded border border-slate-700">
+                            <button id="proj-ortho" class="flex-1 py-1.5 text-xs font-bold bg-slate-600 text-white rounded shadow-sm transition">3D Globe</button>
+                            <button id="proj-mercator" class="flex-1 py-1.5 text-xs font-bold text-slate-400 hover:text-slate-200 transition">Flat (Mercator)</button>
+                        </div>
+                    </div>
+
+                    <div class="flex flex-col gap-3 mt-2">
+                        <label class="text-[10px] font-bold text-slate-400 uppercase tracking-wider">Base Colors</label>
+                        <div class="grid grid-cols-2 gap-3">
+                            <div class="bg-slate-800 p-2 rounded border border-slate-700 flex items-center justify-between">
+                                <span class="text-[10px] font-bold">Oceans</span>
+                                <input type="color" id="col-ocean" value="#0f172a" class="w-6 h-6 rounded cursor-pointer border-none p-0 bg-transparent">
+                            </div>
+                            <div class="bg-slate-800 p-2 rounded border border-slate-700 flex items-center justify-between">
+                                <span class="text-[10px] font-bold">Landmass</span>
+                                <input type="color" id="col-land" value="#334155" class="w-6 h-6 rounded cursor-pointer border-none p-0 bg-transparent">
+                            </div>
+                            <div class="bg-slate-800 p-2 rounded border border-slate-700 flex items-center justify-between">
+                                <span class="text-[10px] font-bold">Borders</span>
+                                <input type="color" id="col-border" value="#64748b" class="w-6 h-6 rounded cursor-pointer border-none p-0 bg-transparent">
+                            </div>
+                        </div>
+                    </div>
+                </div>
+
+            </div>
+        </aside>
+
+        <!-- CANVAS AREA -->
+        <section id="canvas-container" class="flex-1 relative overflow-hidden flex items-center justify-center p-2 sm:p-8 order-1">
+            <!-- 16:9 Video Canvas -->
+            <div id="canvas-wrapper" class="relative w-full max-w-[1400px] bg-slate-900 shadow-2xl border border-slate-700 flex items-center justify-center overflow-hidden" style="aspect-ratio: 16/9;">
+                <canvas id="geo-canvas" class="w-full h-full block outline-none"></canvas>
+                
+                <div id="loading-overlay" class="absolute inset-0 z-10 bg-slate-900/90 backdrop-blur-sm flex flex-col items-center justify-center transition-opacity duration-300">
+                    <div class="w-12 h-12 border-4 border-slate-700 border-t-geo-accent rounded-full animate-spin mb-4"></div>
+                    <span class="text-sm font-black text-geo-accent uppercase tracking-widest font-display">Loading Topology...</span>
+                </div>
+            </div>
+        </section>
+
+        <!-- Export Modal -->
+        <div id="export-modal" class="fixed inset-0 z-[100] bg-slate-950/95 backdrop-blur-md hidden flex-col items-center justify-center p-4 transition-all duration-300 opacity-0">
+            <div class="max-w-xl w-full bg-slate-900 shadow-2xl border border-slate-700 flex flex-col rounded-xl overflow-hidden">
+                <div class="p-8 flex flex-col gap-6">
+                    <div class="flex items-center justify-between border-b border-slate-700 pb-4">
+                        <div class="flex flex-col">
+                            <h2 class="text-2xl font-black text-white uppercase tracking-tighter font-display">Rendering <span class="text-geo-accent">Video</span></h2>
+                            <p class="text-xs font-bold text-slate-400 uppercase tracking-widest mt-1" id="export-pct">Processing: 0%</p>
+                        </div>
+                        <div class="w-8 h-8 border-4 border-slate-700 border-t-geo-accent rounded-full animate-spin"></div>
+                    </div>
+                    <div class="w-full bg-slate-800 h-3 rounded-full overflow-hidden border border-slate-700">
+                        <div id="export-bar" class="bg-geo-accent h-full w-0 transition-all duration-300 relative shadow-[0_0_10px_#facc15]"></div>
+                    </div>
+                    <button id="btn-export-cancel" class="mt-2 self-start px-4 py-2 bg-slate-800 hover:bg-red-900/50 text-slate-300 hover:text-red-400 font-bold text-[10px] uppercase tracking-wider rounded transition-colors border border-slate-700">Cancel Export</button>
+                </div>
+            </div>
+        </div>
+
+    </main>
+
+    <script>
+        // --- Core State & Configuration ---
+        const state = {
+            worldData: null,
+            projectionType: 'ortho', // 'ortho' or 'mercator'
+            theme: {
+                ocean: '#0f172a',
+                land: '#334155',
+                border: '#475569',
+                highlight: '#dc2626', // Iran Red
+                path: '#facc15'       // Yellow route
+            },
+            camera: {
+                lon: 0,
+                lat: 0,
+                zoom: 350
+            },
+            story: {
+                active: false,
+                progress: 0.0,
+                duration: 10000 // 10 seconds for Hormuz story
+            },
+            exporting: false
+        };
+
+        // --- DOM Elements ---
+        const canvas = document.getElementById('geo-canvas');
+        // Render resolution
+        canvas.width = 1920;
+        canvas.height = 1080;
+        const ctx = canvas.getContext('2d', { alpha: false });
+        const wrapper = document.getElementById('canvas-wrapper');
+
+        const loadingOverlay = document.getElementById('loading-overlay');
+        const btnPlayStory = document.getElementById('btn-play-story');
+        const btnExport = document.getElementById('btn-export');
+        const iconPlay = document.getElementById('icon-play');
+        const textPlay = document.getElementById('text-play');
+        
+        // UI Controls
+        const projOrtho = document.getElementById('proj-ortho');
+        const projMercator = document.getElementById('proj-mercator');
+        const camZoom = document.getElementById('cam-zoom');
+        const camLon = document.getElementById('cam-lon');
+        const camLat = document.getElementById('cam-lat');
+        const btnResetCam = document.getElementById('btn-reset-cam');
+
+        const valZoom = document.getElementById('val-zoom');
+        const valLon = document.getElementById('val-lon');
+        const valLat = document.getElementById('val-lat');
+
+        const colOcean = document.getElementById('col-ocean');
+        const colLand = document.getElementById('col-land');
+        const colBorder = document.getElementById('col-border');
+
+        // Nav
+        const navBtns = document.querySelectorAll('.nav-btn');
+        const tabPanes = document.querySelectorAll('.tab-pane');
+
+        navBtns.forEach(btn => {
+            btn.addEventListener('click', () => {
+                const target = btn.getAttribute('data-target');
+                navBtns.forEach(b => b.classList.remove('active'));
+                btn.classList.add('active');
+                tabPanes.forEach(pane => {
+                    if(pane.getAttribute('data-tab') === target) { pane.classList.remove('hidden'); pane.classList.add('flex'); }
+                    else { pane.classList.add('hidden'); pane.classList.remove('flex'); }
+                });
+            });
+        });
+
+        // --- D3 Geo Setup ---
+        let projection = d3.geoOrthographic()
+            .scale(state.camera.zoom)
+            .translate([canvas.width / 2, canvas.height / 2])
+            .rotate([-state.camera.lon, -state.camera.lat])
+            .precision(0.1);
+        
+        let pathGenerator = d3.geoPath().projection(projection).context(ctx);
+
+        function updateProjection() {
+            if (state.projectionType === 'ortho') {
+                projection = d3.geoOrthographic();
+            } else {
+                projection = d3.geoMercator();
+            }
+            
+            projection.scale(state.camera.zoom)
+                      .translate([canvas.width / 2, canvas.height / 2])
+                      .rotate([-state.camera.lon, -state.camera.lat]);
+            
+            pathGenerator.projection(projection);
+            
+            if(!state.story.active) renderMap();
+        }
+
+        // --- Data Loading ---
+        async function initData() {
+            try {
+                // Fetch low/mid res TopoJSON for countries
+                const response = await fetch('https://unpkg.com/world-atlas@2.0.2/countries-110m.json');
+                const topoData = await response.json();
+                state.worldData = topojson.feature(topoData, topoData.objects.countries).features;
+                
+                loadingOverlay.classList.add('opacity-0');
+                setTimeout(() => loadingOverlay.classList.add('hidden'), 300);
+                
+                renderMap();
+            } catch (err) {
+                console.error("Failed to load map data", err);
+                alert("Failed to load global map data. Please check internet connection.");
+            }
+        }
+
+        // --- Rendering Engine ---
+        function renderMap(overrideProgress = null) {
+            if (!state.worldData) return;
+
+            const W = canvas.width;
+            const H = canvas.height;
+            const isStory = overrideProgress !== null;
+            const p = isStory ? overrideProgress : 0;
+
+            // --- Timeline Math for "Hormuz Story" ---
+            // 0.0 - 0.2: Rotate globe to Middle East [-54, -26]
+            // 0.2 - 0.3: Iran turns red
+            // 0.3 - 0.5: Push in (Scale 350 -> 1800), adjust center slightly
+            // 0.5 - 0.6: Draw Hormuz Marker
+            // 0.6 - 0.9: Draw Route
+            // 0.9 - 1.0: Hold
+            
+            let currentZoom = state.camera.zoom;
+            let currentLon = state.camera.lon;
+            let currentLat = state.camera.lat;
+            let iranColor = state.theme.land;
+            let routeProgress = 0;
+            let markerScale = 0;
+
+            if (isStory) {
+                // Camera Rotation (0.0 to 0.2)
+                const rotP = d3.easeCubicOut(Math.min(Math.max(p / 0.2, 0), 1));
+                currentLon = d3.interpolateNumber(0, 54)(rotP);
+                currentLat = d3.interpolateNumber(0, 26)(rotP);
+
+                // Iran Color (0.2 to 0.3)
+                if (p > 0.2) {
+                    const colP = Math.min(Math.max((p - 0.2) / 0.1, 0), 1);
+                    iranColor = d3.interpolateRgb(state.theme.land, state.theme.highlight)(colP);
+                }
+
+                // Camera Zoom & Fine-tune position (0.3 to 0.5)
+                if (p > 0.3) {
+                    const zoomP = d3.easeCubicInOut(Math.min(Math.max((p - 0.3) / 0.2, 0), 1));
+                    currentZoom = d3.interpolateNumber(350, 2200)(zoomP);
+                    currentLon = d3.interpolateNumber(54, 56.4)(zoomP);
+                    currentLat = d3.interpolateNumber(26, 25.5)(zoomP);
+                }
+
+                // Marker Animation (0.5 to 0.6)
+                if (p > 0.5) {
+                    markerScale = d3.easeBackOut(Math.min(Math.max((p - 0.5) / 0.1, 0), 1));
+                }
+
+                // Route Drawing (0.6 to 0.9)
+                if (p > 0.6) {
+                    routeProgress = d3.easeQuadInOut(Math.min(Math.max((p - 0.6) / 0.3, 0), 1));
+                }
+            }
+
+            // Apply calculated camera
+            projection.scale(currentZoom).rotate([-currentLon, -currentLat]);
+
+            // Clear Background
+            ctx.fillStyle = state.theme.ocean;
+            ctx.fillRect(0, 0, W, H);
+
+            // Optional: Draw Globe outline for Ortho
+            if (state.projectionType === 'ortho') {
+                ctx.beginPath();
+                pathGenerator({type: "Sphere"});
+                ctx.fillStyle = state.theme.ocean;
+                ctx.fill();
+                // Inner shadow/glow effect hack
+                ctx.lineWidth = 2;
+                ctx.strokeStyle = 'rgba(255,255,255,0.05)';
+                ctx.stroke();
+            }
+
+            // Draw Countries
+            state.worldData.forEach(country => {
+                ctx.beginPath();
+                pathGenerator(country);
+                
+                // If it's Iran (ISO code roughly matches, or we check name)
+                // In world-atlas 110m, Iran is name: "Iran"
+                if (isStory && country.properties.name === "Iran") {
+                    ctx.fillStyle = iranColor;
+                } else {
+                    ctx.fillStyle = state.theme.land;
+                }
+                
+                ctx.fill();
+                ctx.strokeStyle = state.theme.border;
+                ctx.lineWidth = 1;
+                ctx.stroke();
+            });
+
+            // Draw Vignette overlay
+            const gradient = ctx.createRadialGradient(W/2, H/2, H/3, W/2, H/2, H);
+            gradient.addColorStop(0, 'transparent');
+            gradient.addColorStop(1, 'rgba(0,0,0,0.6)');
+            ctx.fillStyle = gradient;
+            ctx.fillRect(0, 0, W, H);
+
+            // --- Draw Story Overlays ---
+            if (isStory && p > 0.3) {
+                // Route Coordinates (Persian Gulf to Indian Ocean)
+                const routeCoords = [
+                    [49.5, 29.5], // North Gulf
+                    [51.5, 27.5], // Mid Gulf
+                    [54.5, 26.0], // Near Hormuz
+                    [56.4, 26.5], // Strait of Hormuz
+                    [58.0, 24.0], // Gulf of Oman
+                    [62.0, 20.0]  // Indian Ocean
+                ];
+
+                // Draw Animated Route
+                if (routeProgress > 0) {
+                    ctx.beginPath();
+                    
+                    // Convert coords to pixels
+                    const pts = routeCoords.map(c => projection(c));
+                    
+                    // Simple path interpolation
+                    const totalSegments = pts.length - 1;
+                    const currentSegmentFloat = routeProgress * totalSegments;
+                    const currentSegmentIdx = Math.floor(currentSegmentFloat);
+                    const segmentP = currentSegmentFloat - currentSegmentIdx;
+
+                    ctx.moveTo(pts[0][0], pts[0][1]);
+                    for (let i = 0; i < currentSegmentIdx; i++) {
+                        ctx.lineTo(pts[i+1][0], pts[i+1][1]);
+                    }
+                    if (currentSegmentIdx < totalSegments) {
+                        const p1 = pts[currentSegmentIdx];
+                        const p2 = pts[currentSegmentIdx + 1];
+                        const curX = p1[0] + (p2[0] - p1[0]) * segmentP;
+                        const curY = p1[1] + (p2[1] - p1[1]) * segmentP;
+                        ctx.lineTo(curX, curY);
+                    }
+
+                    ctx.strokeStyle = state.theme.path;
+                    ctx.lineWidth = 6;
+                    ctx.lineCap = 'round';
+                    ctx.lineJoin = 'round';
+                    ctx.setLineDash([15, 15]);
+                    ctx.lineDashOffset = -p * 100; // Flowing animation
+                    
+                    ctx.shadowColor = state.theme.path;
+                    ctx.shadowBlur = 15;
+                    ctx.stroke();
+                    ctx.shadowBlur = 0;
+                    ctx.setLineDash([]);
+                }
+
+                // Draw Marker
+                if (markerScale > 0) {
+                    const markerPt = projection([56.4, 26.5]); // Hormuz
+                    
+                    // Pulse ring
+                    ctx.beginPath();
+                    ctx.arc(markerPt[0], markerPt[1], 30 * markerScale + (Math.sin(p*20)*5), 0, Math.PI*2);
+                    ctx.fillStyle = 'rgba(250, 204, 21, 0.2)';
+                    ctx.fill();
+                    ctx.strokeStyle = 'rgba(250, 204, 21, 0.5)';
+                    ctx.lineWidth = 2;
+                    ctx.stroke();
+
+                    // Core marker
+                    ctx.beginPath();
+                    ctx.arc(markerPt[0], markerPt[1], 10 * markerScale, 0, Math.PI*2);
+                    ctx.fillStyle = state.theme.path;
+                    ctx.fill();
+                    ctx.strokeStyle = '#000';
+                    ctx.lineWidth = 3;
+                    ctx.stroke();
+
+                    // Label Line & Text Box
+                    if (p > 0.55) {
+                        const textAlpha = Math.min((p - 0.55)/0.1, 1);
+                        ctx.globalAlpha = textAlpha;
+                        
+                        ctx.beginPath();
+                        ctx.moveTo(markerPt[0], markerPt[1]);
+                        ctx.lineTo(markerPt[0] - 100, markerPt[1] - 100);
+                        ctx.lineTo(markerPt[0] - 500, markerPt[1] - 100);
+                        ctx.strokeStyle = '#fff';
+                        ctx.lineWidth = 2;
+                        ctx.stroke();
+
+                        ctx.textAlign = 'left';
+                        ctx.textBaseline = 'bottom';
+                        ctx.font = '900 36px Montserrat';
+                        ctx.fillStyle = '#fff';
+                        ctx.fillText("STRAIT OF HORMUZ", markerPt[0] - 490, markerPt[1] - 110);
+                        
+                        ctx.font = '600 24px Inter';
+                        ctx.fillStyle = '#facc15';
+                        ctx.fillText("21 Million Barrels of Oil / Day", markerPt[0] - 490, markerPt[1] - 75);
+
+                        ctx.globalAlpha = 1.0;
+                    }
+                }
+
+                // Regional Labels (Fade in after zoom)
+                if (p > 0.4) {
+                    const lblAlpha = Math.min((p - 0.4)/0.1, 1);
+                    ctx.globalAlpha = lblAlpha;
+                    ctx.textAlign = 'center';
+                    ctx.textBaseline = 'middle';
+                    ctx.font = '800 28px Inter';
+                    ctx.fillStyle = 'rgba(255,255,255,0.4)';
+                    
+                    const gulfPt = projection([51.0, 27.0]);
+                    ctx.fillText("PERSIAN GULF", gulfPt[0], gulfPt[1]);
+                    
+                    const omanPt = projection([59.0, 24.5]);
+                    ctx.fillText("GULF OF OMAN", omanPt[0], omanPt[1]);
+
+                    ctx.globalAlpha = 1.0;
+                }
+            }
+        }
+
+        // --- Interaction: Drag Globe ---
+        let isDragging = false;
+        let lastPos = null;
+        
+        wrapper.addEventListener('mousedown', (e) => {
+            if (state.story.active || state.exporting) return;
+            isDragging = true;
+            lastPos = [e.clientX, e.clientY];
+        });
+        
+        window.addEventListener('mouseup', () => { isDragging = false; lastPos = null; });
+        
+        window.addEventListener('mousemove', (e) => {
+            if (!isDragging || state.story.active || state.exporting) return;
+            const dx = e.clientX - lastPos[0];
+            const dy = e.clientY - lastPos[1];
+            
+            // Adjust sensitivity based on zoom
+            const sens = 100 / state.camera.zoom;
+            state.camera.lon -= dx * sens;
+            state.camera.lat += dy * sens;
+            
+            // Clamp lat
+            state.camera.lat = Math.max(-90, Math.min(90, state.camera.lat));
+            
+            // Sync UI inputs
+            camLon.value = state.camera.lon;
+            camLat.value = state.camera.lat;
+            valLon.innerText = Math.round(state.camera.lon) + '°';
+            valLat.innerText = Math.round(state.camera.lat) + '°';
+
+            lastPos = [e.clientX, e.clientY];
+            updateProjection();
+        });
+
+        // --- UI Listeners ---
+        camZoom.addEventListener('input', (e) => {
+            state.camera.zoom = parseInt(e.target.value);
+            valZoom.innerText = state.camera.zoom;
+            updateProjection();
+        });
+        camLon.addEventListener('input', (e) => {
+            state.camera.lon = parseInt(e.target.value);
+            valLon.innerText = state.camera.lon + '°';
+            updateProjection();
+        });
+        camLat.addEventListener('input', (e) => {
+            state.camera.lat = parseInt(e.target.value);
+            valLat.innerText = state.camera.lat + '°';
+            updateProjection();
+        });
+        btnResetCam.addEventListener('click', () => {
+            state.camera.zoom = 350; state.camera.lon = 0; state.camera.lat = 0;
+            camZoom.value = 350; camLon.value = 0; camLat.value = 0;
+            valZoom.innerText = '350'; valLon.innerText = '0°'; valLat.innerText = '0°';
+            updateProjection();
+        });
+
+        colOcean.addEventListener('input', (e) => { state.theme.ocean = e.target.value; updateProjection(); });
+        colLand.addEventListener('input', (e) => { state.theme.land = e.target.value; updateProjection(); });
+        colBorder.addEventListener('input', (e) => { state.theme.border = e.target.value; updateProjection(); });
+
+        projOrtho.addEventListener('click', () => {
+            state.projectionType = 'ortho';
+            projOrtho.classList.replace('text-slate-400', 'text-white');
+            projOrtho.classList.replace('hover:text-slate-200', 'bg-slate-600');
+            projOrtho.classList.add('shadow-sm');
+            projMercator.classList.replace('text-white', 'text-slate-400');
+            projMercator.classList.replace('bg-slate-600', 'hover:text-slate-200');
+            projMercator.classList.remove('shadow-sm');
+            updateProjection();
+        });
+        projMercator.addEventListener('click', () => {
+            state.projectionType = 'mercator';
+            projMercator.classList.replace('text-slate-400', 'text-white');
+            projMercator.classList.replace('hover:text-slate-200', 'bg-slate-600');
+            projMercator.classList.add('shadow-sm');
+            projOrtho.classList.replace('text-white', 'text-slate-400');
+            projOrtho.classList.replace('bg-slate-600', 'hover:text-slate-200');
+            projOrtho.classList.remove('shadow-sm');
+            updateProjection();
+        });
+
+        // --- Storyboard Engine ---
+        function runStory() {
+            if(state.exporting) return;
+            state.story.active = true;
+            
+            btnPlayStory.classList.replace('bg-geo-accent', 'bg-red-500');
+            btnPlayStory.classList.replace('hover:bg-yellow-300', 'hover:bg-red-400');
+            btnPlayStory.classList.replace('text-slate-900', 'text-white');
+            iconPlay.classList.replace('ph-play-circle', 'ph-stop-circle');
+            textPlay.innerText = 'Stop';
+            
+            let startTime = null;
+
+            function loop(timestamp) {
+                if(!state.story.active) {
+                    resetStoryBtn();
+                    updateProjection(); // Return to free cam
+                    return;
+                }
+                
+                if (!startTime) startTime = timestamp;
+                const elapsed = timestamp - startTime;
+                let p = elapsed / state.story.duration;
+
+                if (p < 1.0) {
+                    renderMap(p);
+                    requestAnimationFrame(loop);
+                } else {
+                    renderMap(1.0);
+                    state.story.active = false;
+                    resetStoryBtn();
+                    // Keep view at end of story
+                    state.camera.zoom = 2200; state.camera.lon = 56.4; state.camera.lat = 25.5;
+                    camZoom.value = 2200; camLon.value = 56; camLat.value = 25;
+                    valZoom.innerText = '2200'; valLon.innerText = '56°'; valLat.innerText = '25°';
+                }
+            }
+            requestAnimationFrame(loop);
+        }
+
+        function resetStoryBtn() {
+            btnPlayStory.classList.replace('bg-red-500', 'bg-geo-accent');
+            btnPlayStory.classList.replace('hover:bg-red-400', 'hover:bg-yellow-300');
+            btnPlayStory.classList.replace('text-white', 'text-slate-900');
+            iconPlay.classList.replace('ph-stop-circle', 'ph-play-circle');
+            textPlay.innerText = 'Preview Story';
+        }
+
+        btnPlayStory.addEventListener('click', () => {
+            if (state.story.active) state.story.active = false;
+            else runStory();
+        });
+
+        // --- Export Logic ---
+        const exportModal = document.getElementById('export-modal');
+        const exportPctText = document.getElementById('export-pct');
+        const exportBar = document.getElementById('export-bar');
+        const btnExportCancel = document.getElementById('btn-export-cancel');
+
+        function openExportModal() {
+            exportModal.classList.remove('hidden');
+            setTimeout(() => exportModal.classList.add('opacity-100'), 10);
+            exportPctText.innerText = "Processing: 0%";
+            exportBar.style.width = "0%";
+            exportState.cancelled = false;
+        }
+
+        function closeExportModal() {
+            exportModal.classList.remove('opacity-100');
+            setTimeout(() => exportModal.classList.add('hidden'), 300);
+            state.exporting = false;
+            state.story.active = false;
+            resetStoryBtn();
+            updateProjection();
+        }
+
+        btnExportCancel.addEventListener('click', () => {
+            exportState.cancelled = true;
+            if (exportState.activeRecorder) exportState.activeRecorder.stop();
+            closeExportModal();
+        });
+
+        btnExport.addEventListener('click', () => {
+            if (state.exporting || state.story.active) return;
+            state.exporting = true;
+            
+            const targetWidth = parseInt(document.getElementById('export-res').value);
+            const targetHeight = Math.floor(targetWidth * (9/16));
+
+            const expCanvas = document.createElement('canvas');
+            expCanvas.width = targetWidth;
+            expCanvas.height = targetHeight;
+            const expCtx = expCanvas.getContext('2d', { alpha: false });
+
+            // Temporarily replace main ctx reference to draw to export canvas
+            // To do this cleanly, we'll rewrite the render call for export
+            
+            let mediaRecorder;
+            let recordedChunks = [];
+            
+            try {
+                const stream = expCanvas.captureStream(60);
+                let options = { mimeType: 'video/webm;codecs=vp9' };
+                if (!MediaRecorder.isTypeSupported(options.mimeType)) options = { mimeType: 'video/webm' };
+                options.videoBitsPerSecond = 20000000;
+
+                mediaRecorder = new MediaRecorder(stream, options);
+                exportState.activeRecorder = mediaRecorder;
+
+                mediaRecorder.ondataavailable = (e) => { if (e.data.size > 0) recordedChunks.push(e.data); };
+                mediaRecorder.onstop = () => {
+                    if (exportState.cancelled) return;
+                    const blob = new Blob(recordedChunks, { type: options.mimeType.split(';')[0] });
+                    const url = URL.createObjectURL(blob);
+                    const a = document.createElement('a');
+                    a.style.display = 'none';
+                    a.href = url;
+                    a.download = `GeoExplainer_Hormuz_${targetWidth}p.webm`;
+                    document.body.appendChild(a);
+                    a.click();
+                    setTimeout(() => { document.body.removeChild(a); window.URL.revokeObjectURL(url); }, 100);
+                    closeExportModal();
+                };
+
+                openExportModal();
+                mediaRecorder.start();
+
+                let startTime = null;
+                const durationMs = state.story.duration;
+
+                function recordLoop(currentTime) {
+                    if (exportState.cancelled) return;
+                    if (!startTime) startTime = currentTime;
+                    
+                    const elapsed = currentTime - startTime;
+                    const p = Math.min(elapsed / durationMs, 1.0);
+
+                    // 1. Draw to high-res export canvas
+                    // We temporarily mock the global variables just for this call
+                    const origCtx = pathGenerator.context();
+                    pathGenerator.context(expCtx);
+                    
+                    // We need to re-implement render map targeting specific ctx and dimensions
+                    renderFrameToTarget(p, expCtx, targetWidth, targetHeight);
+                    
+                    // Reset to main canvas and render UI
+                    pathGenerator.context(origCtx);
+                    renderFrameToTarget(p, ctx, canvas.width, canvas.height);
+
+                    exportPctText.innerText = `Recording: ${Math.round(p * 100)}%`;
+                    exportBar.style.width = `${p * 100}%`;
+
+                    if (p < 1.0) {
+                        requestAnimationFrame(recordLoop);
+                    } else {
+                        exportPctText.innerText = 'Finalizing WEBM...';
+                        exportBar.style.width = '100%';
+                        setTimeout(() => { if(mediaRecorder.state !== 'inactive') mediaRecorder.stop(); }, 500);
+                    }
+                }
+                
+                requestAnimationFrame(recordLoop);
+
+            } catch (err) {
+                console.error(err);
+                alert("Recording failed. Browser issue.");
+                closeExportModal();
+            }
+        });
+
+        // Helper function for isolated rendering (avoids polluting global state)
+        function renderFrameToTarget(p, targetCtx, W, H) {
+            let currentZoom = state.camera.zoom;
+            let currentLon = state.camera.lon;
+            let currentLat = state.camera.lat;
+            let iranColor = state.theme.land;
+            let routeProgress = 0, markerScale = 0;
+
+            const rotP = d3.easeCubicOut(Math.min(Math.max(p / 0.2, 0), 1));
+            currentLon = d3.interpolateNumber(0, 54)(rotP);
+            currentLat = d3.interpolateNumber(0, 26)(rotP);
+
+            if (p > 0.2) {
+                const colP = Math.min(Math.max((p - 0.2) / 0.1, 0), 1);
+                iranColor = d3.interpolateRgb(state.theme.land, state.theme.highlight)(colP);
+            }
+            if (p > 0.3) {
+                const zoomP = d3.easeCubicInOut(Math.min(Math.max((p - 0.3) / 0.2, 0), 1));
+                
+                // Scale zoom based on target canvas width vs base (1920)
+                const baseZoom1 = 350 * (W/1920);
+                const baseZoom2 = 2200 * (W/1920);
+                
+                currentZoom = d3.interpolateNumber(baseZoom1, baseZoom2)(zoomP);
+                currentLon = d3.interpolateNumber(54, 56.4)(zoomP);
+                currentLat = d3.interpolateNumber(26, 25.5)(zoomP);
+            } else {
+                currentZoom = currentZoom * (W/1920); // Normalize initial zoom
+            }
+
+            if (p > 0.5) markerScale = d3.easeBackOut(Math.min(Math.max((p - 0.5) / 0.1, 0), 1));
+            if (p > 0.6) routeProgress = d3.easeQuadInOut(Math.min(Math.max((p - 0.6) / 0.3, 0), 1));
+
+            // Setup local projection
+            let localProj = state.projectionType === 'ortho' ? d3.geoOrthographic() : d3.geoMercator();
+            localProj.scale(currentZoom).translate([W/2, H/2]).rotate([-currentLon, -currentLat]);
+            let localPath = d3.geoPath().projection(localProj).context(targetCtx);
+
+            // Draw Background
+            targetCtx.fillStyle = state.theme.ocean;
+            targetCtx.fillRect(0, 0, W, H);
+
+            if (state.projectionType === 'ortho') {
+                targetCtx.beginPath();
+                localPath({type: "Sphere"});
+                targetCtx.fillStyle = state.theme.ocean;
+                targetCtx.fill();
+            }
+
+            // Draw Countries
+            state.worldData.forEach(country => {
+                targetCtx.beginPath();
+                localPath(country);
+                if (country.properties.name === "Iran") targetCtx.fillStyle = iranColor;
+                else targetCtx.fillStyle = state.theme.land;
+                targetCtx.fill();
+                targetCtx.strokeStyle = state.theme.border;
+                targetCtx.lineWidth = 1 * (W/1920);
+                targetCtx.stroke();
+            });
+
+            // Vignette
+            const gradient = targetCtx.createRadialGradient(W/2, H/2, H/3, W/2, H/2, H);
+            gradient.addColorStop(0, 'transparent');
+            gradient.addColorStop(1, 'rgba(0,0,0,0.6)');
+            targetCtx.fillStyle = gradient;
+            targetCtx.fillRect(0, 0, W, H);
+
+            // Overlays
+            if (p > 0.3) {
+                const routeCoords = [[49.5, 29.5], [51.5, 27.5], [54.5, 26.0], [56.4, 26.5], [58.0, 24.0], [62.0, 20.0]];
+                if (routeProgress > 0) {
+                    targetCtx.beginPath();
+                    const pts = routeCoords.map(c => localProj(c));
+                    const totalSegments = pts.length - 1;
+                    const currentSegmentFloat = routeProgress * totalSegments;
+                    const currentSegmentIdx = Math.floor(currentSegmentFloat);
+                    const segmentP = currentSegmentFloat - currentSegmentIdx;
+
+                    targetCtx.moveTo(pts[0][0], pts[0][1]);
+                    for (let i = 0; i < currentSegmentIdx; i++) targetCtx.lineTo(pts[i+1][0], pts[i+1][1]);
+                    if (currentSegmentIdx < totalSegments) {
+                        const p1 = pts[currentSegmentIdx];
+                        const p2 = pts[currentSegmentIdx + 1];
+                        targetCtx.lineTo(p1[0] + (p2[0] - p1[0]) * segmentP, p1[1] + (p2[1] - p1[1]) * segmentP);
+                    }
+
+                    targetCtx.strokeStyle = state.theme.path;
+                    targetCtx.lineWidth = 6 * (W/1920);
+                    targetCtx.lineCap = 'round';
+                    targetCtx.lineJoin = 'round';
+                    targetCtx.setLineDash([15*(W/1920), 15*(W/1920)]);
+                    targetCtx.lineDashOffset = -p * 100 * (W/1920);
+                    targetCtx.stroke();
+                    targetCtx.setLineDash([]);
+                }
+
+                if (markerScale > 0) {
+                    const markerPt = localProj([56.4, 26.5]);
+                    const baseS = (W/1920);
+                    
+                    targetCtx.beginPath();
+                    targetCtx.arc(markerPt[0], markerPt[1], (30 * markerScale + (Math.sin(p*20)*5))*baseS, 0, Math.PI*2);
+                    targetCtx.fillStyle = 'rgba(250, 204, 21, 0.2)';
+                    targetCtx.fill();
+                    targetCtx.strokeStyle = 'rgba(250, 204, 21, 0.5)';
+                    targetCtx.lineWidth = 2*baseS;
+                    targetCtx.stroke();
+
+                    targetCtx.beginPath();
+                    targetCtx.arc(markerPt[0], markerPt[1], 10 * markerScale * baseS, 0, Math.PI*2);
+                    targetCtx.fillStyle = state.theme.path;
+                    targetCtx.fill();
+                    targetCtx.strokeStyle = '#000';
+                    targetCtx.lineWidth = 3*baseS;
+                    targetCtx.stroke();
+
+                    if (p > 0.55) {
+                        targetCtx.globalAlpha = Math.min((p - 0.55)/0.1, 1);
+                        targetCtx.beginPath();
+                        targetCtx.moveTo(markerPt[0], markerPt[1]);
+                        targetCtx.lineTo(markerPt[0] - 100*baseS, markerPt[1] - 100*baseS);
+                        targetCtx.lineTo(markerPt[0] - 500*baseS, markerPt[1] - 100*baseS);
+                        targetCtx.strokeStyle = '#fff';
+                        targetCtx.lineWidth = 2*baseS;
+                        targetCtx.stroke();
+
+                        targetCtx.textAlign = 'left';
+                        targetCtx.textBaseline = 'bottom';
+                        targetCtx.font = `900 ${36*baseS}px Montserrat`;
+                        targetCtx.fillStyle = '#fff';
+                        targetCtx.fillText("STRAIT OF HORMUZ", markerPt[0] - 490*baseS, markerPt[1] - 110*baseS);
+                        
+                        targetCtx.font = `600 ${24*baseS}px Inter`;
+                        targetCtx.fillStyle = '#facc15';
+                        targetCtx.fillText("21 Million Barrels of Oil / Day", markerPt[0] - 490*baseS, markerPt[1] - 75*baseS);
+                        targetCtx.globalAlpha = 1.0;
+                    }
+                }
+
+                if (p > 0.4) {
+                    targetCtx.globalAlpha = Math.min((p - 0.4)/0.1, 1);
+                    targetCtx.textAlign = 'center';
+                    targetCtx.textBaseline = 'middle';
+                    const baseS = (W/1920);
+                    targetCtx.font = `800 ${28*baseS}px Inter`;
+                    targetCtx.fillStyle = 'rgba(255,255,255,0.4)';
+                    
+                    const gulfPt = localProj([51.0, 27.0]);
+                    targetCtx.fillText("PERSIAN GULF", gulfPt[0], gulfPt[1]);
+                    
+                    const omanPt = localProj([59.0, 24.5]);
+                    targetCtx.fillText("GULF OF OMAN", omanPt[0], omanPt[1]);
+                    targetCtx.globalAlpha = 1.0;
+                }
+            }
+        }
+
+        // Initialize App
+        initData();
+
+    </script>
+</body>
+</html>

@@ -1,0 +1,1013 @@
+<!DOCTYPE html>
+<html lang="en" class="dark">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+    <title>Motion Text Animator</title>
+    
+    <!-- Tailwind CSS -->
+    <script src="https://cdn.tailwindcss.com"></script>
+    <script>
+        tailwind.config = {
+            darkMode: 'class',
+            theme: {
+                extend: {
+                    colors: {
+                        /* macOS / CapCut Dark Theme Palette */
+                        panel: '#1c1c1e',
+                        surface: '#2c2c2e',
+                        hover: '#3a3a3c',
+                        divider: '#2c2c2e',
+                        accent: '#0a84ff',
+                        accentHover: '#007aff',
+                        primary: '#ffffff',
+                        secondary: '#98989d',
+                    }
+                }
+            }
+        }
+    </script>
+    
+    <!-- Fabric.js -->
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/fabric.js/5.3.1/fabric.min.js"></script>
+    
+    <!-- Lucide Icons -->
+    <script src="https://unpkg.com/lucide@latest"></script>
+
+    <style>
+        /* Custom Scrollbar for a polished look - macOS style */
+        ::-webkit-scrollbar {
+            width: 8px;
+            height: 8px;
+        }
+        ::-webkit-scrollbar-track {
+            background: transparent; 
+        }
+        ::-webkit-scrollbar-thumb {
+            background: #3a3a3c; 
+            border-radius: 10px;
+            border: 2px solid #1c1c1e;
+        }
+        ::-webkit-scrollbar-thumb:hover {
+            background: #48484a; 
+        }
+
+        /* Canvas Wrapper to maintain aspect ratio and scale */
+        #canvas-wrapper {
+            position: relative;
+            width: 100%;
+            height: 100%;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            overflow: hidden;
+            background-color: #000000;
+        }
+
+        /* The actual canvas container that scales */
+        .canvas-container {
+            margin: 0 auto;
+            border-radius: 8px;
+            overflow: hidden;
+            box-shadow: 0 4px 24px rgba(0,0,0,0.8);
+            /* Checkerboard pattern for transparency indication */
+            background-image: 
+                linear-gradient(45deg, #1c1c1e 25%, transparent 25%), 
+                linear-gradient(-45deg, #1c1c1e 25%, transparent 25%), 
+                linear-gradient(45deg, transparent 75%, #1c1c1e 75%), 
+                linear-gradient(-45deg, transparent 75%, #1c1c1e 75%);
+            background-size: 20px 20px;
+            background-position: 0 0, 0 10px, 10px -10px, -10px 0px;
+        }
+
+        /* macOS / CapCut Range Slider Styling */
+        input[type=range] {
+            -webkit-appearance: none;
+            width: 100%;
+            background: transparent;
+        }
+        input[type=range]:focus {
+            outline: none;
+        }
+        input[type=range]::-webkit-slider-thumb {
+            -webkit-appearance: none;
+            height: 16px;
+            width: 16px;
+            border-radius: 50%;
+            background: #ffffff;
+            cursor: pointer;
+            margin-top: -6px;
+            box-shadow: 0 2px 5px rgba(0, 0, 0, 0.3);
+            border: 1px solid #d1d1d6;
+        }
+        input[type=range]::-webkit-slider-runnable-track {
+            width: 100%;
+            height: 4px;
+            cursor: pointer;
+            background: #3a3a3c;
+            border-radius: 2px;
+        }
+        input[type=range]:active::-webkit-slider-thumb {
+            transform: scale(1.1);
+        }
+        
+        /* Hide scrollbar on mobile horizontal tabs but allow scroll */
+        .no-scrollbar::-webkit-scrollbar {
+            display: none;
+        }
+        .no-scrollbar {
+            -ms-overflow-style: none;
+            scrollbar-width: none;
+        }
+    </style>
+</head>
+<body class="bg-black text-primary h-screen w-screen overflow-hidden flex flex-col font-sans selection:bg-accent selection:text-white">
+
+    <!-- Top Navigation Bar -->
+    <header class="h-12 shrink-0 bg-panel border-b border-divider flex items-center justify-between px-4 z-20 relative shadow-sm">
+        <div class="flex items-center gap-3">
+            <!-- macOS faux traffic lights purely for aesthetic -->
+            <div class="hidden sm:flex gap-1.5 mr-2">
+                <div class="w-3 h-3 rounded-full bg-[#ff5f56]"></div>
+                <div class="w-3 h-3 rounded-full bg-[#ffbd2e]"></div>
+                <div class="w-3 h-3 rounded-full bg-[#27c93f]"></div>
+            </div>
+            <i data-lucide="clapperboard" class="w-5 h-5 text-accent"></i>
+            <h1 class="font-semibold text-[15px] hidden sm:block tracking-wide">MotionText</h1>
+        </div>
+        
+        <div class="flex items-center gap-3">
+            <button id="btn-fullscreen" class="p-1.5 rounded-md hover:bg-surface transition-colors text-secondary hover:text-primary" title="Toggle Fullscreen">
+                <i data-lucide="maximize" class="w-4 h-4"></i>
+            </button>
+            <button id="btn-export" class="flex items-center gap-1.5 bg-accent hover:bg-accentHover text-white px-3 py-1.5 rounded-md font-medium transition-colors text-sm shadow-sm">
+                <i data-lucide="download" class="w-4 h-4"></i>
+                Export <span class="hidden sm:inline">WebM</span>
+            </button>
+        </div>
+    </header>
+
+    <!-- Main Layout: Row on Desktop, Column on Mobile -->
+    <main class="flex-1 flex flex-col md:flex-row overflow-hidden relative">
+        
+        <!-- Left/Top Area: Canvas & Playback -->
+        <div class="flex-1 flex flex-col min-w-0 relative">
+            
+            <!-- Exporting Overlay -->
+            <div id="export-overlay" class="absolute inset-0 bg-black/90 z-50 hidden flex-col items-center justify-center backdrop-blur-md">
+                <i data-lucide="loader-2" class="w-10 h-10 text-accent animate-spin mb-4"></i>
+                <h2 class="text-lg font-medium mb-2 text-primary">Rendering Video</h2>
+                <div class="w-64 h-1.5 bg-surface rounded-full overflow-hidden">
+                    <div id="export-progress" class="h-full bg-accent w-0 transition-all duration-100"></div>
+                </div>
+                <p id="export-text" class="text-secondary mt-2 text-xs">Please wait...</p>
+            </div>
+
+            <!-- Canvas Viewport -->
+            <div id="canvas-wrapper" class="flex-1 bg-black p-2 sm:p-6">
+                <canvas id="main-canvas"></canvas>
+            </div>
+
+            <!-- Timeline & Playback Controls -->
+            <div class="h-auto shrink-0 bg-panel border-t border-divider p-4 pb-safe flex flex-col gap-3 z-10">
+                <!-- Timeline Slider -->
+                <div class="flex items-center gap-3">
+                    <span id="time-current" class="text-[11px] text-secondary font-mono w-10 text-right">0:00</span>
+                    <input type="range" id="timeline-slider" min="0" max="1000" value="0" class="flex-1">
+                    <span id="time-total" class="text-[11px] text-secondary font-mono w-10">0:05</span>
+                </div>
+                
+                <!-- Playback Buttons -->
+                <div class="flex items-center justify-center gap-4 relative">
+                    <button id="btn-restart" class="p-2 text-secondary hover:text-primary transition-colors rounded-full hover:bg-surface">
+                        <i data-lucide="skip-back" class="w-4 h-4"></i>
+                    </button>
+                    <button id="btn-play-pause" class="w-9 h-9 flex items-center justify-center bg-primary rounded-full hover:scale-105 active:scale-95 text-black transition-all shadow-md">
+                        <i data-lucide="play" class="w-4 h-4 ml-0.5" id="icon-play"></i>
+                        <i data-lucide="pause" class="w-4 h-4 hidden" id="icon-pause"></i>
+                    </button>
+                    <!-- Duration Selector -->
+                    <div class="absolute right-0 flex items-center gap-2 bg-surface px-2 py-1 rounded-md border border-divider hover:border-hover transition-colors">
+                        <i data-lucide="clock" class="w-3 h-3 text-secondary"></i>
+                        <select id="select-duration" class="bg-transparent border-none text-[11px] font-medium outline-none text-primary cursor-pointer appearance-none pr-1">
+                            <option value="3000">3s</option>
+                            <option value="5000" selected>5s</option>
+                            <option value="10000">10s</option>
+                        </select>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- Right/Bottom Area: Tools Sidebar -->
+        <div class="w-full md:w-80 h-[55%] md:h-full bg-panel border-t md:border-t-0 md:border-l border-divider flex flex-col shrink-0 z-20 shadow-2xl md:shadow-none">
+            
+            <!-- Mobile Handle for aesthetics -->
+            <div class="w-full flex justify-center py-2.5 md:hidden">
+                <div class="w-10 h-1 bg-surface rounded-full"></div>
+            </div>
+
+            <!-- Tabs (macOS Segmented Control Style) -->
+            <div class="px-4 py-3 shrink-0 border-b border-divider">
+                <div class="flex bg-[#121212] rounded-lg p-1 border border-divider/50">
+                    <button class="tab-btn flex-1 py-1.5 px-2 text-[13px] font-medium rounded-md bg-hover text-primary shadow-sm transition-all" data-target="panel-text">
+                        <div class="flex items-center justify-center gap-1.5">
+                            <i data-lucide="type" class="w-3.5 h-3.5"></i> Text
+                        </div>
+                    </button>
+                    <button class="tab-btn flex-1 py-1.5 px-2 text-[13px] font-medium rounded-md text-secondary hover:text-primary transition-all" data-target="panel-style">
+                        <div class="flex items-center justify-center gap-1.5">
+                            <i data-lucide="palette" class="w-3.5 h-3.5"></i> Style
+                        </div>
+                    </button>
+                    <button class="tab-btn flex-1 py-1.5 px-2 text-[13px] font-medium rounded-md text-secondary hover:text-primary transition-all" data-target="panel-anim">
+                        <div class="flex items-center justify-center gap-1.5">
+                            <i data-lucide="sparkles" class="w-3.5 h-3.5"></i> Animate
+                        </div>
+                    </button>
+                </div>
+            </div>
+
+            <!-- Panel Content Area -->
+            <div class="flex-1 overflow-y-auto p-4 space-y-6">
+                
+                <!-- Text Panel -->
+                <div id="panel-text" class="tab-panel block space-y-5">
+                    <div>
+                        <label class="block text-[11px] font-semibold text-secondary uppercase tracking-wider mb-2">Text Content</label>
+                        <textarea id="input-text" rows="3" class="w-full bg-[#121212] border border-divider rounded-md p-3 text-primary text-sm focus:outline-none focus:border-accent focus:ring-1 focus:ring-accent transition-all resize-none shadow-inner" placeholder="Enter your text here...">YOUR TITLE&#10;HERE</textarea>
+                        <p class="text-[10px] text-secondary mt-1 ml-1">Tip: Double click text on canvas to edit directly.</p>
+                    </div>
+                    
+                    <div class="grid grid-cols-3 gap-2">
+                        <button id="btn-add-text" class="flex flex-col items-center justify-center gap-1 bg-surface hover:bg-hover border border-divider py-2 rounded-md text-[12px] font-medium transition-colors shadow-sm text-primary">
+                            <i data-lucide="plus" class="w-3.5 h-3.5"></i> Add
+                        </button>
+                        <button id="btn-duplicate-text" class="flex flex-col items-center justify-center gap-1 bg-surface hover:bg-hover border border-divider py-2 rounded-md text-[12px] font-medium transition-colors shadow-sm text-primary">
+                            <i data-lucide="copy" class="w-3.5 h-3.5"></i> Copy
+                        </button>
+                        <button id="btn-delete-text" class="flex flex-col items-center justify-center gap-1 bg-surface hover:bg-[#ff3b30]/20 border border-divider hover:border-[#ff3b30]/50 text-[#ff453a] py-2 rounded-md text-[12px] font-medium transition-colors shadow-sm">
+                            <i data-lucide="trash-2" class="w-3.5 h-3.5"></i> Delete
+                        </button>
+                    </div>
+
+                    <!-- Alignment -->
+                    <div>
+                        <label class="block text-[11px] font-semibold text-secondary uppercase tracking-wider mb-2">Alignment</label>
+                        <div class="flex bg-[#121212] rounded-md p-1 border border-divider/50">
+                            <button class="flex-1 py-1.5 rounded-md flex justify-center text-primary bg-hover align-btn active shadow-sm transition-all" data-align="left">
+                                <i data-lucide="align-left" class="w-4 h-4"></i>
+                            </button>
+                            <button class="flex-1 py-1.5 rounded-md flex justify-center text-secondary hover:text-primary align-btn transition-all" data-align="center">
+                                <i data-lucide="align-center" class="w-4 h-4"></i>
+                            </button>
+                            <button class="flex-1 py-1.5 rounded-md flex justify-center text-secondary hover:text-primary align-btn transition-all" data-align="right">
+                                <i data-lucide="align-right" class="w-4 h-4"></i>
+                            </button>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Style Panel -->
+                <div id="panel-style" class="tab-panel hidden space-y-6">
+                    <!-- Font Family -->
+                    <div>
+                        <label class="block text-[11px] font-semibold text-secondary uppercase tracking-wider mb-2">Font Family</label>
+                        <div class="relative">
+                            <select id="select-font" class="w-full bg-[#121212] border border-divider rounded-md p-2.5 text-primary text-[13px] focus:outline-none focus:border-accent appearance-none shadow-sm cursor-pointer">
+                                <option value="Arial" style="font-family: Arial;">Arial</option>
+                                <option value="'Courier New', Courier, monospace" style="font-family: 'Courier New';">Courier New</option>
+                                <option value="'Impact', sans-serif" style="font-family: Impact;">Impact</option>
+                                <option value="'Comic Sans MS', cursive" style="font-family: 'Comic Sans MS';">Comic Sans</option>
+                                <option value="'Times New Roman', Times, serif" style="font-family: 'Times New Roman';">Times New Roman</option>
+                                <option value="'Trebuchet MS', sans-serif" style="font-family: 'Trebuchet MS';">Trebuchet</option>
+                                <option value="'Verdana', sans-serif" style="font-family: Verdana;">Verdana</option>
+                                <option value="system-ui, -apple-system, sans-serif" selected>System Default</option>
+                            </select>
+                            <i data-lucide="chevron-down" class="w-4 h-4 text-secondary absolute right-3 top-3 pointer-events-none"></i>
+                        </div>
+                    </div>
+
+                    <!-- Colors -->
+                    <div class="grid grid-cols-2 gap-4">
+                        <div>
+                            <label class="block text-[11px] font-semibold text-secondary uppercase tracking-wider mb-2">Fill Color</label>
+                            <div class="flex items-center gap-2 bg-[#121212] p-1.5 rounded-md border border-divider shadow-sm">
+                                <div class="relative w-6 h-6 rounded overflow-hidden border border-divider shrink-0">
+                                    <input type="color" id="input-color" value="#ffffff" class="absolute -top-2 -left-2 w-10 h-10 cursor-pointer bg-transparent border-0 p-0">
+                                </div>
+                                <span class="text-[12px] font-mono text-primary uppercase flex-1 text-center" id="color-hex">#FFFFFF</span>
+                            </div>
+                        </div>
+                        <div>
+                            <label class="block text-[11px] font-semibold text-secondary uppercase tracking-wider mb-2">Stroke Color</label>
+                            <div class="flex items-center gap-2 bg-[#121212] p-1.5 rounded-md border border-divider shadow-sm">
+                                <div class="relative w-6 h-6 rounded overflow-hidden border border-divider shrink-0">
+                                    <input type="color" id="input-stroke-color" value="#000000" class="absolute -top-2 -left-2 w-10 h-10 cursor-pointer bg-transparent border-0 p-0">
+                                </div>
+                                <span class="text-[12px] font-mono text-primary uppercase flex-1 text-center" id="stroke-hex">#000000</span>
+                            </div>
+                        </div>
+                    </div>
+
+                    <!-- Size & Stroke Width -->
+                    <div class="space-y-5">
+                        <div>
+                            <div class="flex justify-between mb-2">
+                                <label class="text-[11px] font-semibold text-secondary uppercase tracking-wider">Font Size</label>
+                                <span id="val-size" class="text-[11px] font-mono text-accent">120px</span>
+                            </div>
+                            <input type="range" id="slider-size" min="20" max="300" value="120">
+                        </div>
+                        
+                        <div>
+                            <div class="flex justify-between mb-2">
+                                <label class="text-[11px] font-semibold text-secondary uppercase tracking-wider">Stroke Width</label>
+                                <span id="val-stroke" class="text-[11px] font-mono text-accent">0px</span>
+                            </div>
+                            <input type="range" id="slider-stroke" min="0" max="20" value="0">
+                        </div>
+
+                        <div>
+                            <div class="flex justify-between mb-2">
+                                <label class="text-[11px] font-semibold text-secondary uppercase tracking-wider">Line Height</label>
+                                <span id="val-lineheight" class="text-[11px] font-mono text-accent">1.2</span>
+                            </div>
+                            <input type="range" id="slider-lineheight" min="0.5" max="3" step="0.1" value="1.2">
+                        </div>
+                    </div>
+                    
+                    <!-- Background Options -->
+                    <div class="pt-4 border-t border-divider">
+                         <label class="block text-[11px] font-semibold text-secondary uppercase tracking-wider mb-3">Background</label>
+                         <div class="flex gap-3">
+                             <button class="w-7 h-7 rounded-full border border-divider bg-transparent focus:ring-2 ring-accent ring-offset-2 ring-offset-panel bg-btn relative" data-color="transparent" title="Transparent">
+                                <div class="absolute inset-0 rounded-full border border-[#ff3b30] transform rotate-45" style="border-width: 1px 0 0 0; top: 50%;"></div>
+                             </button>
+                             <button class="w-7 h-7 rounded-full border border-divider bg-black focus:ring-2 ring-accent ring-offset-2 ring-offset-panel bg-btn shadow-sm" data-color="#000000" title="Black"></button>
+                             <button class="w-7 h-7 rounded-full border border-divider bg-white focus:ring-2 ring-accent ring-offset-2 ring-offset-panel bg-btn shadow-sm" data-color="#ffffff" title="White"></button>
+                             <button class="w-7 h-7 rounded-full border border-divider bg-[#2c2c2e] focus:ring-2 ring-accent ring-offset-2 ring-offset-panel bg-btn shadow-sm" data-color="#2c2c2e" title="Dark Gray"></button>
+                             <div class="relative w-7 h-7">
+                                <input type="color" id="bg-color-picker" class="opacity-0 absolute inset-0 w-full h-full cursor-pointer z-10">
+                                <div class="w-7 h-7 rounded-full border border-divider flex items-center justify-center bg-surface shadow-sm">
+                                    <i data-lucide="pipette" class="w-3.5 h-3.5 text-secondary"></i>
+                                </div>
+                             </div>
+                         </div>
+                    </div>
+                </div>
+
+                <!-- Animation Panel -->
+                <div id="panel-anim" class="tab-panel hidden space-y-4">
+                    <label class="block text-[11px] font-semibold text-secondary uppercase tracking-wider mb-2">Preset Animations</label>
+                    
+                    <div class="grid grid-cols-2 gap-2">
+                        <button class="anim-btn bg-accent/20 border border-accent text-accent rounded-md py-2.5 px-3 text-left hover:bg-accent/30 transition-all active shadow-sm relative overflow-hidden group text-[13px]" data-anim="none">
+                            <span class="relative z-10 font-medium">Static</span>
+                        </button>
+                        
+                        <button class="anim-btn bg-surface border border-transparent text-primary rounded-md py-2.5 px-3 text-left hover:bg-hover transition-all shadow-sm relative overflow-hidden group text-[13px]" data-anim="typewriter">
+                            <span class="relative z-10 font-medium">Typewriter</span>
+                            <div class="absolute bottom-0 left-0 h-[2px] bg-accent w-0 group-hover:w-full transition-all duration-700"></div>
+                        </button>
+
+                        <button class="anim-btn bg-surface border border-transparent text-primary rounded-md py-2.5 px-3 text-left hover:bg-hover transition-all shadow-sm relative overflow-hidden group text-[13px]" data-anim="fade">
+                            <span class="relative z-10 font-medium opacity-50 group-hover:opacity-100 transition-opacity duration-300">Fade In</span>
+                        </button>
+
+                        <button class="anim-btn bg-surface border border-transparent text-primary rounded-md py-2.5 px-3 text-left hover:bg-hover transition-all shadow-sm relative overflow-hidden group text-[13px]" data-anim="pop">
+                            <span class="relative z-10 font-medium inline-block group-hover:scale-110 transition-transform duration-200">Scale Pop</span>
+                        </button>
+                        
+                        <button class="anim-btn bg-surface border border-transparent text-primary rounded-md py-2.5 px-3 text-left hover:bg-hover transition-all shadow-sm relative overflow-hidden group text-[13px]" data-anim="slideUp">
+                            <span class="relative z-10 font-medium inline-block group-hover:-translate-y-1 transition-transform duration-200">Slide Up</span>
+                        </button>
+
+                        <button class="anim-btn bg-surface border border-transparent text-primary rounded-md py-2.5 px-3 text-left hover:bg-hover transition-all shadow-sm relative overflow-hidden group text-[13px]" data-anim="tracking">
+                            <span class="relative z-10 font-medium tracking-tight group-hover:tracking-widest transition-all duration-500">Tracking</span>
+                        </button>
+                        
+                        <button class="anim-btn bg-surface border border-transparent text-primary rounded-md py-2.5 px-3 text-left hover:bg-hover transition-all shadow-sm relative overflow-hidden group text-[13px] col-span-2" data-anim="glitch">
+                            <span class="relative z-10 font-medium flex items-center justify-between">
+                                Glitch Reveal
+                                <i data-lucide="zap" class="w-3.5 h-3.5 text-secondary group-hover:text-yellow-400 transition-colors"></i>
+                            </span>
+                        </button>
+                    </div>
+                    
+                    <div class="mt-4 p-3 bg-surface/50 rounded-md border border-divider/50">
+                        <p class="text-[11px] text-secondary flex items-start gap-2 leading-relaxed">
+                            <i data-lucide="info" class="w-3.5 h-3.5 shrink-0 mt-0.5 opacity-70"></i>
+                            Select a text object in the preview window to apply or edit animations. Animations loop based on timeline length.
+                        </p>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </main>
+
+    <script>
+        // Initialize Icons
+        lucide.createIcons();
+
+        // --- Application State ---
+        const state = {
+            isPlaying: false,
+            currentTime: 0,
+            duration: 5000, // ms
+            fps: 30,
+            canvasBg: 'transparent',
+            isExporting: false
+        };
+
+        // --- Fabric Canvas Setup ---
+        const CANVAS_WIDTH = 1080;
+        const CANVAS_HEIGHT = 1080;
+        
+        const canvasElement = document.getElementById('main-canvas');
+        const wrapperElement = document.getElementById('canvas-wrapper');
+        
+        const canvas = new fabric.Canvas('main-canvas', {
+            width: CANVAS_WIDTH,
+            height: CANVAS_HEIGHT,
+            preserveObjectStacking: true,
+            selection: true
+        });
+
+        // --- Premium Fabric.js UI Customization ---
+        // Make selection controls look like modern video editing software
+        fabric.Object.prototype.set({
+            transparentCorners: false,
+            cornerColor: '#ffffff',
+            cornerStrokeColor: '#1c1c1e',
+            borderColor: '#0a84ff',
+            cornerSize: 12,
+            padding: 10,
+            cornerStyle: 'circle',
+            borderScaleFactor: 1.5,
+            borderDashArray: [4, 4] // Adds a subtle dashed line to the selection border
+        });
+
+        // Responsive scaling function
+        function resizeCanvas() {
+            const wrapperWidth = wrapperElement.clientWidth;
+            const wrapperHeight = wrapperElement.clientHeight;
+            
+            const scale = Math.min(
+                (wrapperWidth - 32) / CANVAS_WIDTH, 
+                (wrapperHeight - 32) / CANVAS_HEIGHT
+            );
+            
+            const cssScale = `scale(${scale})`;
+            canvasElement.parentElement.style.transform = cssScale;
+            canvasElement.parentElement.style.transformOrigin = 'center center';
+        }
+
+        window.addEventListener('resize', resizeCanvas);
+        
+        // --- Object Management & Base State ---
+        const baseStates = new Map();
+
+        // Include "angle" to support saving rotated states
+        function saveBaseState(obj) {
+            if (!obj) return;
+            baseStates.set(obj, {
+                text: obj.text,
+                opacity: obj.opacity,
+                scaleX: obj.scaleX,
+                scaleY: obj.scaleY,
+                angle: obj.angle,
+                top: obj.top,
+                left: obj.left,
+                charSpacing: obj.charSpacing,
+                fill: obj.fill,
+                stroke: obj.stroke
+            });
+        }
+
+        function restoreBaseState(obj) {
+            const base = baseStates.get(obj);
+            if (base) {
+                obj.set({
+                    text: base.text,
+                    opacity: base.opacity,
+                    scaleX: base.scaleX,
+                    scaleY: base.scaleY,
+                    angle: base.angle,
+                    top: base.top,
+                    left: base.left,
+                    charSpacing: base.charSpacing
+                });
+            }
+        }
+
+        function addText() {
+            const text = new fabric.IText('YOUR TITLE\nHERE', {
+                left: CANVAS_WIDTH / 2,
+                top: CANVAS_HEIGHT / 2,
+                fontFamily: 'system-ui, -apple-system, sans-serif',
+                fill: '#ffffff',
+                stroke: '#000000',
+                strokeWidth: 0,
+                fontSize: 120,
+                fontWeight: 'bold',
+                textAlign: 'center',
+                originX: 'center',
+                originY: 'center',
+                lineHeight: 1.2,
+                angle: 0,
+                shadow: new fabric.Shadow({
+                    color: 'rgba(0,0,0,0.5)',
+                    blur: 15,
+                    offsetX: 0,
+                    offsetY: 8
+                }),
+                customAnim: 'none' 
+            });
+            
+            canvas.add(text);
+            canvas.setActiveObject(text);
+            saveBaseState(text);
+            updateUIFromObject(text);
+        }
+
+        addText();
+        setTimeout(resizeCanvas, 50);
+
+        // --- Interaction Handlers ---
+        // Pause playback if user interacts with the canvas to prevent jumping text
+        canvas.on('mouse:down', (e) => {
+            if (e.target && state.isPlaying) {
+                togglePlay();
+            }
+        });
+
+        // Real-time synchronization when double-clicking to type on the canvas
+        canvas.on('text:changed', (e) => {
+            if (e.target && e.target.type === 'i-text') {
+                document.getElementById('input-text').value = e.target.text;
+                saveBaseState(e.target);
+            }
+        });
+
+        canvas.on('selection:created', (e) => updateUIFromObject(e.selected[0]));
+        canvas.on('selection:updated', (e) => updateUIFromObject(e.selected[0]));
+        canvas.on('selection:cleared', () => updateUIFromObject(null));
+        
+        canvas.on('object:modified', (e) => {
+            saveBaseState(e.target);
+            if(!state.isPlaying) applyAnimations(state.currentTime); 
+        });
+
+        // --- Animation Engine ---
+        let animationFrameId;
+        let lastTimestamp = 0;
+
+        const easeOutBack = (x) => {
+            const c1 = 1.70158;
+            const c3 = c1 + 1;
+            return 1 + c3 * Math.pow(x - 1, 3) + c1 * Math.pow(x - 1, 2);
+        };
+        const easeOutCubic = (x) => 1 - Math.pow(1 - x, 3);
+        
+        function applyAnimations(time) {
+            const progress = time / state.duration;
+
+            canvas.getObjects().forEach(obj => {
+                if (obj.type !== 'i-text') return;
+                
+                restoreBaseState(obj);
+                const animType = obj.customAnim || 'none';
+                const base = baseStates.get(obj);
+                
+                if (!base) return;
+
+                if (animType === 'typewriter') {
+                    const typeProgress = Math.min(1, progress / 0.6);
+                    const totalChars = base.text.length;
+                    const charsToShow = Math.floor(typeProgress * totalChars);
+                    obj.set('text', base.text.substring(0, charsToShow));
+                } 
+                else if (animType === 'fade') {
+                    const fadeProgress = Math.min(1, progress / 0.3);
+                    obj.set('opacity', fadeProgress);
+                }
+                else if (animType === 'pop') {
+                    let scale = 1;
+                    if (progress < 0.1) {
+                         scale = 0;
+                    } else if (progress < 0.4) {
+                        const localP = (progress - 0.1) / 0.3;
+                        scale = easeOutBack(localP);
+                    }
+                    obj.set({ scaleX: base.scaleX * scale, scaleY: base.scaleY * scale });
+                }
+                else if (animType === 'slideUp') {
+                    const slideProgress = Math.min(1, progress / 0.4);
+                    const yOffset = 100 * (1 - easeOutCubic(slideProgress));
+                    // Account for rotation when sliding up so it slides relative to orientation if desired,
+                    // but for simplicity, we slide along global Y.
+                    obj.set({
+                        top: base.top + yOffset,
+                        opacity: slideProgress
+                    });
+                }
+                else if (animType === 'tracking') {
+                    let spacing = 0;
+                    if (progress < 0.3) {
+                         spacing = 1000 * (1 - easeOutCubic(progress / 0.3));
+                    } else if (progress > 0.8) {
+                         spacing = 1000 * easeOutCubic((progress - 0.8) / 0.2);
+                    }
+                    obj.set({
+                        charSpacing: base.charSpacing + spacing,
+                        opacity: progress < 0.1 ? progress/0.1 : (progress > 0.9 ? (1-progress)/0.1 : 1)
+                    });
+                }
+                else if (animType === 'glitch') {
+                     if (progress < 0.5) {
+                         const steps = 10;
+                         const currentStep = Math.floor(progress * 2 * steps);
+                         if (currentStep % 2 === 0) {
+                             obj.set({ opacity: 0.2, left: base.left - 10 });
+                         } else {
+                             obj.set({ opacity: 0.8, left: base.left + 10 });
+                         }
+                         if(progress > 0.4) {
+                            obj.set({opacity: 1, left: base.left});
+                         }
+                     }
+                }
+            });
+            canvas.renderAll();
+        }
+
+        function updateTimelineUI() {
+            document.getElementById('timeline-slider').value = state.currentTime;
+            document.getElementById('timeline-slider').max = state.duration;
+            
+            const formatTime = (ms) => {
+                const totalSec = Math.floor(ms / 1000);
+                const min = Math.floor(totalSec / 60);
+                const sec = totalSec % 60;
+                return `${min}:${sec.toString().padStart(2, '0')}`;
+            };
+            
+            document.getElementById('time-current').textContent = formatTime(state.currentTime);
+            document.getElementById('time-total').textContent = formatTime(state.duration);
+        }
+
+        function renderLoop(timestamp) {
+            if (!lastTimestamp) lastTimestamp = timestamp;
+            const delta = timestamp - lastTimestamp;
+            lastTimestamp = timestamp;
+
+            if (state.isPlaying) {
+                state.currentTime += delta;
+                if (state.currentTime >= state.duration) {
+                    if (state.isExporting) {
+                        state.currentTime = state.duration;
+                    } else {
+                        state.currentTime = 0;
+                    }
+                }
+                updateTimelineUI();
+            }
+
+            applyAnimations(state.currentTime);
+            
+            if (!state.isExporting || state.currentTime < state.duration) {
+                 animationFrameId = requestAnimationFrame(renderLoop);
+            }
+        }
+
+        requestAnimationFrame(renderLoop);
+
+        // --- Playback Controls ---
+        const btnPlayPause = document.getElementById('btn-play-pause');
+        const iconPlay = document.getElementById('icon-play');
+        const iconPause = document.getElementById('icon-pause');
+
+        function togglePlay() {
+            state.isPlaying = !state.isPlaying;
+            if (state.isPlaying && state.currentTime >= state.duration) {
+                state.currentTime = 0;
+            }
+            if (state.isPlaying) {
+                lastTimestamp = performance.now(); 
+                iconPlay.classList.add('hidden');
+                iconPause.classList.remove('hidden');
+            } else {
+                iconPlay.classList.remove('hidden');
+                iconPause.classList.add('hidden');
+            }
+        }
+
+        btnPlayPause.addEventListener('click', togglePlay);
+
+        document.getElementById('btn-restart').addEventListener('click', () => {
+            state.currentTime = 0;
+            updateTimelineUI();
+            if(!state.isPlaying) applyAnimations(0);
+        });
+
+        const timelineSlider = document.getElementById('timeline-slider');
+        timelineSlider.addEventListener('input', (e) => {
+            state.currentTime = parseInt(e.target.value);
+            document.getElementById('time-current').textContent = (state.currentTime / 1000).toFixed(1) + 's';
+            if (state.isPlaying) togglePlay(); 
+            applyAnimations(state.currentTime);
+        });
+
+        document.getElementById('select-duration').addEventListener('change', (e) => {
+            state.duration = parseInt(e.target.value);
+            if (state.currentTime > state.duration) state.currentTime = 0;
+            updateTimelineUI();
+            applyAnimations(state.currentTime);
+        });
+
+        // --- UI Binding ---
+        
+        // Tabs
+        document.querySelectorAll('.tab-btn').forEach(btn => {
+            btn.addEventListener('click', () => {
+                document.querySelectorAll('.tab-btn').forEach(b => {
+                    b.classList.remove('bg-hover', 'text-primary', 'shadow-sm');
+                    b.classList.add('text-secondary');
+                });
+                btn.classList.remove('text-secondary');
+                btn.classList.add('bg-hover', 'text-primary', 'shadow-sm');
+                
+                document.querySelectorAll('.tab-panel').forEach(p => p.classList.add('hidden'));
+                document.getElementById(btn.dataset.target).classList.remove('hidden');
+            });
+        });
+
+        function updateUIFromObject(obj) {
+            if (!obj || obj.type !== 'i-text') {
+                document.getElementById('input-text').value = '';
+                return;
+            }
+            
+            document.getElementById('input-text').value = obj.text;
+            
+            // Align
+            document.querySelectorAll('.align-btn').forEach(b => {
+                b.classList.remove('active', 'bg-hover', 'text-primary', 'shadow-sm');
+                b.classList.add('text-secondary');
+            });
+            const activeAlignBtn = document.querySelector(`.align-btn[data-align="${obj.textAlign}"]`);
+            if(activeAlignBtn) {
+                activeAlignBtn.classList.remove('text-secondary');
+                activeAlignBtn.classList.add('active', 'bg-hover', 'text-primary', 'shadow-sm');
+            }
+
+            // Style
+            document.getElementById('select-font').value = obj.fontFamily;
+            document.getElementById('input-color').value = obj.fill;
+            document.getElementById('color-hex').textContent = obj.fill;
+            document.getElementById('input-stroke-color').value = obj.stroke || '#000000';
+            document.getElementById('stroke-hex').textContent = obj.stroke || '#000000';
+            
+            document.getElementById('slider-size').value = obj.fontSize;
+            document.getElementById('val-size').textContent = obj.fontSize + 'px';
+            
+            document.getElementById('slider-stroke').value = obj.strokeWidth;
+            document.getElementById('val-stroke').textContent = obj.strokeWidth + 'px';
+
+            document.getElementById('slider-lineheight').value = obj.lineHeight;
+            document.getElementById('val-lineheight').textContent = obj.lineHeight;
+
+            // Anim
+            document.querySelectorAll('.anim-btn').forEach(b => {
+                b.classList.remove('bg-accent/20', 'border-accent', 'text-accent');
+                b.classList.add('bg-surface', 'border-transparent', 'text-primary');
+            });
+            const anim = obj.customAnim || 'none';
+            const activeAnimBtn = document.querySelector(`.anim-btn[data-anim="${anim}"]`);
+            if(activeAnimBtn) {
+                activeAnimBtn.classList.remove('bg-surface', 'border-transparent', 'text-primary');
+                activeAnimBtn.classList.add('bg-accent/20', 'border-accent', 'text-accent');
+            }
+        }
+
+        document.getElementById('input-text').addEventListener('input', (e) => {
+            const obj = canvas.getActiveObject();
+            if (obj && obj.type === 'i-text') {
+                obj.set('text', e.target.value);
+                saveBaseState(obj);
+                if(!state.isPlaying) {
+                    restoreBaseState(obj);
+                    canvas.renderAll();
+                }
+            }
+        });
+
+        // Layer Management Buttons
+        document.getElementById('btn-add-text').addEventListener('click', addText);
+        
+        document.getElementById('btn-duplicate-text').addEventListener('click', () => {
+            const activeObject = canvas.getActiveObject();
+            if (activeObject && activeObject.type === 'i-text') {
+                activeObject.clone(function(cloned) {
+                    cloned.set({
+                        left: activeObject.left + 20,
+                        top: activeObject.top + 20,
+                        customAnim: activeObject.customAnim // Retain the animation
+                    });
+                    canvas.add(cloned);
+                    canvas.setActiveObject(cloned);
+                    saveBaseState(cloned);
+                    updateUIFromObject(cloned);
+                }, ['customAnim']);
+            }
+        });
+
+        document.getElementById('btn-delete-text').addEventListener('click', () => {
+            const activeObjects = canvas.getActiveObjects();
+            if (activeObjects.length) {
+                canvas.discardActiveObject();
+                activeObjects.forEach(function(object) {
+                    baseStates.delete(object);
+                    canvas.remove(object);
+                });
+            }
+        });
+
+        document.querySelectorAll('.align-btn').forEach(btn => {
+            btn.addEventListener('click', (e) => {
+                const align = btn.dataset.align;
+                const obj = canvas.getActiveObject();
+                if (obj && obj.type === 'i-text') {
+                    obj.set('textAlign', align);
+                    saveBaseState(obj);
+                    if(!state.isPlaying) canvas.renderAll();
+                    updateUIFromObject(obj);
+                }
+            });
+        });
+
+        const setupPropBinding = (id, prop, isNumeric = false, labelId = null, suffix = '') => {
+            const el = document.getElementById(id);
+            if(!el) return;
+            el.addEventListener('input', (e) => {
+                const obj = canvas.getActiveObject();
+                if (obj) {
+                    let val = isNumeric ? parseFloat(e.target.value) : e.target.value;
+                    obj.set(prop, val);
+                    saveBaseState(obj);
+                    if(!state.isPlaying) canvas.renderAll();
+                    if (labelId) document.getElementById(labelId).textContent = val + suffix;
+                    
+                    if(id === 'input-color') document.getElementById('color-hex').textContent = val;
+                    if(id === 'input-stroke-color') document.getElementById('stroke-hex').textContent = val;
+                }
+            });
+        };
+
+        setupPropBinding('select-font', 'fontFamily');
+        setupPropBinding('input-color', 'fill');
+        setupPropBinding('input-stroke-color', 'stroke');
+        setupPropBinding('slider-size', 'fontSize', true, 'val-size', 'px');
+        setupPropBinding('slider-stroke', 'strokeWidth', true, 'val-stroke', 'px');
+        setupPropBinding('slider-lineheight', 'lineHeight', true, 'val-lineheight', '');
+
+        document.querySelectorAll('.bg-btn').forEach(btn => {
+            btn.addEventListener('click', () => {
+                const color = btn.dataset.color;
+                setCanvasBackground(color);
+            });
+        });
+
+        document.getElementById('bg-color-picker').addEventListener('input', (e) => {
+            setCanvasBackground(e.target.value);
+        });
+
+        function setCanvasBackground(color) {
+            state.canvasBg = color;
+            if (color === 'transparent') {
+                canvas.setBackgroundColor('', canvas.renderAll.bind(canvas));
+            } else {
+                canvas.setBackgroundColor(color, canvas.renderAll.bind(canvas));
+            }
+        }
+
+        document.querySelectorAll('.anim-btn').forEach(btn => {
+            btn.addEventListener('click', () => {
+                const anim = btn.dataset.anim;
+                const obj = canvas.getActiveObject();
+                if (obj && obj.type === 'i-text') {
+                    obj.customAnim = anim;
+                    saveBaseState(obj);
+                    updateUIFromObject(obj);
+                    
+                    if (!state.isPlaying) togglePlay();
+                }
+            });
+        });
+
+        document.getElementById('btn-fullscreen').addEventListener('click', () => {
+            const elem = document.documentElement;
+            if (!document.fullscreenElement) {
+                elem.requestFullscreen().catch(err => {
+                    console.log(`Error attempting to enable fullscreen: ${err.message}`);
+                });
+            } else {
+                document.exitFullscreen();
+            }
+        });
+
+        document.getElementById('btn-export').addEventListener('click', async () => {
+            if (state.isExporting) return;
+            
+            let originalBg = state.canvasBg;
+            if (originalBg === 'transparent') {
+                 canvas.setBackgroundColor('#000000', canvas.renderAll.bind(canvas));
+            }
+
+            state.isExporting = true;
+            state.isPlaying = false;
+            state.currentTime = 0;
+            updateTimelineUI();
+            
+            const overlay = document.getElementById('export-overlay');
+            const progressEl = document.getElementById('export-progress');
+            const textEl = document.getElementById('export-text');
+            overlay.classList.remove('hidden');
+            overlay.classList.add('flex');
+            progressEl.style.width = '0%';
+            textEl.textContent = 'Preparing recording...';
+
+            try {
+                const stream = canvasElement.captureStream(state.fps);
+                const mediaRecorder = new MediaRecorder(stream, { 
+                    mimeType: 'video/webm;codecs=vp9',
+                    videoBitsPerSecond: 5000000
+                });
+                
+                const chunks = [];
+                mediaRecorder.ondataavailable = e => {
+                    if (e.data && e.data.size > 0) chunks.push(e.data);
+                };
+
+                mediaRecorder.onstop = () => {
+                    const blob = new Blob(chunks, { type: 'video/webm' });
+                    const url = URL.createObjectURL(blob);
+                    const a = document.createElement('a');
+                    a.href = url;
+                    a.download = `MotionText_${Date.now()}.webm`;
+                    a.click();
+                    URL.revokeObjectURL(url);
+                    
+                    cleanupExport();
+                };
+
+                cancelAnimationFrame(animationFrameId);
+                
+                mediaRecorder.start();
+                textEl.textContent = 'Rendering frames...';
+                
+                const frameDuration = 1000 / state.fps;
+                let frameTime = 0;
+
+                function renderNextFrame() {
+                    if (frameTime <= state.duration) {
+                        applyAnimations(frameTime);
+                        
+                        const percent = (frameTime / state.duration) * 100;
+                        progressEl.style.width = `${percent}%`;
+                        
+                        frameTime += frameDuration;
+                        setTimeout(renderNextFrame, 0); 
+                    } else {
+                        mediaRecorder.stop();
+                    }
+                }
+                
+                renderNextFrame();
+
+            } catch (err) {
+                console.error("Export failed:", err);
+                alert("Export failed. Your browser might not support WebM recording.");
+                cleanupExport();
+            }
+
+            function cleanupExport() {
+                state.isExporting = false;
+                overlay.classList.add('hidden');
+                overlay.classList.remove('flex');
+                
+                if (originalBg === 'transparent') {
+                    canvas.setBackgroundColor('', canvas.renderAll.bind(canvas));
+                }
+                
+                lastTimestamp = performance.now();
+                animationFrameId = requestAnimationFrame(renderLoop);
+            }
+        });
+
+        updateTimelineUI();
+        
+    </script>
+</body>
+</html>

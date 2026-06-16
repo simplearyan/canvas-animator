@@ -1,0 +1,1193 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+    <title>Brand Identity Studio Pro - Advanced Graphics Editor</title>
+
+    <!-- Google Fonts -->
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Carrois+Gothic&family=Caveat:wght@600;700&family=Inter:wght@400;500;600;700;800;900&family=JetBrains+Mono:wght@400;500;700&family=Playfair+Display:wght@400;600;700&family=Roboto:wght@400;500;700;900&family=Outfit:wght@400;600;800&family=Rubik:wght@400;600;800&family=Poppins:wght@400;600;800&family=Montserrat:wght@400;700;900&family=Space+Grotesk:wght@400;600;700&family=Syne:wght@400;700;800&display=swap" rel="stylesheet">
+
+    <!-- Tailwind CSS -->
+    <script src="https://cdn.tailwindcss.com"></script>
+    <script>
+        tailwind.config = {
+            theme: {
+                extend: {
+                    fontFamily: {
+                        sans: ['Inter', 'sans-serif'],
+                        mono: ['JetBrains Mono', 'monospace'],
+                    },
+                    colors: {
+                        blueprint: {
+                            50: '#f0f4f8',
+                            100: '#d9e2ec',
+                            200: '#bcccdc',
+                            300: '#9fb3c8',
+                            800: '#102a43',
+                            900: '#003366', 
+                        },
+                        brand: {
+                            red: '#ef4444',
+                            blue: '#3b82f6',
+                            pink: '#fbcfe8'
+                        }
+                    }
+                }
+            }
+        }
+    </script>
+
+    <!-- Phosphor Icons -->
+    <script src="https://unpkg.com/@phosphor-icons/web"></script>
+    <!-- JSZip for Favicon Package Export -->
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/jszip/3.10.1/jszip.min.js"></script>
+
+    <style>
+        body { overscroll-behavior-y: none; }
+        
+        .blueprint-bg {
+            background-color: #f4f7fa;
+            background-image: 
+                linear-gradient(rgba(0, 51, 102, 0.08) 1px, transparent 1px),
+                linear-gradient(90deg, rgba(0, 51, 102, 0.08) 1px, transparent 1px);
+            background-size: 24px 24px;
+            background-position: center center;
+        }
+
+        /* Standardized Slider Styling */
+        input[type=range] {
+            -webkit-appearance: none;
+            width: 100%;
+            background: transparent;
+            height: 20px;
+        }
+        input[type=range]::-webkit-slider-thumb {
+            -webkit-appearance: none;
+            height: 14px;
+            width: 14px;
+            border-radius: 50%;
+            background: #003366;
+            cursor: pointer;
+            margin-top: -5px;
+            box-shadow: 0 1px 3px rgba(0,0,0,0.3);
+        }
+        input[type=range]::-webkit-slider-runnable-track {
+            width: 100%;
+            height: 4px;
+            cursor: pointer;
+            background: #cbd5e1;
+            border-radius: 2px;
+        }
+        input[type=range]:focus::-webkit-slider-runnable-track { background: #94a3b8; }
+
+        ::-webkit-scrollbar { width: 6px; height: 6px; }
+        ::-webkit-scrollbar-track { background: transparent; }
+        ::-webkit-scrollbar-thumb { background: #cbd5e1; border-radius: 0px; border: 1px solid #ffffff; }
+        ::-webkit-scrollbar-thumb:hover { background: #94a3b8; }
+
+        input[type="color"] {
+            -webkit-appearance: none;
+            border: none;
+            width: 100%;
+            height: 100%;
+            padding: 0;
+            cursor: pointer;
+            background: transparent;
+        }
+        input[type="color"]::-webkit-color-swatch-wrapper { padding: 0; }
+        input[type="color"]::-webkit-color-swatch { border: none; }
+
+        .blueprint-shadow { box-shadow: 6px 6px 0px rgba(0, 51, 102, 0.1); }
+        .hidden-ui { display: none !important; }
+        
+        /* Checkbox styling */
+        .custom-checkbox { accent-color: #003366; width: 1.1rem; height: 1.1rem; cursor: pointer; }
+
+        /* Dynamic property input styles */
+        .prop-input {
+            width: 100%; padding-left: 0.75rem; padding-right: 0.75rem; padding-top: 0.375rem; padding-bottom: 0.375rem; 
+            background-color: #ffffff; border: 1px solid #bcccdc; font-size: 0.75rem; font-weight: 600; outline: none; transition: colors 0.2s;
+        }
+        .prop-input:focus { border-color: #003366; box-shadow: 0 0 0 1px #003366; }
+        
+        .prop-label { display: block; font-size: 10px; font-weight: 800; text-transform: uppercase; letter-spacing: 0.05em; color: #102a43; margin-bottom: 4px; }
+        
+        /* Rail Tab Styling */
+        .rail-tab {
+            display: flex; flex-direction: column; align-items: center; justify-content: center;
+            width: 100%; padding: 12px 0; color: #94a3b8; border-left: 3px solid transparent; transition: all 0.2s;
+        }
+        .rail-tab:hover { color: #003366; background-color: #f0f4f8; }
+        .rail-tab.active {
+            color: #003366; background-color: #f0f4f8; border-left-color: #003366; font-weight: bold;
+        }
+
+        .layer-item { transition: all 0.1s; }
+        .layer-item.selected { background-color: #e0f2fe; border-color: #3b82f6; box-shadow: 2px 2px 0px rgba(59, 130, 246, 0.2); }
+    </style>
+</head>
+<body class="blueprint-bg text-slate-800 h-screen flex flex-col overflow-hidden">
+
+    <!-- HEADER -->
+    <header class="h-16 bg-white border-b border-blueprint-900 flex items-center justify-between px-4 sm:px-8 flex-shrink-0 z-20">
+        <div class="flex items-center gap-4">
+            <div class="border-2 border-blueprint-900 px-3 py-1 flex items-center bg-white blueprint-shadow select-none">
+                <span class="text-xl sm:text-2xl font-black text-blueprint-900 tracking-tighter uppercase">Brand</span>
+                <span class="text-xl sm:text-2xl font-black text-brand-blue tracking-tighter uppercase">Studio</span>
+            </div>
+            <div class="hidden md:flex gap-2 text-[10px] font-bold text-blueprint-900 uppercase tracking-widest mt-1">
+                <span class="border border-blueprint-200 px-2 py-0.5 bg-blueprint-50">Vector</span>
+                <span class="border border-blueprint-200 px-2 py-0.5 bg-blueprint-50">Engine Pro</span>
+            </div>
+        </div>
+
+        <div class="flex items-center justify-end gap-3 shrink-0">
+            <label class="hidden md:flex items-center gap-1.5 cursor-pointer bg-white hover:bg-slate-50 px-2.5 py-1.5 border border-blueprint-200 transition" title="Export as transparent SVG, PNG, or WebP">
+                <input type="checkbox" id="header-transparent" class="custom-checkbox rounded-none">
+                <span class="text-[11px] font-bold text-blueprint-800 uppercase tracking-wide">Transparent BG</span>
+            </label>
+            
+            <div class="flex bg-blueprint-900 border-2 border-blueprint-900 shadow-[2px_2px_0px_rgba(0,51,102,0.5)]">
+                <select id="export-res" class="bg-white text-blueprint-900 font-bold pl-3 pr-2 py-1.5 outline-none cursor-pointer appearance-none text-xs border-r-2 border-blueprint-900 hidden sm:block uppercase">
+                    <option value="1">1x (Standard)</option>
+                    <option value="2" selected>2x (High Res)</option>
+                    <option value="4">4x (Ultra HD)</option>
+                </select>
+                <select id="export-fmt" class="bg-white text-blueprint-900 font-bold pl-3 pr-2 py-1.5 outline-none cursor-pointer appearance-none text-xs uppercase" onchange="document.getElementById('text-export').innerText = this.options[this.selectedIndex].text.split(' ')[0]">
+                    <option value="png" selected>PNG</option>
+                    <option value="jpg">JPG</option>
+                    <option value="webp">WEBP</option>
+                    <option value="svg">SVG (Vector)</option>
+                    <option value="favicon">ZIP (Favicon)</option>
+                </select>
+                <button id="btn-header-export" class="flex items-center gap-2 px-4 py-1.5 text-white font-black hover:bg-blueprint-800 transition-colors text-xs uppercase tracking-widest">
+                    <i class="ph-bold ph-download text-sm"></i>
+                    <span class="hidden sm:inline" id="text-export">PNG</span>
+                </button>
+            </div>
+        </div>
+    </header>
+
+    <!-- MAIN APP AREA -->
+    <main class="flex-1 flex flex-col md:flex-row overflow-hidden relative">
+
+        <!-- SIDEBAR MULTI-RAIL SYSTEM -->
+        <aside class="w-full md:w-[460px] bg-white border-b md:border-b-0 md:border-r border-blueprint-900 flex z-10 flex-shrink-0 h-[50vh] md:h-full order-2 md:order-1 shadow-[0_-4px_10px_rgba(0,0,0,0.05)] md:shadow-none">
+            
+            <!-- Rail Navigation -->
+            <nav class="w-16 flex-shrink-0 border-r border-blueprint-900 flex flex-col bg-white">
+                <button class="rail-tab active" data-target="panel-presets">
+                    <i class="ph-bold ph-magic-wand text-2xl mb-1"></i>
+                    <span class="text-[8px] uppercase tracking-wider">Presets</span>
+                </button>
+                <button class="rail-tab" data-target="panel-canvas">
+                    <i class="ph-bold ph-globe text-2xl mb-1"></i>
+                    <span class="text-[8px] uppercase tracking-wider">Canvas</span>
+                </button>
+                <button class="rail-tab" data-target="panel-layers">
+                    <i class="ph-bold ph-layers text-2xl mb-1"></i>
+                    <span class="text-[8px] uppercase tracking-wider">Layers</span>
+                </button>
+                <button class="rail-tab" data-target="panel-properties">
+                    <i class="ph-bold ph-sliders text-2xl mb-1"></i>
+                    <span class="text-[8px] uppercase tracking-wider">Props</span>
+                </button>
+            </nav>
+
+            <!-- Panels Container -->
+            <div class="flex-1 flex flex-col overflow-hidden relative bg-white">
+                
+                <!-- PANEL: PRESETS -->
+                <div id="panel-presets" class="panel-content flex-1 overflow-y-auto p-5 custom-scrollbar block">
+                    <div class="text-[10px] font-black text-blueprint-900 uppercase tracking-widest bg-blueprint-100 px-2 py-1 inline-block w-max mb-4">Quick Start</div>
+                    
+                    <div class="flex flex-col gap-2">
+                        <button class="template-btn py-3 bg-white border-2 border-blueprint-200 hover:border-blueprint-900 text-xs font-semibold text-slate-700 transition px-3 text-left truncate flex justify-between items-center group" data-template="voidMode">
+                            <span>⚫ Void Mode (Heavy)</span> <i class="ph-bold ph-arrow-right opacity-0 group-hover:opacity-100 transition-opacity"></i>
+                        </button>
+                        <button class="template-btn py-3 bg-white border-2 border-blueprint-200 hover:border-blueprint-900 text-xs font-semibold text-slate-700 transition px-3 text-left truncate flex justify-between items-center group" data-template="canvasLabsClassic">
+                            <span>✨ CanvasLabs Pro</span> <i class="ph-bold ph-arrow-right opacity-0 group-hover:opacity-100 transition-opacity"></i>
+                        </button>
+                        <button class="template-btn py-3 bg-white border-2 border-blueprint-200 hover:border-blueprint-900 text-xs font-semibold text-slate-700 transition px-3 text-left truncate flex justify-between items-center group" data-template="techStartup">
+                            <span>🚀 Tech Startup</span> <i class="ph-bold ph-arrow-right opacity-0 group-hover:opacity-100 transition-opacity"></i>
+                        </button>
+                        <button class="template-btn py-3 bg-white border-2 border-blueprint-200 hover:border-blueprint-900 text-xs font-semibold text-slate-700 transition px-3 text-left truncate flex justify-between items-center group" data-template="retroPop">
+                            <span>🎨 Retro Pop</span> <i class="ph-bold ph-arrow-right opacity-0 group-hover:opacity-100 transition-opacity"></i>
+                        </button>
+                        <button class="template-btn py-3 bg-white border-2 border-blueprint-200 hover:border-blueprint-900 text-xs font-semibold text-slate-700 transition px-3 text-left truncate flex justify-between items-center group" data-template="modernMinimal">
+                            <span>⬛ Modern Minimal</span> <i class="ph-bold ph-arrow-right opacity-0 group-hover:opacity-100 transition-opacity"></i>
+                        </button>
+                        <button class="template-btn py-3 bg-white border-2 border-blueprint-200 hover:border-blueprint-900 text-xs font-semibold text-slate-700 transition px-3 text-left truncate flex justify-between items-center group" data-template="financePro">
+                            <span>📈 Finance Pro</span> <i class="ph-bold ph-arrow-right opacity-0 group-hover:opacity-100 transition-opacity"></i>
+                        </button>
+                    </div>
+                </div>
+
+                <!-- PANEL: CANVAS -->
+                <div id="panel-canvas" class="panel-content flex-1 overflow-y-auto p-5 custom-scrollbar hidden">
+                    <div class="text-[10px] font-black text-blueprint-900 uppercase tracking-widest bg-blueprint-100 px-2 py-1 inline-block w-max mb-4">Document Setup</div>
+                    
+                    <div class="flex flex-col gap-4">
+                        <div>
+                            <label class="prop-label">Canvas Target Resolution</label>
+                            <select id="canvas-ratio" class="prop-input cursor-pointer">
+                                <option value="1:1" selected>Square (1080x1080)</option>
+                                <option value="16:9">Banner (1920x1080)</option>
+                                <option value="3:1">Header (1500x500)</option>
+                                <option value="4:5">Portrait (1080x1350)</option>
+                                <option value="custom">Custom Resolution</option>
+                            </select>
+                        </div>
+
+                        <!-- Custom Res Inputs -->
+                        <div id="custom-res-container" class="hidden gap-3 p-3 bg-blueprint-50 border border-blueprint-200">
+                            <div class="flex-1 relative">
+                                <span class="absolute text-[9px] text-slate-400 font-bold left-2 top-[8px]">W</span>
+                                <input type="number" id="custom-w" value="1200" class="prop-input pl-6">
+                            </div>
+                            <div class="flex-1 relative">
+                                <span class="absolute text-[9px] text-slate-400 font-bold left-2 top-[8px]">H</span>
+                                <input type="number" id="custom-h" value="630" class="prop-input pl-6">
+                            </div>
+                        </div>
+
+                        <div class="w-full border-b border-dashed border-blueprint-300 my-2"></div>
+
+                        <div>
+                            <label class="prop-label">Background Fill Style</label>
+                            <select id="bg-type" class="prop-input cursor-pointer mb-3">
+                                <option value="solid" selected>Solid Color</option>
+                                <option value="gradient-br">Gradient (Diagonal)</option>
+                                <option value="gradient-r">Gradient (Horizontal)</option>
+                            </select>
+
+                            <div class="flex gap-3 p-3 bg-slate-50 border border-blueprint-100">
+                                <div class="flex-1">
+                                    <label class="prop-label text-slate-500" id="lbl-bg1">Color 1</label>
+                                    <div class="relative w-full h-8 border border-blueprint-200 overflow-hidden"><input type="color" id="bg-color-1" value="#1a1a1a"></div>
+                                </div>
+                                <div class="flex-1 hidden" id="bg-color-2-container">
+                                    <label class="prop-label text-slate-500">Color 2</label>
+                                    <div class="relative w-full h-8 border border-blueprint-200 overflow-hidden"><input type="color" id="bg-color-2" value="#2d3748"></div>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- PANEL: LAYERS -->
+                <div id="panel-layers" class="panel-content flex-1 overflow-y-auto p-5 custom-scrollbar hidden">
+                    <div class="flex items-center justify-between mb-4">
+                        <div class="text-[10px] font-black text-blueprint-900 uppercase tracking-widest bg-blueprint-100 px-2 py-1 inline-block w-max">Layer Stack</div>
+                    </div>
+
+                    <!-- Add Buttons -->
+                    <div class="grid grid-cols-3 gap-2 mb-4">
+                        <button class="bg-white border-2 border-blueprint-200 hover:border-blueprint-900 hover:bg-blueprint-50 text-[10px] font-bold py-3 flex flex-col items-center gap-1 transition-colors text-slate-700" onclick="addElement('text')">
+                            <i class="ph-bold ph-text-t text-xl text-brand-blue"></i> Add Text
+                        </button>
+                        <button class="bg-white border-2 border-blueprint-200 hover:border-blueprint-900 hover:bg-blueprint-50 text-[10px] font-bold py-3 flex flex-col items-center gap-1 transition-colors text-slate-700" onclick="addElement('rect')">
+                            <i class="ph-bold ph-square text-xl text-green-500"></i> Add Rect
+                        </button>
+                        <button class="bg-white border-2 border-blueprint-200 hover:border-blueprint-900 hover:bg-blueprint-50 text-[10px] font-bold py-3 flex flex-col items-center gap-1 transition-colors text-slate-700" onclick="addElement('circle')">
+                            <i class="ph-bold ph-circle text-xl text-cyan-500"></i> Add Circle
+                        </button>
+                    </div>
+
+                    <div class="w-full border-b border-dashed border-blueprint-300 my-4"></div>
+
+                    <!-- Layer List -->
+                    <div id="layers-list" class="flex flex-col gap-2 min-h-[200px]">
+                        <!-- Dynamic layers injected here -->
+                    </div>
+                </div>
+
+                <!-- PANEL: PROPERTIES -->
+                <div id="panel-properties" class="panel-content flex-1 overflow-y-auto p-5 custom-scrollbar hidden">
+                    <div class="flex items-center justify-between mb-4">
+                        <div class="text-[10px] font-black text-blueprint-900 uppercase tracking-widest bg-blueprint-100 px-2 py-1 inline-block w-max">Element Inspector</div>
+                        <span id="inspector-type" class="text-[9px] font-black uppercase text-brand-blue tracking-wider border border-brand-blue px-2 py-0.5">None</span>
+                    </div>
+
+                    <div id="inspector-content" class="flex flex-col gap-4 text-center py-12">
+                        <i class="ph-fill ph-cursor-click text-4xl text-slate-200 mb-2"></i>
+                        <p class="text-[11px] text-slate-400 font-medium uppercase tracking-widest">Select an element<br>to edit properties</p>
+                    </div>
+                </div>
+
+                <!-- Persistent Bottom View Controls -->
+                <div class="h-12 bg-white border-t border-blueprint-900 flex justify-between items-center px-4 shrink-0 shadow-[0_-2px_5px_rgba(0,51,102,0.05)]">
+                    <div class="flex items-center gap-3 flex-1">
+                        <i class="ph-bold ph-magnifying-glass text-blueprint-900 text-lg"></i>
+                        <input type="range" id="global-zoom" min="0.2" max="3" step="0.05" value="1.0" class="flex-1 max-w-[120px]">
+                        <span id="zoom-val" class="text-[10px] font-bold text-blueprint-900 w-8 text-right">1.0x</span>
+                    </div>
+                    <button id="btn-reset-view" class="text-[10px] font-bold text-blueprint-900 border border-blueprint-200 px-2 py-1 hover:bg-blueprint-50 transition ml-4 uppercase tracking-widest flex items-center gap-1">
+                        <i class="ph-bold ph-arrows-in"></i> Center
+                    </button>
+                </div>
+
+            </div>
+        </aside>
+
+        <!-- CANVAS AREA -->
+        <section id="canvas-container" class="flex-1 relative overflow-hidden flex items-center justify-center p-4 sm:p-12 order-1 md:order-2">
+            <!-- Transparent checkboard background to see canvas bounds clearly -->
+            <div class="relative p-0 bg-[url('data:image/svg+xml;base64,PHN2ZyB4bWxucz0iaHR0cDovL3d3dy53My5vcmcvMjAwMC9zdmciIHdpZHRoPSIyMCIgaGVpZ2h0PSIyMCI+CjxyZWN0IHdpZHRoPSIxMCIgaGVpZ2h0PSIxMCIgZmlsbD0iI2YwZjBmMCIvPgo8cmVjdCB4PSIxMCIgeT0iMTAiIHdpZHRoPSIxMCIgaGVpZ2h0PSIxMCIgZmlsbD0iI2YwZjBmMCIvPgo8L3N2Zz4=')] border-2 border-blueprint-900 blueprint-shadow flex items-center justify-center transition-all duration-300" id="canvas-wrapper">
+                <canvas id="main-canvas" class="block max-w-full max-h-full object-contain cursor-crosshair"></canvas>
+            </div>
+        </section>
+
+    </main>
+
+    <script>
+        // --- System Data ---
+        const RESOLUTIONS = {
+            "1:1": { w: 1080, h: 1080 },
+            "16:9": { w: 1920, h: 1080 },
+            "3:1": { w: 1500, h: 500 },
+            "4:5": { w: 1080, h: 1350 }
+        };
+
+        const FONTS = ["Inter", "Outfit", "Playfair Display", "JetBrains Mono", "Rubik", "Poppins", "Montserrat", "Space Grotesk", "Syne", "Caveat", "Carrois Gothic"];
+
+        // --- Core Application State ---
+        const state = {
+            aspectRatio: "16:9", 
+            customW: 1920,
+            customH: 1080,
+            bgType: "solid",
+            colorBg1: "#1f1f1f",
+            colorBg2: "#1f1f1f",
+            transparentBg: false,
+            
+            elements: [],
+            selectedId: null,
+            
+            zoom: 1.0,
+            panX: 0,
+            panY: 0
+        };
+
+        // UI Binding Cache
+        const ui = {
+            canvas: document.getElementById('main-canvas'),
+            wrapper: document.getElementById('canvas-wrapper'),
+            ctx: document.getElementById('main-canvas').getContext('2d'),
+            
+            ratio: document.getElementById('canvas-ratio'),
+            customResContainer: document.getElementById('custom-res-container'),
+            customW: document.getElementById('custom-w'),
+            customH: document.getElementById('custom-h'),
+            bgType: document.getElementById('bg-type'),
+            bg1: document.getElementById('bg-color-1'),
+            bg2: document.getElementById('bg-color-2'),
+            bg2Container: document.getElementById('bg-color-2-container'),
+            lblBg1: document.getElementById('lbl-bg1'),
+            transparentBg: document.getElementById('header-transparent'),
+            
+            layersList: document.getElementById('layers-list'),
+            inspectorType: document.getElementById('inspector-type'),
+            inspectorContent: document.getElementById('inspector-content'),
+            
+            zoom: document.getElementById('global-zoom'),
+            zoomVal: document.getElementById('zoom-val'),
+            btnReset: document.getElementById('btn-reset-view')
+        };
+
+        // Drag state
+        let isDragging = false;
+        let dragOffsetX = 0;
+        let dragOffsetY = 0;
+
+        // --- Tab Navigation Logic ---
+        const railTabs = document.querySelectorAll('.rail-tab');
+        const panels = document.querySelectorAll('.panel-content');
+
+        function switchTab(targetId) {
+            // Update Tab Styling
+            railTabs.forEach(tab => {
+                if (tab.dataset.target === targetId) {
+                    tab.classList.add('active');
+                } else {
+                    tab.classList.remove('active');
+                }
+            });
+
+            // Update Panel Visibility
+            panels.forEach(panel => {
+                if (panel.id === targetId) {
+                    panel.classList.remove('hidden');
+                    panel.classList.add('block');
+                } else {
+                    panel.classList.remove('block');
+                    panel.classList.add('hidden');
+                }
+            });
+        }
+
+        railTabs.forEach(tab => {
+            tab.addEventListener('click', () => switchTab(tab.dataset.target));
+        });
+
+        // --- Element Factory ---
+        function generateId() { return Math.random().toString(36).substr(2, 9); }
+
+        function createDefaultShadow() {
+            return { enabled: false, color: '#000000', blur: 0, ox: 15, oy: 15 };
+        }
+
+        window.addElement = function(type) {
+            const baseRes = getBaseDimensions();
+            const cx = baseRes.w / 2;
+            const cy = baseRes.h / 2;
+
+            const el = {
+                id: generateId(),
+                type: type,
+                name: `${type.charAt(0).toUpperCase() + type.slice(1)} Layer`,
+                x: cx, y: cy,
+                fill: '#3b82f6',
+                rotation: 0,
+                shadow: createDefaultShadow()
+            };
+
+            if (type === 'text') {
+                el.text = 'NEW TEXT';
+                el.fill = '#ffffff';
+                el.fontFamily = 'Poppins';
+                el.fontWeight = '800';
+                el.fontSize = 120;
+                el.name = 'NEW TEXT';
+            } else if (type === 'rect') {
+                el.width = 300;
+                el.height = 200;
+                el.rx = 20;
+                el.fill = '#22c55e';
+            } else if (type === 'circle') {
+                el.radius = 120;
+                el.fill = '#06b6d4';
+            }
+
+            state.elements.push(el);
+            state.selectedId = el.id;
+            updateUI();
+            switchTab('panel-properties'); // Auto-switch to properties when adding
+        };
+
+        window.deleteElement = function(id) {
+            state.elements = state.elements.filter(e => e.id !== id);
+            if (state.selectedId === id) state.selectedId = null;
+            updateUI();
+        };
+
+        window.moveElementZ = function(id, dir) {
+            const idx = state.elements.findIndex(e => e.id === id);
+            if (idx === -1) return;
+            if (dir === 'up' && idx < state.elements.length - 1) {
+                const temp = state.elements[idx + 1];
+                state.elements[idx + 1] = state.elements[idx];
+                state.elements[idx] = temp;
+            } else if (dir === 'down' && idx > 0) {
+                const temp = state.elements[idx - 1];
+                state.elements[idx - 1] = state.elements[idx];
+                state.elements[idx] = temp;
+            }
+            updateUI();
+        };
+
+        // --- Core Rendering ---
+        function getBaseDimensions() {
+            if (state.aspectRatio === 'custom') return { w: state.customW, h: state.customH };
+            return RESOLUTIONS[state.aspectRatio];
+        }
+
+        function roundedRect(ctx, x, y, width, height, radius) {
+            ctx.beginPath();
+            ctx.moveTo(x + radius, y);
+            ctx.lineTo(x + width - radius, y);
+            ctx.quadraticCurveTo(x + width, y, x + width, y + radius);
+            ctx.lineTo(x + width, y + height - radius);
+            ctx.quadraticCurveTo(x + width, y + height, x + width - radius, y + height);
+            ctx.lineTo(x + radius, y + height);
+            ctx.quadraticCurveTo(x, y + height, x, y + height - radius);
+            ctx.lineTo(x, y + radius);
+            ctx.quadraticCurveTo(x, y, x + radius, y);
+            ctx.closePath();
+        }
+
+        function applyShadow(ctx, shadow, exportScale) {
+            if (shadow && shadow.enabled) {
+                ctx.shadowColor = shadow.color;
+                ctx.shadowBlur = shadow.blur * exportScale;
+                ctx.shadowOffsetX = shadow.ox * exportScale;
+                ctx.shadowOffsetY = shadow.oy * exportScale;
+            } else {
+                ctx.shadowColor = 'transparent';
+                ctx.shadowBlur = 0;
+                ctx.shadowOffsetX = 0;
+                ctx.shadowOffsetY = 0;
+            }
+        }
+
+        function render(targetCtx = ui.ctx, exportScale = 1.0) {
+            const baseRes = getBaseDimensions();
+            const W = baseRes.w * exportScale;
+            const H = baseRes.h * exportScale;
+
+            if(targetCtx === ui.ctx) {
+                if (ui.canvas.width !== W) ui.canvas.width = W;
+                if (ui.canvas.height !== H) ui.canvas.height = H;
+                
+                let cw = '100%', ch = '100%';
+                if (baseRes.w > baseRes.h) ch = `${(baseRes.h / baseRes.w) * 100}%`;
+                else if (baseRes.h > baseRes.w) { cw = `${(baseRes.w / baseRes.h) * 100}%`; ch = '90%'; } 
+                else { cw = 'min(100%, 75vh)'; ch = 'min(100%, 75vh)'; }
+                
+                ui.wrapper.style.width = cw;
+                ui.wrapper.style.height = ch;
+                ui.wrapper.style.aspectRatio = `${baseRes.w} / ${baseRes.h}`;
+            }
+
+            targetCtx.clearRect(0, 0, W, H);
+
+            // 1. Draw Background
+            if (!state.transparentBg) {
+                if (state.bgType === 'solid') {
+                    targetCtx.fillStyle = state.colorBg1;
+                    targetCtx.fillRect(0, 0, W, H);
+                } else {
+                    let grad = state.bgType === 'gradient-br' 
+                        ? targetCtx.createLinearGradient(0, 0, W, H) 
+                        : targetCtx.createLinearGradient(0, 0, W, 0);
+                    grad.addColorStop(0, state.colorBg1);
+                    grad.addColorStop(1, state.colorBg2);
+                    targetCtx.fillStyle = grad;
+                    targetCtx.fillRect(0, 0, W, H);
+                }
+            }
+
+            targetCtx.save();
+            
+            // 2. Global Camera Transform (Translate strictly maps DOM visual center to baseRes center)
+            targetCtx.translate(W/2 + state.panX * exportScale, H/2 + state.panY * exportScale);
+            targetCtx.scale(state.zoom * exportScale, state.zoom * exportScale);
+            targetCtx.translate(-baseRes.w/2, -baseRes.h/2);
+
+            // 3. Draw Elements (Z-Index is array order)
+            state.elements.forEach(el => {
+                targetCtx.save();
+                targetCtx.translate(el.x, el.y);
+                if(el.rotation) targetCtx.rotate(el.rotation * Math.PI / 180);
+                
+                // Draw Shadow if enabled AND we are not forcing transparency without solid BG
+                if(!state.transparentBg || el.shadow.enabled) {
+                    applyShadow(targetCtx, el.shadow, 1.0); // Inside transformed space, shadow scale is inherently 1.0 of base
+                }
+
+                targetCtx.fillStyle = el.fill;
+
+                if (el.type === 'rect') {
+                    roundedRect(targetCtx, -el.width/2, -el.height/2, el.width, el.height, el.rx || 0);
+                    targetCtx.fill();
+                } else if (el.type === 'circle') {
+                    targetCtx.beginPath();
+                    targetCtx.arc(0, 0, el.radius, 0, Math.PI * 2);
+                    targetCtx.fill();
+                } else if (el.type === 'text') {
+                    targetCtx.font = `${el.fontWeight} ${el.fontSize}px "${el.fontFamily}"`;
+                    targetCtx.textAlign = 'center';
+                    targetCtx.textBaseline = 'middle';
+                    targetCtx.fillText(el.text, 0, 0);
+                }
+
+                targetCtx.restore(); // Clears transform & shadow
+
+                // Draw Selection Outline (only in editor)
+                if (targetCtx === ui.ctx && state.selectedId === el.id) {
+                    targetCtx.save();
+                    targetCtx.translate(el.x, el.y);
+                    if(el.rotation) targetCtx.rotate(el.rotation * Math.PI / 180);
+                    
+                    targetCtx.strokeStyle = '#3b82f6';
+                    targetCtx.lineWidth = 4 / state.zoom;
+                    targetCtx.setLineDash([10 / state.zoom, 10 / state.zoom]);
+                    
+                    let pad = 10;
+                    if (el.type === 'rect') {
+                        targetCtx.strokeRect(-el.width/2 - pad, -el.height/2 - pad, el.width + pad*2, el.height + pad*2);
+                    } else if (el.type === 'circle') {
+                        targetCtx.beginPath(); targetCtx.arc(0, 0, el.radius + pad, 0, Math.PI * 2); targetCtx.stroke();
+                    } else if (el.type === 'text') {
+                        targetCtx.font = `${el.fontWeight} ${el.fontSize}px "${el.fontFamily}"`;
+                        const m = targetCtx.measureText(el.text);
+                        const h = el.fontSize; // Approx
+                        const w = m.width;
+                        targetCtx.strokeRect(-w/2 - pad, -h/2 - pad, w + pad*2, h + pad*2);
+                    }
+                    targetCtx.restore();
+                }
+            });
+
+            targetCtx.restore();
+        }
+
+        // --- Interaction & Hit Testing ---
+        function getBaseCoordinates(e) {
+            const rect = ui.canvas.getBoundingClientRect();
+            // Scale between physical canvas CSS size and intrinsic HTML width
+            const scaleX = ui.canvas.width / rect.width;
+            const scaleY = ui.canvas.height / rect.height;
+
+            const px = (e.clientX - rect.left) * scaleX;
+            const py = (e.clientY - rect.top) * scaleY;
+
+            const baseRes = getBaseDimensions();
+            const exportScale = ui.canvas.width / baseRes.w;
+            
+            // Reverse the camera transform
+            const bx = (px - (ui.canvas.width/2 + state.panX * exportScale)) / (state.zoom * exportScale) + baseRes.w/2;
+            const by = (py - (ui.canvas.height/2 + state.panY * exportScale)) / (state.zoom * exportScale) + baseRes.h/2;
+            
+            return { x: bx, y: by };
+        }
+
+        function checkHit(el, x, y) {
+            // Inverse rotate the coordinate point around element center
+            const rad = -(el.rotation || 0) * Math.PI / 180;
+            const rx = Math.cos(rad) * (x - el.x) - Math.sin(rad) * (y - el.y) + el.x;
+            const ry = Math.sin(rad) * (x - el.x) + Math.cos(rad) * (y - el.y) + el.y;
+
+            if (el.type === 'rect') {
+                const w2 = el.width/2;
+                const h2 = el.height/2;
+                return rx >= el.x - w2 && rx <= el.x + w2 && ry >= el.y - h2 && ry <= el.y + h2;
+            } else if (el.type === 'circle') {
+                return Math.hypot(rx - el.x, ry - el.y) <= el.radius;
+            } else if (el.type === 'text') {
+                ui.ctx.font = `${el.fontWeight} ${el.fontSize}px "${el.fontFamily}"`;
+                const m = ui.ctx.measureText(el.text);
+                const w2 = m.width / 2;
+                const h2 = el.fontSize / 2; // Approx vertical bound
+                return rx >= el.x - w2 && rx <= el.x + w2 && ry >= el.y - h2 && ry <= el.y + h2;
+            }
+            return false;
+        }
+
+        ui.canvas.addEventListener('mousedown', (e) => {
+            const pos = getBaseCoordinates(e);
+            let hitId = null;
+
+            // Search backwards (top z-index first)
+            for (let i = state.elements.length - 1; i >= 0; i--) {
+                const el = state.elements[i];
+                if (checkHit(el, pos.x, pos.y)) {
+                    hitId = el.id;
+                    isDragging = true;
+                    dragOffsetX = pos.x - el.x;
+                    dragOffsetY = pos.y - el.y;
+                    break;
+                }
+            }
+
+            if (state.selectedId !== hitId) {
+                state.selectedId = hitId;
+                updateUI();
+                if(hitId) switchTab('panel-properties'); // Auto focus properties if clicked
+            }
+        });
+
+        ui.canvas.addEventListener('mousemove', (e) => {
+            if (isDragging && state.selectedId) {
+                const el = state.elements.find(e => e.id === state.selectedId);
+                if (el) {
+                    const pos = getBaseCoordinates(e);
+                    el.x = pos.x - dragOffsetX;
+                    el.y = pos.y - dragOffsetY;
+                    render();
+                }
+            }
+        });
+
+        window.addEventListener('mouseup', () => { isDragging = false; });
+
+        // --- UI Syncing & Dynamic Inspector ---
+        
+        window.updateElementProp = function(id, prop, value, renderList = false) {
+            const el = state.elements.find(e => e.id === id);
+            if (!el) return;
+            
+            // Nested shadow update
+            if(prop.startsWith('shadow.')) {
+                const subProp = prop.split('.')[1];
+                el.shadow[subProp] = (subProp === 'enabled') ? value : (subProp === 'color' ? value : parseFloat(value));
+            } else {
+                if (['x','y','width','height','radius','rx','rotation','fontSize'].includes(prop)) {
+                    el[prop] = parseFloat(value) || 0;
+                } else {
+                    el[prop] = value;
+                    if(prop === 'text') el.name = value || 'Text Layer';
+                }
+            }
+            
+            if(renderList) renderLayerList();
+            render();
+        };
+
+        function renderLayerList() {
+            ui.layersList.innerHTML = '';
+            if (state.elements.length === 0) {
+                ui.layersList.innerHTML = '<span class="text-[10px] text-slate-400 p-6 italic text-center block w-full bg-white border border-slate-200">No elements found.</span>';
+                return;
+            }
+
+            // Render reversed (top layer first visually)
+            [...state.elements].reverse().forEach(el => {
+                const div = document.createElement('div');
+                div.className = `layer-item flex items-center justify-between p-2.5 border-2 cursor-pointer ${state.selectedId === el.id ? 'bg-blue-50 border-brand-blue' : 'bg-white border-blueprint-100 hover:border-blueprint-300'}`;
+                
+                div.onclick = (e) => {
+                    // Prevent firing if clicked on action buttons
+                    if(e.target.closest('button')) return;
+                    state.selectedId = el.id;
+                    updateUI();
+                    switchTab('panel-properties');
+                };
+
+                let icon = el.type === 'text' ? 'text-t' : (el.type === 'rect' ? 'square' : 'circle');
+                let iconColor = el.type === 'text' ? 'text-brand-blue' : (el.type === 'rect' ? 'text-green-500' : 'text-cyan-500');
+
+                div.innerHTML = `
+                    <div class="flex items-center gap-3 truncate flex-1 pr-2">
+                        <i class="ph-bold ph-${icon} ${iconColor} text-lg"></i>
+                        <span class="text-xs font-bold text-blueprint-900 truncate">${el.name}</span>
+                    </div>
+                    <div class="flex gap-1 shrink-0">
+                        <button class="w-6 h-6 flex justify-center items-center hover:bg-slate-200 text-slate-500 rounded" onclick="moveElementZ('${el.id}', 'up')" title="Bring Forward"><i class="ph-bold ph-caret-up"></i></button>
+                        <button class="w-6 h-6 flex justify-center items-center hover:bg-slate-200 text-slate-500 rounded" onclick="moveElementZ('${el.id}', 'down')" title="Send Backward"><i class="ph-bold ph-caret-down"></i></button>
+                        <div class="w-[1px] h-4 bg-slate-300 mx-1 self-center"></div>
+                        <button class="w-6 h-6 flex justify-center items-center hover:bg-red-100 text-brand-red rounded" onclick="deleteElement('${el.id}')" title="Delete"><i class="ph-bold ph-trash"></i></button>
+                    </div>
+                `;
+                ui.layersList.appendChild(div);
+            });
+        }
+
+        function renderInspector() {
+            const el = state.elements.find(e => e.id === state.selectedId);
+            if (!el) {
+                ui.inspectorType.innerText = 'None';
+                ui.inspectorContent.innerHTML = `
+                    <div class="flex flex-col items-center justify-center text-center py-16 opacity-50">
+                        <i class="ph-fill ph-cursor-click text-5xl text-blueprint-900 mb-4"></i>
+                        <p class="text-[11px] font-bold text-blueprint-900 uppercase tracking-widest leading-loose">Select an element<br>to view properties</p>
+                    </div>`;
+                return;
+            }
+
+            ui.inspectorType.innerText = el.type;
+            const s = el.shadow || createDefaultShadow();
+
+            let html = `<div class="grid grid-cols-2 gap-3 mb-5">
+                <div><label class="prop-label">Pos X</label><input type="number" value="${el.x}" class="prop-input" oninput="updateElementProp('${el.id}', 'x', this.value)"></div>
+                <div><label class="prop-label">Pos Y</label><input type="number" value="${el.y}" class="prop-input" oninput="updateElementProp('${el.id}', 'y', this.value)"></div>
+            </div>`;
+
+            // Common Styling
+            html += `<div class="grid grid-cols-2 gap-3 mb-5">
+                <div>
+                    <label class="prop-label">Fill Color</label>
+                    <div class="w-full h-8 border border-blueprint-200"><input type="color" value="${el.fill}" oninput="updateElementProp('${el.id}', 'fill', this.value)"></div>
+                </div>
+                <div>
+                    <div class="flex justify-between items-center mb-1"><label class="prop-label m-0">Rotation</label><span class="text-[9px] font-bold text-brand-blue">${el.rotation}&deg;</span></div>
+                    <input type="range" min="-180" max="180" value="${el.rotation}" oninput="updateElementProp('${el.id}', 'rotation', this.value); this.previousElementSibling.querySelector('span').innerText = this.value+'&deg;';">
+                </div>
+            </div>`;
+
+            // Type Specifics
+            if (el.type === 'text') {
+                html += `<div class="mb-5">
+                    <label class="prop-label">Text Content</label>
+                    <input type="text" value="${el.text}" class="prop-input" oninput="updateElementProp('${el.id}', 'text', this.value, true)">
+                </div>
+                <div class="grid grid-cols-2 gap-3 mb-5">
+                    <div>
+                        <label class="prop-label">Font Family</label>
+                        <select class="prop-input cursor-pointer" onchange="updateElementProp('${el.id}', 'fontFamily', this.value)">
+                            ${FONTS.map(f => `<option value="${f}" ${el.fontFamily === f ? 'selected' : ''}>${f}</option>`).join('')}
+                        </select>
+                    </div>
+                    <div>
+                        <label class="prop-label">Weight</label>
+                        <select class="prop-input cursor-pointer" onchange="updateElementProp('${el.id}', 'fontWeight', this.value)">
+                            <option value="400" ${el.fontWeight == '400' ? 'selected' : ''}>Regular</option>
+                            <option value="600" ${el.fontWeight == '600' ? 'selected' : ''}>Semi-Bold</option>
+                            <option value="800" ${el.fontWeight == '800' ? 'selected' : ''}>Extra-Bold</option>
+                            <option value="900" ${el.fontWeight == '900' ? 'selected' : ''}>Black</option>
+                        </select>
+                    </div>
+                </div>
+                <div class="mb-5 bg-slate-50 p-3 border border-blueprint-100">
+                    <div class="flex justify-between items-center mb-1"><label class="prop-label m-0">Font Size</label><span class="text-[10px] font-bold text-brand-blue">${el.fontSize}px</span></div>
+                    <input type="range" min="10" max="1000" step="2" value="${el.fontSize}" oninput="updateElementProp('${el.id}', 'fontSize', this.value); this.previousElementSibling.querySelector('span').innerText = this.value+'px';">
+                </div>`;
+            } else if (el.type === 'rect') {
+                html += `<div class="grid grid-cols-2 gap-3 mb-5">
+                    <div><label class="prop-label">Width</label><input type="number" value="${el.width}" class="prop-input" oninput="updateElementProp('${el.id}', 'width', this.value)"></div>
+                    <div><label class="prop-label">Height</label><input type="number" value="${el.height}" class="prop-input" oninput="updateElementProp('${el.id}', 'height', this.value)"></div>
+                </div>
+                <div class="mb-5 bg-slate-50 p-3 border border-blueprint-100">
+                    <div class="flex justify-between items-center mb-1"><label class="prop-label m-0">Corner Radius</label><span class="text-[10px] font-bold text-brand-blue">${el.rx}px</span></div>
+                    <input type="range" min="0" max="300" step="2" value="${el.rx}" oninput="updateElementProp('${el.id}', 'rx', this.value); this.previousElementSibling.querySelector('span').innerText = this.value+'px';">
+                </div>`;
+            } else if (el.type === 'circle') {
+                html += `<div class="mb-5 bg-slate-50 p-3 border border-blueprint-100">
+                    <div class="flex justify-between items-center mb-1"><label class="prop-label m-0">Radius</label><span class="text-[10px] font-bold text-brand-blue">${el.radius}px</span></div>
+                    <input type="range" min="10" max="1000" step="2" value="${el.radius}" oninput="updateElementProp('${el.id}', 'radius', this.value); this.previousElementSibling.querySelector('span').innerText = this.value+'px';">
+                </div>`;
+            }
+
+            // Drop Shadow Builder
+            html += `<div class="border-t border-dashed border-blueprint-300 pt-5 mt-2">
+                <div class="flex items-center gap-2 mb-4 bg-blueprint-50 p-2 border border-blueprint-100">
+                    <input type="checkbox" id="shadow-toggle" class="custom-checkbox" ${s.enabled ? 'checked' : ''} onchange="updateElementProp('${el.id}', 'shadow.enabled', this.checked)">
+                    <label class="prop-label m-0 cursor-pointer" for="shadow-toggle">Drop Shadow Effect</label>
+                </div>
+                <div class="${s.enabled ? 'block' : 'opacity-30 pointer-events-none transition-opacity'}">
+                    <div class="grid grid-cols-3 gap-3 mb-4">
+                        <div class="col-span-1">
+                            <label class="prop-label">Color</label>
+                            <div class="w-full h-8 border border-blueprint-200"><input type="color" value="${s.color}" oninput="updateElementProp('${el.id}', 'shadow.color', this.value)"></div>
+                        </div>
+                        <div class="col-span-2 flex flex-col justify-center">
+                            <div class="flex justify-between items-center mb-1"><label class="prop-label m-0">Blur</label><span class="text-[9px] font-bold text-brand-blue">${s.blur}px</span></div>
+                            <input type="range" min="0" max="100" value="${s.blur}" oninput="updateElementProp('${el.id}', 'shadow.blur', this.value); this.previousElementSibling.querySelector('span').innerText = this.value+'px';">
+                        </div>
+                    </div>
+                    <div class="grid grid-cols-2 gap-4 bg-slate-50 p-3 border border-blueprint-100">
+                        <div>
+                            <div class="flex justify-between items-center mb-1"><label class="prop-label m-0">Offset X</label><span class="text-[9px] font-bold text-brand-blue">${s.ox}px</span></div>
+                            <input type="range" min="-100" max="100" value="${s.ox}" oninput="updateElementProp('${el.id}', 'shadow.ox', this.value); this.previousElementSibling.querySelector('span').innerText = this.value+'px';">
+                        </div>
+                        <div>
+                            <div class="flex justify-between items-center mb-1"><label class="prop-label m-0">Offset Y</label><span class="text-[9px] font-bold text-brand-blue">${s.oy}px</span></div>
+                            <input type="range" min="-100" max="100" value="${s.oy}" oninput="updateElementProp('${el.id}', 'shadow.oy', this.value); this.previousElementSibling.querySelector('span').innerText = this.value+'px';">
+                        </div>
+                    </div>
+                </div>
+            </div>`;
+
+            ui.inspectorContent.innerHTML = html;
+        }
+
+        function updateGlobalStateFromUI() {
+            state.aspectRatio = ui.ratio.value;
+            if(state.aspectRatio === 'custom') {
+                ui.customResContainer.classList.remove('hidden');
+                ui.customResContainer.classList.add('flex');
+                state.customW = parseInt(ui.customW.value) || 1920;
+                state.customH = parseInt(ui.customH.value) || 1080;
+            } else {
+                ui.customResContainer.classList.add('hidden');
+                ui.customResContainer.classList.remove('flex');
+            }
+
+            state.bgType = ui.bgType.value;
+            state.colorBg1 = ui.bg1.value;
+            state.colorBg2 = ui.bg2.value;
+            state.transparentBg = ui.transparentBg.checked;
+            state.zoom = parseFloat(ui.zoom.value);
+
+            if (state.bgType === 'solid') {
+                ui.bg2Container.style.display = 'none';
+                ui.lblBg1.innerText = 'Color';
+            } else {
+                ui.bg2Container.style.display = 'block';
+                ui.lblBg1.innerText = 'Color 1';
+            }
+
+            ui.zoomVal.innerText = `${state.zoom.toFixed(2)}x`;
+        }
+
+        function syncUIToGlobalState() {
+            ui.ratio.value = state.aspectRatio;
+            ui.customW.value = state.customW;
+            ui.customH.value = state.customH;
+            ui.bgType.value = state.bgType;
+            ui.bg1.value = state.colorBg1;
+            ui.bg2.value = state.colorBg2;
+            ui.transparentBg.checked = state.transparentBg;
+            ui.zoom.value = state.zoom;
+            updateGlobalStateFromUI();
+        }
+
+        function updateUI() {
+            updateGlobalStateFromUI();
+            renderLayerList();
+            renderInspector();
+            render();
+        }
+
+        // Initialize Global Listeners
+        [ui.ratio, ui.customW, ui.customH, ui.bgType, ui.bg1, ui.bg2, ui.transparentBg].forEach(el => {
+            if(el) el.addEventListener('change', updateUI);
+            if(el && el.type === 'color') el.addEventListener('input', updateUI);
+            if(el && el.type === 'number') el.addEventListener('input', updateUI);
+        });
+
+        ui.zoom.addEventListener('input', (e) => {
+            state.zoom = parseFloat(e.target.value);
+            ui.zoomVal.innerText = `${state.zoom.toFixed(2)}x`;
+            render();
+        });
+
+        ui.btnReset.addEventListener('click', () => {
+            state.zoom = 1.0; state.panX = 0; state.panY = 0;
+            ui.zoom.value = 1.0; ui.zoomVal.innerText = '1.00x';
+            render();
+        });
+
+
+        // --- Presets Engine ---
+        const PRESETS = {
+            "voidMode": {
+                aspectRatio: "16:9", bgType: "solid", colorBg1: "#1a1a1a",
+                elements: [
+                    { id: "c1", type: "circle", name: "Cyan Dot", x: 380, y: 320, fill: "#38bdf8", radius: 180, rotation: 0, shadow: { enabled: true, color: "#000000", blur: 0, ox: 15, oy: 15 } },
+                    { id: "r1", type: "rect", name: "Green Base", x: 550, y: 800, fill: "#22c55e", width: 450, height: 320, rx: 20, rotation: 0, shadow: { enabled: true, color: "#000000", blur: 0, ox: 15, oy: 15 } },
+                    { id: "t1", type: "text", name: "VOID Text", x: 1200, y: 350, fill: "#ffffff", text: "VOID", fontFamily: "Poppins", fontWeight: "900", fontSize: 360, rotation: -4, shadow: { enabled: true, color: "#000000", blur: 0, ox: 15, oy: 15 } },
+                    { id: "t2", type: "text", name: "MODE Text", x: 1280, y: 700, fill: "#ef4444", text: "MODE", fontFamily: "Poppins", fontWeight: "900", fontSize: 340, rotation: -2, shadow: { enabled: true, color: "#000000", blur: 0, ox: 15, oy: 15 } }
+                ]
+            },
+            "canvasLabsClassic": {
+                aspectRatio: "1:1", bgType: "gradient-br", colorBg1: "#f0f9ff", colorBg2: "#fdf4ff",
+                elements: [
+                    { id: "r1", type: "rect", name: "Dark Base", x: 300, y: 540, fill: "#1e293b", width: 280, height: 280, rx: 60, rotation: 0, shadow: { enabled: true, color: "rgba(0,0,0,0.2)", blur: 40, ox: 0, oy: 20 } },
+                    { id: "c1", type: "circle", name: "Pink Dot", x: 440, y: 680, fill: "#fbcfe8", radius: 34, rotation: 0, shadow: { enabled: false } },
+                    { id: "t1", type: "text", name: "Initials", x: 300, y: 550, fill: "#ffffff", text: "EL", fontFamily: "Inter", fontWeight: "900", fontSize: 110, rotation: 0, shadow: { enabled: false } },
+                    { id: "t2", type: "text", name: "Prefix", x: 620, y: 540, fill: "#1e293b", text: "Canvas", fontFamily: "Inter", fontWeight: "800", fontSize: 100, rotation: 0, shadow: { enabled: false } },
+                    { id: "t3", type: "text", name: "Suffix", x: 880, y: 540, fill: "#1e293b", text: "Labs", fontFamily: "Inter", fontWeight: "400", fontSize: 100, rotation: 0, shadow: { enabled: false } }
+                ]
+            },
+            "techStartup": {
+                aspectRatio: "16:9", bgType: "gradient-r", colorBg1: "#e0e7ff", colorBg2: "#c7d2fe",
+                elements: [
+                    { id: "r1", type: "rect", name: "App Icon", x: 600, y: 540, fill: "#4f46e5", width: 200, height: 200, rx: 48, rotation: 0, shadow: { enabled: true, color: "rgba(0,0,0,0.15)", blur: 30, ox: 0, oy: 15 } },
+                    { id: "c1", type: "circle", name: "Indicator", x: 700, y: 640, fill: "#10b981", radius: 24, rotation: 0, shadow: { enabled: false } },
+                    { id: "t1", type: "text", name: "Initials", x: 600, y: 545, fill: "#ffffff", text: "TS", fontFamily: "Space Grotesk", fontWeight: "700", fontSize: 80, rotation: 0, shadow: { enabled: false } },
+                    { id: "t2", type: "text", name: "Title", x: 1050, y: 540, fill: "#312e81", text: "Tech Startup", fontFamily: "Space Grotesk", fontWeight: "700", fontSize: 110, rotation: 0, shadow: { enabled: false } }
+                ]
+            },
+            "retroPop": {
+                aspectRatio: "4:5", bgType: "gradient-br", colorBg1: "#fbcfe8", colorBg2: "#fecaca",
+                elements: [
+                    { id: "c1", type: "circle", name: "Sun", x: 540, y: 400, fill: "#fde047", radius: 250, rotation: 0, shadow: { enabled: true, color: "#000", blur: 0, ox: 10, oy: 10 } },
+                    { id: "t1", type: "text", name: "VIBES", x: 540, y: 750, fill: "#f43f5e", text: "VIBES", fontFamily: "Syne", fontWeight: "800", fontSize: 280, rotation: -5, shadow: { enabled: true, color: "#000", blur: 0, ox: 12, oy: 12 } },
+                    { id: "t2", type: "text", name: "ONLY", x: 540, y: 1000, fill: "#ffffff", text: "ONLY", fontFamily: "Syne", fontWeight: "800", fontSize: 240, rotation: 2, shadow: { enabled: true, color: "#000", blur: 0, ox: 12, oy: 12 } }
+                ]
+            },
+            "modernMinimal": {
+                aspectRatio: "1:1", bgType: "solid", colorBg1: "#ffffff",
+                elements: [
+                    { id: "r1", type: "rect", name: "Square", x: 540, y: 450, fill: "#000000", width: 300, height: 300, rx: 120, rotation: 0, shadow: { enabled: false } },
+                    { id: "t1", type: "text", name: "Modern", x: 540, y: 750, fill: "#000000", text: "Modern", fontFamily: "Space Grotesk", fontWeight: "800", fontSize: 120, rotation: 0, shadow: { enabled: false } }
+                ]
+            },
+            "financePro": {
+                aspectRatio: "3:1", bgType: "gradient-r", colorBg1: "#0f172a", colorBg2: "#1e293b",
+                elements: [
+                    { id: "r1", type: "rect", name: "Icon BG", x: 300, y: 250, fill: "#38bdf8", width: 160, height: 160, rx: 40, rotation: 45, shadow: { enabled: true, color: "rgba(0,0,0,0.5)", blur: 20, ox: 0, oy: 10 } },
+                    { id: "t1", type: "text", name: "Finance", x: 700, y: 250, fill: "#ffffff", text: "Finance", fontFamily: "Montserrat", fontWeight: "900", fontSize: 140, rotation: 0, shadow: { enabled: false } },
+                    { id: "t2", type: "text", name: "Pro", x: 1080, y: 250, fill: "#94a3b8", text: "Pro", fontFamily: "Montserrat", fontWeight: "400", fontSize: 140, rotation: 0, shadow: { enabled: false } }
+                ]
+            }
+        };
+
+        window.applyPreset = function(key) {
+            const p = PRESETS[key];
+            if (!p) return;
+            state.aspectRatio = p.aspectRatio;
+            state.bgType = p.bgType;
+            state.colorBg1 = p.colorBg1;
+            state.colorBg2 = p.colorBg2 || p.colorBg1;
+            // Deep clone elements to prevent reference mutation
+            state.elements = JSON.parse(JSON.stringify(p.elements));
+            state.selectedId = state.elements.length > 0 ? state.elements[state.elements.length - 1].id : null;
+            state.zoom = 1.0; state.panX = 0; state.panY = 0;
+            
+            syncUIToGlobalState();
+            updateUI();
+            switchTab('panel-canvas');
+        };
+
+        // --- Export Generators ---
+
+        function generateSVGString(multiplier, isTransparent) {
+            const baseRes = getBaseDimensions();
+            const W = baseRes.w * multiplier;
+            const H = baseRes.h * multiplier;
+
+            const fontUrl = "https://fonts.googleapis.com/css2?family=Carrois+Gothic&amp;family=Caveat:wght@600;700&amp;family=Inter:wght@400;500;600;700;800;900&amp;family=JetBrains+Mono:wght@400;500;700&amp;family=Playfair+Display:wght@400;600;700&amp;family=Roboto:wght@400;500;700;900&amp;family=Outfit:wght@400;600;800&amp;family=Rubik:wght@400;600;800&amp;family=Poppins:wght@400;600;800&amp;family=Montserrat:wght@400;700;900&amp;family=Space+Grotesk:wght@400;600;700&amp;family=Syne:wght@400;700;800&amp;display=swap";
+            
+            let defs = `<defs>\n<style>@import url('${fontUrl}');</style>\n`;
+            let bgRect = '';
+
+            if (!isTransparent) {
+                if (state.bgType === 'solid') {
+                    bgRect = `<rect width="${W}" height="${H}" fill="${state.colorBg1}" />`;
+                } else {
+                    const isHoriz = state.bgType === 'gradient-r';
+                    defs += `<linearGradient id="bgGrad" x1="0%" y1="0%" x2="${isHoriz ? '100%' : '100%'}" y2="${isHoriz ? '0%' : '100%'}">
+                        <stop offset="0%" stop-color="${state.colorBg1}" />
+                        <stop offset="100%" stop-color="${state.colorBg2}" />
+                    </linearGradient>`;
+                    bgRect = `<rect width="${W}" height="${H}" fill="url(#bgGrad)" />`;
+                }
+            }
+
+            // Create filters for shadows
+            state.elements.forEach(el => {
+                if(el.shadow.enabled && !isTransparent) {
+                    defs += `<filter id="shadow-${el.id}" x="-50%" y="-50%" width="200%" height="200%">
+                        <feDropShadow dx="${el.shadow.ox * multiplier}" dy="${el.shadow.oy * multiplier}" stdDeviation="${el.shadow.blur * multiplier}" flood-color="${el.shadow.color}"/>
+                    </filter>\n`;
+                }
+            });
+            defs += `</defs>`;
+
+            let layersStr = '';
+            state.elements.forEach(el => {
+                const shadowAttr = (el.shadow.enabled && !isTransparent) ? `filter="url(#shadow-${el.id})"` : '';
+                let content = '';
+                if (el.type === 'rect') {
+                    content = `<rect x="${-el.width/2}" y="${-el.height/2}" width="${el.width}" height="${el.height}" rx="${el.rx || 0}" fill="${el.fill}" ${shadowAttr} />`;
+                } else if (el.type === 'circle') {
+                    content = `<circle cx="0" cy="0" r="${el.radius}" fill="${el.fill}" ${shadowAttr} />`;
+                } else if (el.type === 'text') {
+                    content = `<text x="0" y="0" fill="${el.fill}" font-family="${el.fontFamily}" font-size="${el.fontSize}px" font-weight="${el.fontWeight}" dominant-baseline="central" text-anchor="middle" ${shadowAttr}>${el.text}</text>`;
+                }
+
+                layersStr += `<g transform="translate(${el.x}, ${el.y}) rotate(${el.rotation || 0})">${content}</g>\n`;
+            });
+
+            return `<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 ${W} ${H}" width="${W}" height="${H}">
+                ${defs}
+                ${bgRect}
+                <!-- Global Camera Transform applied here via group -->
+                <g transform="translate(${W/2 + state.panX*multiplier}, ${H/2 + state.panY*multiplier}) scale(${state.zoom * multiplier}) translate(${-baseRes.w/2}, ${-baseRes.h/2})">
+                    ${layersStr}
+                </g>
+            </svg>`;
+        }
+
+        async function exportFaviconPackage() {
+            if (typeof JSZip === 'undefined') { alert("JSZip still loading."); return; }
+            const zip = new JSZip();
+            const originalRatio = state.aspectRatio;
+            state.aspectRatio = "1:1";
+            
+            const sizes = [
+                { name: "android-chrome-192x192.png", size: 192 },
+                { name: "android-chrome-512x512.png", size: 512 },
+                { name: "apple-touch-icon.png", size: 180 },
+                { name: "favicon-16x16.png", size: 16 },
+                { name: "favicon-32x32.png", size: 32 }
+            ];
+
+            const baseRes = 1080; // Assuming 1:1 translates to 1080x1080 intrinsically
+
+            for (let s of sizes) {
+                const expCanvas = document.createElement('canvas');
+                expCanvas.width = s.size; expCanvas.height = s.size;
+                const scale = s.size / baseRes;
+                render(expCanvas.getContext('2d'), scale);
+                const blob = await new Promise(r => expCanvas.toBlob(r, "image/png"));
+                zip.file(s.name, blob);
+                if (s.size === 32) zip.file("favicon.ico", blob);
+            }
+
+            const manifest = {
+                "name": `Brand Studio Export`,
+                "short_name": `Brand`,
+                "icons": [
+                    { "src": "/android-chrome-192x192.png", "sizes": "192x192", "type": "image/png" },
+                    { "src": "/android-chrome-512x512.png", "sizes": "512x512", "type": "image/png" }
+                ],
+                "theme_color": state.colorBg1,
+                "background_color": state.transparentBg ? "#ffffff" : state.colorBg1,
+                "display": "standalone"
+            };
+            zip.file("site.webmanifest", JSON.stringify(manifest, null, 2));
+
+            state.aspectRatio = originalRatio; // Restore
+            const zipBlob = await zip.generateAsync({type:"blob"});
+            const a = document.createElement('a');
+            a.href = URL.createObjectURL(zipBlob);
+            a.download = `brand_favicon_package.zip`;
+            a.click();
+            render(); 
+        }
+
+        async function exportCanvas() {
+            // Deselect to remove borders in export
+            const prevSelected = state.selectedId;
+            state.selectedId = null; 
+            
+            const fmt = document.getElementById('export-fmt').value;
+            const multiplier = parseInt(document.getElementById('export-res').value);
+            let isTransparent = ui.transparentBg.checked;
+
+            if (fmt === 'favicon') {
+                await exportFaviconPackage();
+                state.selectedId = prevSelected; updateUI(); return;
+            }
+
+            if (fmt === 'svg') {
+                const svgString = generateSVGString(multiplier, isTransparent);
+                const blob = new Blob([svgString], {type: "image/svg+xml;charset=utf-8"});
+                const a = document.createElement('a');
+                a.href = URL.createObjectURL(blob);
+                const ratioName = state.aspectRatio === 'custom' ? `${state.customW}x${state.customH}` : state.aspectRatio.replace(':','x');
+                a.download = `brand-export-${ratioName}-${isTransparent ? 'transparent' : 'solid'}.svg`;
+                a.click();
+                state.selectedId = prevSelected; updateUI(); return;
+            }
+
+            if (fmt === 'jpg' && isTransparent) { isTransparent = false; state.transparentBg = false; syncUIToGlobalState(); }
+
+            const baseRes = getBaseDimensions();
+            const expCanvas = document.createElement('canvas');
+            expCanvas.width = baseRes.w * multiplier;
+            expCanvas.height = baseRes.h * multiplier;
+
+            render(expCanvas.getContext('2d'), multiplier);
+
+            const mimeType = fmt === 'jpg' ? 'image/jpeg' : `image/${fmt}`;
+            const a = document.createElement('a');
+            a.href = expCanvas.toDataURL(mimeType, 0.95);
+            const ratioName = state.aspectRatio === 'custom' ? `${state.customW}x${state.customH}` : state.aspectRatio.replace(':','x');
+            a.download = `brand-export-${ratioName}-${multiplier}x-${isTransparent ? 'transparent' : 'solid'}.${fmt}`;
+            a.click();
+            
+            state.selectedId = prevSelected; updateUI();
+        }
+
+        // --- Bind Action Events ---
+        document.getElementById('btn-header-export').addEventListener('click', exportCanvas);
+
+        document.querySelectorAll('.template-btn').forEach(btn => {
+            btn.addEventListener('click', (e) => {
+                applyPreset(e.currentTarget.getAttribute('data-template'));
+            });
+        });
+
+        // Initialize App
+        document.fonts.ready.then(() => applyPreset('voidMode'));
+
+    </script>
+</body>
+</html>

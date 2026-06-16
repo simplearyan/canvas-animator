@@ -1,0 +1,534 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Deck Animator Pro</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <style>
+        /* Custom scrollbar for a cleaner look */
+        ::-webkit-scrollbar { width: 8px; }
+        ::-webkit-scrollbar-track { background: #1f2937; }
+        ::-webkit-scrollbar-thumb { background: #4b5563; border-radius: 4px; }
+        ::-webkit-scrollbar-thumb:hover { background: #6b7280; }
+        
+        /* Ensure canvas scaling looks crisp */
+        canvas {
+            transform-origin: top left;
+        }
+    </style>
+</head>
+<body class="bg-gray-950 text-gray-100 font-sans h-screen w-screen overflow-hidden flex flex-col md:flex-row">
+
+    <!-- Sidebar Controls -->
+    <aside class="w-full md:w-80 bg-gray-900 border-b md:border-b-0 md:border-r border-gray-800 p-6 flex flex-col gap-6 z-10 overflow-y-auto">
+        <div>
+            <h1 class="text-2xl font-bold text-white mb-1">Deck Animator</h1>
+            <p class="text-sm text-gray-400">Generate & Export Canvas Animations</p>
+        </div>
+
+        <div class="space-y-4 flex-1">
+            <!-- Preset Selection -->
+            <div>
+                <label class="block text-sm font-medium text-gray-300 mb-2">Animation Preset</label>
+                <select id="presetSelect" class="w-full bg-gray-800 border border-gray-700 text-white rounded-lg p-2.5 focus:ring-blue-500 focus:border-blue-500 outline-none transition-colors">
+                    <option value="fan">The Perfect Fan</option>
+                    <option value="ribbon">Ribbon Spread</option>
+                    <option value="fountain">Card Fountain</option>
+                    <option value="shuffle">Riffle Shuffle</option>
+                </select>
+            </div>
+
+            <!-- Duration Slider -->
+            <div>
+                <div class="flex justify-between mb-2">
+                    <label class="text-sm font-medium text-gray-300">Duration</label>
+                    <span id="durationVal" class="text-sm text-blue-400">2.0s</span>
+                </div>
+                <input type="range" id="durationSlider" min="1" max="5" step="0.5" value="2" class="w-full h-2 bg-gray-700 rounded-lg appearance-none cursor-pointer">
+            </div>
+
+            <!-- Card Count -->
+            <div>
+                <div class="flex justify-between mb-2">
+                    <label class="text-sm font-medium text-gray-300">Card Count</label>
+                    <span id="countVal" class="text-sm text-blue-400">52</span>
+                </div>
+                <input type="range" id="countSlider" min="5" max="52" step="1" value="52" class="w-full h-2 bg-gray-700 rounded-lg appearance-none cursor-pointer">
+            </div>
+            
+            <div class="bg-gray-800/50 p-4 rounded-lg border border-gray-800">
+                <p class="text-xs text-gray-400 leading-relaxed">
+                    Animations are mathematically generated. Adjust settings to preview. Exporting records a full cycle at 60fps to WebM.
+                </p>
+            </div>
+        </div>
+
+        <!-- Action Buttons -->
+        <div class="space-y-3 pt-4 border-t border-gray-800">
+            <button id="playBtn" class="w-full flex items-center justify-center gap-2 bg-gray-800 hover:bg-gray-700 text-white font-medium py-2.5 px-4 rounded-lg transition-colors border border-gray-700">
+                <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M14.752 11.168l-3.197-2.132A1 1 0 0010 9.87v4.263a1 1 0 001.555.832l3.197-2.132a1 1 0 000-1.664z"></path><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M21 12a9 9 0 11-18 0 9 9 0 0118 0z"></path></svg>
+                <span id="playText">Replay Animation</span>
+            </button>
+            <button id="exportBtn" class="w-full flex items-center justify-center gap-2 bg-blue-600 hover:bg-blue-700 text-white font-medium py-2.5 px-4 rounded-lg transition-colors shadow-lg shadow-blue-900/20">
+                <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-4l-4 4m0 0l-4-4m4 4V4"></path></svg>
+                <span id="exportText">Export WebM</span>
+            </button>
+        </div>
+    </aside>
+
+    <!-- Canvas Workspace -->
+    <main class="flex-1 relative bg-[radial-gradient(ellipse_at_center,_var(--tw-gradient-stops))] from-gray-800 via-gray-900 to-black overflow-hidden flex items-center justify-center">
+        <!-- Grid overlay -->
+        <div class="absolute inset-0 z-0 opacity-20 pointer-events-none" style="background-image: radial-gradient(#4b5563 1px, transparent 1px); background-size: 32px 32px;"></div>
+        
+        <canvas id="stage" class="z-10 shadow-2xl"></canvas>
+        
+        <!-- Recording Indicator -->
+        <div id="recordingIndicator" class="absolute top-6 right-6 hidden items-center gap-2 bg-red-500/20 border border-red-500/50 text-red-400 px-3 py-1.5 rounded-full text-sm font-medium z-20 backdrop-blur-sm">
+            <span class="w-2.5 h-2.5 bg-red-500 rounded-full animate-pulse"></span>
+            Recording...
+        </div>
+    </main>
+
+    <script>
+        // --- Configuration & State ---
+        const canvas = document.getElementById('stage');
+        const ctx = canvas.getContext('2d', { alpha: false }); // Optimize
+        let dpr = window.devicePixelRatio || 1;
+        
+        const CARD_WIDTH = 100;
+        const CARD_HEIGHT = 145;
+        const CARD_RADIUS = 6;
+        
+        let deck = [];
+        let animationProgress = 1; // 0 to 1
+        let animationStartTime = 0;
+        let isPlaying = false;
+        let isRecording = false;
+        let mediaRecorder;
+        let recordedChunks = [];
+        let animationFrameId;
+
+        // UI Elements
+        const selectPreset = document.getElementById('presetSelect');
+        const sliderDuration = document.getElementById('durationSlider');
+        const valDuration = document.getElementById('durationVal');
+        const sliderCount = document.getElementById('countSlider');
+        const valCount = document.getElementById('countVal');
+        const btnPlay = document.getElementById('playBtn');
+        const btnExport = document.getElementById('exportBtn');
+        const exportText = document.getElementById('exportText');
+        const recordingIndicator = document.getElementById('recordingIndicator');
+
+        // --- Card Data Generation ---
+        const suits = [
+            { symbol: '♥', color: '#ef4444' }, // Red
+            { symbol: '♠', color: '#111827' }, // Black
+            { symbol: '♦', color: '#ef4444' }, // Red
+            { symbol: '♣', color: '#111827' }  // Black
+        ];
+        const values = ['A', '2', '3', '4', '5', '6', '7', '8', '9', '10', 'J', 'Q', 'K'];
+
+        function generateDeck(count) {
+            let fullDeck = [];
+            for (let s of suits) {
+                for (let v of values) {
+                    fullDeck.push({ suit: s, value: v });
+                }
+            }
+            // Shuffle deterministically for consistent recording, or just take first 'count'
+            return fullDeck.slice(0, count);
+        }
+
+        // --- Easing Functions ---
+        const Easing = {
+            easeOutQuart: t => 1 - (--t) * t * t * t,
+            easeInOutCubic: t => t < .5 ? 4 * t * t * t : (t - 1) * (2 * t - 2) * (2 * t - 2) + 1,
+            easeOutBack: (t) => {
+                const c1 = 1.70158;
+                const c3 = c1 + 1;
+                return 1 + c3 * Math.pow(t - 1, 3) + c1 * Math.pow(t - 1, 2);
+            }
+        };
+
+        // --- Canvas Setup & Resize ---
+        function resizeCanvas() {
+            const parent = canvas.parentElement;
+            const rect = parent.getBoundingClientRect();
+            
+            // Set actual canvas size based on DPR for sharpness
+            canvas.width = rect.width * dpr;
+            canvas.height = rect.height * dpr;
+            
+            // Set display size
+            canvas.style.width = `${rect.width}px`;
+            canvas.style.height = `${rect.height}px`;
+            
+            // Normalize coordinate system to use CSS pixels
+            ctx.scale(dpr, dpr);
+            
+            // Trigger a redraw if not currently animating
+            if (!isPlaying) drawFrame();
+        }
+
+        window.addEventListener('resize', resizeCanvas);
+
+        // --- Drawing Logic ---
+        function drawCard(card, x, y, rotation, scale, alpha = 1) {
+            ctx.save();
+            ctx.translate(x, y);
+            ctx.rotate(rotation);
+            ctx.scale(scale, scale);
+            ctx.globalAlpha = alpha;
+
+            // Card Shadow
+            ctx.shadowColor = 'rgba(0, 0, 0, 0.3)';
+            ctx.shadowBlur = 10;
+            ctx.shadowOffsetY = 4;
+
+            // Card Background
+            ctx.fillStyle = '#ffffff';
+            ctx.beginPath();
+            ctx.roundRect(-CARD_WIDTH / 2, -CARD_HEIGHT / 2, CARD_WIDTH, CARD_HEIGHT, CARD_RADIUS);
+            ctx.fill();
+
+            // Clear shadow for internals
+            ctx.shadowColor = 'transparent';
+
+            // Card Border
+            ctx.strokeStyle = '#e5e7eb';
+            ctx.lineWidth = 1;
+            ctx.stroke();
+
+            // Draw Value & Suit (Top Left)
+            ctx.fillStyle = card.suit.color;
+            ctx.font = 'bold 18px Arial';
+            ctx.textAlign = 'center';
+            ctx.textBaseline = 'middle';
+            
+            // Handle '10' specifically to align it better
+            let xOffset = -CARD_WIDTH / 2 + 15;
+            let yOffset = -CARD_HEIGHT / 2 + 20;
+            
+            ctx.fillText(card.value, xOffset, yOffset);
+            ctx.font = '16px Arial';
+            ctx.fillText(card.suit.symbol, xOffset, yOffset + 18);
+
+            // Draw Value & Suit (Bottom Right - Inverted)
+            ctx.save();
+            ctx.rotate(Math.PI);
+            ctx.font = 'bold 18px Arial';
+            ctx.fillText(card.value, xOffset, yOffset);
+            ctx.font = '16px Arial';
+            ctx.fillText(card.suit.symbol, xOffset, yOffset + 18);
+            ctx.restore();
+
+            // Center large suit
+            ctx.font = '48px Arial';
+            ctx.fillText(card.suit.symbol, 0, 0);
+
+            ctx.restore();
+        }
+
+        // --- Animation Presets ---
+        const Animations = {
+            fan: (cardIndex, totalCards, progress, width, height) => {
+                const spreadAngle = Math.PI * 0.8; // 144 degrees
+                const startAngle = -Math.PI / 2 - spreadAngle / 2;
+                
+                // Animate properties
+                const easeT = Easing.easeOutBack(progress);
+                
+                // Target calculated based on index
+                const angle = startAngle + (cardIndex / Math.max(1, totalCards - 1)) * spreadAngle;
+                const radius = 120;
+                
+                // Center bottom
+                const startX = width / 2;
+                const startY = height + CARD_HEIGHT; 
+                
+                const targetX = width / 2 + Math.cos(angle) * radius;
+                const targetY = height / 2 + Math.sin(angle) * radius + 50; // Shifted up slightly
+                const targetRot = angle + Math.PI / 2;
+
+                return {
+                    x: startX + (targetX - startX) * easeT,
+                    y: startY + (targetY - startY) * easeT,
+                    rot: targetRot * easeT,
+                    scale: 1
+                };
+            },
+
+            ribbon: (cardIndex, totalCards, progress, width, height) => {
+                // Staggered start times for each card
+                const stagger = 0.5; // How much of the timeline is dedicated to stagger
+                const cardStartT = (cardIndex / totalCards) * stagger;
+                const cardDuration = 1 - stagger;
+                
+                // Normalize t for this specific card
+                let localT = (progress - cardStartT) / cardDuration;
+                localT = Math.max(0, Math.min(1, localT));
+                
+                const easeT = Easing.easeOutQuart(localT);
+
+                const spreadWidth = width * 0.7;
+                const startX = width / 2;
+                const startY = height / 2;
+                
+                const targetX = (width - spreadWidth) / 2 + (cardIndex / Math.max(1, totalCards - 1)) * spreadWidth;
+                const targetY = height / 2;
+                
+                // Add a slight arc
+                const arcIntensity = 40;
+                const normalizedX = (cardIndex / Math.max(1, totalCards - 1)) * 2 - 1; // -1 to 1
+                const targetYWithArc = targetY + (normalizedX * normalizedX * arcIntensity) - arcIntensity;
+
+                return {
+                    x: startX + (targetX - startX) * easeT,
+                    y: startY + (targetYWithArc - startY) * easeT,
+                    rot: (normalizedX * 0.2) * easeT, // Slight tilt
+                    scale: localT > 0 ? 1 : 0 // Pop in
+                };
+            },
+
+            fountain: (cardIndex, totalCards, progress, width, height) => {
+                // Physics-like math based purely on progress time
+                // Stagger starts
+                const delay = (cardIndex / totalCards) * 0.8; 
+                let localT = (progress - delay) / 0.2; // 20% of duration to travel
+                localT = Math.max(0, localT);
+                
+                if (localT === 0) return { x: width/2, y: height + CARD_HEIGHT, rot: 0, scale: 0 };
+                if (localT > 1) {
+                    // Rest at bottom
+                    return { x: width/2 + ((cardIndex % 10) - 5) * 5, y: height + CARD_HEIGHT, rot: 0, scale: 0 }; 
+                }
+
+                const startX = width / 2;
+                const startY = height + CARD_HEIGHT;
+                
+                // Randomize trajectory based on index (deterministic)
+                const pseudoRandom = Math.sin(cardIndex * 12.9898) * 43758.5453 % 1;
+                
+                // Parabola: y = a*x^2 + b*x + c
+                // simpler: x = vt, y = ut + 0.5gt^2
+                
+                const xVel = (pseudoRandom * 2 - 1) * width * 0.4; 
+                const yVel = -height * 1.2; // Shoot up high
+                const gravity = height * 2.5;
+                
+                const currentX = startX + xVel * localT;
+                const currentY = startY + yVel * localT + 0.5 * gravity * localT * localT;
+                
+                return {
+                    x: currentX,
+                    y: currentY,
+                    rot: localT * Math.PI * 4 * pseudoRandom,
+                    scale: Math.sin(localT * Math.PI) // fade in/out roughly
+                };
+            },
+
+            shuffle: (cardIndex, totalCards, progress, width, height) => {
+                const easeT = Easing.easeInOutCubic(progress);
+                const half = Math.floor(totalCards / 2);
+                const isLeftHalf = cardIndex < half;
+                
+                const packOffsetX = 150;
+                
+                // Start state: two packs
+                const startX = isLeftHalf ? (width/2 - packOffsetX) : (width/2 + packOffsetX);
+                const startY = height / 2 + (isLeftHalf ? cardIndex : cardIndex - half) * 1.5;
+                
+                // End state: interwoven
+                const interwovenIndex = isLeftHalf ? cardIndex * 2 : (cardIndex - half) * 2 + 1;
+                const targetX = width / 2;
+                const targetY = height / 2 + interwovenIndex * 1.5 - (totalCards*1.5)/2;
+
+                // Arc movement during shuffle
+                const arcHeight = Math.sin(easeT * Math.PI) * 100;
+                
+                return {
+                    x: startX + (targetX - startX) * easeT,
+                    y: startY + (targetY - startY) * easeT - arcHeight,
+                    rot: 0,
+                    scale: 1
+                };
+            }
+        };
+
+        // --- Core Loop ---
+        function drawFrame() {
+            // Get CSS display size
+            const rect = canvas.parentElement.getBoundingClientRect();
+            const width = rect.width;
+            const height = rect.height;
+
+            // Clear Background
+            ctx.fillStyle = '#111827'; // Dark background matching tailwind
+            ctx.fillRect(0, 0, width, height);
+
+            const preset = selectPreset.value;
+            const animFunc = Animations[preset];
+
+            // Ensure cards render back to front correctly depending on animation
+            let drawOrder = deck.map((c, i) => i);
+            if (preset === 'shuffle') {
+                // To look right, lower indices need to be drawn first
+                drawOrder.sort((a,b) => b-a);
+            }
+
+            drawOrder.forEach(i => {
+                const state = animFunc(i, deck.length, animationProgress, width, height);
+                if (state.scale > 0) {
+                    drawCard(deck[i], state.x, state.y, state.rot, state.scale);
+                }
+            });
+        }
+
+        function animate(timestamp) {
+            if (!animationStartTime) animationStartTime = timestamp;
+            const elapsed = timestamp - animationStartTime;
+            const durationMs = parseFloat(sliderDuration.value) * 1000;
+            
+            animationProgress = elapsed / durationMs;
+
+            if (animationProgress >= 1) {
+                animationProgress = 1;
+                drawFrame(); // Draw final frame
+                
+                if (isRecording) {
+                    stopRecording();
+                } else {
+                    isPlaying = false;
+                    btnPlay.disabled = false;
+                    btnPlay.innerHTML = `<svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M14.752 11.168l-3.197-2.132A1 1 0 0010 9.87v4.263a1 1 0 001.555.832l3.197-2.132a1 1 0 000-1.664z"></path><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M21 12a9 9 0 11-18 0 9 9 0 0118 0z"></path></svg> Replay Animation`;
+                }
+                return;
+            }
+
+            drawFrame();
+            if (isPlaying) {
+                animationFrameId = requestAnimationFrame(animate);
+            }
+        }
+
+        function startAnimation() {
+            if (isPlaying && !isRecording) return;
+            
+            deck = generateDeck(parseInt(sliderCount.value));
+            animationStartTime = 0;
+            animationProgress = 0;
+            isPlaying = true;
+            
+            if (!isRecording) {
+                btnPlay.disabled = true;
+                btnPlay.innerHTML = `<svg class="w-5 h-5 animate-spin" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15"></path></svg> Playing...`;
+            }
+
+            cancelAnimationFrame(animationFrameId);
+            animationFrameId = requestAnimationFrame(animate);
+        }
+
+        // --- Export & Recording Logic ---
+        function startRecording() {
+            if (isRecording) return;
+            
+            try {
+                // Capture at 60fps
+                const stream = canvas.captureStream(60);
+                
+                // Try to use a good codec
+                const options = { mimeType: 'video/webm;codecs=vp9' };
+                if (!MediaRecorder.isTypeSupported(options.mimeType)) {
+                    options.mimeType = 'video/webm;codecs=vp8';
+                }
+                if (!MediaRecorder.isTypeSupported(options.mimeType)) {
+                    options.mimeType = 'video/webm';
+                }
+
+                mediaRecorder = new MediaRecorder(stream, options);
+                recordedChunks = [];
+
+                mediaRecorder.ondataavailable = (event) => {
+                    if (event.data.size > 0) {
+                        recordedChunks.push(event.data);
+                    }
+                };
+
+                mediaRecorder.onstop = () => {
+                    const blob = new Blob(recordedChunks, { type: 'video/webm' });
+                    const url = URL.createObjectURL(blob);
+                    
+                    const a = document.createElement('a');
+                    document.body.appendChild(a);
+                    a.style = 'display: none';
+                    a.href = url;
+                    a.download = `deck-anim-${selectPreset.value}-${Date.now()}.webm`;
+                    a.click();
+                    
+                    window.URL.revokeObjectURL(url);
+                    
+                    // Reset UI
+                    isRecording = false;
+                    recordingIndicator.classList.add('hidden');
+                    recordingIndicator.classList.remove('flex');
+                    btnExport.disabled = false;
+                    exportText.textContent = 'Export WebM';
+                    btnPlay.disabled = false;
+                };
+
+                // Update UI state
+                isRecording = true;
+                recordingIndicator.classList.remove('hidden');
+                recordingIndicator.classList.add('flex');
+                btnExport.disabled = true;
+                btnPlay.disabled = true;
+                exportText.textContent = 'Recording...';
+
+                mediaRecorder.start();
+                startAnimation(); // Start the animation loop which drives the frames
+
+            } catch (err) {
+                console.error("Error starting recording:", err);
+                alert("Recording failed. Your browser might not support canvas capture.");
+            }
+        }
+
+        function stopRecording() {
+            if (mediaRecorder && mediaRecorder.state !== 'inactive') {
+                mediaRecorder.stop();
+            }
+        }
+
+        // --- Event Listeners ---
+        sliderDuration.addEventListener('input', (e) => {
+            valDuration.textContent = `${parseFloat(e.target.value).toFixed(1)}s`;
+            if(!isPlaying) { animationProgress = 1; drawFrame(); } // update final state
+        });
+
+        sliderCount.addEventListener('input', (e) => {
+            valCount.textContent = e.target.value;
+            deck = generateDeck(parseInt(e.target.value));
+            if(!isPlaying) { animationProgress = 1; drawFrame(); }
+        });
+
+        selectPreset.addEventListener('change', () => {
+            if(!isPlaying) { animationProgress = 1; drawFrame(); }
+        });
+
+        btnPlay.addEventListener('click', startAnimation);
+        btnExport.addEventListener('click', startRecording);
+
+        // --- Initialization ---
+        // Force a small delay to ensure CSS layout completes before initial sizing
+        setTimeout(() => {
+            resizeCanvas();
+            deck = generateDeck(52);
+            animationProgress = 1; // Start at end state for preview
+            drawFrame();
+        }, 50);
+
+    </script>
+</body>
+</html>

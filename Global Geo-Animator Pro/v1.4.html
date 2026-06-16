@@ -1,0 +1,1203 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+    <title>Global Geo-Animator Pro</title>
+    
+    <!-- Google Fonts -->
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;600;800;900&family=Montserrat:wght@700;900&family=Playfair+Display:ital,wght@0,600;0,700;1,600&family=JetBrains+Mono:wght@400;700&display=swap" rel="stylesheet">
+
+    <!-- Tailwind CSS -->
+    <script src="https://cdn.tailwindcss.com"></script>
+    <script>
+        tailwind.config = {
+            theme: {
+                extend: {
+                    fontFamily: {
+                        sans: ['Inter', 'sans-serif'],
+                        display: ['Montserrat', 'sans-serif'],
+                    },
+                    colors: {
+                        blueprint: {
+                            50: '#f0f4f8',
+                            100: '#d9e2ec',
+                            200: '#bcccdc',
+                            300: '#9fb3c8',
+                            800: '#102a43',
+                            900: '#003366',
+                        },
+                        brand: {
+                            red: '#ef4444',
+                            blue: '#3b82f6',
+                            yellow: '#facc15'
+                        }
+                    }
+                }
+            }
+        }
+    </script>
+
+    <!-- Libraries: D3, TopoJSON, Phosphor Icons -->
+    <script src="https://d3js.org/d3.v7.min.js"></script>
+    <script src="https://unpkg.com/topojson-client@3"></script>
+    <script src="https://unpkg.com/@phosphor-icons/web"></script>
+
+    <style>
+        body { overscroll-behavior-y: none; }
+        
+        .blueprint-bg {
+            background-color: #f4f7fa;
+            background-image: 
+                linear-gradient(rgba(0, 51, 102, 0.08) 1px, transparent 1px),
+                linear-gradient(90deg, rgba(0, 51, 102, 0.08) 1px, transparent 1px);
+            background-size: 24px 24px;
+            background-position: center center;
+        }
+
+        /* Custom scrollbars - Light Theme */
+        ::-webkit-scrollbar { width: 6px; height: 6px; }
+        ::-webkit-scrollbar-track { background: transparent; }
+        ::-webkit-scrollbar-thumb { background: #cbd5e1; border-radius: 3px; }
+        ::-webkit-scrollbar-thumb:hover { background: #94a3b8; }
+        .custom-scrollbar::-webkit-scrollbar { width: 5px; }
+
+        /* Range Sliders */
+        input[type=range] { -webkit-appearance: none; width: 100%; background: transparent; }
+        input[type=range]::-webkit-slider-thumb {
+            -webkit-appearance: none; height: 16px; width: 16px; border-radius: 50%;
+            background: #003366; cursor: pointer; margin-top: -6px; box-shadow: 0 1px 3px rgba(0,0,0,0.3);
+        }
+        input[type=range]::-webkit-slider-runnable-track { width: 100%; height: 4px; background: #cbd5e1; border-radius: 2px; cursor: pointer; }
+        input[type=range]:focus::-webkit-slider-runnable-track { background: #94a3b8; }
+
+        /* Color inputs */
+        input[type="color"] { -webkit-appearance: none; border: none; width: 120%; height: 120%; padding: 0; margin: -10%; cursor: pointer; background: transparent; }
+        input[type="color"]::-webkit-color-swatch-wrapper { padding: 0; }
+        input[type="color"]::-webkit-color-swatch { border: none; }
+
+        /* Nav Active States matching Mockup */
+        #desktop-rail .nav-btn { transition: all 0.2s ease; border-left: 4px solid transparent; color: #64748b; background: white;}
+        #desktop-rail .nav-btn.active { color: #003366; border-left-color: #003366; background-color: #f8fafc; font-weight: 800; border-top: 1px solid #e2e8f0; border-bottom: 1px solid #e2e8f0;}
+        #desktop-rail .nav-btn:hover:not(.active) { color: #003366; background-color: #f1f5f9; }
+        
+        .blueprint-shadow { box-shadow: 6px 6px 0px rgba(0, 51, 102, 0.1); }
+        #canvas-wrapper { cursor: grab; }
+        #canvas-wrapper:active { cursor: grabbing; }
+        #geo-canvas { pointer-events: auto; } /* Ensure clicks register */
+
+        @media (max-width: 767px) {
+            .mobile-nav-btn.active { color: #003366; border-left: none; border-top: 3px solid #003366; background-color: #f0f4f8; }
+            .mobile-nav-btn:not(.active) { color: #64748b; border-top: 3px solid transparent; }
+        }
+        
+        .bg-gradient-animated { background-size: 200% auto; }
+    </style>
+</head>
+<body class="blueprint-bg text-slate-800 h-screen flex flex-col overflow-hidden font-sans">
+
+    <!-- HEADER -->
+    <header class="h-16 bg-white border-b border-blueprint-900 flex items-center justify-between px-4 sm:px-6 flex-shrink-0 z-20 shadow-sm w-full">
+        <div class="flex items-center gap-3 shrink-0">
+            <div class="border-2 border-blueprint-900 px-3 py-1 flex items-center bg-white blueprint-shadow select-none">
+                <span class="text-xl font-black text-blueprint-900 tracking-tighter uppercase font-display">Geo</span>
+                <span class="text-xl font-black text-brand-red tracking-tighter uppercase font-display">Animator</span>
+            </div>
+            <span class="hidden md:inline text-[10px] font-bold text-slate-500 uppercase tracking-widest px-2 py-0.5 bg-slate-100 border border-slate-200 rounded">Global Explainer</span>
+        </div>
+
+        <div class="flex items-center justify-end gap-3 shrink-0">
+            <button id="btn-play-story" class="flex items-center justify-center px-4 py-2 bg-white hover:bg-slate-50 text-blueprint-900 font-bold transition-colors text-xs border-2 border-blueprint-900 shadow-[2px_2px_0px_#003366] hover:shadow-none hover:translate-x-[2px] hover:translate-y-[2px] uppercase tracking-wider">
+                <i class="ph-bold ph-play-circle text-lg mr-1.5" id="icon-play"></i>
+                <span id="text-play">Preview Anim</span>
+            </button>
+            
+            <div class="flex bg-blueprint-900 border-2 border-blueprint-900 shadow-[2px_2px_0px_rgba(0,51,102,0.5)]">
+                <select id="export-res" class="bg-white text-blueprint-900 font-bold pl-3 pr-2 py-1.5 outline-none cursor-pointer text-xs border-r-2 border-blueprint-900 hidden md:block uppercase">
+                    <option value="1280">720p</option>
+                    <option value="1920" selected>1080p</option>
+                    <option value="2560">4K</option>
+                </select>
+                <select id="export-fmt" class="bg-white text-blueprint-900 font-bold px-2 sm:pl-3 sm:pr-2 py-1.5 outline-none cursor-pointer appearance-none text-[10px] sm:text-xs uppercase" onchange="document.getElementById('text-export').innerText = this.value === 'png' ? 'PNG' : 'WEBM'">
+                    <option value="webm" selected>WebM</option>
+                    <option value="png">PNG</option>
+                </select>
+                <button id="btn-export" class="flex items-center gap-1.5 px-4 py-1.5 hover:bg-blueprint-800 text-white font-black transition-colors text-xs uppercase tracking-widest">
+                    <i class="ph-bold ph-download text-sm"></i> <span class="hidden sm:inline" id="text-export">WEBM</span>
+                </button>
+            </div>
+        </div>
+    </header>
+
+    <!-- MAIN APP AREA -->
+    <main class="flex-1 flex flex-col md:flex-row overflow-hidden relative">
+        
+        <!-- Desktop Sidebar -->
+        <aside class="w-full md:w-[420px] bg-slate-50 border-r border-blueprint-900 flex flex-col z-30 flex-shrink-0 h-full hidden md:flex flex-row shadow-[4px_0_15px_rgba(0,0,0,0.03)]">
+            
+            <div id="desktop-rail" class="flex flex-col border-r border-blueprint-200 w-24 shrink-0 bg-white shadow-sm z-10">
+                <button class="nav-btn active py-4 flex flex-col items-center gap-1.5" data-target="data">
+                    <i class="ph-bold ph-map-pin-line text-xl"></i>
+                    <span class="text-[9px] uppercase tracking-wider font-bold">Map Data</span>
+                </button>
+                <button class="nav-btn py-4 flex flex-col items-center gap-1.5" data-target="style">
+                    <i class="ph-bold ph-palette text-xl"></i>
+                    <span class="text-[9px] uppercase tracking-wider font-bold">Style</span>
+                </button>
+                <button class="nav-btn py-4 flex flex-col items-center gap-1.5" data-target="camera">
+                    <i class="ph-bold ph-video-camera text-xl"></i>
+                    <span class="text-[9px] uppercase tracking-wider font-bold">Camera</span>
+                </button>
+            </div>
+
+            <!-- Panel Contents -->
+            <div class="flex-1 overflow-y-auto custom-scrollbar relative bg-slate-50/50">
+                
+                <!-- 1. Map Data Pane -->
+                <div class="tab-pane flex flex-col p-5 w-full gap-6" data-tab="data">
+                    <div class="flex flex-col gap-1 border-b border-blueprint-100 pb-3">
+                        <h2 class="text-xs font-black text-blueprint-900 uppercase tracking-widest font-display">Target & Colors</h2>
+                        <p class="text-[10px] text-slate-500">Paint specific countries to highlight them.</p>
+                    </div>
+
+                    <!-- Target Country Select -->
+                    <div class="flex flex-col gap-3 bg-white border border-blueprint-200 p-4 rounded-sm shadow-sm">
+                        
+                        <div class="flex flex-col gap-1.5">
+                            <label class="text-[10px] font-bold text-slate-500 uppercase tracking-wider">Active Paint Color</label>
+                            <div class="flex items-center gap-3">
+                                <div class="w-10 h-10 border border-blueprint-300 rounded-sm overflow-hidden shadow-sm shrink-0">
+                                    <input type="color" id="col-target" value="#facc15">
+                                </div>
+                                <p class="text-[10px] text-slate-400 leading-tight">Click on any country on the map to paint it with this color.</p>
+                            </div>
+                        </div>
+
+                        <div class="flex flex-col gap-1.5 mt-3 border-t border-dashed border-blueprint-200 pt-3">
+                            <label class="text-[9px] font-bold text-slate-400 uppercase">Search & Add Manually</label>
+                            <div class="flex gap-2">
+                                <select id="country-select" class="flex-1 px-2 py-1.5 bg-slate-50 border border-blueprint-200 text-xs font-semibold text-slate-800 outline-none focus:border-blueprint-900 rounded-sm shadow-sm">
+                                    <!-- Options injected dynamically -->
+                                </select>
+                                <button id="btn-add-country" class="px-3 py-1.5 bg-blueprint-900 text-white text-[10px] font-bold uppercase tracking-wider rounded-sm transition hover:bg-blueprint-800">Add</button>
+                            </div>
+                        </div>
+
+                        <!-- MAP DETAIL LEVEL & PERFORMANCE -->
+                        <div class="flex flex-col gap-2.5 mt-3 border-t border-dashed border-blueprint-200 pt-3">
+                            <div>
+                                <label class="text-[9px] font-bold text-slate-400 uppercase">Map Detail & Sharpness</label>
+                                <select id="map-resolution" class="w-full px-2 py-1.5 mt-1 bg-slate-50 border border-blueprint-200 text-xs font-semibold text-slate-800 outline-none focus:border-blueprint-900 rounded-sm shadow-sm">
+                                    <option value="110m" selected>Low (Fastest Rendering)</option>
+                                    <option value="50m">Medium (Balanced Detail)</option>
+                                    <option value="10m">High (Ultra Sharp Borders)</option>
+                                </select>
+                            </div>
+                            
+                            <label class="flex items-start gap-2 mt-1 cursor-pointer group">
+                                <input type="checkbox" id="toggle-unselected" class="w-4 h-4 accent-blueprint-900 ui-toggle mt-0.5">
+                                <div class="flex flex-col">
+                                    <span class="text-[10px] font-bold text-slate-700 uppercase">Hide Unselected Map Data</span>
+                                    <span class="text-[9px] text-slate-500">Improves performance by only rendering your highlighted countries. Saves PC memory on High detail.</span>
+                                </div>
+                            </label>
+                        </div>
+                    </div>
+
+                    <!-- Selected Countries List -->
+                    <div class="flex flex-col gap-2">
+                        <label class="text-[10px] font-bold text-slate-500 uppercase tracking-wider">Highlighted Countries</label>
+                        <div id="highlight-list" class="flex flex-col gap-2 min-h-[50px] max-h-[160px] overflow-y-auto custom-scrollbar pr-1">
+                            <!-- Items go here -->
+                        </div>
+                    </div>
+
+                    <div class="w-full border-t border-dashed border-blueprint-200"></div>
+
+                    <!-- Labels Settings -->
+                    <div class="flex flex-col gap-4 bg-white border border-blueprint-200 p-4 rounded-sm shadow-sm">
+                        <div class="flex items-center justify-between">
+                            <label class="text-[10px] font-bold text-slate-500 uppercase tracking-wider">Country Labels</label>
+                            <label class="flex items-center gap-1.5 cursor-pointer">
+                                <input type="checkbox" id="toggle-labels" class="w-3.5 h-3.5 accent-blueprint-900 ui-toggle" checked>
+                                <span class="text-[9px] font-bold text-slate-700 uppercase">Show</span>
+                            </label>
+                        </div>
+                        
+                        <div class="grid grid-cols-2 gap-3">
+                            <div class="flex flex-col gap-1.5">
+                                <label class="text-[9px] font-bold text-slate-400 uppercase">Font Size</label>
+                                <input type="range" id="label-size" class="ui-sync" min="8" max="36" step="1" value="14">
+                            </div>
+                            <div class="flex flex-col gap-1.5">
+                                <label class="text-[9px] font-bold text-slate-400 uppercase">Font Color</label>
+                                <div class="w-full h-8 border border-blueprint-200 rounded-sm overflow-hidden shadow-sm">
+                                    <input type="color" id="col-label" value="#64748b" class="ui-sync">
+                                </div>
+                            </div>
+                        </div>
+                        <div class="flex flex-col gap-1.5 mt-1">
+                            <label class="text-[9px] font-bold text-slate-400 uppercase">Font Family</label>
+                            <select id="font-label" class="ui-sync w-full px-2 py-1.5 bg-slate-50 border border-blueprint-200 text-xs rounded-sm outline-none focus:border-blueprint-900 shadow-sm">
+                                <option value="Inter">Inter (Clean)</option>
+                                <option value="Montserrat">Montserrat (Bold)</option>
+                                <option value="Playfair Display">Playfair (Serif)</option>
+                                <option value="JetBrains Mono">Code (Mono)</option>
+                            </select>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- 2. Style Pane -->
+                <div class="tab-pane hidden flex-col p-5 w-full gap-6" data-tab="style">
+                    <div class="flex flex-col gap-1 border-b border-blueprint-100 pb-3">
+                        <h2 class="text-xs font-black text-blueprint-900 uppercase tracking-widest font-display">Aesthetics</h2>
+                        <p class="text-[10px] text-slate-500">Apply global themes to oceans and landmasses.</p>
+                    </div>
+
+                    <!-- Presets -->
+                    <div class="flex flex-col gap-3">
+                        <label class="text-[10px] font-bold text-slate-500 uppercase tracking-wider">Preset Themes</label>
+                        <div class="grid grid-cols-2 gap-3">
+                            <button class="theme-btn px-3 py-2 bg-[#f8f9fa] text-[#212529] border-2 border-transparent hover:border-[#fbc02d] rounded-sm transition flex flex-col gap-1 shadow-sm" data-theme="vox">
+                                <span class="text-xs font-bold">Vox Style</span>
+                                <span class="block w-full h-1 bg-[#fbc02d] rounded-full"></span>
+                            </button>
+                            <button class="theme-btn px-3 py-2 bg-[#fdf6e3] text-[#431407] border-2 border-transparent hover:border-[#78350f] rounded-sm transition flex flex-col gap-1 shadow-sm" data-theme="vintage">
+                                <span class="text-xs font-bold">Old Vintage</span>
+                                <span class="block w-full h-1 bg-[#d4b483] rounded-full"></span>
+                            </button>
+                            <button class="theme-btn px-3 py-2 bg-[#292524] text-[#fef3c7] border-2 border-transparent hover:border-[#991b1b] rounded-sm transition flex flex-col gap-1 shadow-sm" data-theme="medieval">
+                                <span class="text-xs font-bold">Medieval</span>
+                                <span class="block w-full h-1 bg-[#991b1b] rounded-full"></span>
+                            </button>
+                            <button class="theme-btn px-3 py-2 bg-[#003366] text-white border-2 border-transparent hover:border-[#4facfe] rounded-sm transition flex flex-col gap-1 shadow-sm" data-theme="blueprint">
+                                <span class="text-xs font-bold">Blueprint</span>
+                                <span class="block w-full h-1 bg-[#4facfe] rounded-full"></span>
+                            </button>
+                            <button class="theme-btn px-3 py-2 bg-[#0f172a] text-[#f8fafc] border-2 border-transparent hover:border-[#ef4444] rounded-sm transition flex flex-col gap-1 shadow-sm" data-theme="dark">
+                                <span class="text-xs font-bold">Dark Neon</span>
+                                <span class="block w-full h-1 bg-[#ef4444] rounded-full"></span>
+                            </button>
+                            <button class="theme-btn px-3 py-2 bg-[#ffffff] text-[#0f172a] border-2 border-transparent hover:border-[#3b82f6] rounded-sm transition flex flex-col gap-1 shadow-sm" data-theme="minimal">
+                                <span class="text-xs font-bold">Minimalist</span>
+                                <span class="block w-full h-1 bg-[#64748b] rounded-full"></span>
+                            </button>
+                        </div>
+                    </div>
+
+                    <div class="w-full border-t border-dashed border-blueprint-200"></div>
+
+                    <!-- Base Colors -->
+                    <div class="flex flex-col gap-3">
+                        <label class="text-[10px] font-bold text-slate-500 uppercase tracking-wider">Base Map Colors</label>
+                        <div class="grid grid-cols-2 gap-3">
+                            <div class="bg-white p-3 rounded-sm border border-blueprint-200 flex flex-col gap-1.5 shadow-sm">
+                                <span class="text-[9px] font-bold text-slate-400 uppercase">Oceans</span>
+                                <div class="w-full h-8 border border-blueprint-200 rounded-sm overflow-hidden"><input type="color" id="col-ocean" class="ui-sync" value="#f8f9fa"></div>
+                            </div>
+                            <div class="bg-white p-3 rounded-sm border border-blueprint-200 flex flex-col gap-1.5 shadow-sm">
+                                <span class="text-[9px] font-bold text-slate-400 uppercase">Landmass</span>
+                                <div class="w-full h-8 border border-blueprint-200 rounded-sm overflow-hidden"><input type="color" id="col-land" class="ui-sync" value="#e9ecef"></div>
+                            </div>
+                            <div class="bg-white p-3 rounded-sm border border-blueprint-200 flex flex-col gap-1.5 shadow-sm col-span-2">
+                                <span class="text-[9px] font-bold text-slate-400 uppercase">Land Borders</span>
+                                <div class="w-full h-8 border border-blueprint-200 rounded-sm overflow-hidden"><input type="color" id="col-border" class="ui-sync" value="#ced4da"></div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- 3. Camera & Anim Pane -->
+                <div class="tab-pane hidden flex-col p-5 w-full gap-6" data-tab="camera">
+                    <div class="flex flex-col gap-1 border-b border-blueprint-100 pb-3">
+                        <h2 class="text-xs font-black text-blueprint-900 uppercase tracking-widest font-display">Camera & Engine</h2>
+                        <p class="text-[10px] text-slate-500">Configure projection and animation style.</p>
+                    </div>
+
+                    <!-- Projection -->
+                    <div class="flex flex-col gap-3">
+                        <label class="text-[10px] font-bold text-slate-500 uppercase tracking-wider">Projection Style</label>
+                        <select id="proj-style" class="ui-sync w-full px-3 py-2.5 bg-white border border-blueprint-200 text-sm font-semibold text-slate-800 outline-none focus:border-blueprint-900 rounded-sm shadow-sm">
+                            <option value="ortho" selected>3D Globe (Orthographic)</option>
+                            <option value="mercator">Flat (Mercator)</option>
+                            <option value="naturalEarth">Curved Flat (Natural Earth)</option>
+                            <option value="equirectangular">Flat (Equirectangular)</option>
+                        </select>
+                    </div>
+
+                    <!-- Anim Style -->
+                    <div class="flex flex-col gap-3 mt-2">
+                        <label class="text-[10px] font-bold text-slate-500 uppercase tracking-wider">Animation Effect</label>
+                        <select id="anim-style" class="ui-sync w-full px-3 py-2.5 bg-white border border-blueprint-200 text-sm font-semibold text-slate-800 outline-none focus:border-blueprint-900 rounded-sm shadow-sm">
+                            <option value="fly-to" selected>Fly-To Target Average</option>
+                            <option value="radial">Radial Sweep Reveal</option>
+                            <option value="fade-in">Fade In Alpha</option>
+                            <option value="none">Static (No Anim)</option>
+                        </select>
+                        
+                        <div>
+                            <div class="flex justify-between items-center mb-1">
+                                <label class="text-[9px] font-bold text-slate-400 uppercase">Duration</label>
+                                <span id="val-duration" class="text-[9px] font-bold text-blueprint-900">4.0s</span>
+                            </div>
+                            <input type="range" id="anim-duration" class="ui-sync" min="1" max="10" step="0.5" value="4.0">
+                        </div>
+                    </div>
+
+                    <div class="w-full border-t border-dashed border-blueprint-200"></div>
+
+                    <!-- Free Roam -->
+                    <div class="flex flex-col gap-4 bg-white p-4 rounded-sm border border-blueprint-200 shadow-sm">
+                        <label class="text-[10px] font-bold text-slate-500 uppercase tracking-wider">Manual Camera Focus</label>
+                        <div>
+                            <div class="flex justify-between items-center mb-1">
+                                <label class="text-[9px] font-bold text-slate-400 uppercase">Zoom</label>
+                                <span id="val-zoom" class="text-[9px] font-bold text-blueprint-900">350</span>
+                            </div>
+                            <input type="range" id="cam-zoom" min="50" max="3000" step="10" value="350">
+                        </div>
+                        <div class="grid grid-cols-2 gap-4">
+                            <div>
+                                <div class="flex justify-between items-center mb-1">
+                                    <label class="text-[9px] font-bold text-slate-400 uppercase">Lon (X)</label>
+                                    <span id="val-lon" class="text-[9px] font-bold text-blueprint-900">0°</span>
+                                </div>
+                                <input type="range" id="cam-lon" min="-180" max="180" step="1" value="0">
+                            </div>
+                            <div>
+                                <div class="flex justify-between items-center mb-1">
+                                    <label class="text-[9px] font-bold text-slate-400 uppercase">Lat (Y)</label>
+                                    <span id="val-lat" class="text-[9px] font-bold text-blueprint-900">0°</span>
+                                </div>
+                                <input type="range" id="cam-lat" min="-90" max="90" step="1" value="0">
+                            </div>
+                        </div>
+                        <button id="btn-reset-cam" class="w-full py-1.5 mt-2 bg-slate-50 border border-blueprint-200 hover:border-blueprint-900 hover:bg-blueprint-100 text-[10px] font-bold uppercase tracking-wider rounded-sm transition">Reset View</button>
+                    </div>
+                </div>
+
+            </div>
+        </aside>
+
+        <!-- CANVAS AREA -->
+        <section id="canvas-container" class="flex-1 relative overflow-hidden flex items-center justify-center p-2 sm:p-8 order-1 bg-blueprint-100">
+            <!-- 16:9 Video Canvas -->
+            <div id="canvas-wrapper" class="relative w-full max-w-[1400px] bg-slate-900 shadow-[0_20px_50px_rgba(0,51,102,0.2)] border-4 border-slate-800 flex items-center justify-center overflow-hidden" style="aspect-ratio: 16/9;">
+                <canvas id="geo-canvas" class="w-full h-full block outline-none"></canvas>
+                
+                <div id="loading-overlay" class="absolute inset-0 z-10 bg-slate-900/90 backdrop-blur-sm flex flex-col items-center justify-center transition-opacity duration-300">
+                    <div class="w-12 h-12 border-4 border-slate-700 border-t-brand-yellow rounded-full animate-spin mb-4"></div>
+                    <span class="text-sm font-black text-brand-yellow uppercase tracking-widest font-display">Loading Topology...</span>
+                </div>
+            </div>
+        </section>
+
+        <!-- Mobile Bottom Navigation Rail -->
+        <nav class="md:hidden fixed bottom-0 inset-x-0 h-16 bg-white border-t border-blueprint-200 flex items-center justify-around z-50 px-1 shadow-[0_-4px_10px_rgba(0,0,0,0.05)] pb-safe">
+            <button class="mobile-nav-btn active flex-1 flex flex-col items-center justify-center h-full gap-1" data-target="data">
+                <i class="ph-bold ph-map-pin-line text-[20px]"></i>
+                <span class="text-[9px] font-bold uppercase tracking-wider">Map</span>
+            </button>
+            <button class="mobile-nav-btn flex-1 flex flex-col items-center justify-center h-full gap-1" data-target="style">
+                <i class="ph-bold ph-palette text-[20px]"></i>
+                <span class="text-[9px] font-bold uppercase tracking-wider">Style</span>
+            </button>
+            <button class="mobile-nav-btn flex-1 flex flex-col items-center justify-center h-full gap-1" data-target="camera">
+                <i class="ph-bold ph-video-camera text-[20px]"></i>
+                <span class="text-[9px] font-bold uppercase tracking-wider">Camera</span>
+            </button>
+        </nav>
+
+        <!-- Export Modal -->
+        <div id="export-modal" class="fixed inset-0 z-[100] bg-slate-950/90 backdrop-blur-md hidden flex-col items-center justify-center p-4 transition-all duration-300 opacity-0">
+            <div class="max-w-xl w-full bg-white shadow-2xl border-4 border-blueprint-900 flex flex-col rounded-sm overflow-hidden blueprint-shadow">
+                <div class="p-8 flex flex-col gap-6">
+                    <div class="flex items-center justify-between border-b-2 border-blueprint-100 pb-4">
+                        <div class="flex flex-col">
+                            <h2 class="text-2xl font-black text-blueprint-900 uppercase tracking-tighter font-display">Rendering <span id="export-modal-format" class="text-brand-red">WEBM</span></h2>
+                            <p class="text-xs font-bold text-slate-500 uppercase tracking-widest mt-1" id="export-pct">Processing: 0%</p>
+                        </div>
+                        <div class="w-8 h-8 border-4 border-blueprint-100 border-t-blueprint-900 rounded-full animate-spin"></div>
+                    </div>
+                    <div class="w-full bg-slate-100 h-4 rounded-full overflow-hidden border border-slate-200 shadow-inner">
+                        <div id="export-bar" class="bg-blueprint-900 h-full w-0 transition-all duration-300 relative shadow-[0_0_10px_rgba(0,51,102,0.3)]"></div>
+                    </div>
+                    <button id="btn-export-cancel" class="mt-2 self-start px-5 py-2 bg-slate-100 border border-slate-300 hover:bg-slate-200 text-slate-700 font-bold text-[10px] uppercase tracking-wider rounded transition-colors">Cancel Export</button>
+                </div>
+            </div>
+        </div>
+
+    </main>
+
+    <script>
+        // --- Custom Toast System ---
+        function showToast(message, type = 'info') {
+            let container = document.getElementById('toast-container');
+            if (!container) {
+                container = document.createElement('div');
+                container.id = 'toast-container';
+                container.className = 'fixed top-20 right-6 z-[60] flex flex-col gap-3 pointer-events-none';
+                document.body.appendChild(container);
+            }
+            const toast = document.createElement('div');
+            toast.className = `bg-white border-l-4 text-slate-800 px-5 py-4 shadow-xl flex items-center gap-3 transform transition-all -translate-y-4 opacity-0 z-50`;
+            
+            let icon = 'info';
+            let borderColor = 'border-blueprint-900';
+            let iconColor = 'text-blueprint-900';
+            
+            if (type === 'success') { icon = 'check-circle'; borderColor = 'border-green-500'; iconColor = 'text-green-500'; } 
+            else if (type === 'error') { icon = 'warning'; borderColor = 'border-brand-red'; iconColor = 'text-brand-red'; }
+
+            toast.classList.add(borderColor);
+            toast.innerHTML = `<i class="ph-fill ph-${icon} text-xl ${iconColor}"></i> <span class="text-sm font-bold tracking-wide uppercase">${message}</span>`;
+            container.appendChild(toast); 
+            requestAnimationFrame(() => toast.classList.remove('-translate-y-4', 'opacity-0'));
+            setTimeout(() => { toast.classList.add('-translate-y-4', 'opacity-0'); setTimeout(() => toast.remove(), 300); }, 4000);
+        }
+
+        // --- IndexedDB Local Storage Caching Engine ---
+        const DB_NAME = 'GeoAnimatorCacheDB';
+        const STORE_NAME = 'geoData';
+        
+        let dbPromise = new Promise((resolve, reject) => {
+            const request = indexedDB.open(DB_NAME, 1);
+            request.onupgradeneeded = (e) => e.target.result.createObjectStore(STORE_NAME);
+            request.onsuccess = (e) => resolve(e.target.result);
+            request.onerror = (e) => reject(e.target.error);
+        });
+
+        async function saveToCache(key, data) {
+            try {
+                const db = await dbPromise;
+                const tx = db.transaction(STORE_NAME, 'readwrite');
+                tx.objectStore(STORE_NAME).put(data, key);
+                return new Promise(resolve => tx.oncomplete = resolve);
+            } catch(e) { console.warn("Cache save failed", e); }
+        }
+
+        async function getFromCache(key) {
+            try {
+                const db = await dbPromise;
+                return new Promise((resolve) => {
+                    const tx = db.transaction(STORE_NAME, 'readonly');
+                    const req = tx.objectStore(STORE_NAME).get(key);
+                    req.onsuccess = () => resolve(req.result);
+                    req.onerror = () => resolve(null);
+                });
+            } catch(e) { return null; }
+        }
+
+        // --- Theme Definitions ---
+        const THEMES = {
+            'vox': { ocean: '#f8f9fa', land: '#e9ecef', border: '#ced4da', highlight: '#fbc02d', label: '#212529' },
+            'medieval': { ocean: '#d4b483', land: '#e4d5b7', border: '#8b5a2b', highlight: '#991b1b', label: '#4a3018' },
+            'blueprint': { ocean: '#003366', land: '#004080', border: '#4facfe', highlight: '#ffffff', label: '#ffffff' },
+            'minimal': { ocean: '#ffffff', land: '#f1f5f9', border: '#cbd5e1', highlight: '#000000', label: '#64748b' },
+            'dark': { ocean: '#0f172a', land: '#334155', border: '#475569', highlight: '#ef4444', label: '#94a3b8' },
+            'vintage': { ocean: '#fdf6e3', land: '#d4b483', border: '#78350f', highlight: '#78350f', label: '#431407' },
+            'japanese': { ocean: '#fdfbf7', land: '#d3d3d3', border: '#2b2b2b', highlight: '#8b0000', label: '#4a4a4a' },
+            'sunset': { ocean: '#f5ebe0', land: '#e3d5ca', border: '#ffffff', highlight: '#d4a373', label: '#b5838d' }
+        };
+
+        // --- App State ---
+        const state = {
+            worldData: null,
+            resolution: '110m', // 110m, 50m, 10m
+            projectionType: 'ortho', // 'ortho', 'mercator', 'naturalEarth', 'equirectangular'
+            activeTheme: { ...THEMES['vox'] },
+            camera: {
+                lon: 0,
+                lat: 0,
+                zoom: 350
+            },
+            animStyle: 'fly-to', // 'fly-to', 'fade-in', 'radial', 'none'
+            highlightedCountries: { "Iran": "#fbc02d" }, // Dict of CountryName -> Color
+            labels: {
+                show: true,
+                size: 14,
+                font: 'Inter'
+            },
+            story: {
+                active: false,
+                progress: 0.0,
+                duration: 4000 
+            },
+            hideUnselected: false,
+            exporting: false
+        };
+
+        const exportState = { cancelled: false, activeRecorder: null };
+
+        // --- DOM Elements ---
+        const canvas = document.getElementById('geo-canvas');
+        canvas.width = 1920;
+        canvas.height = 1080;
+        // ALPHA FALSE is critical to fix WebM Green Border glitches!
+        const ctx = canvas.getContext('2d', { alpha: false });
+        const wrapper = document.getElementById('canvas-wrapper');
+
+        const loadingOverlay = document.getElementById('loading-overlay');
+        const btnPlayStory = document.getElementById('btn-play-story');
+        const btnExport = document.getElementById('btn-export');
+        const iconPlay = document.getElementById('icon-play');
+        const textPlay = document.getElementById('text-play');
+        
+        // UI Controls
+        const projStyle = document.getElementById('proj-style');
+        const camZoom = document.getElementById('cam-zoom');
+        const camLon = document.getElementById('cam-lon');
+        const camLat = document.getElementById('cam-lat');
+        const btnResetCam = document.getElementById('btn-reset-cam');
+
+        const valZoom = document.getElementById('val-zoom');
+        const valLon = document.getElementById('val-lon');
+        const valLat = document.getElementById('val-lat');
+
+        const countrySelect = document.getElementById('country-select');
+        const btnAddCountry = document.getElementById('btn-add-country');
+        const colTarget = document.getElementById('col-target');
+        const highlightList = document.getElementById('highlight-list');
+        const mapResolution = document.getElementById('map-resolution');
+
+        // --- Navigation Logic ---
+        const desktopNavBtns = document.querySelectorAll('aside .nav-btn');
+        const mobileNavBtns = document.querySelectorAll('.mobile-nav-btn');
+        const tabPanes = document.querySelectorAll('.tab-pane');
+        const propPanel = document.getElementById('properties-panel');
+        const closePanelBtn = document.getElementById('close-panel-btn');
+        const panelTitle = document.getElementById('panel-title');
+
+        const tabTitles = {
+            'data': 'Map Target & Colors',
+            'style': 'Global Aesthetics',
+            'camera': 'Camera & Animation'
+        };
+
+        let activeTab = 'data';
+        let isPanelOpenMobile = false;
+
+        function openDrawer() { 
+            if(propPanel) propPanel.classList.remove('translate-y-full'); 
+            document.body.classList.add('drawer-open'); 
+            isPanelOpenMobile = true; 
+        }
+
+        function closeDrawer() { 
+            if(propPanel) propPanel.classList.add('translate-y-full'); 
+            document.body.classList.remove('drawer-open'); 
+            isPanelOpenMobile = false; 
+            if (window.innerWidth < 768) mobileNavBtns.forEach(b => b.classList.remove('active')); 
+        }
+
+        function setupNav(btns) {
+            btns.forEach(btn => {
+                btn.addEventListener('click', () => {
+                    const target = btn.getAttribute('data-target');
+                    if (window.innerWidth < 768) {
+                        if (isPanelOpenMobile && activeTab === target) return closeDrawer();
+                        else openDrawer();
+                    }
+                    activeTab = target;
+                    if(panelTitle) panelTitle.innerText = tabTitles[target];
+
+                    desktopNavBtns.forEach(b => b.classList.remove('active'));
+                    mobileNavBtns.forEach(b => b.classList.remove('active'));
+                    
+                    document.querySelector(`aside .nav-btn[data-target="${target}"]`)?.classList.add('active');
+                    document.querySelector(`.mobile-nav-btn[data-target="${target}"]`)?.classList.add('active');
+                    
+                    tabPanes.forEach(pane => {
+                        if(pane.getAttribute('data-tab') === target) { pane.classList.remove('hidden'); pane.classList.add('flex'); }
+                        else { pane.classList.add('hidden'); pane.classList.remove('flex'); }
+                    });
+                });
+            });
+        }
+        setupNav(desktopNavBtns);
+        setupNav(mobileNavBtns);
+
+        if(closePanelBtn) closePanelBtn.addEventListener('click', closeDrawer);
+
+        // --- Data Loading & Cache ---
+        async function initData() {
+            try {
+                loadingOverlay.classList.remove('hidden');
+                setTimeout(() => loadingOverlay.classList.remove('opacity-0'), 10);
+                
+                const cacheKey = `world-atlas-${state.resolution}`;
+                let topoData = await getFromCache(cacheKey);
+
+                if (!topoData) {
+                    // Fetch dynamic resolution TopoJSON for countries if not in cache
+                    const response = await fetch(`https://unpkg.com/world-atlas@2.0.2/countries-${state.resolution}.json`);
+                    topoData = await response.json();
+                    await saveToCache(cacheKey, topoData);
+                }
+
+                state.worldData = topojson.feature(topoData, topoData.objects.countries).features;
+                
+                // Populate Country Select
+                countrySelect.innerHTML = '<option value="">None</option>';
+                let countries = state.worldData.map(d => d.properties.name).filter(Boolean);
+                countries = [...new Set(countries)].sort((a,b) => a.localeCompare(b));
+                
+                countries.forEach(c => {
+                    const opt = document.createElement('option');
+                    opt.value = c; opt.innerText = c;
+                    countrySelect.appendChild(opt);
+                });
+
+                loadingOverlay.classList.add('opacity-0');
+                setTimeout(() => loadingOverlay.classList.add('hidden'), 300);
+                
+                syncThemeToUI(); 
+                renderHighlightList();
+                renderMap(null);
+            } catch (err) {
+                console.error("Failed to load map data", err);
+                alert("Failed to load global map data. Please check internet connection.");
+            }
+        }
+
+        mapResolution.addEventListener('change', (e) => {
+            state.resolution = e.target.value;
+            initData();
+        });
+
+        // --- Highlight Management ---
+        function toggleCountryHighlight(name) {
+            if (state.highlightedCountries[name]) {
+                delete state.highlightedCountries[name];
+            } else {
+                state.highlightedCountries[name] = colTarget.value;
+            }
+            renderHighlightList();
+            if(!state.story.active) renderMap(null);
+        }
+
+        btnAddCountry.addEventListener('click', () => {
+            const val = countrySelect.value;
+            if (val) toggleCountryHighlight(val);
+        });
+
+        function renderHighlightList() {
+            highlightList.innerHTML = '';
+            const keys = Object.keys(state.highlightedCountries);
+            if (keys.length === 0) {
+                highlightList.innerHTML = `<p class="text-[10px] text-slate-400 italic py-2">No countries highlighted.</p>`;
+                return;
+            }
+            
+            keys.forEach(k => {
+                const div = document.createElement('div');
+                div.className = "flex items-center justify-between bg-white border border-blueprint-200 p-2 rounded-sm shadow-sm";
+                
+                const span = document.createElement('span');
+                span.className = "text-[10px] font-bold text-slate-700 uppercase";
+                span.innerText = k;
+
+                const rightDiv = document.createElement('div');
+                rightDiv.className = "flex items-center gap-2";
+
+                const colorPick = document.createElement('input');
+                colorPick.type = "color";
+                colorPick.value = state.highlightedCountries[k];
+                colorPick.className = "w-6 h-6 border-none cursor-pointer p-0 bg-transparent rounded-sm";
+                colorPick.addEventListener('input', (e) => {
+                    state.highlightedCountries[k] = e.target.value;
+                    if(!state.story.active) renderMap(null);
+                });
+
+                const delBtn = document.createElement('button');
+                delBtn.innerHTML = '<i class="ph-bold ph-trash"></i>';
+                delBtn.className = "text-slate-400 hover:text-brand-red transition";
+                delBtn.onclick = () => {
+                    delete state.highlightedCountries[k];
+                    renderHighlightList();
+                    if(!state.story.active) renderMap(null);
+                }
+
+                rightDiv.appendChild(colorPick);
+                rightDiv.appendChild(delBtn);
+                div.appendChild(span);
+                div.appendChild(rightDiv);
+
+                highlightList.appendChild(div);
+            });
+        }
+
+        // --- Interaction: Click on Canvas to Highlight ---
+        wrapper.addEventListener('click', (e) => {
+            if (state.story.active || state.exporting || isDragging) return;
+            const rect = canvas.getBoundingClientRect();
+            
+            const scaleX = canvas.width / rect.width;
+            const scaleY = canvas.height / rect.height;
+            const x = (e.clientX - rect.left) * scaleX;
+            const y = (e.clientY - rect.top) * scaleY;
+            
+            const W = canvas.width;
+            const H = canvas.height;
+            const scaleFactor = (W/1920);
+            const finalZoom = state.camera.zoom * scaleFactor;
+            
+            let localProj;
+            if (state.projectionType === 'ortho') localProj = d3.geoOrthographic();
+            else if (state.projectionType === 'mercator') localProj = d3.geoMercator();
+            else if (state.projectionType === 'naturalEarth') localProj = d3.geoNaturalEarth1();
+            else localProj = d3.geoEquirectangular();
+            
+            localProj.scale(finalZoom)
+                     .translate([W/2, H/2])
+                     .rotate([-state.camera.lon, -state.camera.lat]);
+                     
+            const lonlat = localProj.invert([x, y]);
+            if (!lonlat) return;
+            
+            if (state.projectionType === 'ortho') {
+                const dist = d3.geoDistance(lonlat, [state.camera.lon, state.camera.lat]);
+                if (dist > Math.PI / 2) return; 
+            }
+
+            const clickedCountry = state.worldData.find(d => d3.geoContains(d, lonlat));
+            if (clickedCountry && clickedCountry.properties.name) {
+                toggleCountryHighlight(clickedCountry.properties.name);
+            }
+        });
+
+        // --- UI Syncing ---
+        function syncThemeToUI() {
+            document.getElementById('col-ocean').value = state.activeTheme.ocean;
+            document.getElementById('col-land').value = state.activeTheme.land;
+            document.getElementById('col-border').value = state.activeTheme.border;
+            document.getElementById('col-label').value = state.activeTheme.label;
+            
+            document.getElementById('toggle-labels').checked = state.labels.show;
+            document.getElementById('label-size').value = state.labels.size;
+            document.getElementById('font-label').value = state.labels.font;
+            
+            document.getElementById('anim-style').value = state.animStyle;
+            document.getElementById('proj-style').value = state.projectionType;
+            document.getElementById('anim-duration').value = state.story.duration / 1000;
+            document.getElementById('val-duration').innerText = (state.story.duration / 1000).toFixed(1) + 's';
+            document.getElementById('toggle-unselected').checked = state.hideUnselected;
+        }
+
+        function syncUIToTheme() {
+            state.activeTheme.ocean = document.getElementById('col-ocean').value;
+            state.activeTheme.land = document.getElementById('col-land').value;
+            state.activeTheme.border = document.getElementById('col-border').value;
+            state.activeTheme.label = document.getElementById('col-label').value;
+
+            state.labels.show = document.getElementById('toggle-labels').checked;
+            state.labels.size = parseInt(document.getElementById('label-size').value);
+            state.labels.font = document.getElementById('font-label').value;
+
+            state.animStyle = document.getElementById('anim-style').value;
+            state.projectionType = document.getElementById('proj-style').value;
+            state.story.duration = parseFloat(document.getElementById('anim-duration').value) * 1000;
+            document.getElementById('val-duration').innerText = (state.story.duration / 1000).toFixed(1) + 's';
+            
+            state.hideUnselected = document.getElementById('toggle-unselected').checked;
+
+            if(!state.story.active) renderMap(null);
+        }
+
+        document.querySelectorAll('.ui-sync, .ui-toggle').forEach(el => el.addEventListener('input', syncUIToTheme));
+        document.querySelectorAll('.ui-toggle').forEach(el => el.addEventListener('change', syncUIToTheme));
+
+        document.querySelectorAll('.theme-btn').forEach(btn => {
+            btn.addEventListener('click', () => {
+                const themeKey = btn.getAttribute('data-theme');
+                state.activeTheme = { ...THEMES[themeKey] };
+                syncThemeToUI();
+                if(!state.story.active) renderMap(null);
+            });
+        });
+
+        // --- Rendering Engine ---
+        function renderFrameToTarget(p, targetCtx, W, H) {
+            let currentZoom = state.camera.zoom;
+            let currentLon = state.camera.lon;
+            let currentLat = state.camera.lat;
+
+            // Target Centroid Calculation
+            let targetCentroid = [0, 0];
+            const activeFeatures = state.worldData.filter(d => state.highlightedCountries[d.properties.name]);
+            if (activeFeatures.length > 0) {
+                const fc = {type: "FeatureCollection", features: activeFeatures};
+                targetCentroid = d3.geoCentroid(fc);
+            } else {
+                targetCentroid = [state.camera.lon, state.camera.lat];
+            }
+
+            // Animation Logic
+            if (p !== null) {
+                if (state.animStyle === 'fly-to') {
+                    const rotP = d3.easeCubicInOut(p);
+                    currentLon = d3.interpolateNumber(state.camera.lon, targetCentroid[0])(rotP);
+                    currentLat = d3.interpolateNumber(state.camera.lat, targetCentroid[1])(rotP);
+                    currentZoom = state.camera.zoom + Math.sin(p * Math.PI) * (state.camera.zoom * 0.3);
+                }
+            }
+
+            const scaleFactor = (W/1920);
+            currentZoom = currentZoom * scaleFactor;
+
+            // Setup local projection
+            let localProj;
+            if (state.projectionType === 'ortho') localProj = d3.geoOrthographic();
+            else if (state.projectionType === 'mercator') localProj = d3.geoMercator();
+            else if (state.projectionType === 'naturalEarth') localProj = d3.geoNaturalEarth1();
+            else localProj = d3.geoEquirectangular();
+            
+            localProj.scale(currentZoom)
+                     .translate([W/2, H/2])
+                     .rotate([-currentLon, -currentLat]);
+                     
+            let localPath = d3.geoPath().projection(localProj).context(targetCtx);
+
+            // Fill solid background 
+            targetCtx.fillStyle = state.activeTheme.ocean;
+            targetCtx.fillRect(0, 0, W, H);
+
+            if (p !== null && state.animStyle === 'radial' && p < 1.0) {
+                targetCtx.save();
+                targetCtx.beginPath();
+                const maxRadius = Math.sqrt(W*W + H*H);
+                targetCtx.arc(W/2, H/2, maxRadius * d3.easeCubicOut(p), 0, Math.PI * 2);
+                targetCtx.clip();
+                targetCtx.fillStyle = state.activeTheme.ocean;
+                targetCtx.fillRect(0, 0, W, H); 
+            }
+
+            if (p !== null && state.animStyle === 'fade-in') {
+                targetCtx.globalAlpha = p;
+            }
+
+            if (state.projectionType === 'ortho') {
+                targetCtx.beginPath();
+                localPath({type: "Sphere"});
+                targetCtx.fillStyle = state.activeTheme.ocean;
+                targetCtx.fill();
+            }
+
+            // Draw Countries
+            state.worldData.forEach(country => {
+                const cName = country.properties.name;
+                const isHighlighted = !!state.highlightedCountries[cName];
+                
+                // Performance Check: Hide unselected if toggled
+                if (state.hideUnselected && !isHighlighted) return;
+
+                targetCtx.beginPath();
+                localPath(country);
+                
+                if (isHighlighted) {
+                    targetCtx.fillStyle = state.highlightedCountries[cName];
+                } else {
+                    targetCtx.fillStyle = state.activeTheme.land;
+                }
+                
+                targetCtx.fill();
+                targetCtx.strokeStyle = state.activeTheme.border;
+                targetCtx.lineWidth = Math.max(1.5 * scaleFactor, 1.0); 
+                targetCtx.stroke();
+            });
+
+            // Draw Labels
+            if (state.labels.show) {
+                const labelSize = state.labels.size * scaleFactor;
+                targetCtx.font = `800 ${labelSize}px "${state.labels.font}"`;
+                targetCtx.fillStyle = state.activeTheme.label;
+                targetCtx.textAlign = 'center';
+                targetCtx.textBaseline = 'middle';
+                
+                targetCtx.strokeStyle = state.activeTheme.land;
+                targetCtx.lineWidth = 3 * scaleFactor;
+
+                state.worldData.forEach(country => {
+                    const name = country.properties.name;
+                    if (!name || !state.highlightedCountries[name]) return; 
+
+                    const centroid = d3.geoCentroid(country);
+                    
+                    if (state.projectionType === 'ortho') {
+                        const dist = d3.geoDistance(centroid, [currentLon, currentLat]);
+                        if (dist > Math.PI / 2.2) return; 
+                    }
+
+                    const projected = localProj(centroid);
+                    if (projected) {
+                        targetCtx.strokeText(name, projected[0], projected[1]);
+                        targetCtx.fillText(name, projected[0], projected[1]);
+                    }
+                });
+            }
+
+            targetCtx.globalAlpha = 1.0;
+
+            if (p !== null && state.animStyle === 'radial' && p < 1.0) {
+                targetCtx.restore(); 
+            }
+        }
+
+        function renderMap(overrideProgress = null) {
+            if (!state.worldData) return;
+            renderFrameToTarget(overrideProgress, ctx, canvas.width, canvas.height);
+        }
+
+        // --- Interaction: Drag Globe ---
+        let isDragging = false;
+        let lastPos = null;
+        let dragDist = 0;
+        
+        wrapper.addEventListener('mousedown', (e) => {
+            if (state.story.active || state.exporting) return;
+            isDragging = true;
+            dragDist = 0;
+            lastPos = [e.clientX, e.clientY];
+        });
+        
+        window.addEventListener('mouseup', () => { 
+            isDragging = false; 
+            lastPos = null; 
+        });
+        
+        window.addEventListener('mousemove', (e) => {
+            if (!isDragging || state.story.active || state.exporting) return;
+            const dx = e.clientX - lastPos[0];
+            const dy = e.clientY - lastPos[1];
+            dragDist += Math.hypot(dx, dy);
+            
+            const sens = 100 / state.camera.zoom;
+            state.camera.lon -= dx * sens;
+            state.camera.lat += dy * sens;
+            
+            state.camera.lat = Math.max(-90, Math.min(90, state.camera.lat));
+            
+            camLon.value = state.camera.lon;
+            camLat.value = state.camera.lat;
+            valLon.innerText = Math.round(state.camera.lon) + '°';
+            valLat.innerText = Math.round(state.camera.lat) + '°';
+
+            lastPos = [e.clientX, e.clientY];
+            renderMap(null);
+        });
+
+        // --- UI Listeners (Camera) ---
+        camZoom.addEventListener('input', (e) => {
+            state.camera.zoom = parseInt(e.target.value);
+            valZoom.innerText = state.camera.zoom;
+            renderMap(null);
+        });
+        camLon.addEventListener('input', (e) => {
+            state.camera.lon = parseInt(e.target.value);
+            valLon.innerText = state.camera.lon + '°';
+            renderMap(null);
+        });
+        camLat.addEventListener('input', (e) => {
+            state.camera.lat = parseInt(e.target.value);
+            valLat.innerText = state.camera.lat + '°';
+            renderMap(null);
+        });
+        btnResetCam.addEventListener('click', () => {
+            state.camera.zoom = 350; state.camera.lon = 0; state.camera.lat = 0;
+            camZoom.value = 350; camLon.value = 0; camLat.value = 0;
+            valZoom.innerText = '350'; valLon.innerText = '0°'; valLat.innerText = '0°';
+            renderMap(null);
+        });
+
+        // --- Animation Engine ---
+        function runStory() {
+            if(state.exporting) return;
+            state.story.active = true;
+            
+            btnPlayStory.classList.add('bg-brand-red', 'text-white', 'border-brand-red');
+            btnPlayStory.classList.remove('bg-white', 'text-blueprint-900', 'border-blueprint-900');
+            iconPlay.classList.replace('ph-play-circle', 'ph-stop-circle');
+            textPlay.innerText = 'Stop';
+            
+            let startTime = null;
+
+            function loop(timestamp) {
+                if(!state.story.active) {
+                    resetStoryBtn();
+                    renderMap(null); 
+                    return;
+                }
+                
+                if (!startTime) startTime = timestamp;
+                const elapsed = timestamp - startTime;
+                let p = elapsed / state.story.duration;
+
+                if (p < 1.0) {
+                    renderMap(p);
+                    requestAnimationFrame(loop);
+                } else {
+                    renderMap(1.0);
+                    state.story.active = false;
+                    resetStoryBtn();
+                    
+                    if (state.animStyle === 'fly-to') {
+                        const activeFeatures = state.worldData.filter(d => state.highlightedCountries[d.properties.name]);
+                        if (activeFeatures.length > 0) {
+                            const fc = {type: "FeatureCollection", features: activeFeatures};
+                            const centroid = d3.geoCentroid(fc);
+                            state.camera.lon = centroid[0];
+                            state.camera.lat = centroid[1];
+                            camLon.value = state.camera.lon;
+                            camLat.value = state.camera.lat;
+                            valLon.innerText = Math.round(state.camera.lon) + '°';
+                            valLat.innerText = Math.round(state.camera.lat) + '°';
+                        }
+                    }
+                }
+            }
+            requestAnimationFrame(loop);
+        }
+
+        function resetStoryBtn() {
+            btnPlayStory.classList.remove('bg-brand-red', 'text-white', 'border-brand-red');
+            btnPlayStory.classList.add('bg-white', 'text-blueprint-900', 'border-blueprint-900');
+            iconPlay.classList.replace('ph-stop-circle', 'ph-play-circle');
+            textPlay.innerText = 'Preview Anim';
+        }
+
+        btnPlayStory.addEventListener('click', () => {
+            if (state.story.active) state.story.active = false;
+            else runStory();
+        });
+
+        // --- Export Logic ---
+        const exportModal = document.getElementById('export-modal');
+        const exportPctText = document.getElementById('export-pct');
+        const exportBar = document.getElementById('export-bar');
+        const btnExportCancel = document.getElementById('btn-export-cancel');
+
+        function openExportModal(formatText) {
+            document.getElementById('export-modal-format').innerText = formatText;
+            exportModal.classList.remove('hidden');
+            setTimeout(() => exportModal.classList.add('opacity-100'), 10);
+            exportPctText.innerText = "Processing: 0%";
+            exportBar.style.width = "0%";
+            exportState.cancelled = false;
+        }
+
+        function closeExportModal() {
+            exportModal.classList.remove('opacity-100');
+            setTimeout(() => {
+                exportModal.classList.add('hidden');
+                exportProgressBar.style.width = "0%";
+            }, 300);
+            state.exporting = false;
+            state.story.active = false;
+            resetStoryBtn();
+            renderMap(null);
+        }
+
+        btnExportCancel.addEventListener('click', () => {
+            exportState.cancelled = true;
+            if (exportState.activeRecorder) exportState.activeRecorder.stop();
+            closeExportModal();
+        });
+
+        document.getElementById('btn-export').addEventListener('click', () => {
+            if (state.exporting || state.story.active) return;
+            state.exporting = true;
+            
+            const targetWidth = parseInt(document.getElementById('export-res').value);
+            const targetHeight = Math.floor(targetWidth * (9/16));
+            const fmt = document.getElementById('export-fmt').value;
+
+            const expCanvas = document.createElement('canvas');
+            expCanvas.width = targetWidth;
+            expCanvas.height = targetHeight;
+            const expCtx = expCanvas.getContext('2d', { alpha: false });
+
+            if (fmt === 'png') {
+                renderFrameToTarget(1.0, expCtx, targetWidth, targetHeight);
+                const url = expCanvas.toDataURL("image/png");
+                const a = document.createElement('a');
+                a.href = url;
+                a.download = `GeoPoster_${targetWidth}w.png`;
+                a.click();
+                showToast('Poster PNG exported successfully!', 'success');
+                state.exporting = false;
+                return;
+            }
+
+            let mediaRecorder;
+            let recordedChunks = [];
+            
+            try {
+                const stream = expCanvas.captureStream(60);
+                let options = { mimeType: 'video/webm;codecs=vp9' };
+                if (!MediaRecorder.isTypeSupported(options.mimeType)) options = { mimeType: 'video/webm' };
+                options.videoBitsPerSecond = 20000000;
+
+                mediaRecorder = new MediaRecorder(stream, options);
+                exportState.activeRecorder = mediaRecorder;
+
+                mediaRecorder.ondataavailable = (e) => { if (e.data.size > 0) recordedChunks.push(e.data); };
+                mediaRecorder.onstop = () => {
+                    if (exportState.cancelled) return;
+                    const blob = new Blob(recordedChunks, { type: options.mimeType.split(';')[0] });
+                    const url = URL.createObjectURL(blob);
+                    const a = document.createElement('a');
+                    a.style.display = 'none';
+                    a.href = url;
+                    a.download = `GeoExplainer_${targetWidth}p.webm`;
+                    document.body.appendChild(a);
+                    a.click();
+                    setTimeout(() => { document.body.removeChild(a); window.URL.revokeObjectURL(url); }, 100);
+                    closeExportModal();
+                };
+
+                openExportModal('WEBM');
+                mediaRecorder.start();
+
+                let startTime = null;
+                const durationMs = state.story.duration;
+
+                function recordLoop(currentTime) {
+                    if (exportState.cancelled) return;
+                    if (!startTime) startTime = currentTime;
+                    
+                    const elapsed = currentTime - startTime;
+                    const p = Math.min(elapsed / durationMs, 1.0);
+
+                    renderFrameToTarget(p, expCtx, targetWidth, targetHeight);
+                    renderFrameToTarget(p, ctx, canvas.width, canvas.height);
+
+                    exportPctText.innerText = `Recording: ${Math.round(p * 100)}%`;
+                    exportBar.style.width = `${p * 100}%`;
+
+                    if (p < 1.0) {
+                        requestAnimationFrame(recordLoop);
+                    } else {
+                        exportPctText.innerText = 'Finalizing WEBM...';
+                        exportBar.style.width = '100%';
+                        setTimeout(() => { if(mediaRecorder.state !== 'inactive') mediaRecorder.stop(); }, 500);
+                    }
+                }
+                
+                requestAnimationFrame(recordLoop);
+
+            } catch (err) {
+                console.error(err);
+                alert("Recording failed. Browser issue.");
+                closeExportModal();
+            }
+        });
+
+        // Initialize App
+        initData();
+
+    </script>
+</body>
+</html>

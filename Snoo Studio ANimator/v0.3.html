@@ -1,0 +1,1098 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+    <title>SnooStudio - Character Animator</title>
+    
+    <!-- Google Fonts -->
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=IBM+Plex+Sans:wght@400;500;600;700&display=swap" rel="stylesheet">
+
+    <!-- Tailwind CSS -->
+    <script src="https://cdn.tailwindcss.com"></script>
+    <script>
+        tailwind.config = {
+            theme: {
+                extend: {
+                    fontFamily: {
+                        sans: ['"IBM Plex Sans"', 'sans-serif'],
+                    },
+                    colors: {
+                        reddit: {
+                            orange: '#FF4500',
+                            dark: '#1A1A1B',
+                            gray: '#878A8C',
+                            light: '#DAE0E6',
+                            hover: '#e2e7ec'
+                        }
+                    },
+                    boxShadow: {
+                        'soft': '0 4px 20px rgba(0,0,0,0.05)',
+                        'inner-soft': 'inset 0 2px 4px rgba(0,0,0,0.05)'
+                    }
+                }
+            }
+        }
+    </script>
+
+    <!-- Phosphor Icons -->
+    <script src="https://unpkg.com/@phosphor-icons/web"></script>
+
+    <style>
+        body {
+            background-color: #DAE0E6;
+            overscroll-behavior-y: none;
+        }
+
+        /* Custom Scrollbar */
+        ::-webkit-scrollbar { width: 6px; height: 6px; }
+        ::-webkit-scrollbar-track { background: transparent; }
+        ::-webkit-scrollbar-thumb { background: #cbd5e1; border-radius: 10px; }
+        ::-webkit-scrollbar-thumb:hover { background: #94a3b8; }
+
+        /* Custom Range Slider */
+        input[type=range] {
+            -webkit-appearance: none;
+            width: 100%;
+            background: transparent;
+        }
+        input[type=range]::-webkit-slider-thumb {
+            -webkit-appearance: none;
+            height: 16px;
+            width: 16px;
+            border-radius: 50%;
+            background: #FF4500;
+            cursor: pointer;
+            margin-top: -6px;
+            box-shadow: 0 1px 3px rgba(0,0,0,0.3);
+            border: 2px solid white;
+        }
+        input[type=range]::-webkit-slider-runnable-track {
+            width: 100%;
+            height: 4px;
+            cursor: pointer;
+            background: #e2e8f0;
+            border-radius: 2px;
+        }
+        input[type=range]:focus::-webkit-slider-runnable-track {
+            background: #cbd5e1;
+        }
+
+        /* Custom Color Picker */
+        input[type="color"] {
+            -webkit-appearance: none;
+            border: none;
+            width: 100%;
+            height: 100%;
+            padding: 0;
+            cursor: pointer;
+            background: transparent;
+            border-radius: 9999px;
+            overflow: hidden;
+        }
+        input[type="color"]::-webkit-color-swatch-wrapper { padding: 0; }
+        input[type="color"]::-webkit-color-swatch { border: none; border-radius: 9999px; border: 2px solid rgba(0,0,0,0.1); }
+
+        .feature-btn {
+            transition: all 0.2s ease;
+        }
+        .feature-btn.active {
+            border-color: #FF4500;
+            background-color: #fff5f2;
+            color: #FF4500;
+        }
+    </style>
+</head>
+<body class="text-reddit-dark h-screen flex flex-col overflow-hidden">
+
+    <!-- HEADER -->
+    <header class="h-16 bg-white border-b border-gray-200 flex items-center justify-between px-6 flex-shrink-0 z-20 shadow-sm relative">
+        <div class="flex items-center gap-3">
+            <div class="w-8 h-8 rounded-full bg-reddit-orange flex items-center justify-center text-white">
+                <i class="ph-fill ph-alien text-xl"></i>
+            </div>
+            <h1 class="text-xl font-bold tracking-tight">SnooStudio <span class="text-reddit-gray font-normal text-sm ml-1 hidden sm:inline">Animator Pro</span></h1>
+        </div>
+
+        <div class="flex items-center gap-3">
+            <button id="btn-export" class="flex items-center gap-2 px-5 py-2 bg-reddit-orange hover:bg-[#e03d00] text-white font-semibold rounded-full transition-colors text-sm shadow-md hover:shadow-lg active:scale-95">
+                <i class="ph-bold ph-video-camera text-lg"></i>
+                <span class="hidden sm:inline">Export WebM</span>
+            </button>
+        </div>
+    </header>
+
+    <!-- MAIN CONTENT -->
+    <main class="flex-1 flex flex-col md:flex-row overflow-hidden relative">
+        
+        <!-- Recording Overlay -->
+        <div id="recording-overlay" class="absolute inset-0 bg-white/80 backdrop-blur-sm z-50 hidden flex-col items-center justify-center">
+            <div class="bg-white p-8 rounded-2xl shadow-2xl flex flex-col items-center gap-4 max-w-sm w-full border border-gray-100">
+                <div class="relative">
+                    <div class="w-16 h-16 border-4 border-gray-200 border-t-reddit-orange rounded-full animate-spin"></div>
+                    <i class="ph-fill ph-record absolute top-1/2 left-1/2 transform -translate-x-1/2 -translate-y-1/2 text-reddit-orange text-xl animate-pulse"></i>
+                </div>
+                <h3 class="text-lg font-bold text-reddit-dark">Recording Video...</h3>
+                <div class="w-full bg-gray-100 rounded-full h-2.5 overflow-hidden">
+                    <div id="record-progress" class="bg-reddit-orange h-2.5 rounded-full transition-all duration-100 w-0"></div>
+                </div>
+                <p class="text-sm text-reddit-gray" id="record-status">Capturing frames</p>
+            </div>
+        </div>
+
+        <!-- SIDEBAR CONTROLS -->
+        <aside class="w-full md:w-[380px] bg-white border-b md:border-b-0 md:border-r border-gray-200 flex flex-col z-10 flex-shrink-0 h-[45vh] md:h-full order-2 md:order-1 shadow-soft">
+            
+            <div class="flex-1 overflow-y-auto p-6 space-y-8">
+                
+                <!-- PRESETS -->
+                <div>
+                    <div class="flex items-center justify-between mb-3">
+                        <h2 class="text-xs font-bold uppercase tracking-wider text-reddit-gray flex items-center gap-2">
+                            <i class="ph-bold ph-magic-wand"></i> Presets
+                        </h2>
+                    </div>
+                    <div class="grid grid-cols-3 gap-2">
+                        <button class="preset-btn py-2 bg-gray-50 border border-gray-200 rounded-lg hover:border-reddit-orange hover:bg-orange-50 text-xs font-semibold transition flex flex-col items-center gap-1" data-preset="classic">
+                            <span class="text-lg">👋</span> Classic
+                        </button>
+                        <button class="preset-btn py-2 bg-gray-50 border border-gray-200 rounded-lg hover:border-reddit-orange hover:bg-orange-50 text-xs font-semibold transition flex flex-col items-center gap-1" data-preset="cheeky">
+                            <span class="text-lg">😜</span> Cheeky
+                        </button>
+                        <button class="preset-btn py-2 bg-gray-50 border border-gray-200 rounded-lg hover:border-reddit-orange hover:bg-orange-50 text-xs font-semibold transition flex flex-col items-center gap-1" data-preset="sad">
+                            <span class="text-lg">😢</span> Sad
+                        </button>
+                        <button class="preset-btn py-2 bg-gray-50 border border-gray-200 rounded-lg hover:border-reddit-orange hover:bg-orange-50 text-xs font-semibold transition flex flex-col items-center gap-1" data-preset="happy">
+                            <span class="text-lg">😄</span> Joy
+                        </button>
+                        <button class="preset-btn py-2 bg-gray-50 border border-gray-200 rounded-lg hover:border-reddit-orange hover:bg-orange-50 text-xs font-semibold transition flex flex-col items-center gap-1" data-preset="alien">
+                            <span class="text-lg">👽</span> Alien
+                        </button>
+                        <button class="preset-btn py-2 bg-gray-50 border border-gray-200 rounded-lg hover:border-reddit-orange hover:bg-orange-50 text-xs font-semibold transition flex flex-col items-center gap-1" data-preset="goth">
+                            <span class="text-lg">🖤</span> Dark
+                        </button>
+                    </div>
+                </div>
+
+                <hr class="border-gray-100">
+
+                <!-- ANIMATION -->
+                <div>
+                    <h2 class="text-xs font-bold uppercase tracking-wider text-reddit-gray flex items-center gap-2 mb-3">
+                        <i class="ph-bold ph-film-strip"></i> Animation
+                    </h2>
+                    <div class="grid grid-cols-2 gap-2">
+                        <button class="anim-btn feature-btn active py-2.5 px-3 border border-gray-200 rounded-xl text-sm font-medium flex items-center gap-2 justify-center" data-anim="idle">
+                            <i class="ph-bold ph-person"></i> Idle
+                        </button>
+                        <button class="anim-btn feature-btn py-2.5 px-3 border border-gray-200 rounded-xl text-sm font-medium flex items-center gap-2 justify-center" data-anim="wave">
+                            <i class="ph-bold ph-hand-waving"></i> Wave
+                        </button>
+                        <button class="anim-btn feature-btn py-2.5 px-3 border border-gray-200 rounded-xl text-sm font-medium flex items-center gap-2 justify-center" data-anim="bounce">
+                            <i class="ph-bold ph-arrow-up-down"></i> Bounce
+                        </button>
+                        <button class="anim-btn feature-btn py-2.5 px-3 border border-gray-200 rounded-xl text-sm font-medium flex items-center gap-2 justify-center" data-anim="look">
+                            <i class="ph-bold ph-eyes"></i> Look Around
+                        </button>
+                    </div>
+                </div>
+
+                <hr class="border-gray-100">
+
+                <!-- COLORS -->
+                <div>
+                    <h2 class="text-xs font-bold uppercase tracking-wider text-reddit-gray flex items-center gap-2 mb-3">
+                        <i class="ph-bold ph-palette"></i> Colors & Materials
+                    </h2>
+                    <div class="grid grid-cols-3 gap-y-4 gap-x-2">
+                        <div class="flex flex-col items-center gap-2">
+                            <div class="w-8 h-8 rounded-full border-2 border-gray-200 relative shadow-inner-soft p-0.5">
+                                <input type="color" id="color-bg" value="#FF45B5">
+                            </div>
+                            <span class="text-[9px] font-semibold text-gray-500 uppercase">Background</span>
+                        </div>
+                        <div class="flex flex-col items-center gap-2">
+                            <div class="w-8 h-8 rounded-full border-2 border-gray-200 relative shadow-inner-soft p-0.5">
+                                <input type="color" id="color-eye" value="#FF4500">
+                            </div>
+                            <span class="text-[9px] font-semibold text-gray-500 uppercase">Eyes</span>
+                        </div>
+                        <div class="flex flex-col items-center gap-2">
+                            <div class="w-8 h-8 rounded-full border-2 border-gray-200 relative shadow-inner-soft p-0.5">
+                                <input type="color" id="color-tongue" value="#ff4d94">
+                            </div>
+                            <span class="text-[9px] font-semibold text-gray-500 uppercase">Tongue</span>
+                        </div>
+                        <div class="flex flex-col items-center gap-2">
+                            <div class="w-8 h-8 rounded-full border-2 border-gray-200 relative shadow-inner-soft p-0.5">
+                                <input type="color" id="color-head" value="#ffffff">
+                            </div>
+                            <span class="text-[9px] font-semibold text-gray-500 uppercase">Head</span>
+                        </div>
+                        <div class="flex flex-col items-center gap-2">
+                            <div class="w-8 h-8 rounded-full border-2 border-gray-200 relative shadow-inner-soft p-0.5">
+                                <input type="color" id="color-body" value="#ffffff">
+                            </div>
+                            <span class="text-[9px] font-semibold text-gray-500 uppercase">Body</span>
+                        </div>
+                        <div class="flex flex-col items-center gap-2">
+                            <div class="w-8 h-8 rounded-full border-2 border-gray-200 relative shadow-inner-soft p-0.5">
+                                <input type="color" id="color-arms" value="#ffffff">
+                            </div>
+                            <span class="text-[9px] font-semibold text-gray-500 uppercase">Arms</span>
+                        </div>
+                    </div>
+                </div>
+
+                <hr class="border-gray-100">
+
+                <!-- FEATURES -->
+                <div class="space-y-5">
+                    
+                    <!-- Eyes -->
+                    <div>
+                        <label class="block text-xs font-bold text-reddit-dark mb-2">Eyes</label>
+                        <div class="flex flex-wrap gap-2">
+                            <button class="eye-btn feature-btn active w-12 h-10 border border-gray-200 rounded-lg flex items-center justify-center text-xl bg-gray-50" data-val="normal">O</button>
+                            <button class="eye-btn feature-btn w-12 h-10 border border-gray-200 rounded-lg flex items-center justify-center text-xl bg-gray-50" data-val="happy">^</button>
+                            <button class="eye-btn feature-btn w-12 h-10 border border-gray-200 rounded-lg flex items-center justify-center text-xl bg-gray-50" data-val="wink">;-)</button>
+                            <button class="eye-btn feature-btn w-12 h-10 border border-gray-200 rounded-lg flex items-center justify-center text-xl bg-gray-50" data-val="sad">T_T</button>
+                            <button class="eye-btn feature-btn w-12 h-10 border border-gray-200 rounded-lg flex items-center justify-center text-xl bg-gray-50" data-val="wide">O_O</button>
+                        </div>
+                    </div>
+
+                    <!-- Mouth -->
+                    <div>
+                        <label class="block text-xs font-bold text-reddit-dark mb-2">Mouth</label>
+                        <div class="flex flex-wrap gap-2">
+                            <button class="mouth-btn feature-btn active w-12 h-10 border border-gray-200 rounded-lg flex items-center justify-center text-xl bg-gray-50" data-val="smile">‿</button>
+                            <button class="mouth-btn feature-btn w-12 h-10 border border-gray-200 rounded-lg flex items-center justify-center text-xl bg-gray-50" data-val="open">D</button>
+                            <button class="mouth-btn feature-btn w-12 h-10 border border-gray-200 rounded-lg flex items-center justify-center text-xl bg-gray-50" title="Tongue Out" data-val="tongue">😛</button>
+                            <button class="mouth-btn feature-btn w-12 h-10 border border-gray-200 rounded-lg flex items-center justify-center text-xl bg-gray-50" data-val="sad">︵</button>
+                            <button class="mouth-btn feature-btn w-12 h-10 border border-gray-200 rounded-lg flex items-center justify-center text-xl bg-gray-50" data-val="neutral">—</button>
+                        </div>
+                    </div>
+
+                    <!-- Antenna -->
+                    <div>
+                        <label class="block text-xs font-bold text-reddit-dark mb-2">Antenna Style</label>
+                        <select id="select-antenna" class="w-full bg-gray-50 border border-gray-200 text-gray-900 text-sm rounded-xl focus:ring-reddit-orange focus:border-reddit-orange block p-2.5 outline-none font-medium cursor-pointer">
+                            <option value="classic">Classic Bent</option>
+                            <option value="straight">Straight Up</option>
+                            <option value="zigzag">Zig-Zag</option>
+                            <option value="droop">Drooping</option>
+                        </select>
+                    </div>
+
+                </div>
+
+            </div>
+            
+            <!-- Export Duration Settings -->
+            <div class="p-5 border-t border-gray-200 bg-gray-50">
+                <div class="flex justify-between items-center mb-2">
+                    <label class="block text-xs font-bold text-reddit-gray uppercase">Export Duration</label>
+                    <span id="duration-val" class="text-xs font-bold text-reddit-dark bg-white px-2 py-0.5 rounded shadow-sm">4 Sec</span>
+                </div>
+                <input type="range" id="export-duration" min="2" max="10" step="1" value="4">
+            </div>
+
+        </aside>
+
+        <!-- CANVAS AREA -->
+        <section id="canvas-container" class="flex-1 relative overflow-hidden flex items-center justify-center order-1 md:order-2 bg-[url('data:image/svg+xml;base64,PHN2ZyB3aWR0aD0iMjAiIGhlaWdodD0iMjAiIHhtbG5zPSJodHRwOi8vd3d3LnczLm9yZy8yMDAwL3N2ZyI+PGNpcmNsZSBjeD0iMiIgY3k9IjIiIHI9IjEiIGZpbGw9InJnYmEoMCwwLDAsMC4wNSkiLz48L3N2Zz4=')]">
+            
+            <!-- Visual Canvas (Scales to fit screen) -->
+            <div class="relative w-full h-full flex items-center justify-center p-4">
+                <canvas id="render-canvas" class="w-full max-w-[800px] aspect-square shadow-2xl rounded-2xl overflow-hidden bg-transparent" style="max-height: 85vh;"></canvas>
+            </div>
+
+            <!-- Toast Container -->
+            <div id="toast-container" class="absolute top-6 right-6 z-50 flex flex-col gap-2 pointer-events-none"></div>
+        </section>
+
+    </main>
+
+    <script>
+        
+        // --- Color Utility ---
+        function shadeColor(color, percent) {
+            let R = parseInt(color.substring(1,3),16);
+            let G = parseInt(color.substring(3,5),16);
+            let B = parseInt(color.substring(5,7),16);
+
+            R = parseInt(R * (100 + percent) / 100);
+            G = parseInt(G * (100 + percent) / 100);
+            B = parseInt(B * (100 + percent) / 100);
+
+            R = (R<255)?R:255;  
+            G = (G<255)?G:255;  
+            B = (B<255)?B:255;  
+            
+            R = (R>0)?R:0;
+            G = (G>0)?G:0;
+            B = (B>0)?B:0;
+
+            let RR = ((R.toString(16).length==1)?"0"+R.toString(16):R.toString(16));
+            let GG = ((G.toString(16).length==1)?"0"+G.toString(16):G.toString(16));
+            let BB = ((B.toString(16).length==1)?"0"+B.toString(16):B.toString(16));
+
+            return "#"+RR+GG+BB;
+        }
+
+        // --- State Management ---
+        const state = {
+            preset: 'classic',
+            anim: 'idle',
+            bgColor: '#FF45B5',
+            eyeColor: '#FF4500',
+            tongueColor: '#ff4d94',
+            headColor: '#ffffff',
+            bodyColor: '#ffffff',
+            armColor: '#ffffff',
+            
+            eyes: 'normal',
+            mouth: 'smile',
+            antenna: 'classic',
+            exportDuration: 4,
+            
+            // Animation variables
+            time: 0,
+            isRecording: false
+        };
+
+        // --- Canvas Setup ---
+        const canvas = document.getElementById('render-canvas');
+        const ctx = canvas.getContext('2d', { alpha: false });
+        
+        // High resolution for crisp export
+        const RENDER_SIZE = 1080;
+        canvas.width = RENDER_SIZE;
+        canvas.height = RENDER_SIZE;
+
+        // --- Utility: Gradients for pseudo-3D look ---
+        function createSphereGradient(ctx, x, y, r, baseColor, shadowColor, highlightOffset = 0.3) {
+            const hx = x - (r * highlightOffset);
+            const hy = y - (r * highlightOffset);
+            const grad = ctx.createRadialGradient(hx, hy, r * 0.05, x, y, r * 1.05);
+            
+            const highlight = shadeColor(baseColor, 60); // Dynamic highlight
+            
+            grad.addColorStop(0, highlight); 
+            grad.addColorStop(0.15, baseColor); 
+            grad.addColorStop(0.7, shadowColor); 
+            grad.addColorStop(1, shadeColor(baseColor, 10)); // Rim bounce
+            return grad;
+        }
+
+
+        // --- Drawing Routines ---
+        
+        function drawBackground() {
+            const cx = RENDER_SIZE / 2;
+            const cy = RENDER_SIZE / 2;
+            const grad = ctx.createRadialGradient(cx, cy, RENDER_SIZE * 0.2, cx, cy, RENDER_SIZE);
+            grad.addColorStop(0, state.bgColor);
+            
+            ctx.fillStyle = state.bgColor;
+            ctx.fillRect(0, 0, RENDER_SIZE, RENDER_SIZE);
+            
+            ctx.fillStyle = 'rgba(0,0,0,0.15)'; // Vignette overlay
+            ctx.fillRect(0, 0, RENDER_SIZE, RENDER_SIZE);
+            
+            ctx.globalCompositeOperation = 'destination-out';
+            ctx.beginPath();
+            ctx.arc(cx, cy, RENDER_SIZE * 0.6, 0, Math.PI * 2);
+            ctx.fill();
+            ctx.globalCompositeOperation = 'source-over';
+        }
+
+        function drawAntenna(cx, cy, scale, time) {
+            ctx.save();
+            ctx.translate(cx, cy);
+            ctx.scale(scale, scale);
+
+            let sway = Math.sin(time * 2) * 0.05;
+            
+            const stalkPath = new Path2D();
+            stalkPath.moveTo(0, 0);
+
+            let ballX = 0;
+            let ballY = 0;
+
+            if (state.antenna === 'classic') {
+                stalkPath.quadraticCurveTo(-10 + sway*100, -80, 80 + sway*50, -120);
+                ballX = 80 + sway*50;
+                ballY = -120;
+            } else if (state.antenna === 'straight') {
+                stalkPath.lineTo(sway*30, -140);
+                ballX = sway*30;
+                ballY = -140;
+            } else if (state.antenna === 'zigzag') {
+                stalkPath.lineTo(-30, -40);
+                stalkPath.lineTo(30, -80);
+                stalkPath.lineTo(sway*20, -130);
+                ballX = sway*20;
+                ballY = -130;
+            } else if (state.antenna === 'droop') {
+                stalkPath.quadraticCurveTo(80, -50, 100 + sway*30, 20);
+                ballX = 100 + sway*30;
+                ballY = 20;
+            }
+
+            ctx.lineCap = 'round';
+            ctx.lineJoin = 'round';
+            
+            ctx.strokeStyle = '#111';
+            ctx.lineWidth = 22;
+            ctx.stroke(stalkPath);
+            
+            ctx.strokeStyle = '#333';
+            ctx.lineWidth = 14;
+            ctx.stroke(stalkPath);
+            
+            ctx.save();
+            ctx.translate(-2, -2);
+            ctx.strokeStyle = '#555';
+            ctx.lineWidth = 4;
+            ctx.stroke(stalkPath);
+            ctx.restore();
+
+            // Antenna Ball (Using Head Color)
+            ctx.translate(ballX, ballY);
+            ctx.rotate(-sway); 
+            
+            ctx.shadowColor = 'rgba(0,0,0,0.3)';
+            ctx.shadowBlur = 10;
+            ctx.shadowOffsetY = 5;
+
+            ctx.beginPath();
+            ctx.arc(0, 0, 38, 0, Math.PI * 2);
+            const ballShadow = shadeColor(state.headColor, -30);
+            ctx.fillStyle = createSphereGradient(ctx, 0, 0, 38, state.headColor, ballShadow, 0.4);
+            ctx.fill();
+
+            ctx.shadowColor = 'transparent';
+            ctx.beginPath();
+            ctx.ellipse(-12, -12, 10, 6, -Math.PI/4, 0, Math.PI * 2);
+            ctx.fillStyle = 'rgba(255,255,255,0.7)';
+            ctx.fill();
+
+            ctx.restore();
+        }
+
+        function drawArm(cx, cy, isRight, time, animType) {
+            ctx.save();
+            ctx.translate(cx, cy);
+
+            let rot = 0;
+            
+            if (animType === 'wave' && isRight) {
+                rot = Math.sin(time * 10) * 0.6 - 0.5;
+            } else if (animType === 'idle') {
+                rot = Math.sin(time * 2 + (isRight ? 0 : Math.PI)) * 0.1;
+            } else if (animType === 'bounce') {
+                rot = Math.cos(time * 8) * (isRight ? -0.3 : 0.3);
+            }
+            
+            if(animType !== 'wave' || !isRight) {
+                 rot += (isRight ? -0.2 : 0.2);
+            }
+
+            ctx.rotate(rot);
+
+            const armW = 55;
+            const armH = 140;
+            
+            ctx.shadowColor = 'rgba(0,0,0,0.2)';
+            ctx.shadowBlur = 15;
+            ctx.shadowOffsetY = 8;
+            
+            ctx.beginPath();
+            ctx.roundRect(-armW/2, 0, armW, armH, 30);
+            
+            // Dynamic Arm Shading
+            const highlight = shadeColor(state.armColor, 50);
+            const shadow = shadeColor(state.armColor, -30);
+            const rim = shadeColor(state.armColor, -10);
+
+            const grad = ctx.createLinearGradient(-armW/2, 0, armW/2, 0);
+            if(isRight) {
+                grad.addColorStop(0, highlight);
+                grad.addColorStop(0.3, state.armColor);
+                grad.addColorStop(0.8, shadow);
+                grad.addColorStop(1, rim);
+            } else {
+                grad.addColorStop(0, rim);
+                grad.addColorStop(0.2, shadow);
+                grad.addColorStop(0.7, state.armColor);
+                grad.addColorStop(1, highlight);
+            }
+            
+            ctx.fillStyle = grad;
+            ctx.fill();
+            
+            ctx.shadowColor = 'transparent';
+            ctx.restore();
+        }
+
+
+        function drawBody(cx, cy, scale, time, animType) {
+            ctx.save();
+            ctx.translate(cx, cy);
+            ctx.scale(scale, scale);
+
+            let squash = 1;
+            if (animType === 'bounce') {
+                squash = 1 + Math.sin(time * 8) * 0.05;
+                ctx.scale(1/squash, squash);
+            }
+
+            const w = 220;
+            const h = 260;
+
+            ctx.shadowColor = 'rgba(0,0,0,0.15)';
+            ctx.shadowBlur = 25;
+            ctx.shadowOffsetY = 15;
+
+            ctx.beginPath();
+            ctx.moveTo(-w/2 + 20, -h/2);
+            ctx.quadraticCurveTo(0, -h/2 - 20, w/2 - 20, -h/2);
+            ctx.bezierCurveTo(w/2 + 20, -h/4, w/2 + 40, h/2, w/2 - 30, h/2);
+            ctx.quadraticCurveTo(0, h/2 + 20, -w/2 + 30, h/2);
+            ctx.bezierCurveTo(-w/2 - 40, h/2, -w/2 - 20, -h/4, -w/2 + 20, -h/2);
+
+            // Dynamic Body Shading
+            const highlight = shadeColor(state.bodyColor, 60);
+            const shadow = shadeColor(state.bodyColor, -25);
+            const rim = shadeColor(state.bodyColor, -5);
+
+            const grad = ctx.createRadialGradient(-30, -h/4, 10, 0, 0, w);
+            grad.addColorStop(0, highlight);
+            grad.addColorStop(0.3, state.bodyColor);
+            grad.addColorStop(0.8, shadow);
+            grad.addColorStop(1, rim);
+            ctx.fillStyle = grad;
+            ctx.fill();
+
+            ctx.shadowColor = 'transparent';
+            ctx.restore();
+        }
+
+        function drawHead(cx, cy, scale, time, animType) {
+            ctx.save();
+            ctx.translate(cx, cy);
+            
+            if (animType === 'idle') {
+                ctx.rotate(Math.sin(time * 1.5) * 0.02);
+            } else if (animType === 'look') {
+                ctx.rotate(Math.sin(time * 3) * 0.1);
+            } else if (animType === 'wave') {
+                ctx.rotate(0.1);
+            }
+
+            ctx.scale(scale, scale);
+
+            const headW = 340;
+            const headH = 240;
+
+            // Compute dynamic head colors
+            const highlight = shadeColor(state.headColor, 60);
+            const midShadow = shadeColor(state.headColor, -10);
+            const deepShadow = shadeColor(state.headColor, -30);
+            const rim = shadeColor(state.headColor, -5);
+
+            // --- Ears ---
+            ctx.save();
+            ctx.shadowColor = 'rgba(0,0,0,0.15)';
+            ctx.shadowBlur = 10;
+            ctx.shadowOffsetY = 5;
+            
+            const earGradLeft = createSphereGradient(ctx, -headW/2 + 20, -20, 60, state.headColor, deepShadow, 0.2);
+            ctx.fillStyle = earGradLeft;
+            ctx.beginPath();
+            ctx.arc(-headW/2 + 20, -20, 55, 0, Math.PI*2);
+            ctx.fill();
+            
+            const earGradRight = createSphereGradient(ctx, headW/2 - 20, -20, 60, state.headColor, deepShadow, 0.2);
+            ctx.fillStyle = earGradRight;
+            ctx.beginPath();
+            ctx.arc(headW/2 - 20, -20, 55, 0, Math.PI*2);
+            ctx.fill();
+            ctx.restore();
+
+            // --- Main Head Shape ---
+            ctx.shadowColor = 'rgba(0,0,0,0.3)';
+            ctx.shadowBlur = 25;
+            ctx.shadowOffsetY = 20;
+
+            ctx.beginPath();
+            ctx.ellipse(0, 0, headW/2, headH/2, 0, 0, Math.PI * 2);
+            
+            const headGrad = ctx.createRadialGradient(-60, -60, 10, 0, 0, headW * 0.65);
+            headGrad.addColorStop(0, highlight);
+            headGrad.addColorStop(0.2, highlight);
+            headGrad.addColorStop(0.6, midShadow);
+            headGrad.addColorStop(0.9, deepShadow);
+            headGrad.addColorStop(1, rim);
+            
+            ctx.fillStyle = headGrad;
+            ctx.fill();
+
+            ctx.shadowColor = 'transparent';
+
+            // --- Face Container ---
+            ctx.save();
+            let faceOffsetX = 0;
+            let faceOffsetY = 0;
+            
+            if (animType === 'look') {
+                faceOffsetX = Math.sin(time * 3) * 30;
+                faceOffsetY = Math.cos(time * 6) * 5;
+            }
+            ctx.translate(faceOffsetX, faceOffsetY);
+
+            drawEyes();
+            drawMouth();
+
+            ctx.restore();
+
+            // Antenna Base Shadow
+            ctx.beginPath();
+            ctx.ellipse(0, -headH/2 + 5, 15, 6, 0, 0, Math.PI*2);
+            ctx.fillStyle = 'rgba(0,0,0,0.15)';
+            ctx.fill();
+
+            drawAntenna(0, -headH/2, 1, time);
+
+            ctx.restore();
+        }
+
+
+        function drawEyes() {
+            const eyeDist = 85;
+            const eyeY = -15;
+            const eyeR = 34;
+            const eyeColor = state.eyeColor;
+            
+            const drawStandardEye = (x) => {
+                ctx.save();
+                
+                ctx.beginPath();
+                ctx.arc(x, eyeY, eyeR, 0, Math.PI*2);
+                
+                const grad = ctx.createRadialGradient(x - eyeR*0.3, eyeY - eyeR*0.3, 0, x, eyeY, eyeR);
+                grad.addColorStop(0, '#ffffff');
+                grad.addColorStop(0.2, shadeColor(eyeColor, 50));
+                grad.addColorStop(0.5, eyeColor);
+                grad.addColorStop(0.85, shadeColor(eyeColor, -60));
+                grad.addColorStop(1, eyeColor);
+                
+                ctx.fillStyle = grad;
+                ctx.fill();
+
+                ctx.beginPath();
+                ctx.ellipse(x - eyeR*0.2, eyeY - eyeR*0.2, eyeR*0.5, eyeR*0.3, -Math.PI/4, 0, Math.PI*2);
+                const specGrad = ctx.createLinearGradient(x - eyeR, eyeY - eyeR, x, eyeY);
+                specGrad.addColorStop(0, 'rgba(255,255,255,0.9)');
+                specGrad.addColorStop(1, 'rgba(255,255,255,0.0)');
+                ctx.fillStyle = specGrad;
+                ctx.fill();
+
+                ctx.beginPath();
+                ctx.arc(x + eyeR*0.3, eyeY - eyeR*0.4, eyeR*0.12, 0, Math.PI*2);
+                ctx.fillStyle = 'rgba(255,255,255,0.95)';
+                ctx.fill();
+                
+                ctx.restore();
+            }
+
+            const drawHappyEye = (x) => {
+                ctx.beginPath();
+                ctx.arc(x, eyeY + 10, eyeR, Math.PI + 0.2, Math.PI*2 - 0.2);
+                ctx.strokeStyle = eyeColor;
+                ctx.lineWidth = 14;
+                ctx.lineCap = 'round';
+                
+                ctx.shadowColor = 'rgba(0,0,0,0.15)';
+                ctx.shadowBlur = 4;
+                ctx.shadowOffsetY = 2;
+                ctx.stroke();
+                ctx.shadowColor = 'transparent';
+            }
+
+            const drawSadEye = (x) => {
+                 ctx.save();
+                 ctx.beginPath();
+                 ctx.arc(x, eyeY + 10, eyeR, Math.PI + 0.2, Math.PI*2 - 0.2);
+                 
+                 ctx.translate(x, eyeY);
+                 ctx.rotate(x < 0 ? -0.3 : 0.3);
+                 ctx.beginPath();
+                 ctx.moveTo(-eyeR, -eyeR*0.8);
+                 ctx.lineTo(eyeR, -eyeR*0.2);
+                 ctx.strokeStyle = eyeColor;
+                 ctx.lineWidth = 14;
+                 ctx.lineCap = 'round';
+                 ctx.stroke();
+                 ctx.restore();
+                 
+                 drawStandardEye(x, eyeY, eyeR*0.9);
+
+                 if (state.eyes === 'sad') {
+                     const tx = x + (x<0?-15:15);
+                     const ty = eyeY + eyeR + 15;
+                     ctx.beginPath();
+                     ctx.arc(tx, ty, 10, 0, Math.PI*2);
+                     const tearGrad = ctx.createRadialGradient(tx - 3, ty - 3, 0, tx, ty, 10);
+                     tearGrad.addColorStop(0, '#ffffff');
+                     tearGrad.addColorStop(0.4, '#38bdf8');
+                     tearGrad.addColorStop(1, '#0284c7');
+                     ctx.fillStyle = tearGrad;
+                     ctx.fill();
+                 }
+            }
+
+            if (state.eyes === 'happy') drawHappyEye(-eyeDist);
+            else if (state.eyes === 'sad') drawSadEye(-eyeDist);
+            else if (state.eyes === 'wink') {
+                 ctx.beginPath();
+                 ctx.moveTo(-eyeDist - eyeR, eyeY);
+                 ctx.lineTo(-eyeDist + eyeR, eyeY);
+                 ctx.strokeStyle = eyeColor;
+                 ctx.lineWidth = 14;
+                 ctx.lineCap = 'round';
+                 ctx.stroke();
+            }
+            else drawStandardEye(-eyeDist);
+
+            if (state.eyes === 'happy') drawHappyEye(eyeDist);
+            else if (state.eyes === 'sad') drawSadEye(eyeDist);
+            else if (state.eyes === 'wide') {
+                ctx.save();
+                ctx.scale(1.2, 1.2); 
+                drawStandardEye(eyeDist/1.2);
+                ctx.restore();
+            }
+            else drawStandardEye(eyeDist);
+        }
+
+        function drawMouth() {
+            const mY = 50;
+            
+            ctx.strokeStyle = '#111111';
+            ctx.lineWidth = 14;
+            ctx.lineCap = 'round';
+
+            if (state.mouth === 'smile') {
+                ctx.beginPath();
+                ctx.arc(0, mY - 20, 40, 0.2, Math.PI - 0.2);
+                ctx.stroke();
+            } 
+            else if (state.mouth === 'neutral') {
+                ctx.beginPath();
+                ctx.moveTo(-30, mY);
+                ctx.lineTo(30, mY);
+                ctx.stroke();
+            }
+            else if (state.mouth === 'sad') {
+                ctx.beginPath();
+                ctx.arc(0, mY + 20, 40, Math.PI + 0.2, Math.PI*2 - 0.2);
+                ctx.stroke();
+            }
+            else if (state.mouth === 'open' || state.mouth === 'tongue') {
+                // Deepened 3D Inner mouth depth
+                ctx.beginPath();
+                ctx.moveTo(-45, mY - 10);
+                ctx.quadraticCurveTo(0, mY - 5, 45, mY - 10);
+                ctx.bezierCurveTo(45, mY + 45, -45, mY + 45, -45, mY - 10);
+                
+                // Deep cavern shading
+                const mouthGrad = ctx.createRadialGradient(0, mY - 10, 5, 0, mY - 5, 50);
+                mouthGrad.addColorStop(0, '#000000'); // Deepest dark at the top edge
+                mouthGrad.addColorStop(0.6, '#1a1a1a'); 
+                mouthGrad.addColorStop(1, '#3a3a3a'); // Lip bounce light
+                ctx.fillStyle = mouthGrad;
+                ctx.fill();
+
+                if (state.mouth === 'tongue') {
+                    ctx.save();
+                    
+                    ctx.shadowColor = 'rgba(0,0,0,0.5)';
+                    ctx.shadowBlur = 10;
+                    ctx.shadowOffsetY = 6;
+
+                    ctx.beginPath();
+                    ctx.roundRect(-22, mY + 5, 44, 48, 22);
+                    
+                    const tongueLight = shadeColor(state.tongueColor, 30);
+                    const tongueDark = shadeColor(state.tongueColor, -40);
+                    const tongueGrad = ctx.createLinearGradient(0, mY + 5, 0, mY + 50);
+                    tongueGrad.addColorStop(0, tongueLight);
+                    tongueGrad.addColorStop(0.8, tongueDark);
+                    ctx.fillStyle = tongueGrad;
+                    ctx.fill();
+                    
+                    ctx.shadowColor = 'transparent';
+
+                    // Center groove line
+                    ctx.beginPath();
+                    ctx.moveTo(0, mY + 15);
+                    ctx.lineTo(0, mY + 45);
+                    ctx.strokeStyle = shadeColor(state.tongueColor, -50);
+                    ctx.lineWidth = 4;
+                    ctx.stroke();
+
+                    // Glossy highlight on tongue curve
+                    ctx.beginPath();
+                    ctx.ellipse(-8, mY + 20, 6, 12, -0.2, 0, Math.PI*2);
+                    ctx.fillStyle = 'rgba(255,255,255,0.4)';
+                    ctx.fill();
+
+                    ctx.restore();
+                }
+            }
+        }
+
+
+        // --- Main Render Function ---
+        function render() {
+            state.time = Date.now() / 1000;
+            ctx.clearRect(0, 0, RENDER_SIZE, RENDER_SIZE);
+
+            drawBackground();
+
+            const cx = RENDER_SIZE / 2;
+            const cy = RENDER_SIZE / 2 + 50; 
+            const globalScale = 1.2;
+
+            ctx.save();
+            ctx.translate(cx, cy);
+
+            let bounceY = 0;
+            if (state.anim === 'bounce') {
+                bounceY = -Math.abs(Math.sin(state.time * 8)) * 40;
+                ctx.translate(0, bounceY);
+            } else if (state.anim === 'idle' || state.anim === 'look') {
+                ctx.translate(0, Math.sin(state.time * 2) * 10);
+            }
+
+            drawArm(-130 * globalScale, 0, false, state.time, state.anim);
+            drawBody(0, 20 * globalScale, globalScale, state.time, state.anim);
+            drawHead(0, -140 * globalScale, globalScale, state.time, state.anim);
+
+            let rArmX = 130 * globalScale;
+            let rArmY = 0;
+            if(state.anim === 'wave') {
+                rArmX += 20; 
+                rArmY -= 30; 
+            }
+            drawArm(rArmX, rArmY, true, state.time, state.anim);
+
+            ctx.restore();
+            requestAnimationFrame(render);
+        }
+
+
+        // --- UI Interactions ---
+
+        function setActiveBtn(selector, activeDatasetKey, value) {
+            document.querySelectorAll(selector).forEach(btn => {
+                if (btn.dataset[activeDatasetKey] === value) {
+                    btn.classList.add('active');
+                } else {
+                    btn.classList.remove('active');
+                }
+            });
+        }
+
+        document.querySelectorAll('.anim-btn').forEach(btn => {
+            btn.addEventListener('click', (e) => {
+                state.anim = e.currentTarget.dataset.anim;
+                setActiveBtn('.anim-btn', 'anim', state.anim);
+            });
+        });
+
+        document.querySelectorAll('.eye-btn').forEach(btn => {
+            btn.addEventListener('click', (e) => {
+                state.eyes = e.currentTarget.dataset.val;
+                setActiveBtn('.eye-btn', 'val', state.eyes);
+            });
+        });
+
+        document.querySelectorAll('.mouth-btn').forEach(btn => {
+            btn.addEventListener('click', (e) => {
+                state.mouth = e.currentTarget.dataset.val;
+                setActiveBtn('.mouth-btn', 'val', state.mouth);
+            });
+        });
+
+        document.getElementById('select-antenna').addEventListener('change', (e) => {
+            state.antenna = e.target.value;
+        });
+
+        // Color Inputs Link to State
+        document.getElementById('color-bg').addEventListener('input', (e) => state.bgColor = e.target.value);
+        document.getElementById('color-eye').addEventListener('input', (e) => state.eyeColor = e.target.value);
+        document.getElementById('color-head').addEventListener('input', (e) => state.headColor = e.target.value);
+        document.getElementById('color-body').addEventListener('input', (e) => state.bodyColor = e.target.value);
+        document.getElementById('color-arms').addEventListener('input', (e) => state.armColor = e.target.value);
+        document.getElementById('color-tongue').addEventListener('input', (e) => state.tongueColor = e.target.value);
+
+        const durationInput = document.getElementById('export-duration');
+        const durationVal = document.getElementById('duration-val');
+        durationInput.addEventListener('input', (e) => {
+            state.exportDuration = parseInt(e.target.value);
+            durationVal.innerText = state.exportDuration + ' Sec';
+        });
+
+        // Presets with Individual Part Colors
+        const presets = {
+            classic: { bg: '#FF45B5', eye: '#FF4500', tongue: '#ff4d94', head: '#ffffff', body: '#ffffff', arms: '#ffffff', eyes: 'normal', mouth: 'smile', ant: 'classic', anim: 'wave' },
+            cheeky: { bg: '#FFB000', eye: '#FF4500', tongue: '#00E5FF', head: '#ffffff', body: '#ffffff', arms: '#ffffff', eyes: 'wink', mouth: 'tongue', ant: 'zigzag', anim: 'idle' },
+            sad: { bg: '#4A90E2', eye: '#2C3E50', tongue: '#ff4d94', head: '#e0f2fe', body: '#e0f2fe', arms: '#e0f2fe', eyes: 'sad', mouth: 'sad', ant: 'droop', anim: 'idle' },
+            happy: { bg: '#2ECC71', eye: '#FF4500', tongue: '#ff4d94', head: '#ffffff', body: '#ffffff', arms: '#ffffff', eyes: 'happy', mouth: 'open', ant: 'straight', anim: 'bounce' },
+            alien: { bg: '#9B59B6', eye: '#000000', tongue: '#a855f7', head: '#4ade80', body: '#4ade80', arms: '#4ade80', eyes: 'wide', mouth: 'neutral', ant: 'zigzag', anim: 'look' },
+            goth: { bg: '#1a1a1a', eye: '#ff0055', tongue: '#6b21a8', head: '#333333', body: '#222222', arms: '#333333', eyes: 'normal', mouth: 'tongue', ant: 'droop', anim: 'idle' }
+        };
+
+        document.querySelectorAll('.preset-btn').forEach(btn => {
+            btn.addEventListener('click', (e) => {
+                const p = presets[e.currentTarget.dataset.preset];
+                if (!p) return;
+                
+                state.bgColor = p.bg;
+                state.eyeColor = p.eye;
+                state.tongueColor = p.tongue;
+                state.headColor = p.head;
+                state.bodyColor = p.body;
+                state.armColor = p.arms;
+                
+                state.eyes = p.eyes;
+                state.mouth = p.mouth;
+                state.antenna = p.ant;
+                state.anim = p.anim;
+
+                document.getElementById('color-bg').value = p.bg;
+                document.getElementById('color-eye').value = p.eye;
+                document.getElementById('color-tongue').value = p.tongue;
+                document.getElementById('color-head').value = p.head;
+                document.getElementById('color-body').value = p.body;
+                document.getElementById('color-arms').value = p.arms;
+                document.getElementById('select-antenna').value = p.ant;
+                
+                setActiveBtn('.eye-btn', 'val', p.eyes);
+                setActiveBtn('.mouth-btn', 'val', p.mouth);
+                setActiveBtn('.anim-btn', 'anim', p.anim);
+            });
+        });
+
+
+        // --- Toast System ---
+        function showToast(msg, type='info') {
+            const container = document.getElementById('toast-container');
+            const toast = document.createElement('div');
+            const isErr = type === 'error';
+            toast.className = `px-4 py-3 rounded-lg shadow-lg text-sm font-bold flex items-center gap-2 transform transition-all translate-x-10 opacity-0 ${isErr ? 'bg-red-500 text-white' : 'bg-gray-900 text-white'}`;
+            toast.innerHTML = `<i class="ph-bold ${isErr ? 'ph-warning' : 'ph-check-circle'}"></i> ${msg}`;
+            container.appendChild(toast);
+            
+            requestAnimationFrame(() => {
+                toast.classList.remove('translate-x-10', 'opacity-0');
+            });
+
+            setTimeout(() => {
+                toast.classList.add('translate-x-10', 'opacity-0');
+                setTimeout(() => toast.remove(), 300);
+            }, 3000);
+        }
+
+        // --- Export Logic ---
+        const btnExport = document.getElementById('btn-export');
+        const overlay = document.getElementById('recording-overlay');
+        const progressFill = document.getElementById('record-progress');
+        const statusText = document.getElementById('record-status');
+
+        btnExport.addEventListener('click', async () => {
+            if (state.isRecording) return;
+            
+            try {
+                const stream = canvas.captureStream(60); 
+                
+                let options = { mimeType: 'video/webm;codecs=vp9' };
+                if (!MediaRecorder.isTypeSupported(options.mimeType)) {
+                    options = { mimeType: 'video/webm;codecs=vp8' };
+                    if (!MediaRecorder.isTypeSupported(options.mimeType)) {
+                        options = { mimeType: 'video/webm' };
+                    }
+                }
+                
+                options.videoBitsPerSecond = 8000000;
+
+                const mediaRecorder = new MediaRecorder(stream, options);
+                const recordedChunks = [];
+
+                mediaRecorder.ondataavailable = (e) => {
+                    if (e.data.size > 0) recordedChunks.push(e.data);
+                };
+
+                mediaRecorder.onstop = () => {
+                    const blob = new Blob(recordedChunks, { type: options.mimeType.split(';')[0] });
+                    const url = URL.createObjectURL(blob);
+                    
+                    const a = document.createElement('a');
+                    a.style.display = 'none';
+                    a.href = url;
+                    a.download = `snoo-custom-${Date.now()}.webm`;
+                    document.body.appendChild(a);
+                    a.click();
+                    
+                    setTimeout(() => {
+                        document.body.removeChild(a);
+                        URL.revokeObjectURL(url);
+                    }, 100);
+
+                    state.isRecording = false;
+                    overlay.classList.replace('flex', 'hidden');
+                    progressFill.style.width = '0%';
+                    showToast('Video exported successfully!');
+                };
+
+                state.isRecording = true;
+                overlay.classList.replace('hidden', 'flex');
+                progressFill.style.width = '0%';
+                statusText.innerText = `Recording ${state.exportDuration} seconds...`;
+                
+                mediaRecorder.start();
+
+                const durationMs = state.exportDuration * 1000;
+                const startTime = Date.now();
+                
+                const progressInterval = setInterval(() => {
+                    const elapsed = Date.now() - startTime;
+                    const pct = Math.min((elapsed / durationMs) * 100, 100);
+                    progressFill.style.width = `${pct}%`;
+                    
+                    if (elapsed >= durationMs) {
+                        clearInterval(progressInterval);
+                        statusText.innerText = "Finalizing video file...";
+                        mediaRecorder.stop(); 
+                    }
+                }, 50);
+
+            } catch (err) {
+                console.error("Failed to export:", err);
+                state.isRecording = false;
+                overlay.classList.replace('flex', 'hidden');
+                showToast("Failed to record video. Browser may not support it.", "error");
+            }
+        });
+
+        // Start render loop
+        render();
+
+    </script>
+</body>
+</html>

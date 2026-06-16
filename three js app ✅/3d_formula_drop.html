@@ -1,0 +1,455 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+    <title>3D Math Drop</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    
+    <!-- Load MathJax for Math to SVG conversion -->
+    <script>
+        window.MathJax = {
+            tex: { inlineMath: [['$', '$'], ['\\(', '\\)']] },
+            svg: { fontCache: 'local' },
+            startup: {
+                ready: () => {
+                    MathJax.startup.defaultReady();
+                    document.getElementById('loading-overlay').style.display = 'none';
+                    window.mathJaxReady = true;
+                }
+            }
+        };
+    </script>
+    <script id="MathJax-script" async src="https://cdn.jsdelivr.net/npm/mathjax@3/es5/tex-svg.js"></script>
+
+    <style>
+        body, html { margin: 0; padding: 0; width: 100%; height: 100%; overflow: hidden; background-color: #60a5fa; touch-action: none; font-family: system-ui, -apple-system, sans-serif; }
+        #canvas-container { width: 100%; height: 100%; position: absolute; top: 0; left: 0; z-index: 1; display: block; }
+        canvas { display: block; width: 100%; height: 100%; outline: none; }
+        
+        #ui-layer { position: absolute; inset: 0; z-index: 10; pointer-events: none; display: flex; flex-direction: column; justify-content: space-between; }
+        .pointer-events-auto { pointer-events: auto; }
+        
+        .glass-panel { background: rgba(255, 255, 255, 0.9); backdrop-filter: blur(12px); -webkit-backdrop-filter: blur(12px); border: 1px solid rgba(255,255,255,0.4); box-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.1), 0 2px 4px -1px rgba(0, 0, 0, 0.06); }
+        
+        #loading-overlay { position: absolute; inset: 0; background: #60a5fa; z-index: 50; display: flex; flex-direction: column; align-items: center; justify-content: center; color: white; transition: opacity 0.5s; }
+        .spinner { border: 4px solid rgba(255,255,255,0.3); border-radius: 50%; border-top: 4px solid white; width: 40px; height: 40px; animation: spin 1s linear infinite; margin-bottom: 16px; }
+        @keyframes spin { 0% { transform: rotate(0deg); } 100% { transform: rotate(360deg); } }
+    </style>
+
+    <!-- Import maps for Three.js -->
+    <script async src="https://unpkg.com/es-module-shims@1.8.0/dist/es-module-shims.js"></script>
+    <script type="importmap">
+        {
+            "imports": {
+                "three": "https://cdn.jsdelivr.net/npm/three@0.160.0/build/three.module.js",
+                "three/addons/": "https://cdn.jsdelivr.net/npm/three@0.160.0/examples/jsm/"
+            }
+        }
+    </script>
+</head>
+<body>
+
+    <div id="loading-overlay">
+        <div class="spinner"></div>
+        <h2 class="font-bold text-xl tracking-wider">Loading Math Engine...</h2>
+    </div>
+
+    <div id="canvas-container"></div>
+
+    <div id="ui-layer" class="p-4 sm:p-6 pb-8">
+        
+        <!-- Top Bar -->
+        <div class="flex justify-center w-full">
+            <div class="glass-panel px-6 py-2 rounded-full shadow-lg pointer-events-auto flex items-center gap-2">
+                <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="text-blue-500"><path d="M12 2v20"/><path d="M17 5H9.5a3.5 3.5 0 0 0 0 7h5a3.5 3.5 0 0 1 0 7H6"/></svg>
+                <h1 class="text-md font-extrabold text-gray-800 tracking-tight uppercase">3D Formula Drop</h1>
+            </div>
+        </div>
+
+        <!-- Spacer -->
+        <div class="flex-grow"></div>
+
+        <!-- Bottom Controls -->
+        <div class="w-full max-w-lg mx-auto pointer-events-auto glass-panel p-4 rounded-2xl flex flex-col gap-4">
+            
+            <div class="flex flex-col gap-1">
+                <label class="text-xs font-bold text-gray-500 uppercase px-1">Formula Input (TeX)</label>
+                <textarea id="math-input" rows="2" class="w-full bg-white border border-gray-200 rounded-xl px-4 py-3 text-gray-800 font-mono text-sm focus:outline-none focus:ring-2 focus:ring-blue-500 shadow-inner resize-none transition" placeholder="e.g. E = mc^2 or \text{Hello}"></textarea>
+            </div>
+
+            <div class="flex gap-2">
+                <select id="preset-select" class="flex-1 bg-gray-50 border border-gray-200 text-gray-700 text-sm rounded-xl px-3 py-3 focus:outline-none focus:ring-2 focus:ring-blue-500 font-medium appearance-none">
+                    <option value="" disabled selected>Load Preset...</option>
+                    <option value="E = mc^2">Mass-Energy Equivalence</option>
+                    <option value="e^{i\pi} + 1 = 0">Euler's Identity</option>
+                    <option value="\int_{a}^{b} x^2 \,dx">Integral</option>
+                    <option value="x = \frac{-b \pm \sqrt{b^2 - 4ac}}{2a}">Quadratic Formula</option>
+                    <option value="\sum_{i=1}^{n} i = \frac{n(n+1)}{2}">Summation</option>
+                    <option value="\text{Awesome } \mathbb{3D}">Awesome 3D (Text)</option>
+                </select>
+
+                <div class="flex items-center gap-2 px-2">
+                    <div id="color-preview" class="w-8 h-8 rounded-full shadow-md border-2 border-white cursor-pointer" style="background-color: #f97316;"></div>
+                </div>
+            </div>
+
+            <button id="btn-drop" class="w-full bg-blue-600 hover:bg-blue-500 active:bg-blue-700 text-white py-4 rounded-xl font-bold text-lg shadow-lg shadow-blue-500/30 transition flex justify-center items-center gap-2">
+                <svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 2v14"/><path d="m19 9-7 7-7-7"/></svg>
+                Drop Formula
+            </button>
+        </div>
+    </div>
+
+    <!-- Hidden div used by MathJax to render SVG -->
+    <div id="mathjax-container" style="display: none;"></div>
+
+    <script type="module">
+        import * as THREE from 'three';
+        import { OrbitControls } from 'three/addons/controls/OrbitControls.js';
+        import { SVGLoader } from 'three/addons/loaders/SVGLoader.js';
+
+        // --- Core Setup ---
+        const container = document.getElementById('canvas-container');
+        const scene = new THREE.Scene();
+        scene.background = new THREE.Color(0x60a5fa); // Blue sky
+        scene.fog = new THREE.Fog(0x60a5fa, 30, 150); 
+
+        const camera = new THREE.PerspectiveCamera(45, 1, 0.1, 500);
+        camera.position.set(0, 15, 30);
+
+        const renderer = new THREE.WebGLRenderer({ antialias: true, alpha: false });
+        renderer.setPixelRatio(Math.min(window.devicePixelRatio, 2));
+        renderer.shadowMap.enabled = true;
+        renderer.shadowMap.type = THREE.PCFSoftShadowMap; 
+        container.appendChild(renderer.domElement);
+
+        const controls = new OrbitControls(camera, renderer.domElement);
+        controls.enableDamping = true;
+        controls.dampingFactor = 0.05;
+        controls.maxPolarAngle = Math.PI / 2 - 0.05; 
+        controls.target.set(0, 2, 0);
+
+        function resize() {
+            const width = window.innerWidth;
+            const height = window.innerHeight;
+            if (width === 0 || height === 0) return; 
+            
+            if (renderer.domElement.width !== width || renderer.domElement.height !== height) {
+                camera.aspect = width / height;
+                camera.updateProjectionMatrix();
+                renderer.setSize(width, height);
+            }
+        }
+        window.addEventListener('resize', resize);
+        resize();
+
+        // --- Environment (Grass & Plateaus) ---
+        const ambientLight = new THREE.AmbientLight(0xffffff, 0.6);
+        scene.add(ambientLight);
+
+        const dirLight = new THREE.DirectionalLight(0xfff5e6, 1.5);
+        dirLight.position.set(20, 40, 20);
+        dirLight.castShadow = true;
+        dirLight.shadow.mapSize.width = 2048;
+        dirLight.shadow.mapSize.height = 2048;
+        dirLight.shadow.camera.near = 0.5;
+        dirLight.shadow.camera.far = 100;
+        const d = 25;
+        dirLight.shadow.camera.left = -d;
+        dirLight.shadow.camera.right = d;
+        dirLight.shadow.camera.top = d;
+        dirLight.shadow.camera.bottom = -d;
+        scene.add(dirLight);
+
+        // Ground Grass
+        const groundGeo = new THREE.PlaneGeometry(200, 200);
+        const groundMat = new THREE.MeshLambertMaterial({ color: 0x4ade80 });
+        const ground = new THREE.Mesh(groundGeo, groundMat);
+        ground.rotation.x = -Math.PI / 2;
+        ground.receiveShadow = true;
+        scene.add(ground);
+
+        // Central Plateau (landing pad)
+        const plateauGeo = new THREE.CylinderGeometry(12, 14, 2, 6); // Hexagon
+        const plateauMat = new THREE.MeshLambertMaterial({ color: 0x3b82f6 }); // Blueish rock
+        const plateau = new THREE.Mesh(plateauGeo, plateauMat);
+        plateau.position.y = 1; // half height
+        plateau.castShadow = true;
+        plateau.receiveShadow = true;
+        scene.add(plateau);
+        
+        const plateauHeight = 2; // Y level where text should land
+
+        // Random decorative plateaus
+        for(let i=0; i<8; i++) {
+            const r = Math.random() * 4 + 2;
+            const h = Math.random() * 3 + 1;
+            const pGeo = new THREE.CylinderGeometry(r, r*1.2, h, Math.floor(Math.random() * 3) + 5);
+            const pMat = new THREE.MeshLambertMaterial({ color: 0xa78bfa }); // purple rock
+            const p = new THREE.Mesh(pGeo, pMat);
+            p.position.set(
+                (Math.random() - 0.5) * 60,
+                h/2,
+                (Math.random() - 0.5) * 60
+            );
+            // keep away from center
+            if (p.position.length() < 18) p.position.x += 20;
+            p.castShadow = true; p.receiveShadow = true;
+            scene.add(p);
+        }
+
+        // --- Math to 3D Geometry Logic ---
+        const svgLoader = new SVGLoader();
+        let currentFormulaGroup = null;
+        let animatedMeshes = [];
+        
+        const pipeColors = [0xf97316, 0xef4444, 0xeab308, 0x10b981, 0x3b82f6, 0xd946ef];
+        let currentColorIndex = 0;
+
+        function getNextColor() {
+            currentColorIndex = (currentColorIndex + 1) % pipeColors.length;
+            const hex = '#' + pipeColors[currentColorIndex].toString(16).padStart(6, '0');
+            document.getElementById('color-preview').style.backgroundColor = hex;
+            return pipeColors[currentColorIndex];
+        }
+
+        document.getElementById('color-preview').addEventListener('click', getNextColor);
+
+        async function create3DMath(texString) {
+            if (!window.mathJaxReady) {
+                alert("Math engine is still loading, please wait.");
+                return;
+            }
+
+            // 1. Generate SVG using MathJax
+            const container = document.getElementById('mathjax-container');
+            container.innerHTML = '';
+            
+            try {
+                // Generate SVG node synchronously
+                const svgNode = MathJax.tex2svg(texString, { display: true });
+                const svgElement = svgNode.querySelector('svg');
+                
+                if (!svgElement) throw new Error("Invalid MathJax output");
+
+                // In MathJax, paths are defined in <defs> and referenced via <use>.
+                // Three.js SVGLoader has limited support for this complex structure.
+                // We need to inline the <use> references to explicit <path> elements so SVGLoader can read them easily.
+                
+                const defs = svgElement.querySelector('defs');
+                const pathDict = {};
+                if (defs) {
+                    const paths = defs.querySelectorAll('path');
+                    paths.forEach(p => {
+                        pathDict[p.getAttribute('id')] = p.getAttribute('d');
+                    });
+                }
+
+                // Replace <use> with actual <path>
+                const uses = svgElement.querySelectorAll('use');
+                uses.forEach(use => {
+                    const href = use.getAttribute('href') || use.getAttribute('xlink:href');
+                    if (href && href.startsWith('#')) {
+                        const id = href.substring(1);
+                        const d = pathDict[id];
+                        if (d) {
+                            const newPath = document.createElementNS('http://www.w3.org/2000/svg', 'path');
+                            newPath.setAttribute('d', d);
+                            
+                            // Copy transforms (x, y translates in MathJax usually)
+                            const x = use.getAttribute('x') || 0;
+                            const y = use.getAttribute('y') || 0;
+                            let transform = use.getAttribute('transform') || '';
+                            if (x != 0 || y != 0) transform += ` translate(${x},${y})`;
+                            
+                            if (transform) newPath.setAttribute('transform', transform);
+                            
+                            use.parentNode.replaceChild(newPath, use);
+                        }
+                    }
+                });
+
+                // Remove defs to clean up
+                if(defs) defs.remove();
+
+                const serializer = new XMLSerializer();
+                const svgString = serializer.serializeToString(svgElement);
+
+                // 2. Parse SVG with Three.js
+                const svgData = svgLoader.parse(svgString);
+
+                // Clear old
+                if (currentFormulaGroup) {
+                    scene.remove(currentFormulaGroup);
+                    animatedMeshes.forEach(m => {
+                        m.geometry.dispose();
+                        m.material.dispose();
+                    });
+                }
+
+                currentFormulaGroup = new THREE.Group();
+                animatedMeshes = [];
+
+                const pipeMaterial = new THREE.MeshStandardMaterial({
+                    color: pipeColors[currentColorIndex],
+                    metalness: 0.2,
+                    roughness: 0.2,
+                    side: THREE.DoubleSide
+                });
+
+                // 3. Extrude Shapes
+                // MathJax coordinates are tiny (e.g. 0.01 scale).
+                const mathScale = 0.003; 
+
+                for (let i = 0; i < svgData.paths.length; i++) {
+                    const path = svgData.paths[i];
+                    
+                    const shapes = SVGLoader.createShapes(path);
+
+                    for (let j = 0; j < shapes.length; j++) {
+                        const shape = shapes[j];
+                        
+                        // "Pipe" like thick extrusion
+                        const geometry = new THREE.ExtrudeGeometry(shape, {
+                            depth: 200, 
+                            bevelEnabled: true,
+                            bevelSegments: 4,
+                            bevelSize: 20,
+                            bevelThickness: 30
+                        });
+
+                        const mesh = new THREE.Mesh(geometry, pipeMaterial);
+                        mesh.castShadow = true;
+                        mesh.receiveShadow = true;
+                        
+                        // SVGs are inverted on Y axis
+                        mesh.scale.set(mathScale, -mathScale, mathScale);
+                        
+                        currentFormulaGroup.add(mesh);
+                        animatedMeshes.push(mesh);
+                    }
+                }
+
+                // 4. Center the entire group
+                const box = new THREE.Box3().setFromObject(currentFormulaGroup);
+                const size = box.getSize(new THREE.Vector3());
+                const center = box.getCenter(new THREE.Vector3());
+
+                currentFormulaGroup.position.x = -center.x;
+                currentFormulaGroup.position.z = -center.z;
+                
+                // Add to scene
+                scene.add(currentFormulaGroup);
+
+                // 5. Setup Animation States
+                // Stagger the animation based on X position (left to right)
+                animatedMeshes.sort((a, b) => {
+                    const boxA = new THREE.Box3().setFromObject(a);
+                    const boxB = new THREE.Box3().setFromObject(b);
+                    return boxA.getCenter(new THREE.Vector3()).x - boxB.getCenter(new THREE.Vector3()).x;
+                });
+
+                animatedMeshes.forEach((mesh, index) => {
+                    // Local Y offset correction since Mathjax Y is weird
+                    const localBox = new THREE.Box3().setFromObject(mesh);
+                    const bottomY = localBox.min.y;
+                    
+                    // Set up physics data
+                    mesh.userData = {
+                        targetY: mesh.position.y - bottomY + plateauHeight + 0.1, // land on plateau
+                        velocity: 0,
+                        isFalling: true,
+                        delay: index * 0.08, // stagger drop
+                        timeActive: 0
+                    };
+                    
+                    // Start high in the sky
+                    mesh.position.y += 40 + Math.random() * 10;
+                    // Random slight rotation for chaos
+                    mesh.rotation.x = (Math.random() - 0.5) * 0.5;
+                    mesh.rotation.z = (Math.random() - 0.5) * 0.5;
+                });
+
+                // Adjust camera to fit
+                const maxDim = Math.max(size.x, size.z, 10);
+                camera.position.set(0, 15, maxDim * 1.5 + 10);
+                controls.target.set(0, plateauHeight + 2, 0);
+
+            } catch (err) {
+                console.error(err);
+                alert("Could not parse formula. Ensure valid TeX format.");
+            }
+        }
+
+        // --- UI Events ---
+        const input = document.getElementById('math-input');
+        const select = document.getElementById('preset-select');
+        const btnDrop = document.getElementById('btn-drop');
+
+        select.addEventListener('change', (e) => {
+            input.value = e.target.value;
+        });
+
+        btnDrop.addEventListener('click', () => {
+            let val = input.value.trim();
+            if (!val) val = "E = mc^2";
+            create3DMath(val);
+        });
+
+        // Initialize with default
+        input.value = "E = mc^2";
+
+        // --- Animation Loop ---
+        const clock = new THREE.Clock();
+
+        function animate() {
+            requestAnimationFrame(animate);
+            resize(); 
+            
+            const delta = clock.getDelta();
+
+            // Physics drop simulation
+            if (animatedMeshes.length > 0) {
+                animatedMeshes.forEach(mesh => {
+                    if (mesh.userData.isFalling) {
+                        mesh.userData.timeActive += delta;
+                        
+                        if (mesh.userData.timeActive > mesh.userData.delay) {
+                            // Apply gravity
+                            mesh.userData.velocity -= 40 * delta; 
+                            mesh.position.y += mesh.userData.velocity * delta;
+                            
+                            // Gently correct rotation towards 0 as it falls
+                            mesh.rotation.x = THREE.MathUtils.lerp(mesh.rotation.x, 0, 5 * delta);
+                            mesh.rotation.z = THREE.MathUtils.lerp(mesh.rotation.z, 0, 5 * delta);
+
+                            // Collision with plateau target
+                            if (mesh.position.y <= mesh.userData.targetY) {
+                                mesh.position.y = mesh.userData.targetY;
+                                mesh.userData.velocity *= -0.4; // Bounce dampening
+                                
+                                // Fix rotation perfectly flat on hit
+                                mesh.rotation.x = 0;
+                                mesh.rotation.z = 0;
+
+                                // Stop if velocity is tiny
+                                if (Math.abs(mesh.userData.velocity) < 0.5) {
+                                    mesh.userData.isFalling = false;
+                                    mesh.position.y = mesh.userData.targetY;
+                                }
+                            }
+                        }
+                    }
+                });
+            }
+
+            controls.update();
+            renderer.render(scene, camera);
+        }
+
+        // Start loop
+        animate();
+    </script>
+</body>
+</html>

@@ -1,0 +1,535 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+    <title>Rainy Encounter - Interactive Parallax</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <style>
+        @import url('https://fonts.googleapis.com/css2?family=Amatic+SC:wght@700&family=Jost:wght@400;600&display=swap');
+        
+        body { 
+            margin: 0; 
+            overflow: hidden; 
+            background-color: #7ab3b7; /* Base teal */
+            touch-action: none; /* Prevent browser scrolling */
+            user-select: none;
+        }
+        
+        canvas { 
+            display: block; 
+            width: 100vw; 
+            height: 100vh;
+            cursor: grab;
+        }
+
+        canvas:active {
+            cursor: grabbing;
+        }
+
+        /* SVG Noise Filter for painted/grain texture */
+        .cinematic-grain {
+            position: fixed;
+            top: 0; left: 0; right: 0; bottom: 0;
+            pointer-events: none;
+            z-index: 50;
+            opacity: 0.25;
+            mix-blend-mode: overlay;
+        }
+
+        #ui {
+            font-family: 'Jost', sans-serif;
+            pointer-events: none;
+        }
+    </style>
+</head>
+<body>
+
+    <!-- Painted Grain Overlay -->
+    <svg style="display:none;">
+        <filter id="noiseFilter">
+            <feTurbulence type="fractalNoise" baseFrequency="0.8" numOctaves="3" stitchTiles="stitch"/>
+            <feColorMatrix type="matrix" values="1 0 0 0 0, 0 1 0 0 0, 0 0 1 0 0, 0 0 0 0.1 0" />
+        </filter>
+    </svg>
+    <div class="cinematic-grain" style="filter: url(#noiseFilter);"></div>
+
+    <!-- UI Layer -->
+    <div id="ui" class="absolute inset-0 flex flex-col p-6 z-10 text-white drop-shadow-md">
+        <div class="tracking-widest text-sm uppercase opacity-80 font-semibold">Interactive Scene</div>
+        <div class="text-xs opacity-60 mt-1">Drag to Pan &bull; Scroll to Zoom</div>
+    </div>
+
+    <!-- Main Scene Canvas -->
+    <canvas id="sceneCanvas"></canvas>
+
+    <script>
+        const canvas = document.getElementById('sceneCanvas');
+        const ctx = canvas.getContext('2d');
+
+        let width, height;
+        let globalTime = 0;
+
+        // --- Camera & Interaction State ---
+        const camera = {
+            x: -200, y: -100, zoom: 0.8,
+            targetX: 0, targetY: -100, targetZoom: 1.0,
+            minZoom: 0.4, maxZoom: 2.5
+        };
+
+        const input = {
+            isDragging: false,
+            lastX: 0, lastY: 0
+        };
+
+        // --- Color Palette ---
+        const PALETTE = {
+            skyGradient: ['#dceeee', '#98c6c9', '#5a969b'],
+            bamboo: ['#79a9ab', '#49787e', '#2a5156', '#122b2e'], // Light to dark
+            bridge: '#182528',
+            bridgeHighlights: '#2a3b3d',
+            monsterBase: '#d93b48',
+            monsterSpots: '#f18890',
+            monsterBelly: '#f4e4e4',
+            girlCoat: '#dcb844',
+            umbrella: '#f62e36'
+        };
+
+        // --- Environment Data ---
+        let layers = [];
+        let rainParticles = [];
+
+        function resize() {
+            width = window.innerWidth;
+            height = window.innerHeight;
+            const dpr = window.devicePixelRatio || 1;
+            canvas.width = width * dpr;
+            canvas.height = height * dpr;
+            ctx.scale(dpr, dpr);
+        }
+        window.addEventListener('resize', resize);
+        resize();
+
+        // Pseudo-random generator for consistent world generation
+        let seed = 42;
+        function random() {
+            let x = Math.sin(seed++) * 10000;
+            return x - Math.floor(x);
+        }
+
+        // --- World Generation ---
+        function initWorld() {
+            layers = [
+                { id: 'sky', parallax: 0.05, elements: [] },
+                { id: 'bamboo-far', parallax: 0.2, elements: generateBamboo(40, -2000, 2000, 0, 0.4) },
+                { id: 'title', parallax: 0.4, elements: [] }, // Custom drawn later
+                { id: 'bamboo-mid', parallax: 0.5, elements: generateBamboo(30, -2000, 2000, 1, 0.7) },
+                { id: 'bamboo-near', parallax: 0.8, elements: generateBamboo(20, -2000, 2000, 2, 1.2) },
+                { id: 'bridge', parallax: 1.0, elements: generateBridge() },
+                { id: 'characters', parallax: 1.0, elements: [] } // Custom drawn
+            ];
+
+            // Init rain
+            for(let i=0; i<400; i++) {
+                rainParticles.push({
+                    x: Math.random() * width * 3 - width,
+                    y: Math.random() * height * 3 - height,
+                    length: Math.random() * 20 + 10,
+                    speed: Math.random() * 15 + 15,
+                    opacity: Math.random() * 0.3 + 0.1
+                });
+            }
+        }
+
+        function generateBamboo(count, startX, endX, colorIndex, scale) {
+            let stalks = [];
+            for(let i=0; i<count; i++) {
+                stalks.push({
+                    x: startX + random() * (endX - startX),
+                    width: (random() * 20 + 15) * scale,
+                    color: PALETTE.bamboo[colorIndex],
+                    nodes: Array.from({length: 15}, (_, j) => -1500 + j * 150 + random() * 50)
+                });
+            }
+            // Sort by X for consistent rendering
+            return stalks.sort((a,b) => a.x - b.x);
+        }
+
+        function generateBridge() {
+            // Generate a jagged bottom edge for the bridge
+            let bottomEdge = [];
+            for(let x = -3000; x <= 3000; x += 50) {
+                // Drippy/Mossy jagged look
+                let depth = random() > 0.7 ? random() * 80 + 40 : random() * 20 + 10;
+                bottomEdge.push({x: x, y: depth});
+            }
+            return [{ type: 'bridge', bottomEdge: bottomEdge }];
+        }
+
+        // --- Drawing Routines ---
+
+        function drawBambooStalk(ctx, stalk) {
+            ctx.fillStyle = stalk.color;
+            ctx.fillRect(stalk.x, -2000, stalk.width, 4000);
+            
+            // Draw nodes (horizontal bands)
+            ctx.fillStyle = '#c1dedf'; // Light band highlight
+            stalk.nodes.forEach(y => {
+                ctx.globalAlpha = 0.3;
+                ctx.fillRect(stalk.x, y, stalk.width, Math.max(stalk.width * 0.15, 3));
+                
+                // Darker shadow under node
+                ctx.globalAlpha = 0.2;
+                ctx.fillStyle = '#000';
+                ctx.fillRect(stalk.x, y + Math.max(stalk.width * 0.15, 3), stalk.width, Math.max(stalk.width * 0.1, 2));
+                ctx.fillStyle = '#c1dedf'; // Reset for next
+            });
+            ctx.globalAlpha = 1.0;
+        }
+
+        function drawBridge(ctx, bridgeData) {
+            ctx.fillStyle = PALETTE.bridge;
+            
+            ctx.beginPath();
+            ctx.moveTo(-3000, 0);
+            ctx.lineTo(3000, 0);
+            
+            // Top edge unevenness
+            for(let x = 3000; x >= -3000; x -= 100) {
+                ctx.lineTo(x, random() * 5 - 2);
+            }
+            
+            // Bottom edge
+            ctx.lineTo(-3000, 0); 
+            ctx.fill();
+
+            // The jagged dripping underside
+            ctx.beginPath();
+            ctx.moveTo(-3000, 0);
+            bridgeData.bottomEdge.forEach(pt => {
+                ctx.lineTo(pt.x, pt.y);
+            });
+            ctx.lineTo(3000, 0);
+            ctx.fill();
+
+            // Puddles / Highlights on top
+            ctx.fillStyle = 'rgba(255,255,255,0.15)';
+            ctx.beginPath();
+            ctx.ellipse(-100, -2, 40, 4, 0, 0, Math.PI*2);
+            ctx.fill();
+            ctx.beginPath();
+            ctx.ellipse(50, -1, 20, 2, 0, 0, Math.PI*2);
+            ctx.fill();
+        }
+
+        function drawMonster(ctx, x, y) {
+            ctx.save();
+            ctx.translate(x, y);
+
+            // Tail
+            ctx.fillStyle = PALETTE.monsterBase;
+            ctx.beginPath();
+            ctx.moveTo(80, -20);
+            ctx.quadraticCurveTo(180, -30, 220, -10);
+            ctx.quadraticCurveTo(180, 10, 80, 0);
+            ctx.fill();
+
+            // Tail stripes
+            ctx.fillStyle = PALETTE.monsterBelly;
+            ctx.beginPath(); ctx.moveTo(140, -20); ctx.lineTo(160, -25); ctx.lineTo(155, 5); ctx.lineTo(135, 0); ctx.fill();
+            ctx.beginPath(); ctx.moveTo(180, -20); ctx.lineTo(195, -20); ctx.lineTo(190, 2); ctx.lineTo(175, 0); ctx.fill();
+
+            // Body Base Shape
+            ctx.fillStyle = PALETTE.monsterBase;
+            ctx.beginPath();
+            ctx.moveTo(0, -250); // Top Head
+            ctx.bezierCurveTo(80, -250, 150, -150, 120, -20); // Back
+            ctx.bezierCurveTo(100, 10, 20, 10, 0, 10); // Bottom
+            ctx.bezierCurveTo(-100, 10, -120, -100, -120, -150); // Front Belly
+            ctx.bezierCurveTo(-120, -200, -60, -250, 0, -250); // Front Head
+            ctx.fill();
+
+            // White Belly / Jaw
+            ctx.fillStyle = PALETTE.monsterBelly;
+            ctx.beginPath();
+            ctx.moveTo(-118, -130);
+            ctx.bezierCurveTo(-118, -50, -50, 5, 0, 5);
+            ctx.bezierCurveTo(60, 5, 100, -20, 105, -50);
+            ctx.lineTo(20, -110);
+            ctx.lineTo(-118, -130);
+            ctx.fill();
+
+            // Teeth
+            ctx.fillStyle = '#fff';
+            ctx.beginPath(); ctx.moveTo(-115, -132); ctx.lineTo(-105, -145); ctx.lineTo(-95, -130); ctx.fill();
+            ctx.beginPath(); ctx.moveTo(-90, -128); ctx.lineTo(-80, -140); ctx.lineTo(-70, -125); ctx.fill();
+
+            // Spots
+            ctx.fillStyle = PALETTE.monsterSpots;
+            const spots = [[40, -180, 15], [80, -140, 20], [60, -90, 25], [10, -200, 10], [90, -200, 12], [20, -150, 8]];
+            spots.forEach(s => {
+                ctx.beginPath(); ctx.arc(s[0], s[1], s[2], 0, Math.PI*2); ctx.fill();
+            });
+
+            // Eye
+            ctx.fillStyle = '#fff';
+            ctx.beginPath(); ctx.arc(-80, -180, 12, 0, Math.PI*2); ctx.fill();
+            ctx.fillStyle = '#000';
+            ctx.beginPath(); ctx.arc(-84, -180, 4, 0, Math.PI*2); ctx.fill();
+
+            // Tiny Arm
+            ctx.fillStyle = PALETTE.monsterBase;
+            ctx.beginPath(); ctx.arc(60, -50, 15, 0, Math.PI*2); ctx.fill();
+            ctx.fillStyle = PALETTE.monsterBelly;
+            ctx.beginPath(); ctx.arc(60, -45, 10, 0, Math.PI*2); ctx.fill();
+
+            // Legs
+            ctx.fillStyle = PALETTE.monsterBase;
+            ctx.fillRect(30, 0, 30, 25);
+            ctx.fillRect(-20, 0, 25, 20);
+
+            // Top Hat
+            ctx.fillStyle = '#111';
+            ctx.fillRect(-20, -260, 40, 12); // Brim
+            ctx.fillRect(-10, -290, 20, 30); // Top
+
+            ctx.restore();
+        }
+
+        function drawGirl(ctx, x, y) {
+            ctx.save();
+            ctx.translate(x, y);
+
+            // Reflection in puddle
+            ctx.globalAlpha = 0.2;
+            ctx.save(); ctx.scale(1, -1);
+            ctx.fillStyle = PALETTE.girlCoat; ctx.fillRect(-10, 0, 20, -30);
+            ctx.fillStyle = PALETTE.umbrella; ctx.beginPath(); ctx.arc(0, -40, 40, 0, Math.PI); ctx.fill();
+            ctx.restore();
+            ctx.globalAlpha = 1.0;
+
+            // Legs/Boots
+            ctx.fillStyle = '#444';
+            ctx.fillRect(-6, -15, 4, 15);
+            ctx.fillRect(2, -15, 4, 15);
+
+            // Yellow Raincoat
+            ctx.fillStyle = PALETTE.girlCoat;
+            ctx.beginPath();
+            ctx.moveTo(0, -50);
+            ctx.lineTo(15, -15);
+            ctx.lineTo(-15, -15);
+            ctx.fill();
+
+            // Head/Hair (side profile)
+            ctx.fillStyle = '#ffe0bd'; // skin
+            ctx.beginPath(); ctx.arc(-2, -55, 8, 0, Math.PI*2); ctx.fill();
+            ctx.fillStyle = '#4a3018'; // hair
+            ctx.beginPath(); ctx.arc(-3, -57, 9, Math.PI*0.7, Math.PI*2.3); ctx.fill();
+            // Ponytail
+            ctx.beginPath(); ctx.ellipse(-12, -50, 4, 8, -Math.PI/4, 0, Math.PI*2); ctx.fill();
+
+            // Umbrella Handle
+            ctx.strokeStyle = '#555';
+            ctx.lineWidth = 2;
+            ctx.beginPath(); ctx.moveTo(5, -30); ctx.lineTo(5, -70); ctx.stroke();
+
+            // Umbrella Canopy (Red, Glowing)
+            ctx.shadowBlur = 20;
+            ctx.shadowColor = PALETTE.umbrella;
+            ctx.fillStyle = PALETTE.umbrella;
+            ctx.beginPath();
+            ctx.arc(5, -70, 45, Math.PI, Math.PI*2);
+            // Scalloped bottom edge
+            ctx.quadraticCurveTo(-15, -65, -40, -70);
+            ctx.quadraticCurveTo(5, -75, 50, -70);
+            ctx.fill();
+            ctx.shadowBlur = 0;
+
+            ctx.restore();
+        }
+
+        function drawTitle(ctx) {
+            ctx.save();
+            ctx.translate(-400, -180);
+            ctx.fillStyle = '#5a3a31';
+            ctx.textAlign = 'center';
+            
+            // Emulating the painted text style
+            ctx.font = '700 80px "Amatic SC", cursive';
+            ctx.fillText("RAINY ENCOUNTER", 0, 0);
+            
+            ctx.font = '600 16px "Jost", sans-serif';
+            ctx.globalAlpha = 0.8;
+            ctx.letterSpacing = '2px';
+            ctx.fillText("CREATING ART AND TUTORIALS", 0, 25);
+            
+            ctx.restore();
+        }
+
+        // --- Interaction Logic ---
+        
+        window.addEventListener('mousedown', e => {
+            input.isDragging = true;
+            input.lastX = e.clientX;
+            input.lastY = e.clientY;
+        });
+
+        window.addEventListener('mousemove', e => {
+            if (!input.isDragging) return;
+            const dx = e.clientX - input.lastX;
+            const dy = e.clientY - input.lastY;
+            
+            // Adjust pan speed based on zoom
+            camera.targetX -= dx / camera.zoom;
+            camera.targetY -= dy / camera.zoom;
+            
+            input.lastX = e.clientX;
+            input.lastY = e.clientY;
+        });
+
+        window.addEventListener('mouseup', () => input.isDragging = false);
+        window.addEventListener('mouseleave', () => input.isDragging = false);
+
+        // Touch support
+        window.addEventListener('touchstart', e => {
+            input.isDragging = true;
+            input.lastX = e.touches[0].clientX;
+            input.lastY = e.touches[0].clientY;
+        }, {passive: false});
+
+        window.addEventListener('touchmove', e => {
+            if (!input.isDragging) return;
+            const dx = e.touches[0].clientX - input.lastX;
+            const dy = e.touches[0].clientY - input.lastY;
+            camera.targetX -= dx / camera.zoom;
+            camera.targetY -= dy / camera.zoom;
+            input.lastX = e.touches[0].clientX;
+            input.lastY = e.touches[0].clientY;
+        }, {passive: false});
+
+        window.addEventListener('touchend', () => input.isDragging = false);
+
+        // Zoom via Scroll
+        window.addEventListener('wheel', e => {
+            e.preventDefault();
+            const zoomAmount = e.deltaY > 0 ? 0.9 : 1.1;
+            camera.targetZoom *= zoomAmount;
+            // Clamp target zoom
+            camera.targetZoom = Math.max(camera.minZoom, Math.min(camera.maxZoom, camera.targetZoom));
+        }, {passive: false});
+
+
+        // --- Render Loop ---
+
+        function updateCamera() {
+            // Smooth dampening (Lerp)
+            camera.x += (camera.targetX - camera.x) * 0.1;
+            camera.y += (camera.targetY - camera.y) * 0.1;
+            camera.zoom += (camera.targetZoom - camera.zoom) * 0.1;
+
+            // Soft clamp bounds to prevent getting totally lost
+            const boundsX = 1500;
+            const boundsY = 800;
+            if (camera.targetX > boundsX) camera.targetX = boundsX;
+            if (camera.targetX < -boundsX) camera.targetX = -boundsX;
+            if (camera.targetY > boundsY) camera.targetY = boundsY;
+            if (camera.targetY < -boundsY) camera.targetY = -boundsY;
+        }
+
+        function drawRain(ctx) {
+            ctx.strokeStyle = 'rgba(255, 255, 255, 0.4)';
+            ctx.lineWidth = 1;
+            ctx.beginPath();
+            
+            // Adjust rain to camera space so it covers screen but parallaxes slightly
+            const offsetX = camera.x * 1.2;
+            const offsetY = camera.y * 1.2;
+
+            rainParticles.forEach(p => {
+                p.y += p.speed;
+                if (p.y > height * 2) {
+                    p.y = -height;
+                    p.x = Math.random() * width * 3 - width;
+                }
+                
+                // Wrap around logic based on camera
+                let drawX = ((p.x - offsetX) % (width * 3));
+                if (drawX < 0) drawX += width * 3;
+                drawX -= width;
+
+                let drawY = ((p.y - offsetY) % (height * 3));
+                if (drawY < 0) drawY += height * 3;
+                drawY -= height;
+
+                ctx.moveTo(drawX, drawY);
+                ctx.lineTo(drawX, drawY + p.length);
+            });
+            ctx.stroke();
+        }
+
+        function render() {
+            globalTime++;
+            updateCamera();
+
+            // Clear Screen
+            ctx.clearRect(0, 0, width, height);
+
+            // Draw Sky Gradient (Fixed to screen/slight parallax)
+            const grad = ctx.createRadialGradient(width/2, height/2, 100, width/2, height/2, width);
+            grad.addColorStop(0, PALETTE.skyGradient[0]);
+            grad.addColorStop(0.5, PALETTE.skyGradient[1]);
+            grad.addColorStop(1, PALETTE.skyGradient[2]);
+            ctx.fillStyle = grad;
+            ctx.fillRect(0, 0, width, height);
+
+            // Render Layers with Parallax and Zoom
+            layers.forEach(layer => {
+                ctx.save();
+                
+                // 1. Move to center of screen for zooming origin
+                ctx.translate(width / 2, height / 2);
+                
+                // 2. Apply Camera Zoom
+                ctx.scale(camera.zoom, camera.zoom);
+                
+                // 3. Apply Camera Panning & Parallax Factor
+                // Parallax 1.0 = moves exactly with camera. 
+                // Parallax 0.1 = barely moves (far away).
+                ctx.translate(-camera.x * layer.parallax, -camera.y * layer.parallax);
+
+                // Draw layer contents
+                if (layer.id.startsWith('bamboo')) {
+                    layer.elements.forEach(stalk => drawBambooStalk(ctx, stalk));
+                } else if (layer.id === 'bridge') {
+                    drawBridge(ctx, layer.elements[0]);
+                } else if (layer.id === 'characters') {
+                    // Draw Girl (Left)
+                    drawGirl(ctx, -150, -5);
+                    // Draw Monster (Right)
+                    drawMonster(ctx, 200, -5);
+                } else if (layer.id === 'title') {
+                    drawTitle(ctx);
+                }
+
+                ctx.restore();
+            });
+
+            // Rain is drawn last, partially affected by camera zoom/pan
+            ctx.save();
+            ctx.translate(width/2, height/2);
+            ctx.scale(camera.zoom * 0.8 + 0.2, camera.zoom * 0.8 + 0.2); // Rain zooms slightly
+            ctx.translate(-width/2, -height/2);
+            drawRain(ctx);
+            ctx.restore();
+
+            requestAnimationFrame(render);
+        }
+
+        // Initialize and Start
+        initWorld();
+        requestAnimationFrame(render);
+
+    </script>
+</body>
+</html>

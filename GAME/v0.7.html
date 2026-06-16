@@ -1,0 +1,435 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+    <title>Rainy Encounter - Interactive Parallax</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <style>
+        @import url('https://fonts.googleapis.com/css2?family=Amatic+SC:wght@700&family=Jost:wght@400;600&display=swap');
+        
+        body { 
+            margin: 0; 
+            overflow: hidden; 
+            background-color: #7ab3b7; 
+            touch-action: none; 
+            user-select: none;
+        }
+        
+        canvas { 
+            display: block; 
+            width: 100vw; 
+            height: 100vh;
+            cursor: grab;
+        }
+
+        canvas:active {
+            cursor: grabbing;
+        }
+
+        .cinematic-grain {
+            position: fixed;
+            top: 0; left: 0; right: 0; bottom: 0;
+            pointer-events: none;
+            z-index: 50;
+            opacity: 0.25;
+            mix-blend-mode: overlay;
+        }
+
+        #ui {
+            font-family: 'Jost', sans-serif;
+            pointer-events: none;
+        }
+
+        #controlsPanel::-webkit-scrollbar { width: 6px; }
+        #controlsPanel::-webkit-scrollbar-thumb { background: rgba(255,255,255,0.2); border-radius: 4px; }
+    </style>
+</head>
+<body>
+
+    <svg style="display:none;">
+        <filter id="noiseFilter">
+            <feTurbulence type="fractalNoise" baseFrequency="0.8" numOctaves="3" stitchTiles="stitch"/>
+            <feColorMatrix type="matrix" values="1 0 0 0 0, 0 1 0 0 0, 0 0 1 0 0, 0 0 0 0.1 0" />
+        </filter>
+    </svg>
+    <div class="cinematic-grain" style="filter: url(#noiseFilter);"></div>
+
+    <div id="ui" class="absolute inset-0 flex flex-col p-6 z-10 text-white drop-shadow-md pointer-events-none">
+        <div class="tracking-widest text-sm uppercase opacity-80 font-semibold">Bamboo Forest</div>
+        <div class="text-xs opacity-60 mt-1">Drag to Pan &bull; Scroll to Zoom</div>
+    </div>
+
+    <div id="controlsPanel" class="absolute top-6 right-6 bg-black/40 backdrop-blur-md p-5 rounded-xl text-white z-20 w-80 font-sans border border-white/10 shadow-xl max-h-[90vh] overflow-y-auto">
+        <h3 class="font-bold tracking-widest text-sm uppercase opacity-80 mb-5 border-b border-white/20 pb-2">Environment</h3>
+        
+        <div class="mb-5">
+            <div class="flex justify-between text-sm mb-2">
+                <span>Zoom Level</span>
+                <span id="lblZoom">1.0x</span>
+            </div>
+            <input type="range" id="slZoom" min="40" max="250" value="100" class="w-full cursor-pointer accent-[#7ab3b7]">
+        </div>
+
+        <div class="flex justify-between items-center mb-5">
+            <span class="text-sm">Theme / Mood</span>
+            <select id="selTheme" class="bg-black/50 border border-white/20 rounded p-1 text-xs cursor-pointer outline-none text-white appearance-none text-right px-2">
+                <option value="teal">Rainy Teal</option>
+                <option value="sunset">Sunset Glow</option>
+                <option value="midnight">Midnight Mist</option>
+                <option value="autumn">Autumn Leaves</option>
+                <option value="custom">Custom (Pick Colors)</option>
+            </select>
+        </div>
+
+        <div id="customThemePanel" class="hidden mb-5 space-y-3 p-3 bg-black/30 rounded border border-white/10">
+            <div class="flex justify-between items-center">
+                <span class="text-xs">Sky Base Color</span>
+                <input type="color" id="colCustSky" value="#98c6c9" class="cursor-pointer bg-transparent border-0 w-8 h-8 p-0 rounded">
+            </div>
+            <div class="flex justify-between items-center">
+                <span class="text-xs">Bamboo Base Color</span>
+                <input type="color" id="colCustBamboo" value="#49787e" class="cursor-pointer bg-transparent border-0 w-8 h-8 p-0 rounded">
+            </div>
+            <div class="flex justify-between items-center">
+                <span class="text-xs">Background Color</span>
+                <input type="color" id="colCustBg" value="#7ab3b7" class="cursor-pointer bg-transparent border-0 w-8 h-8 p-0 rounded">
+            </div>
+        </div>
+
+        <div class="flex justify-between items-center mb-5">
+            <span class="text-sm">3D Tree Shading</span>
+            <input type="checkbox" id="chkShading" checked class="w-4 h-4 cursor-pointer accent-[#7ab3b7]">
+        </div>
+
+        <div class="flex justify-between items-center mb-5">
+            <span class="text-sm">Tutorial Text Color</span>
+            <input type="color" id="colText" value="#5a3a31" class="cursor-pointer bg-transparent border-0 w-8 h-8 p-0 rounded">
+        </div>
+
+        <div class="mb-5">
+            <div class="flex justify-between text-sm mb-2">
+                <span>Fog Density</span>
+                <span id="lblFog">50%</span>
+            </div>
+            <input type="range" id="slFog" min="0" max="100" value="50" class="w-full cursor-pointer accent-[#7ab3b7]">
+        </div>
+
+        <div class="mb-5">
+            <div class="flex justify-between text-sm mb-2">
+                <span>Rain Drops</span>
+                <span id="lblRainInt">400</span>
+            </div>
+            <input type="range" id="slRainInt" min="0" max="1500" value="400" class="w-full cursor-pointer accent-[#7ab3b7]">
+        </div>
+
+        <div class="mb-6">
+            <div class="flex justify-between text-sm mb-2">
+                <span>Rain Speed</span>
+                <span id="lblRainSpd">1.0x</span>
+            </div>
+            <input type="range" id="slRainSpd" min="1" max="30" value="10" class="w-full cursor-pointer accent-[#7ab3b7]">
+        </div>
+
+        <button id="btnRandomize" class="w-full py-2.5 bg-white/10 hover:bg-white/20 transition rounded text-sm font-semibold tracking-wide uppercase border border-white/20 cursor-pointer active:scale-95 shadow">
+            Regenerate Forest
+        </button>
+    </div>
+
+    <canvas id="sceneCanvas"></canvas>
+
+    <script>
+        const canvas = document.getElementById('sceneCanvas');
+        const ctx = canvas.getContext('2d');
+
+        let width, height;
+        let globalTime = 0;
+
+        const camera = {
+            x: 0, y: -100, zoom: 0.8,
+            targetX: 0, targetY: -100, targetZoom: 1.0,
+            minZoom: 0.4, maxZoom: 2.5
+        };
+
+        const input = {
+            isDragging: false,
+            lastX: 0, lastY: 0
+        };
+
+        const envSettings = {
+            fogDensity: 0.5,
+            rainIntensity: 400,
+            rainSpeedMultiplier: 1.0,
+            showShading: true,
+            textColor: '#5a3a31'
+        };
+
+        const THEMES = {
+            teal: {
+                skyGradient: ['#dceeee', '#98c6c9', '#5a969b'],
+                bamboo: ['#79a9ab', '#49787e', '#2a5156', '#122b2e'], 
+                textBrown: '#5a3a31',
+                bg: '#7ab3b7'
+            },
+            sunset: {
+                skyGradient: ['#ffe5b4', '#ff8b6a', '#8a2b56'],
+                bamboo: ['#c47366', '#8e3e48', '#541f31', '#260d1b'], 
+                textBrown: '#421626',
+                bg: '#ff8b6a'
+            },
+            midnight: {
+                skyGradient: ['#3a4059', '#1d2236', '#0d101c'],
+                bamboo: ['#525d80', '#343c57', '#1a1f33', '#0a0d17'], 
+                textBrown: '#d5d9ec',
+                bg: '#1d2236'
+            },
+            autumn: {
+                skyGradient: ['#f2e1c2', '#cfa16b', '#855b38'],
+                bamboo: ['#b38356', '#8a5c37', '#5c3a1e', '#331f0f'], 
+                textBrown: '#3a210f',
+                bg: '#cfa16b'
+            },
+            custom: {
+                skyGradient: ['#dceeee', '#98c6c9', '#5a969b'],
+                bamboo: ['#79a9ab', '#49787e', '#2a5156', '#122b2e'], 
+                textBrown: '#5a3a31',
+                bg: '#7ab3b7'
+            }
+        };
+
+        let PALETTE = THEMES.teal;
+        let layers = [];
+        let rainParticles = [];
+
+        function resize() {
+            width = window.innerWidth;
+            height = window.innerHeight;
+            const dpr = window.devicePixelRatio || 1;
+            canvas.width = width * dpr;
+            canvas.height = height * dpr;
+            ctx.scale(dpr, dpr);
+        }
+        window.addEventListener('resize', resize);
+        resize();
+
+        let seed = 42;
+        function random() {
+            let x = Math.sin(seed++) * 10000;
+            return x - Math.floor(x);
+        }
+
+        function initWorld() {
+            const tutorialData = [
+                { x: 0, main: "BAMBOO FOREST", sub: "CLICK AND DRAG TO EXPLORE THE SCENE" },
+                { x: 1200, main: "CINEMATIC DEPTH", sub: "USE THE SLIDER OR MOUSE WHEEL TO ZOOM" },
+                { x: 2400, main: "DYNAMIC ATMOSPHERE", sub: "ADJUST THE SETTINGS IN THE PANEL" },
+                { x: 3600, main: "ENDLESS HORIZON", sub: "ENJOY THE SERENE AMBIENCE" }
+            ];
+
+            layers = [
+                { id: 'sky', parallax: 0.05, elements: [] },
+                { id: 'roots', parallax: 0.15, elements: generateRoots(40, -2000, 6000) },
+                { id: 'bamboo-far', parallax: 0.2, elements: generateBamboo(70, -2000, 6000, 0, 0.4) },
+                { id: 'tutorial', parallax: 0.35, elements: tutorialData },
+                { id: 'bamboo-mid', parallax: 0.5, elements: generateBamboo(50, -2000, 6000, 1, 0.7) },
+                { id: 'bamboo-near', parallax: 0.8, elements: generateBamboo(30, -2000, 6000, 2, 1.2) }
+            ];
+
+            rainParticles = [];
+            for(let i=0; i<1500; i++) {
+                rainParticles.push({
+                    x: Math.random() * width * 3 - width,
+                    y: Math.random() * height * 3 - height,
+                    length: Math.random() * 20 + 10,
+                    baseSpeed: Math.random() * 15 + 15
+                });
+            }
+        }
+
+        function generateRoots(count, startX, endX) {
+            let roots = [];
+            for(let i=0; i<count; i++) {
+                roots.push({
+                    x: startX + random() * (endX - startX),
+                    y: 200 + random() * 200,
+                    length: 100 + random() * 400,
+                    angle: (random() - 0.5) * 1.5,
+                    thickness: 5 + random() * 15
+                });
+            }
+            return roots;
+        }
+
+        function generateBamboo(count, startX, endX, colorIndex, scale) {
+            let stalks = [];
+            for(let i=0; i<count; i++) {
+                stalks.push({
+                    x: startX + random() * (endX - startX),
+                    width: (random() * 20 + 15) * scale,
+                    colorIndex: colorIndex, 
+                    nodes: Array.from({length: 15}, (_, j) => -1500 + j * 150 + random() * 50)
+                });
+            }
+            return stalks.sort((a,b) => a.x - b.x);
+        }
+
+        function adjustColor(color, amount) {
+            return '#' + color.replace(/^#/, '').replace(/../g, color => ('0'+Math.min(255, Math.max(0, parseInt(color, 16) + amount)).toString(16)).substr(-2));
+        }
+
+        function updateCustomTheme() {
+            const skyBase = document.getElementById('colCustSky').value;
+            const bambooBase = document.getElementById('colCustBamboo').value;
+            const bgBase = document.getElementById('colCustBg').value;
+
+            THEMES.custom.skyGradient = [adjustColor(skyBase, 68), skyBase, adjustColor(skyBase, -60)];
+            THEMES.custom.bamboo = [adjustColor(bambooBase, 48), bambooBase, adjustColor(bambooBase, -32), adjustColor(bambooBase, -64)];
+            THEMES.custom.bg = bgBase;
+
+            if (document.getElementById('selTheme').value === 'custom') {
+                PALETTE = THEMES.custom;
+                document.body.style.backgroundColor = PALETTE.bg;
+            }
+        }
+
+        function drawRoot(ctx, root) {
+            ctx.save();
+            ctx.translate(root.x, root.y);
+            ctx.rotate(root.angle);
+            ctx.fillStyle = PALETTE.bamboo[3];
+            ctx.beginPath();
+            ctx.moveTo(0, 0);
+            ctx.quadraticCurveTo(root.length * 0.5, 50, root.length, 20);
+            ctx.lineWidth = root.thickness;
+            ctx.lineCap = 'round';
+            ctx.strokeStyle = PALETTE.bamboo[3];
+            ctx.stroke();
+            
+            if (envSettings.showShading) {
+                ctx.strokeStyle = 'rgba(0,0,0,0.3)';
+                ctx.lineWidth = root.thickness * 0.5;
+                ctx.stroke();
+            }
+            ctx.restore();
+        }
+
+        function drawBambooStalk(ctx, stalk) {
+            const stalkColor = PALETTE.bamboo[stalk.colorIndex];
+            ctx.fillStyle = stalkColor;
+            ctx.fillRect(stalk.x, -2000, stalk.width, 4000);
+            ctx.fillStyle = 'rgba(255, 255, 255, 0.3)'; 
+            stalk.nodes.forEach(y => {
+                ctx.globalAlpha = 0.3;
+                ctx.fillRect(stalk.x, y, stalk.width, Math.max(stalk.width * 0.15, 3));
+                ctx.globalAlpha = 0.3;
+                ctx.fillStyle = '#000';
+                ctx.fillRect(stalk.x, y + Math.max(stalk.width * 0.15, 3), stalk.width, Math.max(stalk.width * 0.1, 2));
+                ctx.fillStyle = 'rgba(255, 255, 255, 0.3)'; 
+            });
+            ctx.globalAlpha = 1.0;
+            if (envSettings.showShading) {
+                const shading = ctx.createLinearGradient(stalk.x, 0, stalk.x + stalk.width, 0);
+                shading.addColorStop(0, 'rgba(0, 0, 0, 0.45)');
+                shading.addColorStop(0.15, 'rgba(255, 255, 255, 0.2)');
+                shading.addColorStop(0.4, 'rgba(255, 255, 255, 0)');
+                shading.addColorStop(0.8, 'rgba(0, 0, 0, 0.15)');
+                shading.addColorStop(1, 'rgba(0, 0, 0, 0.6)');
+                ctx.fillStyle = shading;
+                ctx.fillRect(stalk.x, -2000, stalk.width, 4000);
+            }
+        }
+
+        function drawTutorialText(ctx, textObj) {
+            ctx.save();
+            ctx.translate(textObj.x, -100);
+            ctx.fillStyle = envSettings.textColor;
+            ctx.textAlign = 'center';
+            ctx.font = '700 80px "Amatic SC", cursive';
+            ctx.fillText(textObj.main, 0, 0);
+            ctx.font = '600 16px "Jost", sans-serif';
+            ctx.globalAlpha = 0.8;
+            ctx.fillText(textObj.sub, 0, 40);
+            ctx.restore();
+        }
+
+        function drawFog(ctx, layerIndex) {
+            if (envSettings.fogDensity <= 0) return;
+            const fogFactors = [0, 0.1, 0.5, 0.0, 0.3, 0.1]; 
+            const factor = fogFactors[layerIndex];
+            if (!factor) return;
+            const alpha = envSettings.fogDensity * factor;
+            const grad = ctx.createLinearGradient(0, 0, 0, height);
+            grad.addColorStop(0, `rgba(255, 255, 255, ${alpha * 0.1})`); 
+            grad.addColorStop(1, PALETTE.skyGradient[2] + Math.floor(alpha * 255).toString(16).padStart(2, '0')); 
+            ctx.save();
+            ctx.setTransform(1, 0, 0, 1, 0, 0);
+            ctx.fillStyle = grad;
+            ctx.fillRect(0, 0, width, height);
+            ctx.restore();
+        }
+
+        window.addEventListener('mousedown', e => { if (e.target.closest('#controlsPanel')) return; input.isDragging = true; input.lastX = e.clientX; input.lastY = e.clientY; });
+        window.addEventListener('mousemove', e => { if (!input.isDragging) return; const dx = e.clientX - input.lastX; const dy = e.clientY - input.lastY; camera.targetX -= dx / camera.zoom; camera.targetY -= dy / camera.zoom; input.lastX = e.clientX; input.lastY = e.clientY; });
+        window.addEventListener('mouseup', () => input.isDragging = false);
+        window.addEventListener('wheel', e => { if (e.target.closest('#controlsPanel')) return; e.preventDefault(); camera.targetZoom *= (e.deltaY > 0 ? 0.9 : 1.1); camera.targetZoom = Math.max(camera.minZoom, Math.min(camera.maxZoom, camera.targetZoom)); document.getElementById('slZoom').value = camera.targetZoom * 100; document.getElementById('lblZoom').innerText = camera.targetZoom.toFixed(1) + 'x'; }, {passive: false});
+
+        document.getElementById('slZoom').addEventListener('input', (e) => { camera.targetZoom = parseInt(e.target.value) / 100; document.getElementById('lblZoom').innerText = camera.targetZoom.toFixed(1) + 'x'; });
+        document.getElementById('selTheme').addEventListener('change', (e) => { const theme = e.target.value; if (theme === 'custom') { document.getElementById('customThemePanel').classList.remove('hidden'); updateCustomTheme(); } else { document.getElementById('customThemePanel').classList.add('hidden'); PALETTE = THEMES[theme]; document.body.style.backgroundColor = PALETTE.bg; envSettings.textColor = PALETTE.textBrown; document.getElementById('colText').value = PALETTE.textBrown; } });
+        document.getElementById('btnRandomize').addEventListener('click', () => { seed = Math.random() * 10000; initWorld(); });
+
+        function updateCamera() {
+            camera.x += (camera.targetX - camera.x) * 0.1;
+            camera.y += (camera.targetY - camera.y) * 0.1;
+            camera.zoom += (camera.targetZoom - camera.zoom) * 0.1;
+        }
+
+        function drawRain(ctx) {
+            if (envSettings.rainIntensity <= 0) return;
+            ctx.strokeStyle = 'rgba(255, 255, 255, 0.4)';
+            ctx.lineWidth = 1;
+            ctx.beginPath();
+            const offsetX = camera.x * 1.2;
+            const offsetY = camera.y * 1.2;
+            for (let i = 0; i < envSettings.rainIntensity; i++) {
+                let p = rainParticles[i];
+                p.y += p.baseSpeed * envSettings.rainSpeedMultiplier;
+                if (p.y > height * 2) { p.y = -height; p.x = Math.random() * width * 3 - width; }
+                let drawX = ((p.x - offsetX) % (width * 3)); if (drawX < 0) drawX += width * 3; drawX -= width;
+                let drawY = ((p.y - offsetY) % (height * 3)); if (drawY < 0) drawY += height * 3; drawY -= height;
+                ctx.moveTo(drawX, drawY); ctx.lineTo(drawX, drawY + (p.length * envSettings.rainSpeedMultiplier * 0.5 + p.length * 0.5));
+            }
+            ctx.stroke();
+        }
+
+        function render() {
+            globalTime++;
+            updateCamera();
+            ctx.clearRect(0, 0, width, height);
+            const grad = ctx.createRadialGradient(width/2, height/2, 100, width/2, height/2, width);
+            grad.addColorStop(0, PALETTE.skyGradient[0]); grad.addColorStop(0.5, PALETTE.skyGradient[1]); grad.addColorStop(1, PALETTE.skyGradient[2]);
+            ctx.fillStyle = grad; ctx.fillRect(0, 0, width, height);
+            layers.forEach((layer, idx) => {
+                ctx.save();
+                ctx.translate(width / 2, height / 2);
+                ctx.scale(camera.zoom, camera.zoom);
+                ctx.translate(-camera.x * layer.parallax, -camera.y * layer.parallax);
+                if (layer.id.startsWith('bamboo')) layer.elements.forEach(stalk => drawBambooStalk(ctx, stalk));
+                else if (layer.id === 'roots') layer.elements.forEach(root => drawRoot(ctx, root));
+                else if (layer.id === 'tutorial') layer.elements.forEach(textObj => drawTutorialText(ctx, textObj));
+                ctx.restore();
+                drawFog(ctx, idx);
+            });
+            ctx.save();
+            ctx.translate(width/2, height/2);
+            ctx.scale(camera.zoom * 0.8 + 0.2, camera.zoom * 0.8 + 0.2); 
+            ctx.translate(-width/2, -height/2);
+            drawRain(ctx);
+            ctx.restore();
+            requestAnimationFrame(render);
+        }
+
+        initWorld();
+        requestAnimationFrame(render);
+    </script>
+</body>
+</html>

@@ -1,0 +1,1001 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+    <title>Clean City Previs - Studio Edition</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <style>
+        body, html { margin: 0; padding: 0; width: 100%; height: 100%; overflow: hidden; background-color: #000; touch-action: none; font-family: system-ui, -apple-system, sans-serif; }
+        
+        /* Flex wrapper handles cinematic letterboxing automatically via object-fit */
+        #canvas-wrapper { width: 100%; height: 100%; position: absolute; top: 0; left: 0; z-index: 1; display: flex; align-items: center; justify-content: center; background: #111827; }
+        canvas { outline: none; box-shadow: 0 0 50px rgba(0,0,0,0.5); }
+        
+        #ui-layer { position: absolute; inset: 0; z-index: 10; pointer-events: none; display: flex; flex-direction: column; }
+        .pointer-events-auto { pointer-events: auto; }
+        
+        /* Minimal UI aesthetics */
+        .glass { background: rgba(255, 255, 255, 0.95); backdrop-filter: blur(12px); -webkit-backdrop-filter: blur(12px); border: 1px solid rgba(0,0,0,0.05); box-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.05); }
+        .icon-btn { display: flex; align-items: center; justify-content: center; width: 40px; height: 40px; border-radius: 10px; transition: all 0.2s; color: #4b5563; }
+        .icon-btn:hover { background-color: #f3f4f6; color: #111827; }
+        .icon-btn.active { background-color: #3b82f6; color: white; box-shadow: 0 4px 10px rgba(59, 130, 246, 0.3); }
+        
+        input[type=color] { -webkit-appearance: none; border: none; border-radius: 8px; width: 32px; height: 32px; cursor: pointer; padding: 0; overflow: hidden; background: transparent; }
+        input[type=color]::-webkit-color-swatch-wrapper { padding: 0; }
+        input[type=color]::-webkit-color-swatch { border: 1px solid rgba(0,0,0,0.1); border-radius: 8px; }
+
+        input[type=range] { -webkit-appearance: none; width: 100%; background: transparent; }
+        input[type=range]::-webkit-slider-thumb { -webkit-appearance: none; height: 14px; width: 14px; border-radius: 50%; background: #3b82f6; cursor: pointer; margin-top: -5px; }
+        input[type=range]::-webkit-slider-runnable-track { width: 100%; height: 4px; background: #e5e7eb; border-radius: 2px; }
+
+        select { background-image: url("data:image/svg+xml,%3csvg xmlns='http://www.w3.org/2000/svg' fill='none' viewBox='0 0 20 20'%3e%3cpath stroke='%236b7280' stroke-linecap='round' stroke-linejoin='round' stroke-width='1.5' d='M6 8l4 4 4-4'/%3e%3c/svg%3e"); background-position: right 0.5rem center; background-repeat: no-repeat; background-size: 1.5em 1.5em; -webkit-appearance: none; padding-right: 2.5rem; }
+
+        .recording-indicator { animation: pulseRed 1s infinite alternate; }
+        @keyframes pulseRed { 0% { opacity: 1; transform: scale(0.95); } 100% { opacity: 0.5; transform: scale(1.05); } }
+        
+        /* Custom scrollbar for wide panels */
+        .hide-scroll::-webkit-scrollbar { display: none; }
+        
+        /* Status prompt for custom tools */
+        #placement-prompt { transition: opacity 0.3s; }
+    </style>
+    
+    <!-- Import maps for Three.js -->
+    <script async src="https://unpkg.com/es-module-shims@1.8.0/dist/es-module-shims.js"></script>
+    <script type="importmap">
+        {
+            "imports": {
+                "three": "https://cdn.jsdelivr.net/npm/three@0.160.0/build/three.module.js",
+                "three/addons/": "https://cdn.jsdelivr.net/npm/three@0.160.0/examples/jsm/"
+            }
+        }
+    </script>
+</head>
+<body>
+
+    <div id="canvas-wrapper">
+        <canvas id="main-canvas" tabindex="0"></canvas>
+    </div>
+
+    <div id="ui-layer">
+        <!-- Top Navigation -->
+        <div class="flex justify-between items-start p-4 w-full pointer-events-none">
+            <!-- Mode Selector -->
+            <div class="glass p-1.5 rounded-xl flex flex-col gap-1 pointer-events-auto">
+                <button id="mode-build" class="icon-btn active" title="Build Mode">
+                    <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M2 22h20"/><path d="M17 2v20"/><path d="M7 10v12"/><path d="M12 6v16"/></svg>
+                </button>
+                <button id="mode-env" class="icon-btn" title="Environment">
+                    <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="5"/><line x1="12" y1="1" x2="12" y2="3"/><line x1="12" y1="21" x2="12" y2="23"/><line x1="4.22" y1="4.22" x2="5.64" y2="5.64"/><line x1="18.36" y1="18.36" x2="19.78" y2="19.78"/><line x1="1" y1="12" x2="3" y2="12"/><line x1="21" y1="12" x2="23" y2="12"/><line x1="4.22" y1="19.78" x2="5.64" y2="18.36"/><line x1="18.36" y1="5.64" x2="19.78" y2="4.22"/></svg>
+                </button>
+                <button id="mode-cam" class="icon-btn" title="Camera Animation">
+                    <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M23 19a2 2 0 0 1-2 2H3a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h4l2-3h6l2 3h4a2 2 0 0 1 2 2z"/><circle cx="12" cy="13" r="4"/></svg>
+                </button>
+            </div>
+            
+            <!-- Context Info & Export Progress -->
+            <div class="flex flex-col items-end gap-2 pointer-events-auto">
+                <div class="glass px-3 py-1.5 rounded-lg text-xs font-medium text-gray-500 shadow-sm flex flex-col items-end gap-1">
+                    <div class="flex items-center gap-2"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M5 12h14"/><path d="m12 5 7 7-7 7"/></svg> WASD + QE to fly</div>
+                    <div class="text-gray-400">Right-Click to Delete</div>
+                </div>
+                
+                <div id="placement-prompt" class="hidden glass bg-blue-50 border border-blue-200 text-blue-600 px-3 py-1.5 rounded-lg text-xs font-bold items-center shadow-sm">
+                    Click anywhere to place Custom Object
+                </div>
+
+                <div id="recording-badge" class="hidden bg-red-50 text-red-600 border border-red-200 px-4 py-2 rounded-lg text-xs font-bold items-center gap-2 shadow-sm">
+                    <div class="w-2 h-2 bg-red-600 rounded-full recording-indicator"></div> EXPORTING HD...
+                </div>
+            </div>
+        </div>
+
+        <div class="flex-grow"></div>
+
+        <!-- Floating Context Panels -->
+        <div class="p-4 w-full flex justify-center pointer-events-none mb-2">
+            
+            <!-- Build Panel -->
+            <div id="panel-build" class="glass px-4 py-3 rounded-2xl flex flex-col gap-3 pointer-events-auto transition-transform w-full max-w-3xl overflow-x-auto hide-scroll">
+                
+                <!-- Row 1: Presets & Tools -->
+                <div class="flex items-center gap-3 w-full">
+                    <div class="flex flex-col gap-1 min-w-max">
+                        <span class="text-[10px] font-bold text-gray-400 uppercase tracking-wide">Buildings</span>
+                        <select id="bldg-preset" class="bg-gray-50 hover:bg-gray-100 border border-gray-200 text-gray-700 text-xs font-medium rounded-lg px-3 py-2 outline-none transition">
+                            <option value="block">Modern Block</option>
+                            <option value="tower">Glass Tower</option>
+                            <option value="hq">Corporate HQ</option>
+                            <option value="residential">Residential Unit</option>
+                            <option value="rooftop">Rooftop Details</option>
+                        </select>
+                    </div>
+
+                    <div class="w-px h-8 bg-gray-200 mx-1 shrink-0"></div>
+
+                    <div class="flex flex-col gap-1 min-w-max">
+                        <span class="text-[10px] font-bold text-gray-400 uppercase tracking-wide">Cartoony Primitives</span>
+                        <select id="prim-preset" class="bg-blue-50 hover:bg-blue-100 border border-blue-200 text-blue-700 text-xs font-medium rounded-lg px-3 py-2 outline-none transition">
+                            <option value="none">--- Select Primitive ---</option>
+                            <option value="cube">Smooth Cube</option>
+                            <option value="cylinder">Cinematic Cylinder</option>
+                            <option value="rect">Wide Rectangle</option>
+                        </select>
+                    </div>
+                    
+                    <div class="w-px h-8 bg-gray-200 mx-1 shrink-0"></div>
+                    
+                    <div class="flex flex-col gap-1 min-w-max">
+                        <span class="text-[10px] font-bold text-gray-400 uppercase tracking-wide">Material Color</span>
+                        <input type="color" id="bldg-color" value="#e2e8f0" title="Object Color">
+                    </div>
+                    
+                    <button id="btn-clear" class="text-red-500 hover:text-red-700 p-2 bg-red-50 hover:bg-red-100 rounded-lg transition ml-auto shrink-0 flex items-center gap-1 text-xs font-bold" title="Clear Scene">
+                        <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M3 6h18"/><path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2"/></svg> Clear All
+                    </button>
+                </div>
+
+                <!-- Row 2: Custom Assets (Text/Image) -->
+                <div class="flex items-center gap-3 w-full border-t border-gray-100 pt-2">
+                    <input type="text" id="custom-text-input" placeholder="Type text & emoji..." class="bg-gray-50 border border-gray-200 text-gray-700 text-xs font-medium rounded-lg px-3 py-2 outline-none flex-grow min-w-[120px]">
+                    
+                    <button id="btn-2d-text" class="bg-indigo-50 hover:bg-indigo-100 text-indigo-600 border border-indigo-200 text-[10px] font-bold px-3 py-2 rounded-lg transition shrink-0">
+                        Add 2D Emoji/Text
+                    </button>
+                    
+                    <button id="btn-3d-text" class="bg-indigo-50 hover:bg-indigo-100 text-indigo-600 border border-indigo-200 text-[10px] font-bold px-3 py-2 rounded-lg transition shrink-0">
+                        Add 3D Text
+                    </button>
+
+                    <div class="w-px h-6 bg-gray-200 mx-1 shrink-0"></div>
+                    
+                    <button id="btn-import-img" class="bg-emerald-50 hover:bg-emerald-100 text-emerald-600 border border-emerald-200 text-[10px] font-bold px-3 py-2 rounded-lg transition shrink-0 flex items-center gap-1">
+                        🖼️ Import Image Map
+                    </button>
+                    <input type="file" id="file-import-img" accept="image/png, image/jpeg, image/webp" class="hidden">
+                </div>
+            </div>
+
+            <!-- Environment Panel -->
+            <div id="panel-env" class="hidden glass px-4 py-3 rounded-2xl flex flex-col gap-3 pointer-events-auto transition-transform w-full max-w-3xl overflow-x-auto hide-scroll">
+                
+                <div class="flex items-center gap-4 w-full">
+                    <div class="flex flex-col gap-1 min-w-max">
+                        <span class="text-[10px] font-bold text-gray-400 uppercase tracking-wide">Sky Mode</span>
+                        <select id="env-mode" class="bg-gray-50 border border-gray-200 text-gray-700 text-xs font-medium rounded-lg px-3 py-2 outline-none">
+                            <option value="color">Solid Color</option>
+                            <optgroup label="Nature & Skies">
+                                <option value="hdri-clouds">Pure Sky & Clouds</option>
+                                <option value="hdri-mountains">Mountains & Fields</option>
+                                <option value="hdri-sunrise">Sunrise Landscape</option>
+                            </optgroup>
+                            <optgroup label="Urban & City">
+                                <option value="hdri-sunset">Venice Sunset</option>
+                                <option value="hdri-day">Royal Esplanade</option>
+                                <option value="hdri-overpass">Overpass Studio</option>
+                            </optgroup>
+                            <option value="custom" hidden>Custom HDRI</option>
+                        </select>
+                    </div>
+
+                    <div id="env-color-wrap" class="flex flex-col gap-1 min-w-max">
+                        <span class="text-[10px] font-bold text-gray-400 uppercase tracking-wide">Sky Color</span>
+                        <input type="color" id="sky-color" value="#e0f2fe">
+                    </div>
+
+                    <button id="btn-import-hdri" class="mt-4 bg-purple-50 hover:bg-purple-100 text-purple-600 border border-purple-200 text-[10px] font-bold px-3 py-2 rounded-lg transition shrink-0 flex items-center gap-1">
+                        Upload .HDR
+                    </button>
+                    <input type="file" id="file-import-hdri" accept=".hdr" class="hidden">
+                    
+                    <div class="w-px h-8 bg-gray-200 mx-1 shrink-0"></div>
+
+                    <div class="flex flex-col gap-1 min-w-max">
+                        <span class="text-[10px] font-bold text-gray-400 uppercase tracking-wide">Lighting Power</span>
+                        <div class="flex items-center gap-2 pt-1">
+                            <input type="range" id="light-intensity" min="0" max="3" step="0.1" value="1.2" class="w-24">
+                        </div>
+                    </div>
+                </div>
+
+                <div class="flex items-center gap-4 w-full border-t border-gray-100 pt-2">
+                    <div class="flex flex-col gap-1 min-w-max">
+                        <span class="text-[10px] font-bold text-gray-400 uppercase tracking-wide">Ground Plane</span>
+                        <div class="flex items-center gap-3">
+                            <select id="ground-visible" class="bg-gray-50 border border-gray-200 text-gray-700 text-xs font-medium rounded-lg px-2 py-1.5 outline-none">
+                                <option value="true">Visible</option>
+                                <option value="shadow">Shadow Catcher (HDRI Blend)</option>
+                                <option value="false">Hidden</option>
+                            </select>
+                            <div id="ground-color-wrap" class="flex items-center gap-3">
+                                <input type="color" id="ground-color" value="#f8fafc" title="Ground Color">
+                                <select id="grid-pattern" class="bg-gray-50 border border-gray-200 text-gray-700 text-xs font-medium rounded-lg px-2 py-1.5 outline-none">
+                                    <option value="standard">Standard Grid</option>
+                                    <option value="blueprint">Blueprint</option>
+                                    <option value="minimal">Minimal / None</option>
+                                </select>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Camera Panel -->
+            <div id="panel-cam" class="hidden glass px-4 py-3 rounded-2xl flex items-center gap-3 pointer-events-auto transition-transform w-full max-w-4xl overflow-x-auto hide-scroll">
+                
+                <div class="flex flex-col gap-1 min-w-max">
+                    <span class="text-[10px] font-bold text-gray-400 uppercase tracking-wide">Lens (FOV)</span>
+                    <div class="flex items-center gap-2 pt-1">
+                        <input type="range" id="cam-fov" min="20" max="100" value="50" class="w-20">
+                        <span id="fov-val" class="text-xs text-gray-600 font-mono w-6">50</span>
+                    </div>
+                </div>
+
+                <div class="w-px h-8 bg-gray-200 mx-1 shrink-0"></div>
+
+                <button id="btn-add-kf" class="bg-gray-900 text-white text-xs font-bold px-3 py-2 rounded-lg shadow-sm hover:bg-gray-800 transition flex gap-1 items-center shrink-0">
+                    <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M12 5v14"/><path d="M5 12h14"/></svg> Add Frame
+                </button>
+                
+                <span id="kf-counter" class="text-[10px] font-bold text-gray-400 w-12 text-center shrink-0">0 Frames</span>
+                
+                <button id="btn-clear-cam" class="text-gray-400 hover:text-red-500 p-1.5 transition shrink-0 bg-gray-50 hover:bg-red-50 rounded" title="Clear Keyframes">
+                    <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg>
+                </button>
+
+                <div class="w-px h-8 bg-gray-200 mx-1 shrink-0"></div>
+                
+                <div class="flex flex-col gap-1 min-w-max">
+                    <span class="text-[10px] font-bold text-gray-400 uppercase tracking-wide">Aspect & Output</span>
+                    <div class="flex items-center gap-2">
+                        <select id="export-aspect" class="bg-gray-50 border border-gray-200 text-gray-700 text-xs font-medium rounded-lg px-2 py-1 outline-none">
+                            <option value="1.777">16:9 Standard</option>
+                            <option value="2.35">2.35:1 Cinematic</option>
+                            <option value="1.333">4:3 Classic</option>
+                        </select>
+                        <select id="export-res" class="bg-blue-50 border border-blue-200 text-blue-700 text-xs font-bold rounded-lg px-2 py-1 outline-none">
+                            <option value="1080">HD (1080p)</option>
+                            <option value="1440">2K (1440p)</option>
+                            <option value="2160">4K (2160p)</option>
+                        </select>
+                    </div>
+                </div>
+
+                <div class="w-px h-8 bg-gray-200 mx-1 shrink-0"></div>
+
+                <button id="btn-play" class="text-gray-700 hover:text-blue-600 p-2 bg-gray-100 hover:bg-blue-50 rounded-lg transition shrink-0" title="Preview Playback">
+                    <svg width="18" height="18" viewBox="0 0 24 24" fill="currentColor" stroke="none"><polygon points="5 3 19 12 5 21 5 3"></polygon></svg>
+                </button>
+                
+                <button id="btn-export" class="bg-red-50 text-red-600 hover:bg-red-600 hover:text-white px-3 py-2 rounded-lg text-xs font-bold transition flex items-center gap-1 shrink-0 border border-red-200" title="Export WebM">
+                    <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="7 10 12 15 17 10"/><line x1="12" y1="15" x2="12" y2="3"/></svg> Render
+                </button>
+            </div>
+        </div>
+    </div>
+
+    <script type="module">
+        import * as THREE from 'three';
+        import { OrbitControls } from 'three/addons/controls/OrbitControls.js';
+        import { RGBELoader } from 'three/addons/loaders/RGBELoader.js';
+        import { RoundedBoxGeometry } from 'three/addons/geometries/RoundedBoxGeometry.js';
+        import { FontLoader } from 'three/addons/loaders/FontLoader.js';
+        import { TextGeometry } from 'three/addons/geometries/TextGeometry.js';
+
+        // --- Core Setup ---
+        const canvas = document.getElementById('main-canvas');
+        const canvasWrapper = document.getElementById('canvas-wrapper');
+        const scene = new THREE.Scene();
+        scene.background = new THREE.Color(0xe0f2fe);
+
+        const camera = new THREE.PerspectiveCamera(50, 1, 0.1, 2000);
+        camera.position.set(0, 20, 40);
+
+        const renderer = new THREE.WebGLRenderer({ canvas: canvas, antialias: true, alpha: false, preserveDrawingBuffer: true });
+        renderer.setPixelRatio(Math.min(window.devicePixelRatio, 2));
+        renderer.shadowMap.enabled = true;
+        renderer.shadowMap.type = THREE.PCFSoftShadowMap; 
+        renderer.toneMapping = THREE.ACESFilmicToneMapping;
+        renderer.toneMappingExposure = 1.0;
+
+        const controls = new OrbitControls(camera, renderer.domElement);
+        controls.enableDamping = true;
+        controls.dampingFactor = 0.05;
+        controls.target.set(0, 5, 0);
+        controls.maxPolarAngle = Math.PI / 2 - 0.01; // Prevent camera from dropping below ground into the void
+
+        // Global State
+        let isExporting = false;
+        let exportAspect = 16/9;
+        
+        let placementMode = 'preset'; // preset, 2dtext, 3dtext, image
+        let customTextData = '';
+        let customImageUrl = '';
+
+        // Load 3D Font
+        const fontLoader = new FontLoader();
+        let loadedFont = null;
+        fontLoader.load('https://cdn.jsdelivr.net/npm/three@0.160.0/examples/fonts/helvetiker_regular.typeface.json', (font) => {
+            loadedFont = font;
+        });
+
+        // --- Dynamic Resizing ---
+        function resize() {
+            if (isExporting) return; 
+            exportAspect = parseFloat(document.getElementById('export-aspect').value);
+            
+            const w = window.innerWidth;
+            const h = window.innerHeight;
+            if (w === 0 || h === 0) return; 
+
+            renderer.setSize(w, h, false);
+            
+            const windowAspect = w / h;
+            if (windowAspect > exportAspect) {
+                canvas.style.width = (h * exportAspect) + 'px';
+                canvas.style.height = h + 'px';
+            } else {
+                canvas.style.width = w + 'px';
+                canvas.style.height = (w / exportAspect) + 'px';
+            }
+
+            camera.aspect = exportAspect;
+            camera.updateProjectionMatrix();
+        }
+        window.addEventListener('resize', resize);
+        document.getElementById('export-aspect').addEventListener('change', resize);
+        
+        // --- WASD Drone Controls ---
+        const keys = { w: false, a: false, s: false, d: false, q: false, e: false };
+        
+        canvas.addEventListener('keydown', (e) => {
+            if(document.activeElement.tagName === 'INPUT') return;
+            const key = e.key.toLowerCase();
+            if (keys.hasOwnProperty(key)) keys[key] = true;
+        });
+        canvas.addEventListener('keyup', (e) => {
+            const key = e.key.toLowerCase();
+            if (keys.hasOwnProperty(key)) keys[key] = false;
+        });
+        window.addEventListener('blur', () => {
+            for(let k in keys) keys[k] = false;
+        });
+        canvas.focus(); 
+
+        function applyWASDMovement(delta) {
+            const speed = 35 * delta;
+            const forward = new THREE.Vector3();
+            camera.getWorldDirection(forward);
+            forward.y = 0; 
+            forward.normalize();
+            
+            const right = new THREE.Vector3().crossVectors(forward, camera.up).normalize();
+            const move = new THREE.Vector3();
+            
+            if (keys.w) move.add(forward);
+            if (keys.s) move.sub(forward);
+            if (keys.a) move.sub(right);
+            if (keys.d) move.add(right);
+            if (keys.e) move.y += 1;
+            if (keys.q) move.y -= 1;
+
+            if (move.lengthSq() > 0) {
+                move.normalize().multiplyScalar(speed);
+                camera.position.add(move);
+                controls.target.add(move);
+            }
+        }
+
+        // --- Lighting ---
+        const ambientLight = new THREE.AmbientLight(0xffffff, 0.6);
+        scene.add(ambientLight);
+
+        const dirLight = new THREE.DirectionalLight(0xffffff, 1.2);
+        dirLight.position.set(50, 100, 40);
+        dirLight.castShadow = true;
+        dirLight.shadow.mapSize.width = 4096;
+        dirLight.shadow.mapSize.height = 4096;
+        dirLight.shadow.camera.near = 0.5;
+        dirLight.shadow.camera.far = 500;
+        const d = 150;
+        dirLight.shadow.camera.left = -d; dirLight.shadow.camera.right = d;
+        dirLight.shadow.camera.top = d; dirLight.shadow.camera.bottom = -d;
+        dirLight.shadow.bias = -0.0005;
+        scene.add(dirLight);
+
+        document.getElementById('light-intensity').addEventListener('input', (e) => {
+            dirLight.intensity = parseFloat(e.target.value);
+            ambientLight.intensity = parseFloat(e.target.value) * 0.5;
+        });
+
+        // --- Environment (Expanded Ground & Shadows) ---
+        const groundGeo = new THREE.PlaneGeometry(2000, 2000);
+        const groundMat = new THREE.MeshStandardMaterial({ color: 0xf8fafc, roughness: 1.0 });
+        const shadowMat = new THREE.ShadowMaterial({ opacity: 0.6 }); // For HDRI blending
+        
+        const ground = new THREE.Mesh(groundGeo, groundMat);
+        ground.rotation.x = -Math.PI / 2;
+        ground.receiveShadow = true;
+        scene.add(ground);
+
+        let currentGrid = null;
+        function updateGround() {
+            const visibility = document.getElementById('ground-visible').value;
+            const colorWrap = document.getElementById('ground-color-wrap');
+            
+            if (currentGrid) {
+                scene.remove(currentGrid);
+                currentGrid = null;
+            }
+
+            if (visibility === 'true') {
+                colorWrap.style.opacity = '1';
+                colorWrap.style.pointerEvents = 'auto';
+                
+                ground.visible = true;
+                ground.material = groundMat;
+                groundMat.color.setHex(parseInt(document.getElementById('ground-color').value.replace('#', '0x')));
+                
+                const pattern = document.getElementById('grid-pattern').value;
+                if (pattern === 'standard') {
+                    currentGrid = new THREE.GridHelper(2000, 400, 0x94a3b8, 0xe2e8f0);
+                    currentGrid.position.y = 0.05;
+                    scene.add(currentGrid);
+                } else if (pattern === 'blueprint') {
+                    groundMat.color.setHex(0x1e3a8a); 
+                    currentGrid = new THREE.GridHelper(2000, 1000, 0x60a5fa, 0x3b82f6);
+                    currentGrid.position.y = 0.05;
+                    scene.add(currentGrid);
+                }
+            } else if (visibility === 'shadow') {
+                // Shadow Catcher Mode (blends with HDRI background)
+                colorWrap.style.opacity = '0.3';
+                colorWrap.style.pointerEvents = 'none';
+                ground.visible = true;
+                ground.material = shadowMat;
+            } else {
+                // Completely Hidden
+                colorWrap.style.opacity = '0.3';
+                colorWrap.style.pointerEvents = 'none';
+                ground.visible = false;
+            }
+        }
+        document.getElementById('ground-visible').addEventListener('change', updateGround);
+        document.getElementById('ground-color').addEventListener('input', updateGround);
+        document.getElementById('grid-pattern').addEventListener('change', updateGround);
+        updateGround();
+
+        // --- Custom Asset Generation Functions ---
+        function create2DMesh(text, colorHex) {
+            const canvas = document.createElement('canvas');
+            const ctx = canvas.getContext('2d');
+            ctx.font = 'bold 80px sans-serif';
+            const metrics = ctx.measureText(text);
+            const textWidth = Math.max(metrics.width + 40, 100);
+            const textHeight = 120;
+            
+            canvas.width = textWidth;
+            canvas.height = textHeight;
+            ctx.font = 'bold 80px sans-serif'; 
+            ctx.fillStyle = colorHex;
+            ctx.textAlign = 'center';
+            ctx.textBaseline = 'middle';
+            ctx.fillText(text, textWidth / 2, textHeight / 2);
+            
+            const tex = new THREE.CanvasTexture(canvas);
+            tex.anisotropy = renderer.capabilities.getMaxAnisotropy();
+            const mat = new THREE.MeshStandardMaterial({ map: tex, transparent: true, side: THREE.DoubleSide, alphaTest: 0.1 });
+            
+            const widthUnits = textWidth / 20;
+            const heightUnits = textHeight / 20;
+            const mesh = new THREE.Mesh(new THREE.PlaneGeometry(widthUnits, heightUnits), mat);
+            mesh.castShadow = true; mesh.receiveShadow = true;
+            mesh.userData.isBuildingPart = true;
+            mesh.position.y = heightUnits / 2;
+            return mesh;
+        }
+
+        function create3DMesh(text, colorHex) {
+            if (!loadedFont) return null;
+            const geo = new TextGeometry(text, {
+                font: loadedFont, size: 4, height: 1,
+                curveSegments: 4, bevelEnabled: true, bevelThickness: 0.2, bevelSize: 0.1, bevelSegments: 3
+            });
+            geo.center();
+            const mat = new THREE.MeshStandardMaterial({ color: colorHex, roughness: 0.3, metalness: 0.2 });
+            const mesh = new THREE.Mesh(geo, mat);
+            mesh.castShadow = true; mesh.receiveShadow = true;
+            mesh.userData.isBuildingPart = true;
+            mesh.position.y = 2; 
+            return mesh;
+        }
+
+        function createImageMesh(url) {
+            const mesh = new THREE.Mesh(
+                new THREE.PlaneGeometry(10, 10), 
+                new THREE.MeshStandardMaterial({ transparent: true, side: THREE.DoubleSide, roughness: 0.5 })
+            );
+            
+            new THREE.TextureLoader().load(url, (texture) => {
+                texture.colorSpace = THREE.SRGBColorSpace;
+                const aspect = texture.image.width / texture.image.height;
+                const h = 10;
+                const w = h * aspect;
+                mesh.geometry.dispose(); 
+                mesh.geometry = new THREE.PlaneGeometry(w, h);
+                mesh.material.map = texture;
+                mesh.material.needsUpdate = true;
+                mesh.position.y = h / 2;
+            });
+            
+            mesh.castShadow = true; mesh.receiveShadow = true;
+            mesh.userData.isBuildingPart = true;
+            return mesh;
+        }
+
+
+        // --- Building & Placement Logic ---
+        const buildings = [];
+        const raycaster = new THREE.Raycaster();
+        const mouse = new THREE.Vector2();
+        let currentMode = 'build'; 
+        let isDragging = false;
+        let dragStart = new THREE.Vector2();
+
+        canvas.addEventListener('pointerdown', (e) => {
+            isDragging = false;
+            dragStart.set(e.clientX, e.clientY);
+        });
+
+        canvas.addEventListener('pointermove', (e) => {
+            if (dragStart.distanceTo(new THREE.Vector2(e.clientX, e.clientY)) > 5) {
+                isDragging = true;
+            }
+        });
+
+        canvas.addEventListener('pointerup', (e) => {
+            canvas.focus(); 
+            if (isDragging) return;
+
+            const rect = canvas.getBoundingClientRect();
+            mouse.x = ((e.clientX - rect.left) / rect.width) * 2 - 1;
+            mouse.y = -((e.clientY - rect.top) / rect.height) * 2 + 1;
+            
+            // Handle Deletion (Right Click)
+            if (e.button === 2) {
+                raycaster.setFromCamera(mouse, camera);
+                const intersects = raycaster.intersectObjects(buildings);
+                if (intersects.length > 0) {
+                    const obj = intersects[0].object;
+                    const group = obj.userData.isBuildingPart ? obj.parent : obj;
+                    
+                    scene.remove(group);
+                    group.traverse(child => {
+                        const index = buildings.indexOf(child);
+                        if (index > -1) buildings.splice(index, 1);
+                        if (child.geometry) child.geometry.dispose();
+                        if (child.material) {
+                            if(child.material.map) child.material.map.dispose();
+                            child.material.dispose();
+                        }
+                    });
+                }
+                return;
+            }
+
+            if (currentMode !== 'build') return;
+
+            raycaster.setFromCamera(mouse, camera);
+            
+            // Allow stacking on ground even if it's "hidden" or "shadow" mode for UX
+            const intersectables = [...buildings, ground];
+            
+            const intersects = raycaster.intersectObjects(intersectables);
+            if (intersects.length > 0) {
+                placeObject(intersects[0].point);
+            }
+        });
+        
+        canvas.addEventListener('contextmenu', e => e.preventDefault());
+
+        function placeObject(point) {
+            const bldgType = document.getElementById('bldg-preset').value;
+            const primType = document.getElementById('prim-preset').value;
+            const colorHex = document.getElementById('bldg-color').value;
+            
+            const group = new THREE.Group();
+            group.userData.isBuilding = true;
+            
+            let snap = 2; // Default grid snap
+            
+            if (placementMode === '2dtext') {
+                const m = create2DMesh(customTextData, colorHex);
+                group.add(m);
+                snap = 0.5; // Finer snapping for custom stuff
+            } else if (placementMode === '3dtext') {
+                const m = create3DMesh(customTextData, colorHex);
+                if (m) group.add(m);
+                snap = 0.5;
+            } else if (placementMode === 'image') {
+                const m = createImageMesh(customImageUrl);
+                group.add(m);
+                snap = 0.5;
+            } else if (primType !== 'none') {
+                // Primitives
+                const matCinematic = new THREE.MeshStandardMaterial({ color: colorHex, roughness: 0.2, metalness: 0.4, clearcoat: 0.5 });
+                let geo, mesh, height = 0;
+                
+                if (primType === 'cube') {
+                    geo = new RoundedBoxGeometry(4, 4, 4, 4, 0.5);
+                    height = 4;
+                } else if (primType === 'cylinder') {
+                    geo = new THREE.CylinderGeometry(2, 2, 6, 32);
+                    height = 6;
+                } else if (primType === 'rect') {
+                    geo = new RoundedBoxGeometry(8, 2, 4, 4, 0.2);
+                    height = 2;
+                }
+                
+                mesh = new THREE.Mesh(geo, matCinematic);
+                mesh.position.y = height / 2;
+                mesh.castShadow = true; mesh.receiveShadow = true;
+                mesh.userData.isBuildingPart = true;
+                group.add(mesh);
+                document.getElementById('prim-preset').value = 'none';
+
+            } else {
+                // Standard Buildings
+                const matStd = new THREE.MeshStandardMaterial({ color: colorHex, roughness: 0.4, metalness: 0.1 });
+                const matGlass = new THREE.MeshStandardMaterial({ color: colorHex, roughness: 0.05, metalness: 0.8 });
+                let height = 0;
+                
+                if (bldgType === 'block') {
+                    height = 12;
+                    const mesh = new THREE.Mesh(new THREE.BoxGeometry(8, height, 8), matStd);
+                    mesh.position.y = height / 2;
+                    mesh.castShadow = true; mesh.receiveShadow = true;
+                    mesh.userData.isBuildingPart = true;
+                    group.add(mesh);
+                } else if (bldgType === 'tower') {
+                    height = 30;
+                    const mesh = new THREE.Mesh(new THREE.BoxGeometry(6, height, 6), matGlass);
+                    mesh.position.y = height / 2;
+                    mesh.castShadow = true; mesh.receiveShadow = true;
+                    mesh.userData.isBuildingPart = true;
+                    group.add(mesh);
+                } else if (bldgType === 'hq') {
+                    const m1 = new THREE.Mesh(new THREE.BoxGeometry(12, 10, 12), matStd);
+                    m1.position.y = 5; m1.castShadow = true; m1.receiveShadow = true; m1.userData.isBuildingPart = true;
+                    const m2 = new THREE.Mesh(new THREE.BoxGeometry(8, 15, 8), matGlass);
+                    m2.position.y = 10 + 7.5; m2.castShadow = true; m2.receiveShadow = true; m2.userData.isBuildingPart = true;
+                    group.add(m1, m2);
+                } else if (bldgType === 'residential') {
+                    height = 16;
+                    const base = new THREE.Mesh(new THREE.BoxGeometry(10, height, 6), matStd);
+                    base.position.y = height / 2; base.castShadow = true; base.receiveShadow = true; base.userData.isBuildingPart = true;
+                    group.add(base);
+                    for(let i=2; i<height; i+=3) {
+                        const balc = new THREE.Mesh(new THREE.BoxGeometry(8, 1, 1.5), new THREE.MeshStandardMaterial({color: 0xffffff}));
+                        balc.position.set(0, i, 3.5); balc.castShadow = true; balc.receiveShadow = true; balc.userData.isBuildingPart = true;
+                        group.add(balc);
+                    }
+                } else if (bldgType === 'rooftop') {
+                    const m = new THREE.Mesh(new THREE.BoxGeometry(3, 2, 4), new THREE.MeshStandardMaterial({color: 0x94a3b8}));
+                    m.position.y = 1; m.castShadow = true; m.receiveShadow = true; m.userData.isBuildingPart = true;
+                    group.add(m);
+                }
+            }
+
+            // Snap positioning
+            group.position.x = Math.round(point.x / snap) * snap;
+            group.position.z = Math.round(point.z / snap) * snap;
+            group.position.y = point.y; 
+            
+            // Align planar text/images to face camera roughly
+            if (placementMode === '2dtext' || placementMode === 'image') {
+                group.rotation.y = camera.rotation.y;
+            }
+            
+            scene.add(group);
+            group.children.forEach(c => buildings.push(c));
+        }
+
+        // Add starter base
+        placeObject(new THREE.Vector3(0, 0, 0));
+
+        document.getElementById('btn-clear').onclick = () => {
+            buildings.forEach(b => {
+                if(b.parent) scene.remove(b.parent);
+                b.geometry.dispose();
+                if(b.material.map) b.material.map.dispose();
+                b.material.dispose();
+            });
+            buildings.length = 0;
+        };
+
+        // --- Custom Asset Tools ---
+        const placementPrompt = document.getElementById('placement-prompt');
+        function setPlacementMode(mode) {
+            placementMode = mode;
+            if(mode !== 'preset') {
+                placementPrompt.classList.remove('hidden');
+                placementPrompt.classList.add('flex');
+            } else {
+                placementPrompt.classList.add('hidden');
+                placementPrompt.classList.remove('flex');
+            }
+        }
+
+        // Auto-revert to preset when dropdowns change
+        document.getElementById('bldg-preset').addEventListener('change', () => setPlacementMode('preset'));
+        document.getElementById('prim-preset').addEventListener('change', () => setPlacementMode('preset'));
+
+        document.getElementById('btn-2d-text').onclick = () => {
+            customTextData = document.getElementById('custom-text-input').value || 'Hello';
+            setPlacementMode('2dtext');
+        };
+        
+        document.getElementById('btn-3d-text').onclick = () => {
+            customTextData = document.getElementById('custom-text-input').value || '3D';
+            setPlacementMode('3dtext');
+        };
+
+        document.getElementById('btn-import-img').onclick = () => document.getElementById('file-import-img').click();
+        document.getElementById('file-import-img').onchange = (e) => {
+            if (e.target.files.length) {
+                customImageUrl = URL.createObjectURL(e.target.files[0]);
+                setPlacementMode('image');
+            }
+        };
+
+
+        // --- Environment / HDRI Management ---
+        const hdriMap = {
+            'hdri-sunset': 'https://raw.githubusercontent.com/mrdoob/three.js/master/examples/textures/equirectangular/venice_sunset_1k.hdr',
+            'hdri-day': 'https://raw.githubusercontent.com/mrdoob/three.js/master/examples/textures/equirectangular/royal_esplanade_1k.hdr',
+            'hdri-overpass': 'https://raw.githubusercontent.com/mrdoob/three.js/master/examples/textures/equirectangular/pedestrian_overpass_1k.hdr',
+            'hdri-clouds': 'https://dl.polyhaven.org/file/ph-assets/HDRIs/hdr/1k/kloppenheim_06_puresky_1k.hdr',
+            'hdri-mountains': 'https://dl.polyhaven.org/file/ph-assets/HDRIs/hdr/1k/kloofendal_48d_partly_cloudy_1k.hdr',
+            'hdri-sunrise': 'https://dl.polyhaven.org/file/ph-assets/HDRIs/hdr/1k/spruit_sunrise_1k.hdr'
+        };
+        const loadedHDRIs = {};
+
+        function applyEnvironment() {
+            const mode = document.getElementById('env-mode').value;
+            
+            if (mode === 'color') {
+                scene.environment = null;
+                scene.background = new THREE.Color(document.getElementById('sky-color').value);
+                document.getElementById('env-color-wrap').style.display = 'flex';
+            } else {
+                document.getElementById('env-color-wrap').style.display = 'none';
+                
+                const setMap = (envMap) => {
+                    scene.background = envMap;
+                    scene.environment = envMap;
+                };
+
+                if (mode === 'custom') {
+                    // Applied directly via file upload
+                } else if (loadedHDRIs[mode]) {
+                    setMap(loadedHDRIs[mode]);
+                } else {
+                    const pmremGenerator = new THREE.PMREMGenerator(renderer);
+                    pmremGenerator.compileEquirectangularShader();
+                    new RGBELoader().load(hdriMap[mode], (texture) => {
+                        const envMap = pmremGenerator.fromEquirectangular(texture).texture;
+                        loadedHDRIs[mode] = envMap;
+                        setMap(envMap);
+                        texture.dispose();
+                        pmremGenerator.dispose();
+                    });
+                }
+            }
+        }
+        
+        document.getElementById('env-mode').addEventListener('change', applyEnvironment);
+        document.getElementById('sky-color').addEventListener('input', applyEnvironment);
+        
+        // Custom HDRI Upload
+        document.getElementById('btn-import-hdri').onclick = () => document.getElementById('file-import-hdri').click();
+        document.getElementById('file-import-hdri').onchange = (e) => {
+            if(!e.target.files.length) return;
+            const url = URL.createObjectURL(e.target.files[0]);
+            
+            const pmremGenerator = new THREE.PMREMGenerator(renderer);
+            pmremGenerator.compileEquirectangularShader();
+            
+            new RGBELoader().load(url, (texture) => {
+                const envMap = pmremGenerator.fromEquirectangular(texture).texture;
+                scene.background = envMap;
+                scene.environment = envMap;
+                texture.dispose();
+                pmremGenerator.dispose();
+                
+                document.getElementById('env-mode').value = 'custom';
+                document.getElementById('env-color-wrap').style.display = 'none';
+            });
+        };
+
+        resize();
+
+        // --- Camera Keyframing & Animation ---
+        const keyframes = []; 
+        const pathMat = new THREE.LineBasicMaterial({ color: 0xef4444, linewidth: 2 });
+        let pathObj = null;
+        const kfGroup = new THREE.Group();
+        scene.add(kfGroup);
+
+        let isPlaying = false;
+        let animProgress = 0;
+
+        document.getElementById('cam-fov').addEventListener('input', (e) => {
+            camera.fov = parseFloat(e.target.value);
+            camera.updateProjectionMatrix();
+            document.getElementById('fov-val').innerText = e.target.value;
+        });
+
+        function refreshKeyframeVisuals() {
+            document.getElementById('kf-counter').innerText = `${keyframes.length} Frames`;
+            kfGroup.clear();
+            if(pathObj) scene.remove(pathObj);
+
+            if (keyframes.length === 0) return;
+
+            const boxGeo = new THREE.BoxGeometry(0.8, 0.8, 0.8);
+            const boxMat = new THREE.MeshBasicMaterial({ color: 0xef4444 });
+
+            keyframes.forEach(kf => {
+                const m = new THREE.Mesh(boxGeo, boxMat);
+                m.position.copy(kf.pos);
+                kfGroup.add(m);
+            });
+
+            if (keyframes.length > 1) {
+                const pts = keyframes.map(k => k.pos);
+                const curve = new THREE.CatmullRomCurve3(pts);
+                const geo = new THREE.BufferGeometry().setFromPoints(curve.getPoints(100));
+                pathObj = new THREE.Line(geo, pathMat);
+                scene.add(pathObj);
+            }
+        }
+
+        document.getElementById('btn-add-kf').onclick = () => {
+            keyframes.push({ pos: camera.position.clone(), target: controls.target.clone() });
+            refreshKeyframeVisuals();
+        };
+
+        document.getElementById('btn-clear-cam').onclick = () => {
+            keyframes.length = 0;
+            refreshKeyframeVisuals();
+        };
+
+        document.getElementById('btn-play').onclick = () => {
+            if (isPlaying) {
+                isPlaying = false;
+                kfGroup.visible = true; if (pathObj) pathObj.visible = true;
+                document.getElementById('btn-play').innerHTML = '<svg width="18" height="18" viewBox="0 0 24 24" fill="currentColor" stroke="none"><polygon points="5 3 19 12 5 21 5 3"></polygon></svg>';
+            } else {
+                if (keyframes.length < 2) return alert("Add at least 2 keyframes to play.");
+                isPlaying = true;
+                animProgress = 0;
+                kfGroup.visible = false; if (pathObj) pathObj.visible = false;
+                document.getElementById('btn-play').innerHTML = '<svg width="18" height="18" viewBox="0 0 24 24" fill="currentColor" stroke="none"><rect x="6" y="4" width="4" height="16"></rect><rect x="14" y="4" width="4" height="16"></rect></svg>';
+            }
+        };
+
+        // --- Cinematic WebM Export ---
+        let mediaRecorder;
+        let recordedChunks = [];
+
+        document.getElementById('btn-export').onclick = () => {
+            if (keyframes.length < 2) return alert("Add at least 2 keyframes to export.");
+            
+            const resHeight = parseInt(document.getElementById('export-res').value);
+            const aspect = parseFloat(document.getElementById('export-aspect').value);
+            const resWidth = Math.round(resHeight * aspect);
+
+            isExporting = true;
+            renderer.setSize(resWidth, resHeight, false); 
+            camera.aspect = aspect;
+            camera.updateProjectionMatrix();
+            
+            canvas.style.width = '100%';
+            canvas.style.height = '100%';
+            canvas.style.objectFit = 'contain';
+
+            try {
+                const stream = canvas.captureStream(30);
+                mediaRecorder = new MediaRecorder(stream, { mimeType: 'video/webm; codecs=vp9' });
+                recordedChunks = [];
+
+                mediaRecorder.ondataavailable = e => { if (e.data.size > 0) recordedChunks.push(e.data); };
+                mediaRecorder.onstop = () => {
+                    const blob = new Blob(recordedChunks, { type: 'video/webm' });
+                    const url = URL.createObjectURL(blob);
+                    const a = document.createElement('a');
+                    a.href = url; a.download = `cinematic_shot_${resWidth}x${resHeight}.webm`;
+                    a.click(); URL.revokeObjectURL(url);
+                    
+                    document.getElementById('recording-badge').classList.add('hidden');
+                    document.getElementById('recording-badge').classList.remove('flex');
+                    
+                    isExporting = false;
+                    resize(); 
+                };
+
+                document.getElementById('recording-badge').classList.remove('hidden');
+                document.getElementById('recording-badge').classList.add('flex');
+                document.getElementById('recording-badge').childNodes[2].textContent = ` EXPORTING ${resHeight}p...`;
+
+                mediaRecorder.start();
+                if(!isPlaying) document.getElementById('btn-play').click();
+
+            } catch (err) { 
+                alert("Recording error. Your browser might not support this resolution capture."); 
+                isExporting = false;
+                resize();
+            }
+        };
+
+        // --- UI Mode Switching ---
+        const modes = ['build', 'env', 'cam'];
+        function switchMode(m) {
+            currentMode = m;
+            modes.forEach(mode => {
+                const btn = document.getElementById(`mode-${mode}`);
+                const panel = document.getElementById(`panel-${mode}`);
+                if (mode === m) {
+                    btn.classList.add('active');
+                    panel.classList.remove('hidden');
+                } else {
+                    btn.classList.remove('active');
+                    panel.classList.add('hidden');
+                }
+            });
+            
+            const showCamHelpers = (m === 'cam');
+            kfGroup.visible = showCamHelpers && !isPlaying;
+            if(pathObj) pathObj.visible = showCamHelpers && !isPlaying;
+        }
+
+        document.getElementById('mode-build').onclick = () => switchMode('build');
+        document.getElementById('mode-env').onclick = () => switchMode('env');
+        document.getElementById('mode-cam').onclick = () => switchMode('cam');
+
+        // --- Main Render Loop ---
+        const clock = new THREE.Clock();
+
+        function animate() {
+            requestAnimationFrame(animate);
+            const delta = clock.getDelta();
+
+            if (isPlaying && keyframes.length >= 2) {
+                const duration = 6.0; 
+                animProgress += delta / duration;
+
+                if (animProgress >= 1) {
+                    document.getElementById('btn-play').click(); 
+                    if (isExporting && mediaRecorder.state !== "inactive") mediaRecorder.stop();
+                } else {
+                    const pts = keyframes.map(k => k.pos);
+                    const tgts = keyframes.map(k => k.target);
+                    const posCurve = new THREE.CatmullRomCurve3(pts);
+                    const tgtCurve = new THREE.CatmullRomCurve3(tgts);
+
+                    camera.position.copy(posCurve.getPoint(animProgress));
+                    controls.target.copy(tgtCurve.getPoint(animProgress));
+                }
+            } else {
+                applyWASDMovement(delta);
+            }
+
+            controls.update();
+            renderer.render(scene, camera);
+        }
+
+        animate();
+    </script>
+</body>
+</html>

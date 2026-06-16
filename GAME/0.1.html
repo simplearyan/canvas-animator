@@ -1,0 +1,246 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Atmospheric Endless Runner</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <style>
+        body { margin: 0; overflow: hidden; background-color: #000; touch-action: none; }
+        canvas { display: block; }
+    </style>
+</head>
+<body class="w-screen h-screen flex flex-col items-center relative font-sans">
+    
+    <div id="ui" class="absolute top-12 flex flex-col items-center z-10 select-none text-white pointer-events-none">
+        <h1 class="text-5xl font-bold tracking-[0.2em] opacity-80 uppercase drop-shadow-lg">Wanderer</h1>
+        <p class="text-sm opacity-60 mt-2 uppercase tracking-widest">Press Space or Tap to Jump</p>
+        <p class="text-2xl font-light opacity-90 mt-6" id="scoreDisplay">0</p>
+    </div>
+
+    <canvas id="gameCanvas"></canvas>
+
+    <script>
+        const canvas = document.getElementById('gameCanvas');
+        const ctx = canvas.getContext('2d');
+        const scoreDisplay = document.getElementById('scoreDisplay');
+
+        let width, height;
+        let score = 0;
+        let frameCount = 0;
+
+        // Resize Canvas to fit screen
+        function resize() {
+            width = window.innerWidth;
+            height = window.innerHeight;
+            canvas.width = width;
+            canvas.height = height;
+        }
+        window.addEventListener('resize', resize);
+        resize();
+
+        // --- Game State & Entities ---
+        
+        const player = {
+            x: 150,
+            y: 0,
+            radius: 20,
+            vy: 0,
+            gravity: 0.6,
+            jumpPower: -12,
+            grounded: false
+        };
+
+        // Layers for Parallax (Speed, Color, Items)
+        const layers = [
+            { speed: 0.5, color: '#3A5666', trees: [] }, // Far background (blends with sky)
+            { speed: 1.5, color: '#262D36', trees: [] }, // Midground (darker)
+            { speed: 4.0, color: '#0A0B0E', trees: [] }  // Foreground (pure silhouette)
+        ];
+
+        let obstacles = [];
+        const groundHeight = 100;
+
+        // --- Generation Functions ---
+
+        function generateTree(layerIndex, x) {
+            // Randomize tree attributes based on organic shapes from the image
+            layers[layerIndex].trees.push({
+                x: x,
+                y: height - groundHeight + (Math.random() * 50 - 20),
+                trunkWidth: Math.random() * 15 + 10,
+                trunkHeight: Math.random() * 200 + 150,
+                canopyRadiusX: Math.random() * 60 + 40,
+                canopyRadiusY: Math.random() * 40 + 30,
+                offsetY: Math.random() * 30
+            });
+        }
+
+        function initLayers() {
+            layers.forEach((layer, i) => {
+                layer.trees = [];
+                // Pre-fill trees across the screen
+                for (let x = 0; x < width + 500; x += Math.random() * 300 + 100) {
+                    generateTree(i, x);
+                }
+            });
+        }
+        initLayers();
+
+        // --- Input Handling ---
+
+        function jump() {
+            if (player.grounded) {
+                player.vy = player.jumpPower;
+                player.grounded = false;
+            }
+        }
+        window.addEventListener('keydown', (e) => { if (e.code === 'Space') jump(); });
+        window.addEventListener('touchstart', jump);
+        window.addEventListener('mousedown', jump);
+
+        // --- Main Game Loop ---
+
+        function update() {
+            frameCount++;
+            score += 0.05;
+            scoreDisplay.innerText = Math.floor(score);
+
+            // Update Player Physics
+            player.vy += player.gravity;
+            player.y += player.vy;
+
+            const groundLevel = height - groundHeight;
+            if (player.y + player.radius >= groundLevel) {
+                player.y = groundLevel - player.radius;
+                player.vy = 0;
+                player.grounded = true;
+            }
+
+            // Update Parallax Trees
+            layers.forEach((layer, i) => {
+                layer.trees.forEach(tree => {
+                    tree.x -= layer.speed;
+                });
+                // Recycle trees that go off-screen
+                if (layer.trees[0] && layer.trees[0].x < -200) {
+                    layer.trees.shift();
+                    let lastTreeX = layer.trees[layer.trees.length - 1].x;
+                    generateTree(i, lastTreeX + Math.random() * 300 + 150);
+                }
+            });
+
+            // Obstacle Logic (Spawn on foreground layer speed)
+            if (frameCount % 120 === 0) {
+                obstacles.push({
+                    x: width + 50,
+                    y: groundLevel - 30,
+                    width: 20,
+                    height: 30
+                });
+            }
+
+            obstacles.forEach((obs, index) => {
+                obs.x -= layers[2].speed; // Move at foreground speed
+                
+                // Collision Detection (Simple AABB vs Circle)
+                let testX = player.x;
+                let testY = player.y;
+                
+                if (player.x < obs.x) testX = obs.x;
+                else if (player.x > obs.x + obs.width) testX = obs.x + obs.width;
+                if (player.y < obs.y) testY = obs.y;
+                else if (player.y > obs.y + obs.height) testY = obs.y + obs.height;
+
+                let distX = player.x - testX;
+                let distY = player.y - testY;
+                let distance = Math.sqrt((distX*distX) + (distY*distY));
+
+                if (distance <= player.radius) {
+                    // Game Over - Reset
+                    score = 0;
+                    obstacles = [];
+                    initLayers();
+                }
+            });
+
+            obstacles = obstacles.filter(obs => obs.x > -50);
+        }
+
+        function draw() {
+            // 1. Draw Sky Gradient Background
+            let gradient = ctx.createLinearGradient(0, 0, 0, height);
+            gradient.addColorStop(0, '#1A3B5C'); // Deep Teal
+            gradient.addColorStop(0.5, '#595C6B'); // Hazy Slate
+            gradient.addColorStop(0.8, '#D9A08F'); // Warm Peach
+            gradient.addColorStop(1, '#E2B8A3'); // Light Horizon
+            
+            ctx.fillStyle = gradient;
+            ctx.fillRect(0, 0, width, height);
+
+            // 2. Draw Parallax Layers
+            layers.forEach((layer, index) => {
+                ctx.fillStyle = layer.color;
+                ctx.beginPath();
+                
+                layer.trees.forEach(tree => {
+                    // Draw Trunk
+                    ctx.fillRect(tree.x - tree.trunkWidth/2, tree.y - tree.trunkHeight, tree.trunkWidth, tree.trunkHeight);
+                    
+                    // Draw blobby Canopy
+                    ctx.ellipse(tree.x, tree.y - tree.trunkHeight + tree.offsetY, tree.canopyRadiusX, tree.canopyRadiusY, 0, 0, Math.PI * 2);
+                });
+                ctx.fill();
+
+                // Draw Ground for this specific layer depth to ground it
+                ctx.fillRect(0, height - groundHeight + (index * 15), width, groundHeight);
+            });
+
+            // 3. Draw Obstacles (Foreground)
+            ctx.fillStyle = layers[2].color; // Pure black
+            obstacles.forEach(obs => {
+                // Spiky obstacle representing the small creatures/thorns
+                ctx.beginPath();
+                ctx.moveTo(obs.x, obs.y + obs.height);
+                ctx.lineTo(obs.x + obs.width/2, obs.y);
+                ctx.lineTo(obs.x + obs.width, obs.y + obs.height);
+                ctx.fill();
+            });
+
+            // 4. Draw Player (Blob with glowing eyes)
+            ctx.fillStyle = layers[2].color;
+            ctx.beginPath();
+            // Irregular player shape (blob)
+            ctx.arc(player.x, player.y, player.radius, 0, Math.PI * 2);
+            ctx.fill();
+            
+            // Glowing Eyes
+            ctx.fillStyle = '#FFFFFF';
+            ctx.shadowColor = '#FFFFFF';
+            ctx.shadowBlur = 10;
+            
+            // Left Eye
+            ctx.beginPath();
+            ctx.arc(player.x + 5, player.y - 5, 2.5, 0, Math.PI * 2);
+            ctx.fill();
+            
+            // Right Eye
+            ctx.beginPath();
+            ctx.arc(player.x + 13, player.y - 5, 2.5, 0, Math.PI * 2);
+            ctx.fill();
+            
+            // Reset Shadow
+            ctx.shadowBlur = 0;
+        }
+
+        function loop() {
+            update();
+            draw();
+            requestAnimationFrame(loop);
+        }
+
+        // Start engine
+        requestAnimationFrame(loop);
+    </script>
+</body>
+</html>

@@ -1,0 +1,807 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+    <title>SnooLive Avatar Creator</title>
+    
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=IBM+Plex+Sans:wght@400;500;600;700&display=swap" rel="stylesheet">
+    <script src="https://cdn.tailwindcss.com"></script>
+    <script src="https://unpkg.com/@phosphor-icons/web"></script>
+    
+    <script>
+        tailwind.config = {
+            theme: {
+                extend: {
+                    fontFamily: {
+                        sans: ['"IBM Plex Sans"', 'sans-serif'],
+                    },
+                    colors: {
+                        reddit: {
+                            orange: '#FF4500',
+                            dark: '#1A1A1B',
+                            gray: '#878A8C',
+                            light: '#DAE0E6',
+                            blue: '#24A0ED'
+                        }
+                    }
+                }
+            }
+        }
+    </script>
+
+    <style>
+        body { background-color: #DAE0E6; overscroll-behavior-y: none; }
+        
+        ::-webkit-scrollbar { width: 6px; height: 6px; }
+        ::-webkit-scrollbar-track { background: transparent; }
+        ::-webkit-scrollbar-thumb { background: #cbd5e1; border-radius: 10px; }
+        ::-webkit-scrollbar-thumb:hover { background: #94a3b8; }
+
+        input[type=range] { -webkit-appearance: none; width: 100%; background: transparent; }
+        input[type=range]::-webkit-slider-thumb { -webkit-appearance: none; height: 16px; width: 16px; border-radius: 50%; background: #FF4500; cursor: pointer; margin-top: -6px; box-shadow: 0 1px 3px rgba(0,0,0,0.3); border: 2px solid white; }
+        input[type=range]::-webkit-slider-runnable-track { width: 100%; height: 4px; cursor: pointer; background: #e2e8f0; border-radius: 2px; }
+        
+        input[type="color"] { -webkit-appearance: none; border: none; width: 100%; height: 100%; padding: 0; cursor: pointer; background: transparent; border-radius: 50%; overflow: hidden; }
+        input[type="color"]::-webkit-color-swatch-wrapper { padding: 0; }
+        input[type="color"]::-webkit-color-swatch { border: none; border-radius: 50%; border: 2px solid rgba(0,0,0,0.1); }
+
+        .btn-select { transition: all 0.2s; }
+        .btn-select.active { border-color: #FF4500; background-color: #fff5f2; color: #FF4500; }
+        
+        .canvas-bg {
+            background-color: #e2e8f0;
+            background-image: radial-gradient(#cbd5e1 1px, transparent 1px);
+            background-size: 20px 20px;
+        }
+    </style>
+</head>
+<body class="text-reddit-dark h-screen flex flex-col overflow-hidden">
+
+    <header class="h-16 bg-white border-b border-gray-200 flex items-center justify-between px-6 flex-shrink-0 z-20 shadow-sm relative">
+        <div class="flex items-center gap-3">
+            <div class="w-8 h-8 rounded-full bg-reddit-orange flex items-center justify-center text-white">
+                <i class="ph-bold ph-reddit-logo text-xl"></i>
+            </div>
+            <h1 class="text-xl font-bold tracking-tight">SnooLive <span class="text-reddit-gray font-normal text-sm ml-1 hidden sm:inline">Avatar Creator</span></h1>
+        </div>
+        <button id="btn-export" class="flex items-center gap-2 px-5 py-2 bg-reddit-orange hover:bg-[#e03d00] text-white font-semibold rounded-full transition-colors text-sm shadow-md">
+            <i class="ph-bold ph-video-camera text-lg"></i>
+            <span class="hidden sm:inline">Export Animation</span>
+        </button>
+    </header>
+
+    <main class="flex-1 flex flex-col md:flex-row overflow-hidden relative">
+        
+        <div id="recording-overlay" class="absolute inset-0 bg-white/80 backdrop-blur-sm z-50 hidden flex-col items-center justify-center">
+            <div class="bg-white p-8 rounded-2xl shadow-2xl flex flex-col items-center gap-4 max-w-sm w-full border border-gray-100">
+                <div class="relative">
+                    <div class="w-16 h-16 border-4 border-gray-200 border-t-reddit-orange rounded-full animate-spin"></div>
+                    <i class="ph-fill ph-record absolute top-1/2 left-1/2 transform -translate-x-1/2 -translate-y-1/2 text-reddit-orange text-xl animate-pulse"></i>
+                </div>
+                <h3 class="text-lg font-bold text-reddit-dark">Recording WebM...</h3>
+                <div class="w-full bg-gray-100 rounded-full h-2.5 overflow-hidden">
+                    <div id="record-progress" class="bg-reddit-orange h-2.5 rounded-full transition-all duration-100 w-0"></div>
+                </div>
+            </div>
+        </div>
+
+        <aside class="w-full md:w-[400px] bg-white border-b md:border-b-0 md:border-r border-gray-200 flex flex-col z-10 flex-shrink-0 h-[50vh] md:h-full order-2 md:order-1">
+            
+            <div class="flex-1 overflow-y-auto p-5 space-y-6">
+                
+                <!-- Appearance Tabs -->
+                <div>
+                    <h2 class="text-xs font-bold uppercase tracking-wider text-reddit-gray mb-3">Customization</h2>
+                    <div class="space-y-4">
+                        
+                        <!-- Outfit Selection -->
+                        <div>
+                            <label class="block text-[11px] font-semibold text-gray-500 mb-1.5">Outfit</label>
+                            <div class="grid grid-cols-3 gap-2">
+                                <button class="btn-select outfit-btn active py-2 border border-gray-200 rounded-lg text-xs font-semibold bg-gray-50" data-val="none">Naked</button>
+                                <button class="btn-select outfit-btn py-2 border border-gray-200 rounded-lg text-xs font-semibold bg-gray-50" data-val="suit">Suit & Tie</button>
+                                <button class="btn-select outfit-btn py-2 border border-gray-200 rounded-lg text-xs font-semibold bg-gray-50" data-val="jacket">Jacket</button>
+                            </div>
+                        </div>
+
+                        <!-- Hair Selection -->
+                        <div>
+                            <label class="block text-[11px] font-semibold text-gray-500 mb-1.5">Hair / Headwear</label>
+                            <div class="grid grid-cols-4 gap-2">
+                                <button class="btn-select hair-btn active py-2 border border-gray-200 rounded-lg text-xs font-semibold bg-gray-50" data-val="none">Bald</button>
+                                <button class="btn-select hair-btn py-2 border border-gray-200 rounded-lg text-xs font-semibold bg-gray-50" data-val="swoop">Swoop</button>
+                                <button class="btn-select hair-btn py-2 border border-gray-200 rounded-lg text-xs font-semibold bg-gray-50" data-val="box">Box Head</button>
+                            </div>
+                        </div>
+
+                        <!-- Accessories -->
+                        <div class="grid grid-cols-2 gap-4">
+                            <div>
+                                <label class="block text-[11px] font-semibold text-gray-500 mb-1.5">Antenna</label>
+                                <select id="select-antenna" class="w-full bg-gray-50 border border-gray-200 text-gray-900 text-xs rounded-lg p-2 outline-none cursor-pointer">
+                                    <option value="classic">Classic Bent</option>
+                                    <option value="straight">Straight Up</option>
+                                    <option value="spatula">Spatula (Prop)</option>
+                                </select>
+                            </div>
+                            <div>
+                                <label class="block text-[11px] font-semibold text-gray-500 mb-1.5">Glasses</label>
+                                <select id="select-glasses" class="w-full bg-gray-50 border border-gray-200 text-gray-900 text-xs rounded-lg p-2 outline-none cursor-pointer">
+                                    <option value="none">None</option>
+                                    <option value="square">Square Frames</option>
+                                    <option value="shades">Sunglasses</option>
+                                </select>
+                            </div>
+                        </div>
+
+                    </div>
+                </div>
+
+                <hr class="border-gray-100">
+
+                <div>
+                    <h2 class="text-xs font-bold uppercase tracking-wider text-reddit-gray mb-3">Colors</h2>
+                    <div class="grid grid-cols-4 gap-3">
+                        <div class="flex flex-col items-center gap-1.5">
+                            <div class="w-8 h-8 rounded-full border-2 border-gray-200 p-0.5"><input type="color" id="color-body" value="#ffffff"></div>
+                            <span class="text-[9px] font-semibold text-gray-500 uppercase">Body</span>
+                        </div>
+                        <div class="flex flex-col items-center gap-1.5">
+                            <div class="w-8 h-8 rounded-full border-2 border-gray-200 p-0.5"><input type="color" id="color-eye" value="#FF4500"></div>
+                            <span class="text-[9px] font-semibold text-gray-500 uppercase">Eyes</span>
+                        </div>
+                        <div class="flex flex-col items-center gap-1.5">
+                            <div class="w-8 h-8 rounded-full border-2 border-gray-200 p-0.5"><input type="color" id="color-clothes" value="#1e293b"></div>
+                            <span class="text-[9px] font-semibold text-gray-500 uppercase">Clothes</span>
+                        </div>
+                        <div class="flex flex-col items-center gap-1.5">
+                            <div class="w-8 h-8 rounded-full border-2 border-gray-200 p-0.5"><input type="color" id="color-bg" value="#DAE0E6"></div>
+                            <span class="text-[9px] font-semibold text-gray-500 uppercase">Backdrop</span>
+                        </div>
+                    </div>
+                </div>
+
+                <hr class="border-gray-100">
+
+                <div>
+                    <h2 class="text-xs font-bold uppercase tracking-wider text-reddit-gray mb-3 flex items-center gap-2">
+                        <i class="ph-bold ph-waveform"></i> Lip Sync Engine
+                    </h2>
+                    <textarea id="script-input" class="w-full h-20 p-3 rounded-lg border border-gray-300 bg-gray-50 text-sm focus:ring-1 focus:ring-reddit-orange focus:border-reddit-orange outline-none resize-none" placeholder="Type here...">Hello Reddit! I am a live animated avatar. Pretty cool, right?</textarea>
+                    
+                    <div class="flex items-center gap-3 mt-3">
+                        <button id="btn-speak" class="flex-1 py-2 bg-reddit-blue hover:bg-blue-600 text-white font-bold rounded-lg transition-colors flex items-center justify-center gap-2 text-sm">
+                            <i class="ph-fill ph-play"></i> Preview Speech
+                        </button>
+                    </div>
+                </div>
+
+            </div>
+            
+        </aside>
+
+        <section id="canvas-wrapper" class="flex-1 relative overflow-hidden flex items-center justify-center p-4 sm:p-8 order-1 md:order-2 canvas-bg">
+            <div class="relative w-full max-w-[600px] aspect-square shadow-2xl rounded-3xl overflow-hidden bg-white border-4 border-white">
+                <canvas id="render-canvas" class="w-full h-full"></canvas>
+            </div>
+            <div id="toast-container" class="absolute top-6 right-6 z-50 flex flex-col gap-2 pointer-events-none"></div>
+        </section>
+
+    </main>
+
+    <script>
+        const state = {
+            colors: {
+                body: '#ffffff',
+                eye: '#FF4500',
+                clothes: '#1e293b',
+                bg: '#DAE0E6',
+                outline: '#000000',
+                tongue: '#FF6B6B'
+            },
+            outfit: 'none',
+            hair: 'none',
+            antenna: 'classic',
+            glasses: 'none',
+            
+            currentViseme: 'NEUTRAL',
+            isAnimating: false,
+            isRecording: false,
+            time: 0,
+            
+            // Rendering constants
+            lineWidth: 6
+        };
+
+        // Standard phoneme to viseme map
+        const phonemeMap = {
+            'a': 'A_E_I', 'e': 'A_E_I', 'i': 'A_E_I',
+            'o': 'O', 'u': 'U',
+            'q': 'Q_W', 'w': 'Q_W',
+            'b': 'B_M_P', 'm': 'B_M_P', 'p': 'B_M_P',
+            'f': 'F_V', 'v': 'F_V',
+            'l': 'L', 'r': 'R',
+            'c': 'C_D_G', 'd': 'C_D_G', 'g': 'C_D_G', 'k': 'C_D_G', 'n': 'C_D_G', 
+            's': 'C_D_G', 't': 'C_D_G', 'x': 'C_D_G', 'y': 'C_D_G', 'z': 'C_D_G',
+            'h': 'CH_J_SH', 'j': 'CH_J_SH',
+            ' ': 'NEUTRAL', '.': 'NEUTRAL', ',': 'NEUTRAL', '!': 'A_E_I', '?': 'NEUTRAL'
+        };
+
+        const canvas = document.getElementById('render-canvas');
+        const ctx = canvas.getContext('2d', { alpha: false });
+        const RENDER_SIZE = 1000;
+        canvas.width = RENDER_SIZE;
+        canvas.height = RENDER_SIZE;
+
+        // Utility: Color Shading
+        function shadeColor(color, percent) {
+            let R = parseInt(color.substring(1,3),16);
+            let G = parseInt(color.substring(3,5),16);
+            let B = parseInt(color.substring(5,7),16);
+            R = parseInt(R * (100 + percent) / 100);
+            G = parseInt(G * (100 + percent) / 100);
+            B = parseInt(B * (100 + percent) / 100);
+            R = (R<255)?R:255; G = (G<255)?G:255; B = (B<255)?B:255;
+            R = (R>0)?R:0; G = (G>0)?G:0; B = (B>0)?B:0;
+            return "#"+((R.toString(16).length==1)?"0"+R.toString(16):R.toString(16))
+                     +((G.toString(16).length==1)?"0"+G.toString(16):G.toString(16))
+                     +((B.toString(16).length==1)?"0"+B.toString(16):B.toString(16));
+        }
+
+        function drawBackground() {
+            ctx.fillStyle = state.colors.bg;
+            ctx.fillRect(0, 0, RENDER_SIZE, RENDER_SIZE);
+        }
+
+        function strokeAndFill(fillColor) {
+            ctx.fillStyle = fillColor;
+            ctx.fill();
+            ctx.lineWidth = state.lineWidth;
+            ctx.strokeStyle = state.colors.outline;
+            ctx.stroke();
+        }
+
+        function drawBodyAndClothes(cx, cy, scale) {
+            ctx.save();
+            ctx.translate(cx, cy);
+            ctx.scale(scale, scale);
+
+            const bodyShadow = shadeColor(state.colors.body, -10);
+
+            // Legs/Feet
+            ctx.beginPath();
+            ctx.ellipse(-35, 160, 25, 15, 0, 0, Math.PI*2);
+            strokeAndFill(state.outfit === 'none' ? state.colors.body : '#334155');
+            ctx.beginPath();
+            ctx.ellipse(35, 160, 25, 15, 0, 0, Math.PI*2);
+            strokeAndFill(state.outfit === 'none' ? state.colors.body : '#334155');
+
+            // Left Arm (Behind Body if no outfit, or part of outfit)
+            ctx.beginPath();
+            ctx.ellipse(-80, 70, 25, 50, 0.3, 0, Math.PI*2);
+            strokeAndFill(state.colors.body);
+
+            // Main Body (Bean shape)
+            ctx.beginPath();
+            ctx.moveTo(-60, -20);
+            ctx.quadraticCurveTo(-80, 150, -40, 150);
+            ctx.lineTo(40, 150);
+            ctx.quadraticCurveTo(80, 150, 60, -20);
+            ctx.closePath();
+            strokeAndFill(state.colors.body);
+
+            // Clothing Overlays
+            if (state.outfit === 'suit') {
+                // Shirt
+                ctx.beginPath();
+                ctx.moveTo(-40, -20);
+                ctx.lineTo(40, -20);
+                ctx.lineTo(0, 40);
+                ctx.closePath();
+                strokeAndFill('#ffffff');
+
+                // Tie
+                ctx.beginPath();
+                ctx.moveTo(-5, 40);
+                ctx.lineTo(5, 40);
+                ctx.lineTo(10, 100);
+                ctx.lineTo(0, 110);
+                ctx.lineTo(-10, 100);
+                ctx.closePath();
+                strokeAndFill('#dc2626');
+
+                // Jacket Base
+                ctx.beginPath();
+                ctx.moveTo(-60, -20);
+                ctx.quadraticCurveTo(-80, 150, -40, 150);
+                ctx.lineTo(-20, 150);
+                ctx.lineTo(0, 40);
+                ctx.lineTo(-20, -20);
+                ctx.closePath();
+                strokeAndFill(state.colors.clothes);
+
+                ctx.beginPath();
+                ctx.moveTo(60, -20);
+                ctx.quadraticCurveTo(80, 150, 40, 150);
+                ctx.lineTo(20, 150);
+                ctx.lineTo(0, 40);
+                ctx.lineTo(20, -20);
+                ctx.closePath();
+                strokeAndFill(state.colors.clothes);
+                
+                // Suit Arms
+                ctx.beginPath();
+                ctx.ellipse(-85, 80, 28, 55, 0.3, 0, Math.PI*2);
+                strokeAndFill(state.colors.clothes);
+                ctx.beginPath();
+                ctx.ellipse(85, 80, 28, 55, -0.3, 0, Math.PI*2);
+                strokeAndFill(state.colors.clothes);
+
+            } else if (state.outfit === 'jacket') {
+                // T-Shirt
+                ctx.beginPath();
+                ctx.moveTo(-50, -20);
+                ctx.quadraticCurveTo(-70, 140, -30, 140);
+                ctx.lineTo(30, 140);
+                ctx.quadraticCurveTo(70, 140, 50, -20);
+                ctx.closePath();
+                strokeAndFill('#94a3b8');
+
+                // Open Jacket
+                ctx.beginPath();
+                ctx.moveTo(-60, -20);
+                ctx.quadraticCurveTo(-80, 150, -40, 150);
+                ctx.lineTo(-30, 150);
+                ctx.lineTo(-30, -20);
+                ctx.closePath();
+                strokeAndFill(state.colors.clothes);
+
+                ctx.beginPath();
+                ctx.moveTo(60, -20);
+                ctx.quadraticCurveTo(80, 150, 40, 150);
+                ctx.lineTo(30, 150);
+                ctx.lineTo(30, -20);
+                ctx.closePath();
+                strokeAndFill(state.colors.clothes);
+
+                // Jacket Arms
+                ctx.beginPath();
+                ctx.ellipse(-85, 80, 28, 55, 0.3, 0, Math.PI*2);
+                strokeAndFill(state.colors.clothes);
+                ctx.beginPath();
+                ctx.ellipse(85, 80, 28, 55, -0.3, 0, Math.PI*2);
+                strokeAndFill(state.colors.clothes);
+            } else {
+                 // Right Arm (if no clothes, draw right arm here so it overlaps body properly)
+                ctx.beginPath();
+                ctx.ellipse(80, 70, 25, 50, -0.3, 0, Math.PI*2);
+                strokeAndFill(state.colors.body);
+            }
+
+            ctx.restore();
+        }
+
+        function drawAntenna(cx, cy, scale, sway) {
+            ctx.save();
+            ctx.translate(cx, cy);
+            ctx.scale(scale, scale);
+
+            ctx.lineWidth = state.lineWidth;
+            ctx.strokeStyle = state.colors.outline;
+            ctx.lineCap = 'round';
+            ctx.lineJoin = 'round';
+
+            if (state.hair === 'box') {
+                // If box head, the antenna is attached to the box
+                // Draw a taped on antenna
+                ctx.beginPath();
+                ctx.moveTo(40, -120);
+                ctx.lineTo(80 + sway*20, -180);
+                ctx.stroke();
+
+                ctx.translate(80 + sway*20, -180);
+                ctx.beginPath();
+                ctx.arc(0, 0, 8, 0, Math.PI*2);
+                strokeAndFill('#94a3b8');
+            } else {
+                if (state.antenna === 'classic') {
+                    ctx.beginPath();
+                    ctx.moveTo(0, -90);
+                    ctx.lineTo(0, -150);
+                    ctx.lineTo(60 + sway*30, -150);
+                    ctx.stroke();
+
+                    ctx.translate(60 + sway*30, -150);
+                    ctx.beginPath();
+                    ctx.arc(0, 0, 25, 0, Math.PI*2);
+                    strokeAndFill(state.colors.body);
+
+                } else if (state.antenna === 'straight') {
+                    ctx.beginPath();
+                    ctx.moveTo(0, -90);
+                    ctx.lineTo(sway*20, -180);
+                    ctx.stroke();
+
+                    ctx.translate(sway*20, -180);
+                    ctx.beginPath();
+                    ctx.arc(0, 0, 20, 0, Math.PI*2);
+                    strokeAndFill(state.colors.body);
+
+                } else if (state.antenna === 'spatula') {
+                    // Spatula prop
+                    ctx.beginPath();
+                    ctx.moveTo(-30, -90);
+                    ctx.lineTo(-50 + sway*20, -180);
+                    ctx.stroke();
+
+                    ctx.translate(-50 + sway*20, -180);
+                    ctx.rotate(-0.2 + sway*0.1);
+                    
+                    // Spatula head
+                    ctx.beginPath();
+                    ctx.roundRect(-20, -40, 40, 50, 5);
+                    strokeAndFill('#cbd5e1');
+                    
+                    // Spatula slits
+                    ctx.beginPath();
+                    ctx.moveTo(-10, -30); ctx.lineTo(-10, 0);
+                    ctx.moveTo(0, -30); ctx.lineTo(0, 0);
+                    ctx.moveTo(10, -30); ctx.lineTo(10, 0);
+                    ctx.lineWidth = 4;
+                    ctx.stroke();
+                }
+            }
+
+            ctx.restore();
+        }
+
+        function drawHead(cx, cy, scale) {
+            ctx.save();
+            ctx.translate(cx, cy);
+
+            // Breathing & Bobbing
+            const sway = Math.sin(state.time * 2);
+            ctx.rotate(sway * 0.02);
+            ctx.translate(0, Math.sin(state.time * 4) * 4);
+            ctx.scale(scale, scale);
+
+            drawAntenna(0, 0, 1, sway);
+
+            if (state.hair === 'box') {
+                // Draw Cardboard Box Head
+                ctx.beginPath();
+                ctx.rect(-130, -120, 260, 220);
+                strokeAndFill('#d97706'); // Cardboard color
+                
+                // Box flaps
+                ctx.beginPath(); ctx.moveTo(-130, -120); ctx.lineTo(-170, -160); ctx.lineTo(-40, -160); ctx.lineTo(-10, -120); strokeAndFill('#b45309');
+                ctx.beginPath(); ctx.moveTo(130, -120); ctx.lineTo(170, -160); ctx.lineTo(40, -160); ctx.lineTo(10, -120); strokeAndFill('#b45309');
+                ctx.beginPath(); ctx.moveTo(-130, 100); ctx.lineTo(-160, 140); ctx.lineTo(-30, 140); ctx.lineTo(0, 100); strokeAndFill('#b45309');
+
+                // Inner Screen/Face area
+                ctx.beginPath();
+                ctx.roundRect(-100, -80, 200, 150, 20);
+                strokeAndFill('#ffffff');
+
+                // Tape
+                ctx.beginPath();
+                ctx.rect(-140, -60, 50, 20);
+                ctx.fillStyle = 'rgba(148, 163, 184, 0.8)';
+                ctx.fill(); ctx.stroke();
+
+            } else {
+                // Classic Snoo Ears
+                ctx.beginPath();
+                ctx.arc(-130, -10, 35, 0, Math.PI*2);
+                strokeAndFill(state.colors.body);
+                ctx.beginPath();
+                ctx.arc(130, -10, 35, 0, Math.PI*2);
+                strokeAndFill(state.colors.body);
+
+                // Classic Snoo Head
+                ctx.beginPath();
+                ctx.ellipse(0, -20, 150, 105, 0, 0, Math.PI * 2);
+                strokeAndFill(state.colors.body);
+                
+                // Hair Overlays
+                if (state.hair === 'swoop') {
+                    ctx.beginPath();
+                    ctx.moveTo(-140, -50);
+                    ctx.quadraticCurveTo(-100, -150, 0, -130);
+                    ctx.quadraticCurveTo(100, -150, 140, -20);
+                    ctx.quadraticCurveTo(80, -90, 0, -80);
+                    ctx.quadraticCurveTo(-80, -70, -140, -50);
+                    strokeAndFill('#b45309'); // Brown hair
+                }
+            }
+
+            drawFace(0, state.hair === 'box' ? -5 : -10);
+
+            // Accessories
+            if (state.glasses === 'square') {
+                ctx.lineWidth = 8;
+                ctx.beginPath(); ctx.roundRect(-110, -40, 80, 60, 10); ctx.stroke();
+                ctx.beginPath(); ctx.roundRect(30, -40, 80, 60, 10); ctx.stroke();
+                ctx.beginPath(); ctx.moveTo(-30, -10); ctx.lineTo(30, -10); ctx.stroke(); // Bridge
+            } else if (state.glasses === 'shades') {
+                ctx.lineWidth = 6;
+                ctx.beginPath();
+                ctx.moveTo(-120, -40); ctx.lineTo(-30, -40); ctx.lineTo(-40, 20); ctx.lineTo(-100, 20); ctx.closePath();
+                strokeAndFill('#111111');
+                ctx.beginPath();
+                ctx.moveTo(30, -40); ctx.lineTo(120, -40); ctx.lineTo(100, 20); ctx.lineTo(40, 20); ctx.closePath();
+                strokeAndFill('#111111');
+                ctx.beginPath(); ctx.moveTo(-30, -20); ctx.lineTo(30, -20); ctx.stroke();
+            }
+
+            ctx.restore();
+        }
+
+        function drawFace(ox, oy) {
+            ctx.save();
+            ctx.translate(ox, oy);
+
+            // Eyes
+            const isBlinking = (Date.now() % 4000) > 3800;
+            const eyeY = -20;
+            const eyeDist = 55;
+
+            ctx.fillStyle = state.colors.eye;
+            if (isBlinking) {
+                ctx.lineWidth = state.lineWidth;
+                ctx.beginPath(); ctx.moveTo(-eyeDist - 20, eyeY); ctx.lineTo(-eyeDist + 20, eyeY); ctx.stroke();
+                ctx.beginPath(); ctx.moveTo(eyeDist - 20, eyeY); ctx.lineTo(eyeDist + 20, eyeY); ctx.stroke();
+            } else {
+                ctx.beginPath(); ctx.arc(-eyeDist, eyeY, 22, 0, Math.PI*2); ctx.fill();
+                ctx.beginPath(); ctx.arc(eyeDist, eyeY, 22, 0, Math.PI*2); ctx.fill();
+            }
+
+            // Mouth (Lip Sync Logic)
+            ctx.translate(0, 40);
+            ctx.lineWidth = state.lineWidth;
+            ctx.strokeStyle = state.colors.outline;
+            ctx.lineJoin = 'round';
+            ctx.lineCap = 'round';
+
+            const v = state.currentViseme;
+
+            const fillMouth = () => { ctx.fillStyle = '#111111'; ctx.fill(); ctx.stroke(); };
+            const drawTongue = (yOffset) => {
+                ctx.save(); ctx.clip();
+                ctx.beginPath(); ctx.arc(0, yOffset, 30, 0, Math.PI*2);
+                ctx.fillStyle = state.colors.tongue; ctx.fill(); ctx.stroke();
+                ctx.restore();
+            };
+            const drawTeeth = (yOffset) => {
+                ctx.save(); ctx.clip();
+                ctx.beginPath(); ctx.rect(-50, yOffset, 100, 15);
+                ctx.fillStyle = '#ffffff'; ctx.fill(); ctx.stroke();
+                ctx.restore();
+            };
+
+            switch (v) {
+                case 'NEUTRAL':
+                    ctx.beginPath(); ctx.moveTo(-30, 0); ctx.quadraticCurveTo(0, 10, 30, 0); ctx.stroke();
+                    break;
+                case 'B_M_P':
+                    ctx.beginPath(); ctx.moveTo(-40, 0); ctx.lineTo(40, 0); ctx.stroke();
+                    break;
+                case 'A_E_I':
+                    ctx.beginPath(); ctx.moveTo(-50, 0); ctx.quadraticCurveTo(0, -10, 50, 0);
+                    ctx.bezierCurveTo(50, 50, -50, 50, -50, 0); fillMouth();
+                    drawTongue(40);
+                    break;
+                case 'O':
+                    ctx.beginPath(); ctx.arc(0, 10, 20, 0, Math.PI*2); fillMouth();
+                    break;
+                case 'U':
+                    ctx.beginPath(); ctx.ellipse(0, 10, 15, 25, 0, 0, Math.PI*2); fillMouth();
+                    break;
+                case 'C_D_G':
+                    ctx.beginPath(); ctx.moveTo(-40, 0); ctx.quadraticCurveTo(0, -5, 40, 0);
+                    ctx.bezierCurveTo(40, 30, -40, 30, -40, 0); fillMouth();
+                    drawTeeth(-5);
+                    break;
+                case 'L':
+                    ctx.beginPath(); ctx.moveTo(-40, 0); ctx.quadraticCurveTo(0, -5, 40, 0);
+                    ctx.bezierCurveTo(40, 40, -40, 40, -40, 0); fillMouth();
+                    drawTongue(10); // Tongue high up
+                    break;
+                case 'F_V':
+                    ctx.beginPath(); ctx.moveTo(-35, 0); ctx.quadraticCurveTo(0, 20, 35, 0); ctx.stroke();
+                    ctx.beginPath(); ctx.rect(-20, 0, 40, 10); ctx.fillStyle = '#ffffff'; ctx.fill(); ctx.stroke();
+                    break;
+                case 'Q_W':
+                    ctx.beginPath(); ctx.arc(0, 5, 10, 0, Math.PI*2); fillMouth();
+                    ctx.beginPath(); ctx.moveTo(-20, 5); ctx.lineTo(-10, 5); ctx.stroke();
+                    ctx.beginPath(); ctx.moveTo(10, 5); ctx.lineTo(20, 5); ctx.stroke();
+                    break;
+                case 'CH_J_SH':
+                    ctx.beginPath(); ctx.moveTo(-40, 0); ctx.lineTo(40, 0); ctx.lineTo(35, 20); ctx.lineTo(-35, 20); ctx.closePath();
+                    fillMouth();
+                    drawTeeth(0); drawTeeth(5); // Clenched
+                    break;
+                case 'R':
+                    ctx.beginPath(); ctx.moveTo(-30, 0); ctx.quadraticCurveTo(0, 10, 30, 0);
+                    ctx.quadraticCurveTo(0, 25, -30, 0); fillMouth();
+                    break;
+            }
+
+            ctx.restore();
+        }
+
+        function render() {
+            state.time = Date.now() / 1000;
+            ctx.clearRect(0, 0, RENDER_SIZE, RENDER_SIZE);
+            drawBackground();
+
+            const cx = RENDER_SIZE / 2;
+            const cy = RENDER_SIZE / 2 + 30;
+
+            drawBodyAndClothes(cx, cy, 1.2);
+            drawHead(cx, cy - 140, 1.2);
+
+            requestAnimationFrame(render);
+        }
+
+        function generateTimeline(text) {
+            const timeline = [];
+            let currentTime = 0;
+            const chars = text.toLowerCase().split('');
+            const speedMs = 90; // Default TTS speed map
+
+            for (let i = 0; i < chars.length; i++) {
+                const char = chars[i];
+                let viseme = phonemeMap[char] || 'NEUTRAL';
+                
+                if (i < chars.length - 1) {
+                    const pair = char + chars[i+1];
+                    if (pair === 'ch' || pair === 'sh') viseme = 'CH_J_SH';
+                    if (viseme === 'CH_J_SH') i++; 
+                }
+
+                let duration = speedMs;
+                if (char === ' ') duration = speedMs * 1.5;
+                if (['.', ',', '!', '?'].includes(char)) duration = speedMs * 4;
+
+                timeline.push({ char, viseme, duration, startTime: currentTime });
+                currentTime += duration;
+            }
+            timeline.push({ char: '', viseme: 'NEUTRAL', duration: 500, startTime: currentTime });
+            return { timeline, totalDuration: currentTime + 500 };
+        }
+
+        async function playLipSync(recordCallback = null) {
+            if (state.isAnimating) return;
+            
+            const text = document.getElementById('script-input').value.trim();
+            if (!text) return;
+
+            state.isAnimating = true;
+            document.getElementById('btn-speak').disabled = true;
+
+            const { timeline, totalDuration } = generateTimeline(text);
+            
+            // TTS
+            if (!recordCallback) {
+                window.speechSynthesis.cancel();
+                const utterance = new SpeechSynthesisUtterance(text);
+                const estimatedMs = text.length * 70;
+                utterance.rate = Math.max(0.5, Math.min(2, estimatedMs / totalDuration));
+                utterance.pitch = 1.2;
+                window.speechSynthesis.speak(utterance);
+            }
+
+            if (recordCallback) await recordCallback();
+
+            const startTime = performance.now();
+
+            return new Promise((resolve) => {
+                function loop(currentTime) {
+                    const elapsed = currentTime - startTime;
+                    let activeFrame = timeline[timeline.length - 1]; 
+                    
+                    for (let i = 0; i < timeline.length; i++) {
+                        if (elapsed >= timeline[i].startTime && elapsed < timeline[i].startTime + timeline[i].duration) {
+                            activeFrame = timeline[i];
+                            break;
+                        }
+                    }
+
+                    state.currentViseme = activeFrame.viseme;
+
+                    if (elapsed < totalDuration) {
+                        requestAnimationFrame(loop);
+                    } else {
+                        state.currentViseme = 'NEUTRAL';
+                        state.isAnimating = false;
+                        document.getElementById('btn-speak').disabled = false;
+                        resolve();
+                    }
+                }
+                requestAnimationFrame(loop);
+            });
+        }
+
+        document.getElementById('btn-speak').addEventListener('click', () => playLipSync());
+
+        function setupButtonGroup(selector, stateKey) {
+            document.querySelectorAll(selector).forEach(btn => {
+                btn.addEventListener('click', (e) => {
+                    document.querySelectorAll(selector).forEach(b => b.classList.remove('active'));
+                    e.currentTarget.classList.add('active');
+                    state[stateKey] = e.currentTarget.dataset.val;
+                });
+            });
+        }
+
+        setupButtonGroup('.outfit-btn', 'outfit');
+        setupButtonGroup('.hair-btn', 'hair');
+
+        document.getElementById('select-antenna').addEventListener('change', e => state.antenna = e.target.value);
+        document.getElementById('select-glasses').addEventListener('change', e => state.glasses = e.target.value);
+
+        ['body', 'eye', 'clothes', 'bg'].forEach(key => {
+            document.getElementById(`color-${key}`).addEventListener('input', e => {
+                state.colors[key] = e.target.value;
+            });
+        });
+
+        // Export Logic
+        const btnExport = document.getElementById('btn-export');
+        const overlay = document.getElementById('recording-overlay');
+        const progressFill = document.getElementById('record-progress');
+
+        btnExport.addEventListener('click', async () => {
+            if (state.isRecording || state.isAnimating) return;
+            
+            try {
+                const stream = canvas.captureStream(60);
+                const options = { mimeType: MediaRecorder.isTypeSupported('video/webm;codecs=vp9') ? 'video/webm;codecs=vp9' : 'video/webm' };
+                const mediaRecorder = new MediaRecorder(stream, options);
+                const chunks = [];
+
+                mediaRecorder.ondataavailable = e => { if (e.data.size > 0) chunks.push(e.data); };
+                mediaRecorder.onstop = () => {
+                    const blob = new Blob(chunks, { type: 'video/webm' });
+                    const url = URL.createObjectURL(blob);
+                    const a = document.createElement('a');
+                    a.href = url; a.download = `snoolive-avatar-${Date.now()}.webm`;
+                    a.click(); URL.revokeObjectURL(url);
+                    
+                    state.isRecording = false;
+                    overlay.classList.replace('flex', 'hidden');
+                    progressFill.style.width = '0%';
+                };
+
+                state.isRecording = true;
+                overlay.classList.replace('hidden', 'flex');
+                
+                mediaRecorder.start();
+                await playLipSync(); // Record while lip syncing
+                
+                setTimeout(() => mediaRecorder.stop(), 500); // Pad ending slightly
+
+                // Fake progress bar
+                let p = 0;
+                const pInt = setInterval(() => {
+                    p += 2; progressFill.style.width = `${Math.min(100, p)}%`;
+                    if(p >= 100) clearInterval(pInt);
+                }, 100);
+
+            } catch (err) {
+                console.error(err);
+                state.isRecording = false;
+                overlay.classList.replace('flex', 'hidden');
+                alert("Recording failed.");
+            }
+        });
+
+        // Start Loop
+        render();
+    </script>
+</body>
+</html>
