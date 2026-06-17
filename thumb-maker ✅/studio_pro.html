@@ -1010,12 +1010,25 @@
 
             <!-- Contextual Toolbar - Centered, Compact, Elevated -->
             <div id="contextToolbar" class="absolute top-6 left-1/2 -translate-x-1/2 bg-pro-900/95 dark:bg-pro-800/95 backdrop-blur-md text-white px-2 py-1.5 rounded-2xl shadow-2xl border border-pro-700/50 dark:border-pro-600/50 flex items-center gap-1 z-20   opacity-0 pointer-events-none transform scale-95">
+                <div class="px-2 border-r border-pro-700 dark:border-pro-600 flex items-center gap-1">
+                    <div class="relative w-6 h-6 rounded-full overflow-hidden border border-pro-500/50 shrink-0 mx-1 cursor-pointer hover:border-white transition-colors" title="Change Color">
+                        <input type="color" id="ctxColor" class="absolute -top-2 -left-2 w-10 h-10 cursor-pointer">
+                    </div>
+                </div>
                 <div class="px-2 border-r border-pro-700 dark:border-pro-600 flex gap-1">
                     <button id="ctxScaleDown" class="p-2 hover:bg-pro-700 dark:hover:bg-pro-600 rounded-lg text-pro-300 hover:text-white  flex items-center justify-center" title="Decrease Scale">
                         <i class="ph-bold ph-minus text-base"></i>
                     </button>
                     <button id="ctxScaleUp" class="p-2 hover:bg-pro-700 dark:hover:bg-pro-600 rounded-lg text-pro-300 hover:text-white  flex items-center justify-center" title="Increase Scale">
                         <i class="ph-bold ph-plus text-base"></i>
+                    </button>
+                </div>
+                <div class="px-2 border-r border-pro-700 dark:border-pro-600 flex gap-1">
+                    <button id="ctxRotateCCW" class="p-2 hover:bg-pro-700 dark:hover:bg-pro-600 rounded-lg text-pro-300 hover:text-white flex items-center justify-center" title="Rotate Left (-15°)">
+                        <i class="ph-bold ph-arrow-counter-clockwise text-base"></i>
+                    </button>
+                    <button id="ctxRotateCW" class="p-2 hover:bg-pro-700 dark:hover:bg-pro-600 rounded-lg text-pro-300 hover:text-white flex items-center justify-center" title="Rotate Right (+15°)">
+                        <i class="ph-bold ph-arrow-clockwise text-base"></i>
                     </button>
                 </div>
                 <div class="px-2 border-r border-pro-700 dark:border-pro-600 flex gap-1">
@@ -1373,6 +1386,9 @@
 
         // Context Toolbar
         const contextToolbar = document.getElementById('contextToolbar');
+        const ctxColor = document.getElementById('ctxColor');
+        const ctxRotateCCW = document.getElementById('ctxRotateCCW');
+        const ctxRotateCW = document.getElementById('ctxRotateCW');
         const ctxScaleDown = document.getElementById('ctxScaleDown');
         const ctxScaleUp = document.getElementById('ctxScaleUp');
         const ctxAlignH = document.getElementById('ctxAlignH');
@@ -1527,6 +1543,7 @@
             bgImage: null,
             elements: [], 
             selectedId: null,
+            selectedIds: [],
             isDragging: false,
             hasDragged: false, // For hiding the hint
             dragStartX: 0,
@@ -1547,13 +1564,22 @@
                 bgColor: state.bgColor,
                 bgImage: state.bgImage,
                 elements: [...state.elements],
-                selectedId: state.selectedId
+                selectedId: state.selectedId,
+                selectedIds: [...(state.selectedIds || [])]
             };
         }
 
         function saveCurrentArtboard() {
             const ab = artboards.find(a => a.id === activeArtboardId);
             if(ab) ab.stateData = serializeState();
+        }
+
+        let saveTimeout;
+        function debouncedSave() {
+            clearTimeout(saveTimeout);
+            saveTimeout = setTimeout(() => {
+                saveCurrentArtboard();
+            }, 300);
         }
 
         function loadArtboard(id) {
@@ -1565,11 +1591,13 @@
                 state.bgImage = ab.stateData.bgImage;
                 state.elements = [...ab.stateData.elements];
                 state.selectedId = ab.stateData.selectedId;
+                state.selectedIds = ab.stateData.selectedIds || (ab.stateData.selectedId ? [ab.stateData.selectedId] : []);
             } else {
                 state.elements = [];
                 state.bgColor = '#0f172a';
                 state.bgImage = null;
                 state.selectedId = null;
+                state.selectedIds = [];
             }
             updateLayerList();
             updateUI();
@@ -1583,7 +1611,7 @@
             artboards.push({
                 id: newId,
                 name: `Canvas ${artboards.length + 1}`,
-                stateData: { bgColor: '#0f172a', bgImage: null, elements: [], selectedId: null }
+                stateData: { bgColor: '#0f172a', bgImage: null, elements: [], selectedId: null, selectedIds: [] }
             });
             loadArtboard(newId);
         }
@@ -2105,9 +2133,10 @@
             drawSelectedGrid();
         }
         // Draw Selection Highlight
-    
-            if (state.selectedId) {
-                const el = state.elements.find(e => e.id === state.selectedId);
+            const selIds = state.selectedIds && state.selectedIds.length > 0 ? state.selectedIds : (state.selectedId ? [state.selectedId] : []);
+            
+            selIds.forEach(id => {
+                const el = state.elements.find(e => e.id === id);
                 if (el) {
                     ctx.save();
                     ctx.translate(el.x, el.y);
@@ -2167,7 +2196,7 @@
 
                     ctx.restore();
                 }
-            }
+            });
         }
 
         // --- Interaction Logic ---
@@ -2244,20 +2273,30 @@
             if (dragHint) dragHint.style.opacity = '0';
             const pos = getMousePos(e);
             const hitId = checkHit(pos);
-            selectElement(hitId);
+            
+            const isMulti = e.ctrlKey || e.metaKey;
+            
+            if (hitId && state.selectedIds && state.selectedIds.includes(hitId) && !isMulti) {
+                // Keep current selection for dragging
+            } else {
+                selectElement(hitId, isMulti);
+            }
 
-            if (hitId) {
+            if (state.selectedIds && state.selectedIds.length > 0 && hitId) {
                 state.isDragging = true;
                 state.dragStartX = pos.x;
                 state.dragStartY = pos.y;
-                const el = state.elements.find(el => el.id === hitId);
-                state.elemStartX = el.x;
-                state.elemStartY = el.y;
+                
+                state.dragStartPositions = {};
+                state.selectedIds.forEach(id => {
+                    const el = state.elements.find(e => e.id === id);
+                    if(el) state.dragStartPositions[id] = { x: el.x, y: el.y };
+                });
             }
         });
 
         canvas.addEventListener('mousemove', (e) => {
-            if (state.isDragging && state.selectedId) {
+            if (state.isDragging && state.selectedIds && state.selectedIds.length > 0) {
                 // Hide drag hint permanently upon first drag
                 if (!state.hasDragged) {
                     state.hasDragged = true;
@@ -2270,12 +2309,31 @@
                 const dx = pos.x - state.dragStartX;
                 const dy = pos.y - state.dragStartY;
                 
-                const el = state.elements.find(el => el.id === state.selectedId);
-                if (el) {
-                    el.x = state.elemStartX + dx;
-                    el.y = state.elemStartY + dy;
-                    render();
+                state.selectedIds.forEach(id => {
+                    const el = state.elements.find(x => x.id === id);
+                    if (el && state.dragStartPositions[id]) {
+                        el.x = state.dragStartPositions[id].x + dx;
+                        el.y = state.dragStartPositions[id].y + dy;
+                    }
+                });
+                render();
+            }
+        });
+
+        window.addEventListener('mouseup', (e) => {
+            if(state.isDragging) {
+                state.isDragging = false;
+                
+                // If user just clicked an already selected element without dragging, select ONLY it
+                if (!e.ctrlKey && !e.metaKey && state.selectedIds && state.selectedIds.length > 1) {
+                    const pos = getMousePos(e);
+                    if (Math.abs(pos.x - state.dragStartX) < 2 && Math.abs(pos.y - state.dragStartY) < 2) {
+                        const hitId = checkHit(pos);
+                        if (hitId) selectElement(hitId, false);
+                    }
                 }
+                
+                debouncedSave();
             }
         });
 
@@ -2292,20 +2350,41 @@
             }
         };
 
-        function selectElement(id) {
-            state.selectedId = id;
+        function selectElement(id, toggleMulti = false) {
+            if (!state.selectedIds) state.selectedIds = [];
+            
+            if (id) {
+                if (toggleMulti) {
+                    if (state.selectedIds.includes(id)) {
+                        state.selectedIds = state.selectedIds.filter(x => x !== id);
+                    } else {
+                        state.selectedIds.push(id);
+                    }
+                } else {
+                    state.selectedIds = [id];
+                }
+            } else {
+                state.selectedIds = [];
+            }
+            
+            if (state.selectedIds.length === 1) {
+                state.selectedId = state.selectedIds[0];
+            } else {
+                state.selectedId = null;
+            }
+
             updateUI();
             render();
-            if(id) switchTab('panel-edit');
+            if(state.selectedId) switchTab('panel-edit');
         }
 
         function updateLayerList() {
             layerList.innerHTML = '';
             [...state.elements].reverse().forEach((el, index) => {
                 const li = document.createElement('li');
-                const isSelected = el.id === state.selectedId;
+                const isSelected = state.selectedIds && state.selectedIds.includes(el.id);
                 li.className = `flex items-center justify-between p-2.5 rounded-lg border cursor-pointer  ${isSelected ? 'bg-brand-50 dark:bg-brand-500/20 border-brand-500 text-brand-700 dark:text-brand-300' : 'bg-white dark:bg-pro-800 border-pro-200 dark:border-pro-700 hover:border-brand-300 dark:hover:border-pro-500 text-pro-600 dark:text-pro-300'}`;
-                li.onclick = () => selectElement(el.id);
+                li.onclick = (e) => selectElement(el.id, e.ctrlKey || e.metaKey);
                 
                 const isShape = el.type === 'shape';
                 const icon = el.type === 'emoji' ? 'ph-smiley' : (el.type === 'text' ? 'ph-text-t' : (isShape ? 'ph-star' : 'ph-image'));
@@ -2435,11 +2514,14 @@
                 
                 const el = state.elements.find(e => e.id === state.selectedId);
                 
-                // Set Common Props (Transform & Normal Shadow)
                 editScale.value = el.scale || 1;
                 editScaleVal.textContent = `${(el.scale || 1).toFixed(1)}x`;
                 editRotation.value = el.rotation || 0;
                 editRotationVal.textContent = `${el.rotation || 0}°`;
+
+                if (ctxColor) {
+                    ctxColor.value = el.color || '#ffffff';
+                }
 
                 // Update Toggle Switches State & Visibility (STATIC styling, no transitions)
                 const extEnabled = el.extrusionEnabled !== false;
@@ -2583,8 +2665,13 @@
             } else {
                 noSelectionMsg.classList.remove('hidden');
                 editControls.classList.add('hidden');
-                
-                // Hide Context Toolbar
+            }
+            
+            // Context Toolbar Visibility
+            if (state.selectedIds && state.selectedIds.length > 0) {
+                contextToolbar.classList.remove('opacity-0', 'pointer-events-none', 'scale-95');
+                contextToolbar.classList.add('opacity-100', 'scale-100');
+            } else {
                 contextToolbar.classList.add('opacity-0', 'pointer-events-none', 'scale-95');
                 contextToolbar.classList.remove('opacity-100', 'scale-100');
             }
@@ -2742,37 +2829,141 @@
         editRotation.addEventListener('input', (e) => { editRotationVal.textContent = `${e.target.value}°`; updateProp('rotation', parseInt(e.target.value)); });
 
         // Context Toolbar Bindings
-        ctxScaleUp.addEventListener('click', () => {
-            const el = state.elements.find(e => e.id === state.selectedId);
-            if(el) {
-                const newScale = Math.min(5, (el.scale || 1) + 0.1);
-                updateProp('scale', newScale);
-                editScale.value = newScale; 
-            }
-        });
-        ctxScaleDown.addEventListener('click', () => {
-            const el = state.elements.find(e => e.id === state.selectedId);
-            if(el) {
-                const newScale = Math.max(0.1, (el.scale || 1) - 0.1);
-                updateProp('scale', newScale);
-                editScale.value = newScale; 
-            }
-        });
-        
-        ctxAlignH.addEventListener('click', () => {
+        ctxColor.addEventListener('input', (e) => {
+            const ids = state.selectedIds || [];
+            ids.forEach(id => {
+                const el = state.elements.find(x => x.id === id);
+                if (el) {
+                    el.color = e.target.value;
+                }
+            });
             if (state.selectedId) {
-                updateProp('x', CANVAS_WIDTH / 2);
+                const el = state.elements.find(x => x.id === state.selectedId);
+                if(el && (el.type === 'text' || el.type === 'emoji')) {
+                    editTextColor.value = e.target.value;
+                    editTextColorHex.value = e.target.value.toUpperCase();
+                } else if(el && el.type === 'shape') {
+                    editShapeColor.value = e.target.value;
+                    editShapeColorHex.value = e.target.value.toUpperCase();
+                }
             }
+            render();
+            debouncedSave();
+        });
+
+        ctxRotateCCW.addEventListener('click', () => {
+            const ids = state.selectedIds || [];
+            ids.forEach(id => {
+                const el = state.elements.find(x => x.id === id);
+                if (el) el.rotation = (el.rotation || 0) - 15;
+            });
+            if (state.selectedId) {
+                const el = state.elements.find(x => x.id === state.selectedId);
+                if (el) {
+                    editRotation.value = el.rotation;
+                    editRotationVal.textContent = el.rotation + '°';
+                }
+            }
+            render();
+            debouncedSave();
+        });
+
+        ctxRotateCW.addEventListener('click', () => {
+            const ids = state.selectedIds || [];
+            ids.forEach(id => {
+                const el = state.elements.find(x => x.id === id);
+                if (el) el.rotation = (el.rotation || 0) + 15;
+            });
+            if (state.selectedId) {
+                const el = state.elements.find(x => x.id === state.selectedId);
+                if (el) {
+                    editRotation.value = el.rotation;
+                    editRotationVal.textContent = el.rotation + '°';
+                }
+            }
+            render();
+            debouncedSave();
+        });
+
+        ctxScaleDown.addEventListener('click', () => {
+            const ids = state.selectedIds || [];
+            ids.forEach(id => {
+                const el = state.elements.find(x => x.id === id);
+                if(el) el.scale = Math.max(0.1, (el.scale || 1) - 0.1);
+            });
+            if(state.selectedId) {
+                const el = state.elements.find(x => x.id === state.selectedId);
+                if(el) editScale.value = el.scale; 
+            }
+            render();
+            debouncedSave();
+        });
+
+        ctxScaleUp.addEventListener('click', () => {
+            const ids = state.selectedIds || [];
+            ids.forEach(id => {
+                const el = state.elements.find(x => x.id === id);
+                if(el) el.scale = Math.min(5, (el.scale || 1) + 0.1);
+            });
+            if(state.selectedId) {
+                const el = state.elements.find(x => x.id === state.selectedId);
+                if(el) editScale.value = el.scale; 
+            }
+            render();
+            debouncedSave();
+        });
+
+        ctxAlignH.addEventListener('click', () => {
+            const ids = state.selectedIds || [];
+            ids.forEach(id => {
+                const el = state.elements.find(x => x.id === id);
+                if(el) el.x = CANVAS_WIDTH / 2;
+            });
+            render();
+            debouncedSave();
         });
 
         ctxAlignV.addEventListener('click', () => {
-            if (state.selectedId) {
-                updateProp('y', CANVAS_HEIGHT / 2);
-            }
+            const ids = state.selectedIds || [];
+            ids.forEach(id => {
+                const el = state.elements.find(x => x.id === id);
+                if(el) el.y = CANVAS_HEIGHT / 2;
+            });
+            render();
+            debouncedSave();
         });
 
-        ctxLayerUp.addEventListener('click', () => btnBringForward.click());
-        ctxLayerDown.addEventListener('click', () => btnSendBackward.click());
+        ctxLayerUp.addEventListener('click', () => {
+            const ids = state.selectedIds || [];
+            ids.forEach(id => {
+                const idx = state.elements.findIndex(e => e.id === id);
+                if(idx < state.elements.length - 1) {
+                    const temp = state.elements[idx];
+                    state.elements[idx] = state.elements[idx + 1];
+                    state.elements[idx + 1] = temp;
+                }
+            });
+            updateLayerList();
+            render();
+            debouncedSave();
+        });
+
+        ctxLayerDown.addEventListener('click', () => {
+            const ids = state.selectedIds || [];
+            const sortedIds = [...ids].sort((a,b) => state.elements.findIndex(e=>e.id===a) - state.elements.findIndex(e=>e.id===b));
+            sortedIds.forEach(id => {
+                const idx = state.elements.findIndex(e => e.id === id);
+                if(idx > 0) {
+                    const temp = state.elements[idx];
+                    state.elements[idx] = state.elements[idx - 1];
+                    state.elements[idx - 1] = temp;
+                }
+            });
+            updateLayerList();
+            render();
+            debouncedSave();
+        });
+
         ctxDelete.addEventListener('click', () => btnDeleteSelected.click());
 
         // Element Creation
@@ -2915,8 +3106,12 @@
 
         // Ordering & Deletion
         btnDeleteSelected.addEventListener('click', () => {
-            if(!state.selectedId) return;
-            state.elements = state.elements.filter(e => e.id !== state.selectedId);
+            const ids = state.selectedIds || [];
+            if(ids.length === 0 && !state.selectedId) return;
+            
+            const toDelete = ids.length > 0 ? ids : [state.selectedId];
+            state.elements = state.elements.filter(e => !toDelete.includes(e.id));
+            
             selectElement(null);
             document.querySelector('[data-target="panel-layers"]').click();
         });
