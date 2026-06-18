@@ -1020,6 +1020,201 @@
             const placeholder = document.getElementById('previewPlaceholder');
 
             const { w, h } = updateCanvasResolution();
+                        icon.style.opacity = '1';
+                    }
+                }
+            });
+        }
+
+        // --- Keyboard Shortcuts ---
+        btnToggleTheme.addEventListener('click', () => {
+            isDarkMode = !isDarkMode;
+            if (isDarkMode) {
+                document.documentElement.classList.add('dark');
+                iconTheme.setAttribute('data-lucide', 'sun');
+                localStorage.setItem('theme', 'dark');
+            } else {
+                document.documentElement.classList.remove('dark');
+                iconTheme.setAttribute('data-lucide', 'moon');
+                localStorage.setItem('theme', 'light');
+            }
+            lucide.createIcons();
+            drawRuler();
+            updatePropertiesPanel(); 
+        });
+
+        btnToggleLayout.addEventListener('click', () => {
+            State.layout.isSideBySide = !State.layout.isSideBySide;
+            if (State.layout.isSideBySide) {
+                mainWorkspace.classList.remove('flex-col');
+                mainWorkspace.classList.add('flex-col', 'sm:flex-row'); 
+                
+                previewContainer.classList.remove('w-full', 'border-b');
+                previewContainer.classList.add('sm:border-l', 'order-first', 'sm:order-last');
+                
+                previewContainer.classList.remove('h-[45%]');
+                previewContainer.classList.add('h-[40%]', 'sm:w-[35%]', 'sm:min-w-[300px]', 'sm:h-full');
+                
+                iconLayout.setAttribute('data-lucide', 'panel-top');
+            } else {
+                mainWorkspace.classList.remove('flex-col', 'sm:flex-row');
+                mainWorkspace.classList.add('flex-col');
+                
+                previewContainer.classList.remove('sm:border-l', 'order-first', 'sm:order-last');
+                previewContainer.classList.add('w-full', 'border-b');
+                
+                previewContainer.classList.remove('h-[40%]', 'sm:w-[35%]', 'sm:min-w-[300px]', 'sm:h-full');
+                previewContainer.classList.add('h-[45%]');
+                
+                iconLayout.setAttribute('data-lucide', 'panel-right');
+            }
+            lucide.createIcons();
+            setTimeout(() => { updateTimelineWidth(); drawRuler(); resizeCanvas(); }, 10);
+        });
+
+        btnTogglePreview.addEventListener('click', () => {
+            State.preview.hidden = !State.preview.hidden;
+            if (State.preview.hidden) {
+                previewContainer.classList.add('hidden');
+                iconEye.setAttribute('data-lucide', 'eye');
+            } else {
+                previewContainer.classList.remove('hidden');
+                iconEye.setAttribute('data-lucide', 'eye-off');
+            }
+            lucide.createIcons();
+            setTimeout(() => { updateTimelineWidth(); drawRuler(); resizeCanvas(); }, 10);
+        });
+
+        btnToggleAspect.addEventListener('click', () => {
+            State.preview.aspectIndex = (State.preview.aspectIndex + 1) % ASPECT_RATIOS.length;
+            const aspect = ASPECT_RATIOS[State.preview.aspectIndex];
+            
+            iconAspect.setAttribute('data-lucide', aspect.icon);
+            btnToggleAspect.title = `Aspect Ratio: ${aspect.label}`;
+            
+            resizeCanvas();
+            lucide.createIcons();
+        });
+
+        function updateCanvasResolution() {
+            const canvas = document.getElementById('renderCanvas');
+            const aspectStr = ASPECT_RATIOS[State.preview.aspectIndex].value;
+            const [wRatio, hRatio] = aspectStr.split('/').map(Number);
+            
+            let targetW, targetH;
+            if (wRatio >= hRatio) {
+                targetW = 1920;
+                targetH = 1920 * (hRatio / wRatio);
+            } else {
+                targetH = 1920;
+                targetW = 1920 * (wRatio / hRatio);
+            }
+            
+            if (canvas.width !== targetW || canvas.height !== targetH) {
+                canvas.width = targetW;
+                canvas.height = targetH;
+            }
+            return { w: targetW, h: targetH };
+        }
+
+        function resizeCanvas() {
+            const pw = previewWrapper.clientWidth;
+            const ph = previewWrapper.clientHeight;
+            if (pw === 0 || ph === 0) return;
+
+            const padding = window.innerWidth < 640 ? 16 : 32; 
+            const availW = pw - padding;
+            const availH = ph - padding;
+
+            const aspectStr = ASPECT_RATIOS[State.preview.aspectIndex].value;
+            const [wRatio, hRatio] = aspectStr.split('/').map(Number);
+            const ratio = wRatio / hRatio;
+
+            let finalW = availW;
+            let finalH = finalW / ratio;
+
+            if (finalH > availH) {
+                finalH = availH;
+                finalW = finalH * ratio;
+            }
+
+            canvasAspectWrapper.style.width = `${finalW}px`;
+            canvasAspectWrapper.style.height = `${finalH}px`;
+            
+            drawCanvas();
+        }
+
+        window.addEventListener('resize', resizeCanvas);
+
+        // --- Resizer Logic ---
+        const resizer = document.getElementById('inspectorResizer');
+        let isResizingInspector = false;
+        let startResizingX = 0;
+        let startInspectorWidth = 0;
+
+        if (resizer) {
+            resizer.addEventListener('mousedown', (e) => {
+                isResizingInspector = true;
+                startResizingX = e.clientX;
+                startInspectorWidth = propertiesSidebar.offsetWidth;
+                document.body.style.cursor = 'col-resize';
+                document.body.style.userSelect = 'none';
+                e.preventDefault();
+            });
+
+            window.addEventListener('mousemove', (e) => {
+                if (!isResizingInspector) return;
+                
+                const dx = e.clientX - startResizingX;
+                let newWidth = startInspectorWidth;
+                
+                if (State.inspector.dock === 'right') {
+                    newWidth = startInspectorWidth - dx;
+                } else if (State.inspector.dock === 'left') {
+                    newWidth = startInspectorWidth + dx;
+                }
+                
+                // Clamp width between 200 and 800
+                newWidth = Math.max(200, Math.min(800, newWidth));
+                State.inspector.width = newWidth;
+                propertiesSidebar.style.width = `${newWidth}px`;
+                
+                // Request animation frame for smooth redraw
+                requestAnimationFrame(() => {
+                    updateTimelineWidth();
+                    drawRuler();
+                    resizeCanvas();
+                });
+            });
+
+            window.addEventListener('mouseup', () => {
+                if (isResizingInspector) {
+                    isResizingInspector = false;
+                    document.body.style.cursor = '';
+                    document.body.style.userSelect = '';
+                    updateTimelineWidth();
+                    drawRuler();
+                    resizeCanvas();
+                }
+            });
+        }
+        
+        // Ensure timeline gets updated size on window resize
+        window.addEventListener('resize', () => {
+            if (State.inspector.visible) {
+                applyInspectorLayout();
+            }
+        });
+
+        // Helper for animations
+        const easeOutQuart = x => 1 - Math.pow(1 - x, 4);
+
+        function drawCanvas() {
+            const canvas = document.getElementById('renderCanvas');
+            const ctx = canvas.getContext('2d');
+            const placeholder = document.getElementById('previewPlaceholder');
+
+            const { w, h } = updateCanvasResolution();
             ctx.clearRect(0, 0, w, h);
             
             if (State.canvasBgColor && State.canvasBgColor !== 'transparent') {
@@ -1028,6 +1223,7 @@
             }
 
             let activeVisualClips = State.clips.filter(c =>
+                !c.hidden &&
                 (c.type === 'video' || c.type === 'image' || c.type === 'text') &&
                 State.currentTime >= c.start &&
                 State.currentTime < c.start + c.duration
@@ -1485,15 +1681,11 @@
                 if (clip.audioNodes) applyAudioEffects(clip);
                 
                 const label = document.getElementById(`lbl_${effectName}`);
-                if (label && typeof value === 'number') {
+                if (label) {
                     if (effectName === 'scale') label.textContent = `${clip.effects[effectName].toFixed(2)}x`;
                     else if (effectName === 'rotate') label.textContent = `${Math.round(clip.effects[effectName])}°`;
                     else if (effectName === 'borderRadius') label.textContent = `${Math.round(clip.effects[effectName])}px`;
-                    else label.textContent = `${Math.round(clip.effects[effectName] * 100)}%`;
-                }
-
-                if (State.activePropertyTab === effectName && document.getElementById(`lbl_${effectName}`)) {
-                    updatePropertiesPanel();
+                    else if (['volume', 'noiseRed', 'echo', 'cinematic', 'robot', 'cartoon'].includes(effectName)) label.textContent = `${Math.round(clip.effects[effectName] * 100)}%`;
                 }
             }
         };
@@ -1507,404 +1699,10 @@
             drawCanvas();
         };
 
-        // --- Sidebar Inspector UI ---
-        function updateSidebarPanel() {
+        window.toggleVisibility = () => {
             const clip = State.clips.find(c => c.id === State.selectedClipId);
-            
-            if (!clip || (clip.type !== 'image' && clip.type !== 'video' && clip.type !== 'text')) {
-                sidebarContent.className = "flex flex-col items-center justify-center p-4 w-full h-full";
-                sidebarContent.innerHTML = `
-                    <div class="flex flex-col items-center justify-center text-surface-500 dark:text-surface-400 py-16 h-full w-full">
-                        <div class="w-16 h-16 bg-white dark:bg-surface-800 border border-surface-200 dark:border-surface-700 shadow-sm rounded-full flex items-center justify-center mb-4">
-                            <i data-lucide="mouse-pointer-click" class="w-8 h-8 opacity-50"></i>
-                        </div>
-                        <p class="text-sm font-bold text-surface-700 dark:text-surface-300">Select an element to edit</p>
-                        <p class="text-xs mt-1 text-center max-w-[200px] text-surface-500 dark:text-surface-400">Click any clip on the timeline to view its properties.</p>
-                    </div>
-                `;
-                lucide.createIcons();
-                return;
-            }
-
-            if (!State.inspector.visible) {
-                State.inspector.visible = true;
-                applyInspectorLayout();
-            }
-
-            if (!clip.effects) clip.effects = {};
-            const fx = clip.effects;
-            
-            // Defaults
-            const shadowEnable = fx.shadowEnable || false;
-            const shadowColor = fx.shadowColor || '#000000';
-            const shadowBlur = fx.shadowBlur !== undefined ? fx.shadowBlur : 20;
-            const shadowX = fx.shadowX || 0;
-            const shadowY = fx.shadowY !== undefined ? fx.shadowY : 10;
-
-            const animIn = fx.animIn || 'none';
-            const animInDur = fx.animInDur || 1.0;
-            const animOut = fx.animOut || 'none';
-            const animOutDur = fx.animOutDur || 1.0;
-            const animLoop = fx.animLoop || 'none';
-
-            const isHorizontal = State.inspector.dock === 'bottom' || State.inspector.dock === 'top';
-
-            // High Contrast Slider settings
-            const sliderFill = isDarkMode ? '#ffffff' : '#111111';
-            const sliderBg = isDarkMode ? '#404040' : '#e5e5e5';
-
-const isText = clip.type === 'text';
-            let textHTML = '';
-            if (isText) {
-                textHTML = `
-                    <details class="group bg-white dark:bg-surface-800 border border-surface-300 dark:border-surface-700 shadow-sm rounded-lg shrink-0 ${isHorizontal ? 'w-[280px]' : 'w-full'} overflow-hidden flex flex-col" open>
-                        <summary class="flex items-center justify-between p-3 ${isHorizontal ? '' : 'cursor-pointer'} list-none appearance-none select-none bg-surface-100 dark:bg-surface-800/80 border-b border-surface-200 dark:border-surface-700 " onclick="${isHorizontal ? 'event.preventDefault();' : ''}">
-                            <div class="text-sm font-bold text-surface-800 dark:text-surface-200 flex items-center gap-2"><i data-lucide="type" class="w-4 h-4 text-surface-500 dark:text-surface-400"></i> Text Content</div>
-                            ${isHorizontal ? '' : '<i data-lucide="chevron-down" class="w-4 h-4 text-surface-500 transition-transform group-open:rotate-180"></i>'}
-                        </summary>
-                        <div class="p-3 flex flex-col gap-3 bg-surface-50 dark:bg-surface-900/50 flex-1">
-                            <textarea class="w-full h-20 bg-surface-50 dark:bg-surface-900/80 shadow-inner border border-surface-200 dark:border-surface-700 rounded-lg p-2 text-sm text-surface-900 dark:text-white outline-none focus:border-brand-500 focus:ring-1 focus:ring-brand-500" oninput="State.clips.find(c=>c.id==='${clip.id}').text=this.value; drawCanvas();">${clip.text}</textarea>
-                            
-                            <div class="flex flex-col gap-2 mt-1">
-                                <div>
-                                    <label class="block text-[10px] font-bold text-surface-500 dark:text-surface-400 uppercase tracking-widest mb-1.5">Font</label>
-                                    <select class="w-full text-xs p-2 pl-3 border border-surface-200 dark:border-surface-700 rounded bg-surface-50 dark:bg-surface-900/80 shadow-inner focus:outline-none focus:border-brand-500 focus:ring-1 focus:ring-brand-500 appearance-none cursor-pointer font-bold text-surface-800 dark:text-surface-200" onchange="setClipEffect('${clip.id}', 'fontFamily', this.value)">
-                                        <option value="Rubik" class="font-rubik font-bold" ${fx.fontFamily === 'Rubik' ? 'selected' : ''}>Rubik (Fireship)</option>
-                                        <option value="Montserrat" class="font-montserrat font-bold" ${fx.fontFamily === 'Montserrat' ? 'selected' : ''}>Montserrat (Clean)</option>
-                                        <option value="Inter" class="font-inter font-bold" ${fx.fontFamily === 'Inter' ? 'selected' : ''}>Inter (Modern)</option>
-                                        <option value="Oswald" class="font-oswald font-bold" ${fx.fontFamily === 'Oswald' ? 'selected' : ''}>Oswald (Tall)</option>
-                                        <option value="Bebas Neue" class="font-bebas font-bold" ${fx.fontFamily === 'Bebas Neue' ? 'selected' : ''}>Bebas Neue (Impact)</option>
-                                        <option value="Bangers" class="font-bangers font-bold" ${fx.fontFamily === 'Bangers' ? 'selected' : ''}>Bangers (Comic)</option>
-                                        <option value="Fredoka" class="font-fredoka font-bold" ${fx.fontFamily === 'Fredoka' ? 'selected' : ''}>Fredoka (Round)</option>
-                                        <option value="Lora" class="font-lora font-bold" ${fx.fontFamily === 'Lora' ? 'selected' : ''}>Lora (Serif)</option>
-                                        <option value="Plus Jakarta Sans" class="font-sans font-bold" ${fx.fontFamily === 'Plus Jakarta Sans' ? 'selected' : ''}>Jakarta (UI)</option>
-                                    </select>
-                                </div>
-                                <div class="grid grid-cols-2 gap-2 mt-2">
-                                    <div>
-                                        <label class="block text-[10px] font-bold text-surface-500 dark:text-surface-400 uppercase tracking-widest mb-1.5">Weight</label>
-                                        <select class="w-full text-xs p-2 border border-surface-200 dark:border-surface-700 rounded bg-surface-50 dark:bg-surface-900/80 shadow-inner appearance-none font-bold text-surface-800 dark:text-surface-200" onchange="setClipEffect('${clip.id}', 'fontWeight', parseInt(this.value))">
-                                            <option value="400" ${fx.fontWeight === 400 ? 'selected' : ''}>Regular</option>
-                                            <option value="600" ${fx.fontWeight === 600 ? 'selected' : ''}>SemiBold</option>
-                                            <option value="700" ${fx.fontWeight === 700 ? 'selected' : ''}>Bold</option>
-                                            <option value="900" ${fx.fontWeight === 900 ? 'selected' : ''}>ExtraBold</option>
-                                        </select>
-                                    </div>
-                                    <div>
-                                        <label class="block text-[10px] font-bold text-surface-500 dark:text-surface-400 uppercase tracking-widest mb-1.5">Casing</label>
-                                        <select class="w-full text-xs p-2 border border-surface-200 dark:border-surface-700 rounded bg-surface-50 dark:bg-surface-900/80 shadow-inner appearance-none font-bold text-surface-800 dark:text-surface-200" onchange="setClipEffect('${clip.id}', 'textTransform', this.value)">
-                                            <option value="none" ${(fx.textTransform || 'none') === 'none' ? 'selected' : ''}>As Typed</option>
-                                            <option value="uppercase" ${fx.textTransform === 'uppercase' ? 'selected' : ''}>UPPERCASE</option>
-                                            <option value="lowercase" ${fx.textTransform === 'lowercase' ? 'selected' : ''}>lowercase</option>
-                                        </select>
-                                    </div>
-                                    <div>
-                                        <label class="block text-[10px] font-bold text-surface-500 dark:text-surface-400 uppercase tracking-widest mb-1.5">Style</label>
-                                        <select class="w-full text-xs p-2 border border-surface-200 dark:border-surface-700 rounded bg-surface-50 dark:bg-surface-900/80 shadow-inner appearance-none font-bold text-surface-800 dark:text-surface-200" onchange="setClipEffect('${clip.id}', 'fontStyle', this.value)">
-                                            <option value="normal" ${(fx.fontStyle || 'normal') === 'normal' ? 'selected' : ''}>Normal</option>
-                                            <option value="italic" ${fx.fontStyle === 'italic' ? 'selected' : ''}>Italic</option>
-                                        </select>
-                                    </div>
-                                    <div>
-                                        <label class="block text-[10px] font-bold text-surface-500 dark:text-surface-400 uppercase tracking-widest mb-1.5">Decoration</label>
-                                        <select class="w-full text-xs p-2 border border-surface-200 dark:border-surface-700 rounded bg-surface-50 dark:bg-surface-900/80 shadow-inner appearance-none font-bold text-surface-800 dark:text-surface-200" onchange="setClipEffect('${clip.id}', 'textDecoration', this.value)">
-                                            <option value="none" ${(fx.textDecoration || 'none') === 'none' ? 'selected' : ''}>None</option>
-                                            <option value="underline" ${fx.textDecoration === 'underline' ? 'selected' : ''}>Underline</option>
-                                            <option value="line-through" ${fx.textDecoration === 'line-through' ? 'selected' : ''}>Strike</option>
-                                        </select>
-                                    </div>
-                                </div>
-                                
-                                <div class="mt-3 flex flex-col gap-3 border-t border-surface-200 dark:border-surface-700 pt-3">
-                                    <div>
-                                        <div class="flex justify-between items-center mb-1.5">
-                                            <label class="text-[10px] font-bold text-surface-500 dark:text-surface-400 uppercase tracking-widest">Size</label>
-                                            <span class="text-[10px] font-bold text-surface-900 dark:text-surface-100 bg-surface-100 dark:bg-surface-800 px-1.5 py-0.5 rounded">${fx.fontSize || 100}px</span>
-                                        </div>
-                                        <input type="range" min="10" max="400" value="${fx.fontSize || 100}" class="w-full custom-slider" oninput="setClipEffect('${clip.id}', 'fontSize', this.value); this.previousElementSibling.querySelector('span').textContent = this.value + 'px'; drawCanvas();">
-                                    </div>
-                                    <div>
-                                        <div class="flex justify-between items-center mb-1.5">
-                                            <label class="text-[10px] font-bold text-surface-500 dark:text-surface-400 uppercase tracking-widest">Letter Spacing</label>
-                                            <span class="text-[10px] font-bold text-surface-900 dark:text-surface-100 bg-surface-100 dark:bg-surface-800 px-1.5 py-0.5 rounded">${fx.letterSpacing || 0}px</span>
-                                        </div>
-                                        <input type="range" min="-20" max="100" value="${fx.letterSpacing || 0}" class="w-full custom-slider" oninput="setClipEffect('${clip.id}', 'letterSpacing', this.value); this.previousElementSibling.querySelector('span').textContent = this.value + 'px'; drawCanvas();">
-                                    </div>
-                                    <div>
-                                        <div class="flex justify-between items-center mb-1.5">
-                                            <label class="text-[10px] font-bold text-surface-500 dark:text-surface-400 uppercase tracking-widest">Line Height</label>
-                                            <span class="text-[10px] font-bold text-surface-900 dark:text-surface-100 bg-surface-100 dark:bg-surface-800 px-1.5 py-0.5 rounded">${fx.lineHeight || 1.1}x</span>
-                                        </div>
-                                        <input type="range" min="0.5" max="3" step="0.1" value="${fx.lineHeight || 1.1}" class="w-full custom-slider" oninput="setClipEffect('${clip.id}', 'lineHeight', this.value); this.previousElementSibling.querySelector('span').textContent = this.value + 'x'; drawCanvas();">
-                                    </div>
-                                    <div>
-                                        <label class="block text-[10px] font-bold text-surface-500 dark:text-surface-400 uppercase tracking-widest mb-1.5">Blend Mode</label>
-                                        <select class="w-full text-xs p-2 border border-surface-200 dark:border-surface-700 rounded bg-surface-50 dark:bg-surface-900/80 shadow-inner appearance-none font-bold text-surface-800 dark:text-surface-200" onchange="setClipEffect('${clip.id}', 'blendMode', this.value); drawCanvas();">
-                                            <option value="source-over" ${(fx.blendMode || 'source-over') === 'source-over' ? 'selected' : ''}>Normal</option>
-                                            <option value="multiply" ${fx.blendMode === 'multiply' ? 'selected' : ''}>Multiply</option>
-                                            <option value="screen" ${fx.blendMode === 'screen' ? 'selected' : ''}>Screen</option>
-                                            <option value="overlay" ${fx.blendMode === 'overlay' ? 'selected' : ''}>Overlay</option>
-                                        </select>
-                                    </div>
-                                    <div>
-                                        <div class="flex justify-between items-center mb-1.5">
-                                            <label class="text-[10px] font-bold text-surface-500 dark:text-surface-400 uppercase tracking-widest">Opacity</label>
-                                            <span class="text-[10px] font-bold text-surface-900 dark:text-surface-100 bg-surface-100 dark:bg-surface-800 px-1.5 py-0.5 rounded">${fx.opacity !== undefined ? fx.opacity : 100}%</span>
-                                        </div>
-                                        <input type="range" min="0" max="100" value="${fx.opacity !== undefined ? fx.opacity : 100}" class="w-full custom-slider" oninput="setClipEffect('${clip.id}', 'opacity', this.value); this.previousElementSibling.querySelector('span').textContent = this.value + '%'; drawCanvas();">
-                                    </div>
-                                </div>
-                                <div class="mt-2">
-                                    <label class="block text-[10px] font-bold text-surface-500 dark:text-surface-400 uppercase tracking-widest mb-1.5">Fill Color</label>
-                                    <div class="relative flex items-center bg-surface-50 dark:bg-surface-900 border border-surface-200 dark:border-surface-700 rounded p-1.5 cursor-pointer shadow-inner w-full">
-                                        <div class="w-6 h-6 rounded shadow-sm" style="background-color: ${fx.fillColor || '#ffffff'}"></div>
-                                        <span class="ml-3 font-mono font-bold text-xs text-surface-700 dark:text-surface-200 uppercase">${fx.fillColor || '#ffffff'}</span>
-                                        <input type="color" value="${fx.fillColor || '#ffffff'}" class="absolute inset-0 opacity-0 cursor-pointer w-full h-full" oninput="setClipEffect('${clip.id}', 'fillColor', this.value); this.previousElementSibling.textContent = this.value; this.previousElementSibling.previousElementSibling.style.backgroundColor = this.value; drawCanvas();">
-                                    </div>
-                                </div>
-                            </div>
-                        </div>
-                    </details>
-                    
-                    <details class="group bg-white dark:bg-surface-800 border border-surface-300 dark:border-surface-700 shadow-sm rounded-lg shrink-0 ${isHorizontal ? 'w-[280px]' : 'w-full'} overflow-hidden flex flex-col" open>
-                        <summary class="flex items-center justify-between p-3 ${isHorizontal ? '' : 'cursor-pointer'} list-none appearance-none select-none bg-surface-100 dark:bg-surface-800/80 border-b border-surface-200 dark:border-surface-700 " onclick="${isHorizontal ? 'event.preventDefault();' : ''}">
-                            <div class="text-sm font-bold text-surface-800 dark:text-surface-200 flex items-center gap-2"><i data-lucide="box" class="w-4 h-4 text-surface-500 dark:text-surface-400"></i> Extrude 3D</div>
-                            <div class="flex items-center gap-2">
-                                <label class="relative inline-flex items-center cursor-pointer" onclick="event.stopPropagation()">
-                                    <input type="checkbox" class="sr-only peer" ${fx.extrudeEnable ? 'checked' : ''} onchange="setClipEffect('${clip.id}', 'extrudeEnable', this.checked); updateSidebarPanel();">
-                                    <div class="w-7 h-4 bg-surface-300 dark:bg-surface-700 peer-focus:outline-none rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border-surface-300 after:border after:rounded-full after:h-3 after:w-3 after:transition-all peer-checked:bg-brand-500"></div>
-                                </label>
-                                ${isHorizontal ? '' : '<i data-lucide="chevron-down" class="w-4 h-4 text-surface-500 transition-transform group-open:rotate-180"></i>'}
-                            </div>
-                        </summary>
-                        <div class="p-3 flex flex-col gap-2.5 bg-surface-50 dark:bg-surface-900/50 flex-1 ${!fx.extrudeEnable ? 'opacity-50 pointer-events-none' : ''}">
-                            <div>
-                                <label class="block text-[10px] font-bold text-surface-500 dark:text-surface-400 uppercase tracking-widest mb-1.5">Color</label>
-                                <div class="relative flex items-center bg-surface-50 dark:bg-surface-900 border border-surface-200 dark:border-surface-700 rounded p-1.5 cursor-pointer shadow-inner w-full">
-                                    <div class="w-6 h-6 rounded shadow-sm" style="background-color: ${fx.extrudeColor || '#000000'}"></div>
-                                    <span class="ml-3 font-mono font-bold text-xs text-surface-700 dark:text-surface-200 uppercase">${fx.extrudeColor || '#000000'}</span>
-                                    <input type="color" value="${fx.extrudeColor || '#000000'}" class="absolute inset-0 opacity-0 cursor-pointer w-full h-full" oninput="setClipEffect('${clip.id}', 'extrudeColor', this.value); this.previousElementSibling.textContent = this.value; this.previousElementSibling.previousElementSibling.style.backgroundColor = this.value; drawCanvas();">
-                                </div>
-                            </div>
-                            <div class="mt-1">
-                                <label class="block text-[10px] font-bold text-surface-500 dark:text-surface-400 uppercase tracking-widest mb-1.5">Direction</label>
-                                <select class="w-full text-xs p-2 pl-3 border border-surface-200 dark:border-surface-700 rounded bg-surface-50 dark:bg-surface-900/80 shadow-inner focus:outline-none focus:border-brand-500 focus:ring-1 focus:ring-brand-500 appearance-none cursor-pointer font-bold text-surface-800 dark:text-surface-200" onchange="setClipEffect('${clip.id}', 'extrudeDir', this.value)">
-                                    <option value="br" ${(fx.extrudeDir || 'br') === 'br' ? 'selected' : ''}>Bottom Right</option>
-                                    <option value="bl" ${fx.extrudeDir === 'bl' ? 'selected' : ''}>Bottom Left</option>
-                                    <option value="tr" ${fx.extrudeDir === 'tr' ? 'selected' : ''}>Top Right</option>
-                                    <option value="tl" ${fx.extrudeDir === 'tl' ? 'selected' : ''}>Top Left</option>
-                                    <option value="b" ${fx.extrudeDir === 'b' ? 'selected' : ''}>Bottom</option>
-                                    <option value="t" ${fx.extrudeDir === 't' ? 'selected' : ''}>Top</option>
-                                    <option value="l" ${fx.extrudeDir === 'l' ? 'selected' : ''}>Left</option>
-                                    <option value="r" ${fx.extrudeDir === 'r' ? 'selected' : ''}>Right</option>
-                                </select>
-                            </div>
-                            <div class="mt-1">
-                                <div class="flex justify-between items-center mb-1.5">
-                                    <label class="text-[10px] font-bold text-surface-500 dark:text-surface-400 uppercase tracking-widest">Depth</label>
-                                    <span class="text-xs font-bold text-surface-900 dark:text-surface-100 bg-surface-100 dark:bg-surface-800 border border-surface-200 dark:border-surface-700 px-2 py-0.5 rounded shadow-sm">${fx.extrudeDepth || 5}</span>
-                                </div>
-                                <input type="range" min="1" max="50" value="${fx.extrudeDepth || 5}" class="w-full custom-slider" oninput="setClipEffect('${clip.id}', 'extrudeDepth', this.value); this.previousElementSibling.querySelector('span').textContent = this.value; this.style.background = 'linear-gradient(to right, ${sliderFill} ' + (this.value/this.max)*100 + '%, ${sliderBg} ' + (this.value/this.max)*100 + '%)'">
-                            </div>
-                        </div>
-                    </details>
-                `;
-            }
-
-            const shadowHTML = `
-                <details class="group bg-white dark:bg-surface-800 border border-surface-300 dark:border-surface-700 shadow-sm rounded-lg shrink-0 ${isHorizontal ? 'w-[280px]' : 'w-full'} overflow-hidden flex flex-col" open>
-                    <summary class="flex items-center justify-between p-3 ${isHorizontal ? '' : 'cursor-pointer'} list-none appearance-none select-none bg-surface-100 dark:bg-surface-800/80 border-b border-surface-200 dark:border-surface-700 " onclick="${isHorizontal ? 'event.preventDefault();' : ''}">
-                        <div class="text-sm font-bold text-surface-800 dark:text-surface-200 flex items-center gap-2"><i data-lucide="copy" class="w-4 h-4 text-surface-500 dark:text-surface-400"></i> Drop Shadow</div>
-                        <div class="flex items-center gap-2">
-                            <label class="relative inline-flex items-center cursor-pointer" onclick="event.stopPropagation()">
-                                <input type="checkbox" class="sr-only peer" ${shadowEnable ? 'checked' : ''} onchange="setClipEffect('${clip.id}', 'shadowEnable', this.checked); updateSidebarPanel();">
-                                <div class="w-7 h-4 bg-surface-300 dark:bg-surface-700 peer-focus:outline-none rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border-surface-300 after:border after:rounded-full after:h-3 after:w-3 after:transition-all peer-checked:bg-brand-500"></div>
-                            </label>
-                            ${isHorizontal ? '' : '<i data-lucide="chevron-down" class="w-4 h-4 text-surface-500 transition-transform group-open:rotate-180"></i>'}
-                        </div>
-                    </summary>
-                    
-                    <div class="p-3 flex flex-col gap-2.5 bg-surface-50 dark:bg-surface-900/50 flex-1 ${!shadowEnable ? 'opacity-50 pointer-events-none' : ''}">
-                        <div class="mb-2">
-                            <label class="block text-[10px] font-bold text-surface-500 dark:text-surface-400 uppercase tracking-widest mb-1.5">Shadow Color</label>
-                            <div class="relative flex items-center bg-surface-50 dark:bg-surface-900 border border-surface-200 dark:border-surface-700 rounded p-1.5 cursor-pointer shadow-inner w-full">
-                                <div class="w-6 h-6 rounded shadow-sm" style="background-color: ${shadowColor}"></div>
-                                <span class="ml-3 font-mono font-bold text-xs text-surface-700 dark:text-surface-200 uppercase">${shadowColor}</span>
-                                <input type="color" value="${shadowColor}" class="absolute inset-0 opacity-0 cursor-pointer w-full h-full" oninput="setClipEffect('${clip.id}', 'shadowColor', this.value); this.previousElementSibling.textContent = this.value; this.previousElementSibling.previousElementSibling.style.backgroundColor = this.value; drawCanvas();">
-                            </div>
-                        </div>
-                        <div>
-                            <div class="flex justify-between items-center mb-1.5">
-                                <label class="text-[10px] font-bold text-surface-500 dark:text-surface-400 uppercase tracking-widest">Blur</label>
-                                <span class="text-xs font-bold text-surface-900 dark:text-surface-100 bg-surface-100 dark:bg-surface-800 border border-surface-200 dark:border-surface-700 px-2 py-0.5 rounded shadow-sm">${shadowBlur}</span>
-                            </div>
-                            <input type="range" min="0" max="100" value="${shadowBlur}" class="w-full custom-slider" oninput="setClipEffect('${clip.id}', 'shadowBlur', this.value); this.previousElementSibling.querySelector('span').textContent = this.value; this.style.background = 'linear-gradient(to right, ${sliderFill} ' + (this.value/this.max)*100 + '%, ${sliderBg} ' + (this.value/this.max)*100 + '%)'">
-                        </div>
-                        <div>
-                            <div class="flex justify-between items-center mb-1.5">
-                                <label class="text-[10px] font-bold text-surface-500 dark:text-surface-400 uppercase tracking-widest">Offset X</label>
-                                <span class="text-xs font-bold text-surface-900 dark:text-surface-100 bg-surface-100 dark:bg-surface-800 border border-surface-200 dark:border-surface-700 px-2 py-0.5 rounded shadow-sm">${shadowX}</span>
-                            </div>
-                            <input type="range" min="-100" max="100" value="${shadowX}" class="w-full custom-slider" oninput="setClipEffect('${clip.id}', 'shadowX', this.value); this.previousElementSibling.querySelector('span').textContent = this.value; this.style.background = 'linear-gradient(to right, ${sliderFill} ' + ((this.value-(-100))/200)*100 + '%, ${sliderBg} ' + ((this.value-(-100))/200)*100 + '%)'">
-                        </div>
-                        <div>
-                            <div class="flex justify-between items-center mb-1.5">
-                                <label class="text-[10px] font-bold text-surface-500 dark:text-surface-400 uppercase tracking-widest">Offset Y</label>
-                                <span class="text-xs font-bold text-surface-900 dark:text-surface-100 bg-surface-100 dark:bg-surface-800 border border-surface-200 dark:border-surface-700 px-2 py-0.5 rounded shadow-sm">${shadowY}</span>
-                            </div>
-                            <input type="range" min="-100" max="100" value="${shadowY}" class="w-full custom-slider" oninput="setClipEffect('${clip.id}', 'shadowY', this.value); this.previousElementSibling.querySelector('span').textContent = this.value; this.style.background = 'linear-gradient(to right, ${sliderFill} ' + ((this.value-(-100))/200)*100 + '%, ${sliderBg} ' + ((this.value-(-100))/200)*100 + '%)'">
-                        </div>
-                    </div>
-                </details>
-            `;
-
-            const animHTML = `
-                <details class="group bg-white dark:bg-surface-800 border border-surface-300 dark:border-surface-700 shadow-sm rounded-lg shrink-0 ${isHorizontal ? 'w-[280px]' : 'w-full'} overflow-hidden flex flex-col" open>
-                    <summary class="flex items-center justify-between p-3 ${isHorizontal ? '' : 'cursor-pointer'} list-none appearance-none select-none bg-surface-100 dark:bg-surface-800/80 border-b border-surface-200 dark:border-surface-700 " onclick="${isHorizontal ? 'event.preventDefault();' : ''}">
-                        <div class="text-sm font-bold text-surface-800 dark:text-surface-200 flex items-center gap-2"><i data-lucide="sparkles" class="w-4 h-4 text-surface-500 dark:text-surface-400"></i> Animations</div>
-                        ${isHorizontal ? '' : '<i data-lucide="chevron-down" class="w-4 h-4 text-surface-500 transition-transform group-open:rotate-180"></i>'}
-                    </summary>
-                    
-                    <div class="p-3 flex flex-col gap-3 w-full bg-surface-50 dark:bg-surface-900/50 flex-1">
-                        <div class="bg-surface-50 dark:bg-surface-800/80 p-2.5 rounded-lg border border-surface-200 dark:border-surface-700 shadow-sm flex flex-col gap-2 w-full">
-                            <span class="text-[10px] font-bold text-brand-600 dark:text-brand-400 uppercase">In</span>
-                            <select class="w-full text-xs p-2 pl-3 border border-surface-200 dark:border-surface-700 rounded bg-surface-50 dark:bg-surface-900/80 shadow-inner focus:outline-none focus:border-brand-500 focus:ring-1 focus:ring-brand-500 appearance-none cursor-pointer font-bold text-surface-800 dark:text-surface-200" onchange="setClipEffect('${clip.id}', 'animIn', this.value); updateSidebarPanel();">
-                                <option value="none" ${animIn === 'none' ? 'selected' : ''}>None</option>
-                                <option value="fade" ${animIn === 'fade' ? 'selected' : ''}>Fade</option>
-                                <option value="slideUp" ${animIn === 'slideUp' ? 'selected' : ''}>Slide Up</option>
-                                <option value="zoom" ${animIn === 'zoom' ? 'selected' : ''}>Zoom In</option>
-                                <option value="mosaic" ${animIn === 'mosaic' ? 'selected' : ''}>Mosaic</option>
-                            </select>
-                            <div class="mt-3 ${animIn === 'none' ? 'hidden' : ''}">
-                                <div class="flex justify-between items-center mb-1.5">
-                                    <label class="text-[10px] font-bold text-surface-500 dark:text-surface-400 uppercase tracking-widest flex items-center gap-1"><i data-lucide="clock" class="w-3 h-3"></i> Duration</label>
-                                    <span class="text-xs font-bold text-surface-900 dark:text-surface-100 bg-surface-100 dark:bg-surface-800 border border-surface-200 dark:border-surface-700 px-2 py-0.5 rounded shadow-sm">${animInDur}s</span>
-                                </div>
-                                <input type="range" min="0.1" max="5.0" step="0.1" value="${animInDur}" class="w-full custom-slider" oninput="setClipEffect('${clip.id}', 'animInDur', this.value); this.previousElementSibling.querySelector('span').textContent = this.value + 's'; this.style.background = 'linear-gradient(to right, ${sliderFill} ' + (this.value/this.max)*100 + '%, ${sliderBg} ' + (this.value/this.max)*100 + '%)'">
-                            </div>
-                        </div>
-
-                        <div class="bg-surface-50 dark:bg-surface-800/80 p-2.5 rounded-lg border border-surface-200 dark:border-surface-700 shadow-sm flex flex-col gap-2 w-full">
-                            <span class="text-[10px] font-bold text-brand-600 dark:text-brand-400 uppercase">Out</span>
-                            <select class="w-full text-xs p-2 pl-3 border border-surface-200 dark:border-surface-700 rounded bg-surface-50 dark:bg-surface-900/80 shadow-inner focus:outline-none focus:border-brand-500 focus:ring-1 focus:ring-brand-500 appearance-none cursor-pointer font-bold text-surface-800 dark:text-surface-200" onchange="setClipEffect('${clip.id}', 'animOut', this.value); updateSidebarPanel();">
-                                <option value="none" ${animOut === 'none' ? 'selected' : ''}>None</option>
-                                <option value="fade" ${animOut === 'fade' ? 'selected' : ''}>Fade</option>
-                                <option value="slideDown" ${animOut === 'slideDown' ? 'selected' : ''}>Slide Down</option>
-                                <option value="zoom" ${animOut === 'zoom' ? 'selected' : ''}>Zoom Out</option>
-                                <option value="mosaic" ${animOut === 'mosaic' ? 'selected' : ''}>Mosaic</option>
-                            </select>
-                            <div class="mt-3 ${animOut === 'none' ? 'hidden' : ''}">
-                                <div class="flex justify-between items-center mb-1.5">
-                                    <label class="text-[10px] font-bold text-surface-500 dark:text-surface-400 uppercase tracking-widest flex items-center gap-1"><i data-lucide="clock" class="w-3 h-3"></i> Duration</label>
-                                    <span class="text-xs font-bold text-surface-900 dark:text-surface-100 bg-surface-100 dark:bg-surface-800 border border-surface-200 dark:border-surface-700 px-2 py-0.5 rounded shadow-sm">${animOutDur}s</span>
-                                </div>
-                                <input type="range" min="0.1" max="5.0" step="0.1" value="${animOutDur}" class="w-full custom-slider" oninput="setClipEffect('${clip.id}', 'animOutDur', this.value); this.previousElementSibling.querySelector('span').textContent = this.value + 's'; this.style.background = 'linear-gradient(to right, ${sliderFill} ' + (this.value/this.max)*100 + '%, ${sliderBg} ' + (this.value/this.max)*100 + '%)'">
-                            </div>
-                        </div>
-
-                        <div class="bg-surface-50 dark:bg-surface-800/80 p-2.5 rounded-lg border border-surface-200 dark:border-surface-700 shadow-sm flex flex-col gap-2 w-full">
-                            <span class="text-[10px] font-bold text-brand-600 dark:text-brand-400 uppercase">Loop</span>
-                            <select class="w-full text-xs p-2 pl-3 border border-surface-200 dark:border-surface-700 rounded bg-surface-50 dark:bg-surface-900/80 shadow-inner focus:outline-none focus:border-brand-500 focus:ring-1 focus:ring-brand-500 appearance-none cursor-pointer font-bold text-surface-800 dark:text-surface-200" onchange="setClipEffect('${clip.id}', 'animLoop', this.value)">
-                                <option value="none" ${animLoop === 'none' ? 'selected' : ''}>None</option>
-                                <option value="pulse" ${animLoop === 'pulse' ? 'selected' : ''}>Pulse</option>
-                                <option value="float" ${animLoop === 'float' ? 'selected' : ''}>Float</option>
-                            </select>
-                        </div>
-                    </div>
-                </details>
-            `;
-
-            // Use a clean layout for the sidebar items
-            sidebarContent.className = isHorizontal ? "flex flex-row flex-nowrap overflow-x-auto gap-4 p-2 w-full h-full no-scrollbar" : "flex flex-col gap-3 p-2 w-full overflow-y-auto";
-            sidebarContent.innerHTML = (isText ? textHTML : '') + shadowHTML + animHTML;
-            
-            // Set initial gradient bg for sliders in sidebar
-            sidebarContent.querySelectorAll('input[type="range"]').forEach(s => {
-                let p = (s.value / s.max) * 100;
-                if(s.min < 0) p = ((s.value - s.min) / (s.max - s.min)) * 100;
-                s.style.background = `linear-gradient(to right, ${sliderFill} ${p}%, ${sliderBg} ${p}%)`;
-            });
-
-            lucide.createIcons();
-        }
-
-        // --- Context-Based Top Header Properties UI ---
-        function updatePropertiesPanel() {
-            if (!State.selectedClipId) {
-                headerProperties.classList.add('hidden');
-                headerProperties.classList.remove('flex');
-                headerPropertiesPlaceholder.classList.remove('hidden');
-                return;
-            }
-
-            const clip = State.clips.find(c => c.id === State.selectedClipId);
-            if (!clip || !clip.effects) return;
-
-            headerProperties.classList.remove('hidden');
-            headerProperties.classList.add('flex');
-            headerPropertiesPlaceholder.classList.add('hidden');
-            
-            updateSidebarPanel(); 
-
-            let tabs = [];
-            if (clip.type === 'image' || clip.type === 'video' || clip.type === 'text') {
-                if (!['scale', 'rotate'].includes(State.activePropertyTab)) {
-                    State.activePropertyTab = 'scale';
-                }
-                tabs = [
-                    { id: 'scale', icon: 'maximize', label: 'Scale', max: 3, step: 0.05, unit: 'x' },
-                    { id: 'rotate', icon: 'rotate-cw', label: 'Rotate', max: 360, step: 1, unit: '°' }
-                ];
-                if (clip.type !== 'text') {
-                    tabs.push({ id: 'borderRadius', icon: 'square', label: 'Radius', max: 200, step: 1, unit: 'px' });
-                }
-            } else {
-                if (!['volume', 'noiseRed', 'echo', 'cinematic', 'robot', 'cartoon'].includes(State.activePropertyTab)) {
-                    State.activePropertyTab = 'volume';
-                }
-                tabs = [
-                    { id: 'volume', icon: 'volume-2', label: 'Volume', max: 2, step: 0.05, unit: '%' },
-                    { id: 'noiseRed', icon: 'mic-off', label: 'Denoise', max: 1, step: 0.05, unit: '%' },
-                    { id: 'echo', icon: 'waves', label: 'Echo', max: 1, step: 0.05, unit: '%' },
-                    { id: 'cinematic', icon: 'speaker', label: 'Bass', max: 1, step: 0.05, unit: '%' },
-                    { id: 'robot', icon: 'bot', label: 'Robot', max: 1, step: 0.05, unit: '%' },
-                    { id: 'cartoon', icon: 'smile', label: 'Cartoon', max: 1, step: 0.05, unit: '%' }
-                ];
-            }
-
-            let tabsHTML = `<div class="flex gap-0.5 sm:gap-1 bg-surface-100 dark:bg-surface-800 p-0.5 sm:p-1 rounded-lg border border-surface-200 dark:border-surface-700 shrink-0">`;
-            tabs.forEach(t => {
-                const isActive = State.activePropertyTab === t.id;
-                const activeClass = isActive 
-                    ? 'bg-white dark:bg-surface-900 text-surface-900 dark:text-white shadow-sm ring-1 ring-surface-300 dark:ring-surface-700' 
-                    : 'text-surface-500 dark:text-surface-400 hover:text-surface-800 dark:hover:text-surface-200 border-transparent';
-                tabsHTML += `
-                    <button onclick="setActivePropertyTab('${t.id}')" class="p-1.5 rounded-md ${activeClass}" title="${t.label}">
-                        <i data-lucide="${t.icon}" class="w-4 h-4"></i>
-                    </button>
-                `;
-            });
-            tabsHTML += `</div>`;
-
-            let extraActionsHTML = '';
-            if (clip.type === 'image' || clip.type === 'video') {
-                extraActionsHTML = `
-                    <div class="hidden sm:block w-px h-4 bg-surface-200 dark:bg-surface-700 mx-1"></div>
-                    <div class="flex gap-0.5 bg-surface-100 dark:bg-surface-800 p-0.5 rounded-lg border border-surface-200 dark:border-surface-700 shrink-0">
-                        <button onclick="alignClip('h')" class="p-1.5 rounded-md text-surface-500 dark:text-surface-400 hover:text-surface-900 dark:hover:text-white hover:bg-white dark:hover:bg-surface-900" title="Align Center Horizontally">
-                            <i data-lucide="arrow-left-right" class="w-4 h-4"></i>
-                        </button>
-                        <button onclick="alignClip('v')" class="p-1.5 rounded-md text-surface-500 dark:text-surface-400 hover:text-surface-900 dark:hover:text-white hover:bg-white dark:hover:bg-surface-900" title="Align Center Vertically">
-                            <i data-lucide="arrow-up-down" class="w-4 h-4"></i>
-                        </button>
-                    </div>
-                `;
-            }
-
-            const activeTab = tabs.find(t => t.id === State.activePropertyTab);
-            const val = clip.effects[State.activePropertyTab] || 0;
-            
-            let iconType = 'film';
+            if (!clip) return;
+            clip.hidden = !clip.hidden;
             if (clip.type === 'audio') iconType = 'music';
             else if (clip.type === 'image') iconType = 'image';
             else if (clip.type === 'text') iconType = 'type';
