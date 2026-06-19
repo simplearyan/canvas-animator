@@ -212,10 +212,17 @@
                     <label class="block text-xs font-bold text-surface-500 dark:text-surface-400 uppercase tracking-widest mb-2">Format</label>
                     <div class="grid grid-cols-2 gap-2">
                         <label class="cursor-pointer">
-                            <input type="radio" name="exportFormat" value="video" class="peer sr-only" checked>
+                            <input type="radio" name="exportFormat" value="video-mp4" class="peer sr-only" checked>
                             <div class="p-3 border border-surface-200 dark:border-surface-700 rounded-lg peer-checked:border-brand-500 peer-checked:bg-brand-50 dark:peer-checked:bg-brand-700 text-surface-900 dark:text-surface-300 peer-checked:text-brand-700 dark:peer-checked:text-white hover:bg-surface-50 dark:hover:bg-surface-700 transition-colors shadow-sm">
                                 <div class="font-bold text-sm mb-0.5">MP4 Video</div>
-                                <div class="text-[10px] opacity-70">Standard web video</div>
+                                <div class="text-[10px] opacity-70">H.264 format</div>
+                            </div>
+                        </label>
+                        <label class="cursor-pointer">
+                            <input type="radio" name="exportFormat" value="video-webm" class="peer sr-only">
+                            <div class="p-3 border border-surface-200 dark:border-surface-700 rounded-lg peer-checked:border-brand-500 peer-checked:bg-brand-50 dark:peer-checked:bg-brand-700 text-surface-900 dark:text-surface-300 peer-checked:text-brand-700 dark:peer-checked:text-white hover:bg-surface-50 dark:hover:bg-surface-700 transition-colors shadow-sm">
+                                <div class="font-bold text-sm mb-0.5">WebM Video</div>
+                                <div class="text-[10px] opacity-70">VP9 format</div>
                             </div>
                         </label>
                         <label class="cursor-pointer">
@@ -237,6 +244,33 @@
                             <div class="p-3 border border-surface-200 dark:border-surface-700 rounded-lg peer-checked:border-brand-500 peer-checked:bg-brand-50 dark:peer-checked:bg-brand-700 text-surface-900 dark:text-surface-300 peer-checked:text-brand-700 dark:peer-checked:text-white hover:bg-surface-50 dark:hover:bg-surface-700 transition-colors shadow-sm">
                                 <div class="font-bold text-sm mb-0.5">WAV Audio</div>
                                 <div class="text-[10px] opacity-70">Uncompressed audio</div>
+                            </div>
+                        </label>
+                    </div>
+                </div>
+
+                <div>
+                    <label class="block text-xs font-bold text-surface-500 dark:text-surface-400 uppercase tracking-widest mb-2">Resolution</label>
+                    <div class="grid grid-cols-3 gap-2">
+                        <label class="cursor-pointer">
+                            <input type="radio" name="exportResolution" value="1920" class="peer sr-only" checked>
+                            <div class="px-2 py-2 border border-surface-200 dark:border-surface-700 rounded-lg peer-checked:border-brand-500 peer-checked:bg-brand-50 dark:peer-checked:bg-brand-700 text-surface-900 dark:text-surface-300 peer-checked:text-brand-700 dark:peer-checked:text-white hover:bg-surface-50 dark:hover:bg-surface-700 transition-colors shadow-sm text-center">
+                                <div class="font-bold text-[13px] mb-0.5">1080p</div>
+                                <div class="text-[10px] opacity-70">HD</div>
+                            </div>
+                        </label>
+                        <label class="cursor-pointer">
+                            <input type="radio" name="exportResolution" value="2560" class="peer sr-only">
+                            <div class="px-2 py-2 border border-surface-200 dark:border-surface-700 rounded-lg peer-checked:border-brand-500 peer-checked:bg-brand-50 dark:peer-checked:bg-brand-700 text-surface-900 dark:text-surface-300 peer-checked:text-brand-700 dark:peer-checked:text-white hover:bg-surface-50 dark:hover:bg-surface-700 transition-colors shadow-sm text-center">
+                                <div class="font-bold text-[13px] mb-0.5">1440p</div>
+                                <div class="text-[10px] opacity-70">2K</div>
+                            </div>
+                        </label>
+                        <label class="cursor-pointer">
+                            <input type="radio" name="exportResolution" value="3840" class="peer sr-only">
+                            <div class="px-2 py-2 border border-surface-200 dark:border-surface-700 rounded-lg peer-checked:border-brand-500 peer-checked:bg-brand-50 dark:peer-checked:bg-brand-700 text-surface-900 dark:text-surface-300 peer-checked:text-brand-700 dark:peer-checked:text-white hover:bg-surface-50 dark:hover:bg-surface-700 transition-colors shadow-sm text-center">
+                                <div class="font-bold text-[13px] mb-0.5">2160p</div>
+                                <div class="text-[10px] opacity-70">4K</div>
                             </div>
                         </label>
                     </div>
@@ -536,13 +570,16 @@
         const State = {
             pixelsPerSecond: 50,
             duration: 60,
-            currentTime: 0,
+                    currentTime: 0,
             isPlaying: false,
             isExporting: false,
             lastRenderTime: 0,
             selectedClipId: null,
             activePropertyTab: 'volume', 
-            masterStreamNode: null, 
+            copiedClip: null,
+            masterStreamNode: null,
+            speakerNode: null,
+            audioCtxInitialzed: false,
             canvasBgColor: '#231F20',
             
             tracks: [
@@ -715,9 +752,12 @@
         }
 
         function ensureAudioContext() {
-            if (!audioCtx) {
+            if (!State.audioCtxInitialzed) {
                 audioCtx = new AudioContext();
                 State.masterStreamNode = audioCtx.createMediaStreamDestination();
+                State.speakerNode = audioCtx.createGain();
+                State.speakerNode.connect(audioCtx.destination);
+                State.audioCtxInitialzed = true;
             }
             if (audioCtx.state === 'suspended') audioCtx.resume();
         }
@@ -883,11 +923,13 @@
                 const timeText = document.getElementById('previewTimeText');
                 if (timeText) {
                     timeText.classList.toggle('hidden');
-                    const icon = btnToggleTimecode.querySelector('i');
-                    if (timeText.classList.contains('hidden')) {
-                        icon.style.opacity = '0.5';
-                    } else {
-                        icon.style.opacity = '1';
+                    const icon = btnToggleTimecode.querySelector('svg') || btnToggleTimecode.querySelector('i');
+                    if (icon) {
+                        if (timeText.classList.contains('hidden')) {
+                            icon.style.opacity = '0.5';
+                        } else {
+                            icon.style.opacity = '1';
+                        }
                     }
                 }
             });
@@ -956,7 +998,7 @@
             State.preview.aspectIndex = (State.preview.aspectIndex + 1) % ASPECT_RATIOS.length;
             const aspect = ASPECT_RATIOS[State.preview.aspectIndex];
             
-            iconAspect.setAttribute('data-lucide', aspect.icon);
+                iconAspect.setAttribute('data-lucide', aspect.icon);
             btnToggleAspect.title = `Aspect Ratio: ${aspect.label}`;
             
             resizeCanvas();
@@ -968,13 +1010,15 @@
             const aspectStr = ASPECT_RATIOS[State.preview.aspectIndex].value;
             const [wRatio, hRatio] = aspectStr.split('/').map(Number);
             
+            const baseRes = 1920; 
+            
             let targetW, targetH;
             if (wRatio >= hRatio) {
-                targetW = 1920;
-                targetH = 1920 * (hRatio / wRatio);
+                targetW = baseRes;
+                targetH = baseRes * (hRatio / wRatio);
             } else {
-                targetH = 1920;
-                targetW = 1920 * (wRatio / hRatio);
+                targetH = baseRes;
+                targetW = baseRes * (wRatio / hRatio);
             }
             
             if (canvas.width !== targetW || canvas.height !== targetH) {
@@ -1076,12 +1120,21 @@
         // Helper for animations
         const easeOutQuart = x => 1 - Math.pow(1 - x, 4);
 
-        function drawCanvas() {
+        function drawCanvas(targetCtx, targetW, targetH) {
             const canvas = document.getElementById('renderCanvas');
-            const ctx = canvas.getContext('2d');
+            const ctx = targetCtx || canvas.getContext('2d');
             const placeholder = document.getElementById('previewPlaceholder');
 
-            const { w, h } = updateCanvasResolution();
+            let w, h;
+            if (targetCtx && targetW && targetH) {
+                w = targetW;
+                h = targetH;
+            } else {
+                const res = updateCanvasResolution();
+                w = res.w;
+                h = res.h;
+            }
+            
             ctx.clearRect(0, 0, w, h);
             
             if (State.canvasBgColor && State.canvasBgColor !== 'transparent') {
@@ -1294,7 +1347,7 @@
                         }
 
                         // Interactive Bounding Box for Selected
-                        if (clip.id === State.selectedClipId) {
+                        if (clip.id === State.selectedClipId && !State.isExporting) {
                             ctx.strokeStyle = '#6366f1';
                             ctx.lineWidth = 4 / finalScale;
                             ctx.setLineDash([10 / finalScale, 10 / finalScale]);
@@ -1420,7 +1473,7 @@
                             ctx.shadowBlur = 0;
 
                             // Interactive Bounding Box for Selected
-                            if (clip.id === State.selectedClipId) {
+                            if (clip.id === State.selectedClipId && !State.isExporting) {
                                 ctx.strokeStyle = '#6366f1';
                                 ctx.lineWidth = 4 / finalScale;
                                 ctx.setLineDash([10 / finalScale, 10 / finalScale]);
@@ -1452,7 +1505,7 @@
             if (clip.audioNodes) return; 
             
             try {
-                const source = audioCtx.createMediaElementSource(clip.audioEl);
+                const source = audioCtx.createMediaElementSource(clip.audioEl || clip.videoEl);
 
                 const noiseRed = audioCtx.createBiquadFilter();
                 noiseRed.type = 'lowpass';
@@ -1485,26 +1538,32 @@
                 eq.connect(tinny);
                 
                 tinny.connect(volume);
-                volume.connect(audioCtx.destination);
+                volume.connect(State.speakerNode);
                 volume.connect(State.masterStreamNode); 
 
                 tinny.connect(delay);
                 delay.connect(echoFeedback);
                 echoFeedback.connect(delay);
                 delay.connect(echoVolume);
-                echoVolume.connect(audioCtx.destination);
+                echoVolume.connect(State.speakerNode);
                 echoVolume.connect(State.masterStreamNode);
 
                 tinny.connect(roboDelay);
                 roboDelay.connect(roboFeedback);
                 roboFeedback.connect(roboDelay);
                 roboDelay.connect(roboVolume);
-                roboVolume.connect(audioCtx.destination);
+                roboVolume.connect(State.speakerNode);
                 roboVolume.connect(State.masterStreamNode);
 
                 clip.audioNodes = { source, noiseRed, eq, tinny, volume, delay, echoFeedback, echoVolume, roboDelay, roboFeedback, roboVolume };
                 
-                if(!clip.effects) clip.effects = { volume: 1, echo: 0, cartoon: 0, cinematic: 0, robot: 0, noiseRed: 0 };
+                if (!clip.effects) clip.effects = {};
+                if (clip.effects.volume === undefined) clip.effects.volume = 1;
+                if (clip.effects.echo === undefined) clip.effects.echo = 0;
+                if (clip.effects.cartoon === undefined) clip.effects.cartoon = 0;
+                if (clip.effects.cinematic === undefined) clip.effects.cinematic = 0;
+                if (clip.effects.robot === undefined) clip.effects.robot = 0;
+                if (clip.effects.noiseRed === undefined) clip.effects.noiseRed = 0;
                 applyAudioEffects(clip);
 
             } catch (err) {
@@ -3085,6 +3144,7 @@ ctx.clearRect(0, 0, w, h);
             if (State.isExporting) {
                 State.cancelExport = true;
             } else {
+                State.exportResolution = 1920;
                 closeExportModal();
             }
         }
@@ -3092,6 +3152,7 @@ ctx.clearRect(0, 0, w, h);
         function submitExport() {
             const format = document.querySelector('input[name="exportFormat"]:checked').value;
             const scope = document.querySelector('input[name="exportScope"]:checked').value;
+            State.exportResolution = parseInt(document.querySelector('input[name="exportResolution"]:checked').value);
             
             let startT = 0;
             let endT = State.duration;
@@ -3119,21 +3180,47 @@ ctx.clearRect(0, 0, w, h);
             stopMedia();
             State.currentTime = startTime;
             
-            const canvasEl = document.getElementById('renderCanvas');
+            let exportCanvas = null;
+            let exportCtx = null;
+            let exportW, exportH;
+            
             let finalStream;
             let mimeType;
             let extension;
 
-            if (format === 'video' || format === 'gif') {
-                const canvasStream = canvasEl.captureStream(30);
+            if (format.includes('video') || format === 'gif') {
+                const aspectStr = ASPECT_RATIOS[State.preview.aspectIndex].value;
+                const [wRatio, hRatio] = aspectStr.split('/').map(Number);
+                const baseRes = State.exportResolution || 1920;
+                
+                if (wRatio >= hRatio) {
+                    exportW = baseRes;
+                    exportH = baseRes * (hRatio / wRatio);
+                } else {
+                    exportH = baseRes;
+                    exportW = baseRes * (wRatio / hRatio);
+                }
+                
+                exportCanvas = document.createElement('canvas');
+                exportCanvas.width = exportW;
+                exportCanvas.height = exportH;
+                exportCtx = exportCanvas.getContext('2d');
+                
+                const canvasStream = exportCanvas.captureStream(30);
                 const audioTracks = State.masterStreamNode.stream.getAudioTracks();
                 if (audioTracks.length > 0) {
                     finalStream = new MediaStream([...canvasStream.getVideoTracks(), ...audioTracks]);
                 } else {
                     finalStream = canvasStream;
                 }
-                mimeType = 'video/webm;codecs=vp9,opus';
-                extension = format === 'gif' ? 'gif.webm' : 'webm'; // Browser can't export native gif from canvas
+                
+                if (format === 'video-mp4') {
+                    mimeType = 'video/mp4;codecs="avc1, mp4a.40.2"'; // H.264 + AAC
+                    extension = 'mp4';
+                } else {
+                    mimeType = 'video/webm;codecs=vp9,opus';
+                    extension = format === 'gif' ? 'gif.webm' : 'webm';
+                }
             } else {
                 finalStream = State.masterStreamNode.stream;
                 if (format === 'audio-wav') {
@@ -3169,6 +3256,8 @@ ctx.clearRect(0, 0, w, h);
                 }
                 
                 State.isExporting = false;
+                State.exportResolution = 1920;
+                if (State.speakerNode) State.speakerNode.gain.value = 1;
                 closeExportModal();
                 stopMedia();
             };
@@ -3176,10 +3265,13 @@ ctx.clearRect(0, 0, w, h);
             State.lastRenderTime = performance.now();
             updatePlayhead();
             
+            if (State.speakerNode) State.speakerNode.gain.value = 0;
+            
             State.clips.forEach(clip => {
                 const el = clip.audioEl || clip.videoEl;
                 if (el && clip.start < endTime && (clip.start + clip.duration) > startTime) {
-                    if (clip.audioEl) applyAudioEffects(clip);
+                    buildAudioGraph(clip);
+                    applyAudioEffects(clip);
                     
                     const offset = Math.max(0, startTime - clip.start);
                     el.currentTime = clip.sourceOffset + offset;
@@ -3219,7 +3311,11 @@ ctx.clearRect(0, 0, w, h);
                     }
                 });
 
-                drawCanvas();
+                if (exportCanvas && exportCtx) {
+                    drawCanvas(exportCtx, exportW, exportH);
+                } else {
+                    drawCanvas();
+                }
 
                 const durationRange = endTime - startTime;
                 const elapsed = State.currentTime - startTime;
