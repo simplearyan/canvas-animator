@@ -394,9 +394,11 @@
                                             <select id="editShapeType" class="w-full text-sm p-2 pl-3 pr-8 border border-pro-300 dark:border-pro-600 rounded bg-pro-50 dark:bg-pro-900 focus:outline-none focus:border-brand-500 appearance-none cursor-pointer font-bold text-pro-800 dark:text-pro-200">
                                                 <option value="rect">Rectangle</option>
                                                 <option value="circle">Circle</option>
+                                                <option value="semi-circle">Semi Circle</option>
                                                 <option value="triangle">Triangle</option>
                                                 <option value="polygon">Polygon</option>
                                                 <option value="star">Star</option>
+                                                <option value="pointed-rect">Pointed Rect</option>
                                             </select>
                                             <i class="ph-bold ph-caret-down absolute right-3 top-1/2 -translate-y-1/2 text-pro-500 pointer-events-none"></i>
                                         </div>
@@ -441,6 +443,40 @@
                                             <span id="editShapeRadiusVal" class="text-[10px] font-bold text-brand-700 dark:text-brand-300 bg-brand-50 dark:bg-brand-500/20 px-2 py-0.5 rounded">0px</span>
                                         </div>
                                         <input type="range" id="editShapeRadius" min="0" max="200" value="0">
+                                    </div>
+                                    <hr class="border-pro-100 dark:border-pro-700">
+                                    <div>
+                                        <div class="flex justify-between items-center mb-2">
+                                            <label class="text-[10px] font-bold text-pro-500 dark:text-pro-400 uppercase tracking-widest">Feather</label>
+                                            <span id="editShapeFeatherVal" class="text-[10px] font-bold text-brand-700 dark:text-brand-300 bg-brand-50 dark:bg-brand-500/20 px-2 py-0.5 rounded">0px</span>
+                                        </div>
+                                        <input type="range" id="editShapeFeather" min="0" max="200" value="0">
+                                    </div>
+                                    <hr class="border-pro-100 dark:border-pro-700">
+                                    <div>
+                                        <div class="flex justify-between items-center mb-2">
+                                            <label class="text-[10px] font-bold text-pro-500 dark:text-pro-400 uppercase tracking-widest">Opacity</label>
+                                            <span id="editShapeOpacityVal" class="text-[10px] font-bold text-brand-700 dark:text-brand-300 bg-brand-50 dark:bg-brand-500/20 px-2 py-0.5 rounded">100%</span>
+                                        </div>
+                                        <input type="range" id="editShapeOpacity" min="0" max="100" value="100">
+                                    </div>
+                                    <div>
+                                        <label class="block text-[10px] font-bold text-pro-500 dark:text-pro-400 uppercase tracking-widest mb-2">Blend Mode</label>
+                                        <div class="relative">
+                                            <select id="editShapeBlend" class="w-full text-sm p-2 pl-3 pr-8 border border-pro-300 dark:border-pro-600 rounded bg-pro-50 dark:bg-pro-900 focus:outline-none focus:border-brand-500 appearance-none cursor-pointer font-bold text-pro-800 dark:text-pro-200">
+                                                <option value="source-over">Normal</option>
+                                                <option value="multiply">Multiply</option>
+                                                <option value="screen">Screen</option>
+                                                <option value="overlay">Overlay</option>
+                                                <option value="darken">Darken</option>
+                                                <option value="lighten">Lighten</option>
+                                                <option value="color-dodge">Color Dodge</option>
+                                                <option value="color-burn">Color Burn</option>
+                                                <option value="difference">Difference</option>
+                                                <option value="exclusion">Exclusion</option>
+                                            </select>
+                                            <i class="ph-bold ph-caret-down absolute right-3 top-1/2 -translate-y-1/2 text-pro-500 pointer-events-none"></i>
+                                        </div>
                                     </div>
                                 </div>
                             </div>
@@ -2197,6 +2233,20 @@
                     else ctx.lineTo(px, py);
                 }
                 ctx.closePath();
+            } else if (type === 'semi-circle') {
+                ctx.arc(x, y, w / 2, Math.PI, 0, false);
+                ctx.closePath();
+            } else if (type === 'pointed-rect') {
+                const rx = w / 2;
+                const ry = h / 2;
+                const pt = Math.min(w * 0.2, h); 
+                ctx.moveTo(x - rx, y); 
+                ctx.lineTo(x - rx + pt, y - ry); 
+                ctx.lineTo(x + rx - pt, y - ry); 
+                ctx.lineTo(x + rx, y); 
+                ctx.lineTo(x + rx - pt, y + ry); 
+                ctx.lineTo(x - rx + pt, y + ry); 
+                ctx.closePath();
             }
         }
 
@@ -2347,8 +2397,10 @@
 
                     // Draw Main Shape
                     ctx.fillStyle = el.color;
+                    if(el.feather) ctx.filter = `blur(${el.feather}px)`;
                     drawShapePath(ctx, el, 0, 0);
                     ctx.fill();
+                    if(el.feather) ctx.filter = 'none';
                 }
                 else if (el.type === 'text' || el.type === 'emoji') {
                     // Apply Normal Drop Shadow
@@ -3229,6 +3281,11 @@ function updateUI() {
                     editShapeSidesVal.textContent = el.sides || 5;
                     editShapeRadius.value = el.radius || 0;
                     editShapeRadiusVal.textContent = `${el.radius || 0}px`;
+                    editShapeFeather.value = el.feather || 0;
+                    editShapeFeatherVal.textContent = `${el.feather || 0}px`;
+                    editShapeOpacity.value = el.opacity !== undefined ? el.opacity : 100;
+                    editShapeOpacityVal.textContent = `${el.opacity !== undefined ? el.opacity : 100}%`;
+                    editShapeBlend.value = el.blendMode || 'source-over';
 
                     const showSides = el.shapeType === 'polygon' || el.shapeType === 'star';
                     shapeSidesContainer.style.display = showSides ? 'flex' : 'none';
@@ -3755,6 +3812,9 @@ function updateUI() {
         editShapeHeight.addEventListener('input', (e) => { editShapeHeightVal.textContent = `${e.target.value}px`; updateProp('height', parseInt(e.target.value)); });
         editShapeSides.addEventListener('input', (e) => { editShapeSidesVal.textContent = e.target.value; updateProp('sides', parseInt(e.target.value)); });
         editShapeRadius.addEventListener('input', (e) => { editShapeRadiusVal.textContent = `${e.target.value}px`; updateProp('radius', parseInt(e.target.value)); });
+        editShapeFeather.addEventListener('input', (e) => { editShapeFeatherVal.textContent = `${e.target.value}px`; updateProp('feather', parseInt(e.target.value)); });
+        editShapeOpacity.addEventListener('input', (e) => { editShapeOpacityVal.textContent = `${e.target.value}%`; updateProp('opacity', parseInt(e.target.value)); });
+        editShapeBlend.addEventListener('change', (e) => { updateProp('blendMode', e.target.value); });
 
         const handleImageUpload = (file) => {
             if (!file) return;
