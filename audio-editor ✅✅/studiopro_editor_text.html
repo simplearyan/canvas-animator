@@ -406,8 +406,9 @@
                 <!-- Canvas Wrapper -->
                 <div id="previewWrapper" class="flex-1 w-full relative p-2 sm:p-4 flex items-center justify-center bg-[radial-gradient(ellipse_at_center,_var(--tw-gradient-stops))] from-surface-200 to-surface-100 dark:from-surface-900 dark:to-surface-950 overflow-hidden">
                     <!-- Aspect Ratio Box -->
-                    <div id="canvasAspectWrapper" class="relative rounded-lg shadow-2xl border border-surface-700 overflow-hidden ring-1 ring-white/5 shrink-0" style="background-color: #231F20;">
+                    <div id="canvasAspectWrapper" class="relative rounded-lg shadow-2xl border border-surface-700 overflow-visible ring-1 ring-white/5 shrink-0" style="background-color: #231F20;">
                         <canvas id="renderCanvas" class="absolute inset-0 w-full h-full object-contain hidden"></canvas>
+                        <div id="domBoundingBoxContainer" class="absolute inset-0 pointer-events-none z-50"></div>
                         <div class="absolute inset-0 pointer-events-none" id="previewPlaceholder"></div>
                         <div class="absolute inset-0 flex items-center justify-center text-white/30 font-mono font-semibold tracking-widest text-xs sm:text-sm z-10 pointer-events-none" id="previewTimeText">00:00:00.00</div>
                     </div>
@@ -1175,6 +1176,8 @@
         const easeOutQuart = x => 1 - Math.pow(1 - x, 4);
 
         function drawCanvas(targetCtx, targetW, targetH) {
+            const domBoxContainer = document.getElementById('domBoundingBoxContainer');
+            if (domBoxContainer && !State.isExporting) domBoxContainer.innerHTML = '';
             const canvas = document.getElementById('renderCanvas');
             const ctx = targetCtx || canvas.getContext('2d');
             const placeholder = document.getElementById('previewPlaceholder');
@@ -1275,8 +1278,8 @@
 
                         ctx.save();
                         const finalScale = baseScale * animScale;
-                        const cx = w/2 + offsetX;
-                        const cy = h/2 + offsetY + animY;
+                        const cx = w/2 + (offsetX * w) / 100;
+                        const cy = h/2 + (offsetY * h) / 100 + animY;
 
                         ctx.globalAlpha = animAlpha * (clip.effects.opacity !== undefined ? clip.effects.opacity/100 : 1);
                         ctx.globalCompositeOperation = clip.effects.blendMode || 'source-over';
@@ -1401,82 +1404,55 @@
                             drawText();
                         }
 
-                        // Interactive Bounding Box for Selected
+                        
+                        // DOM Box render inside loop
                         if (clip.id === State.selectedClipId && !State.isExporting) {
-                            dw += 32 / finalScale;
-                            dh += 32 / finalScale;
-                            ctx.shadowColor = 'rgba(99, 102, 241, 0.4)';
-                            ctx.shadowBlur = 10 / finalScale;
-                            ctx.strokeStyle = '#6366f1';
-                            ctx.lineWidth = 5 / finalScale;
-                            ctx.strokeRect(-dw/2, -dh/2, dw, dh);
-                            
-                            ctx.shadowColor = 'transparent';
-                            ctx.shadowBlur = 0;
-                            
-                            const handleSize = 9 / finalScale;
-                            const drawHandle = (hx, hy) => {
-                                ctx.beginPath();
-                                ctx.arc(hx, hy, handleSize, 0, Math.PI * 2);
-                                ctx.fillStyle = '#ffffff';
-                                ctx.fill();
-                                ctx.lineWidth = 4 / finalScale;
-                                ctx.strokeStyle = '#6366f1';
-                                ctx.stroke();
-                            };
-                            
-                            // Rotation Line
-                            ctx.beginPath();
-                            ctx.moveTo(0, -dh/2);
-                            ctx.lineTo(0, -dh/2 - (40 / finalScale));
-                            ctx.lineWidth = 4 / finalScale;
-                            ctx.stroke();
-                            
-                            // 4 corners
-                            drawHandle(-dw/2, -dh/2);
-                            drawHandle(dw/2, -dh/2);
-                            drawHandle(-dw/2, dh/2);
-                            drawHandle(dw/2, dh/2);
-                            
-                            
-                            // Pill-shaped middle handles
-                            const pillW = 36 / finalScale;
-                            const pillH = 14 / finalScale;
-                            const pillRad = 7 / finalScale;
-                            
-                            const drawPillH = (px, py) => {
-                                ctx.beginPath();
-                                ctx.roundRect(px - pillW/2, py - pillH/2, pillW, pillH, pillRad);
-                                ctx.fillStyle = '#ffffff';
-                                ctx.fill();
-                                ctx.lineWidth = 5 / finalScale;
-                                ctx.strokeStyle = '#6366f1';
-                                ctx.stroke();
-                            };
-                            
-                            const drawPillV = (px, py) => {
-                                ctx.beginPath();
-                                ctx.roundRect(px - pillH/2, py - pillW/2, pillH, pillW, pillRad);
-                                ctx.fillStyle = '#ffffff';
-                                ctx.fill();
-                                ctx.lineWidth = 5 / finalScale;
-                                ctx.strokeStyle = '#6366f1';
-                                ctx.stroke();
-                            };
-                            
-                            drawPillH(0, -dh/2);
-                            drawPillH(0, dh/2);
-                            drawPillV(-dw/2, 0);
-                            drawPillV(dw/2, 0);
-                            
-                            // Rotation Handle (like in studio_pro)
-                            ctx.beginPath();
-                            ctx.arc(0, -dh/2 - (40 / finalScale), handleSize * 0.9, 0, Math.PI * 2);
-                            ctx.fillStyle = '#6366f1';
-                            ctx.fill();
-                            ctx.lineWidth = 4 / finalScale;
-                            ctx.strokeStyle = '#ffffff';
-                            ctx.stroke();
+                            const container = document.getElementById('domBoundingBoxContainer');
+                            if (container) {
+                                const wrapper = document.getElementById('canvasAspectWrapper');
+                                const scaleUI = wrapper.clientWidth / canvas.width;
+                                
+                                const finalScale = clip.effects.scale !== undefined ? clip.effects.scale : 1;
+                                const rotate = clip.effects.rotate || 0;
+                                const flipH = clip.effects.flipH ? -1 : 1;
+                                const flipV = clip.effects.flipV ? -1 : 1;
+                                const offsetX = (clip.effects.offsetX || 0) * (canvas.width / 100);
+                                const offsetY = (clip.effects.offsetY || 0) * (canvas.height / 100);
+
+                                const cx = (canvas.width / 2 + offsetX) * scaleUI;
+                                const cy = (canvas.height / 2 + offsetY) * scaleUI;
+                                
+                                const pad = 32;
+                                const w_box = Math.abs(dw * scaleUI * finalScale) + pad;
+                                const h_box = Math.abs(dh * scaleUI * finalScale) + pad;
+                                
+                                const box = document.createElement('div');
+                                box.style.position = 'absolute';
+                                box.style.left = `${cx}px`;
+                                box.style.top = `${cy}px`;
+                                box.style.width = `${w_box}px`;
+                                box.style.height = `${h_box}px`;
+                                box.style.transform = `translate(-50%, -50%) rotate(${rotate}deg) scale(${flipH}, ${flipV})`;
+                                box.style.border = '2px solid #6366f1';
+                                box.style.boxShadow = '0 0 10px rgba(99, 102, 241, 0.4)';
+                                
+                                const handleHtml = `
+                                    <div style="position: absolute; width: 12px; height: 12px; background: white; border: 3px solid #6366f1; border-radius: 50%; left: -7px; top: -7px;"></div>
+                                    <div style="position: absolute; width: 12px; height: 12px; background: white; border: 3px solid #6366f1; border-radius: 50%; right: -7px; top: -7px;"></div>
+                                    <div style="position: absolute; width: 12px; height: 12px; background: white; border: 3px solid #6366f1; border-radius: 50%; left: -7px; bottom: -7px;"></div>
+                                    <div style="position: absolute; width: 12px; height: 12px; background: white; border: 3px solid #6366f1; border-radius: 50%; right: -7px; bottom: -7px;"></div>
+                                    
+                                    <div style="position: absolute; width: 36px; height: 14px; background: white; border: 3px solid #6366f1; border-radius: 7px; left: 50%; top: -7px; transform: translateX(-50%);"></div>
+                                    <div style="position: absolute; width: 36px; height: 14px; background: white; border: 3px solid #6366f1; border-radius: 7px; left: 50%; bottom: -7px; transform: translateX(-50%);"></div>
+                                    <div style="position: absolute; width: 14px; height: 36px; background: white; border: 3px solid #6366f1; border-radius: 7px; top: 50%; left: -7px; transform: translateY(-50%);"></div>
+                                    <div style="position: absolute; width: 14px; height: 36px; background: white; border: 3px solid #6366f1; border-radius: 7px; top: 50%; right: -7px; transform: translateY(-50%);"></div>
+                                    
+                                    <div style="position: absolute; width: 2px; height: 40px; background: #6366f1; left: 50%; top: -40px; transform: translateX(-50%);"></div>
+                                    <div style="position: absolute; width: 12px; height: 12px; background: #6366f1; border: 2px solid white; border-radius: 50%; left: 50%; top: -46px; transform: translateX(-50%);"></div>
+                                `;
+                                box.innerHTML = handleHtml;
+                                container.appendChild(box);
+                            }
                         }
 
                         ctx.restore();
@@ -1538,8 +1514,8 @@
 
                             ctx.save();
                             const finalScale = baseScale * animScale;
-                            const cx = w/2 + offsetX;
-                            const cy = h/2 + offsetY + animY;
+                            const cx = w/2 + (offsetX * w) / 100;
+                            const cy = h/2 + (offsetY * h) / 100 + animY;
 
                             ctx.globalAlpha = animAlpha;
                             ctx.translate(cx, cy);
@@ -1589,85 +1565,58 @@
                             ctx.shadowColor = 'transparent';
                             ctx.shadowBlur = 0;
 
-                            // Interactive Bounding Box for Selected
-                            if (clip.id === State.selectedClipId && !State.isExporting) {
-                            dw += 32 / finalScale;
-                            dh += 32 / finalScale;
-                            ctx.shadowColor = 'rgba(99, 102, 241, 0.4)';
-                            ctx.shadowBlur = 10 / finalScale;
-                            ctx.strokeStyle = '#6366f1';
-                            ctx.lineWidth = 5 / finalScale;
-                            ctx.strokeRect(-dw/2, -dh/2, dw, dh);
                             
-                            ctx.shadowColor = 'transparent';
-                            ctx.shadowBlur = 0;
-                            
-                            const handleSize = 9 / finalScale;
-                            const drawHandle = (hx, hy) => {
-                                ctx.beginPath();
-                                ctx.arc(hx, hy, handleSize, 0, Math.PI * 2);
-                                ctx.fillStyle = '#ffffff';
-                                ctx.fill();
-                                ctx.lineWidth = 4 / finalScale;
-                                ctx.strokeStyle = '#6366f1';
-                                ctx.stroke();
-                            };
-                            
-                            // Rotation Line
-                            ctx.beginPath();
-                            ctx.moveTo(0, -dh/2);
-                            ctx.lineTo(0, -dh/2 - (40 / finalScale));
-                            ctx.lineWidth = 4 / finalScale;
-                            ctx.stroke();
-                            
-                            // 4 corners
-                            drawHandle(-dw/2, -dh/2);
-                            drawHandle(dw/2, -dh/2);
-                            drawHandle(-dw/2, dh/2);
-                            drawHandle(dw/2, dh/2);
-                            
-                            
-                            // Pill-shaped middle handles
-                            const pillW = 36 / finalScale;
-                            const pillH = 14 / finalScale;
-                            const pillRad = 7 / finalScale;
-                            
-                            const drawPillH = (px, py) => {
-                                ctx.beginPath();
-                                ctx.roundRect(px - pillW/2, py - pillH/2, pillW, pillH, pillRad);
-                                ctx.fillStyle = '#ffffff';
-                                ctx.fill();
-                                ctx.lineWidth = 5 / finalScale;
-                                ctx.strokeStyle = '#6366f1';
-                                ctx.stroke();
-                            };
-                            
-                            const drawPillV = (px, py) => {
-                                ctx.beginPath();
-                                ctx.roundRect(px - pillH/2, py - pillW/2, pillH, pillW, pillRad);
-                                ctx.fillStyle = '#ffffff';
-                                ctx.fill();
-                                ctx.lineWidth = 5 / finalScale;
-                                ctx.strokeStyle = '#6366f1';
-                                ctx.stroke();
-                            };
-                            
-                            drawPillH(0, -dh/2);
-                            drawPillH(0, dh/2);
-                            drawPillV(-dw/2, 0);
-                            drawPillV(dw/2, 0);
-                            
-                            // Rotation Handle (like in studio_pro)
-                            ctx.beginPath();
-                            ctx.arc(0, -dh/2 - (40 / finalScale), handleSize * 0.9, 0, Math.PI * 2);
-                            ctx.fillStyle = '#6366f1';
-                            ctx.fill();
-                            ctx.lineWidth = 4 / finalScale;
-                            ctx.strokeStyle = '#ffffff';
-                            ctx.stroke();
+                        // DOM Box render inside loop
+                        if (clip.id === State.selectedClipId && !State.isExporting) {
+                            const container = document.getElementById('domBoundingBoxContainer');
+                            if (container) {
+                                const wrapper = document.getElementById('canvasAspectWrapper');
+                                const scaleUI = wrapper.clientWidth / canvas.width;
+                                
+                                const finalScale = clip.effects.scale !== undefined ? clip.effects.scale : 1;
+                                const rotate = clip.effects.rotate || 0;
+                                const flipH = clip.effects.flipH ? -1 : 1;
+                                const flipV = clip.effects.flipV ? -1 : 1;
+                                const offsetX = (clip.effects.offsetX || 0) * (canvas.width / 100);
+                                const offsetY = (clip.effects.offsetY || 0) * (canvas.height / 100);
+
+                                const cx = (canvas.width / 2 + offsetX) * scaleUI;
+                                const cy = (canvas.height / 2 + offsetY) * scaleUI;
+                                
+                                const pad = 32;
+                                const w_box = Math.abs(dw * scaleUI * finalScale) + pad;
+                                const h_box = Math.abs(dh * scaleUI * finalScale) + pad;
+                                
+                                const box = document.createElement('div');
+                                box.style.position = 'absolute';
+                                box.style.left = `${cx}px`;
+                                box.style.top = `${cy}px`;
+                                box.style.width = `${w_box}px`;
+                                box.style.height = `${h_box}px`;
+                                box.style.transform = `translate(-50%, -50%) rotate(${rotate}deg) scale(${flipH}, ${flipV})`;
+                                box.style.border = '2px solid #6366f1';
+                                box.style.boxShadow = '0 0 10px rgba(99, 102, 241, 0.4)';
+                                
+                                const handleHtml = `
+                                    <div style="position: absolute; width: 12px; height: 12px; background: white; border: 3px solid #6366f1; border-radius: 50%; left: -7px; top: -7px;"></div>
+                                    <div style="position: absolute; width: 12px; height: 12px; background: white; border: 3px solid #6366f1; border-radius: 50%; right: -7px; top: -7px;"></div>
+                                    <div style="position: absolute; width: 12px; height: 12px; background: white; border: 3px solid #6366f1; border-radius: 50%; left: -7px; bottom: -7px;"></div>
+                                    <div style="position: absolute; width: 12px; height: 12px; background: white; border: 3px solid #6366f1; border-radius: 50%; right: -7px; bottom: -7px;"></div>
+                                    
+                                    <div style="position: absolute; width: 36px; height: 14px; background: white; border: 3px solid #6366f1; border-radius: 7px; left: 50%; top: -7px; transform: translateX(-50%);"></div>
+                                    <div style="position: absolute; width: 36px; height: 14px; background: white; border: 3px solid #6366f1; border-radius: 7px; left: 50%; bottom: -7px; transform: translateX(-50%);"></div>
+                                    <div style="position: absolute; width: 14px; height: 36px; background: white; border: 3px solid #6366f1; border-radius: 7px; top: 50%; left: -7px; transform: translateY(-50%);"></div>
+                                    <div style="position: absolute; width: 14px; height: 36px; background: white; border: 3px solid #6366f1; border-radius: 7px; top: 50%; right: -7px; transform: translateY(-50%);"></div>
+                                    
+                                    <div style="position: absolute; width: 2px; height: 40px; background: #6366f1; left: 50%; top: -40px; transform: translateX(-50%);"></div>
+                                    <div style="position: absolute; width: 12px; height: 12px; background: #6366f1; border: 2px solid white; border-radius: 50%; left: 50%; top: -46px; transform: translateX(-50%);"></div>
+                                `;
+                                box.innerHTML = handleHtml;
+                                container.appendChild(box);
+                            }
                         }
 
-                            ctx.restore();
+                        ctx.restore();
                         }
                     }
                     }
@@ -3083,9 +3032,11 @@ ctx.clearRect(0, 0, w, h);
                     const rotate = clip.effects.rotate !== undefined ? clip.effects.rotate : 0;
                     const offsetX = clip.effects.offsetX || 0;
                     const offsetY = clip.effects.offsetY || 0;
+                    const pX = (offsetX * canvas.width) / 100;
+                    const pY = (offsetY * canvas.height) / 100;
 
-                    const cx = canvas.width/2 + offsetX;
-                    const cy = canvas.height/2 + offsetY;
+                    const cx = canvas.width/2 + pX;
+                    const cy = canvas.height/2 + pY;
 
                     let mx = pos.x - cx;
                     let my = pos.y - cy;
@@ -3130,8 +3081,11 @@ ctx.clearRect(0, 0, w, h);
                     const clip = State.clips.find(c => c.id === canvasDrag.clipId);
                     if (clip) {
                         if (!clip.effects) clip.effects = {};
-                        clip.effects.offsetX = canvasDrag.initOffsetX + (pos.x - canvasDrag.startX);
-                        clip.effects.offsetY = canvasDrag.initOffsetY + (pos.y - canvasDrag.startY);
+                        const renderCanvas = document.getElementById('renderCanvas');
+                        const dxPercent = ((pos.x - canvasDrag.startX) / renderCanvas.width) * 100;
+                        const dyPercent = ((pos.y - canvasDrag.startY) / renderCanvas.height) * 100;
+                        clip.effects.offsetX = canvasDrag.initOffsetX + dxPercent;
+                        clip.effects.offsetY = canvasDrag.initOffsetY + dyPercent;
                         drawCanvas();
                     }
                 }
@@ -3677,6 +3631,8 @@ ctx.clearRect(0, 0, w, h);
 
         updatePropertiesPanel();
         init();
+    
+        
     </script>
 </body>
 </html>
