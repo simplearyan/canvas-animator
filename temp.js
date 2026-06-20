@@ -1,512 +1,4 @@
 
-        (function() {
-            try {
-                var theme = localStorage.getItem('theme');
-                if (theme === 'dark') {
-                    document.documentElement.classList.add('dark');
-                } else if (theme === 'light') {
-                    document.documentElement.classList.remove('dark');
-                } else {
-                    document.documentElement.classList.add('dark');
-                }
-            } catch (e) {}
-        })();
-    </script>
-
-    <!-- Fonts: Plus Jakarta Sans for UI, JetBrains Mono for Timecodes -->
-    <link rel="preconnect" href="https://fonts.googleapis.com">
-    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-    <link href="https://fonts.googleapis.com/css2?family=JetBrains+Mono:wght@400;500;600&family=Plus+Jakarta+Sans:wght@400;500;600;700;800&family=Bangers&family=Bebas+Neue&family=Fredoka:wght@600;700&family=Inter:wght@400;500;600;700;900&family=Lora:ital,wght@0,400;0,700;1,400;1,700&family=Montserrat:ital,wght@0,800;1,800&family=Oswald:wght@700&family=Rubik:ital,wght@0,300..900;1,300..900&display=swap" rel="stylesheet">
-    
-    <!-- Tailwind CSS -->
-    <script src="https://cdn.tailwindcss.com"></script>
-    <script>
-        tailwind.config = {
-            darkMode: 'class',
-            theme: {
-                extend: {
-                    fontFamily: { 
-                        sans: ['"Plus Jakarta Sans"', 'sans-serif'],
-                        mono: ['"JetBrains Mono"', 'monospace'],
-                        rubik: ['Rubik', 'sans-serif'],
-                        montserrat: ['Montserrat', 'sans-serif'],
-                        oswald: ['Oswald', 'sans-serif'],
-                        bebas: ['"Bebas Neue"', 'sans-serif'],
-                        bangers: ['Bangers', 'cursive'],
-                        fredoka: ['Fredoka', 'sans-serif'],
-                        inter: ['Inter', 'sans-serif'],
-                        lora: ['Lora', 'serif']
-                    },
-                    colors: {
-                        // Premium Indigo Accent
-                        brand: { 50: '#eef2ff', 100: '#e0e7ff', 400: '#818cf8', 500: '#6366f1', 600: '#4f46e5', 700: '#4338ca' },
-                        // True Dark Mode Palette
-                        surface: { 50: '#fafafa', 100: '#f5f5f5', 200: '#e5e5e5', 300: '#d4d4d4', 400: '#a3a3a3', 500: '#737373', 600: '#525252', 700: '#262626', 800: '#1a1a1a', 900: '#111111', 950: '#0a0a0a' }
-                    }
-                }
-            }
-        }
-    </script>
-
-    <!-- Icons -->
-    <script src="https://unpkg.com/lucide@latest"></script>
-
-    <style>
-        /* Sleek Scrollbar */
-        ::-webkit-scrollbar { width: 6px; height: 6px; }
-        ::-webkit-scrollbar-track { background: transparent; }
-        ::-webkit-scrollbar-thumb { background: #d4d4d4; border-radius: 4px; }
-        ::-webkit-scrollbar-thumb:hover { background: #a3a3a3; }
-        .dark ::-webkit-scrollbar-thumb { background: #262626; }
-        .dark ::-webkit-scrollbar-thumb:hover { background: #525252; }
-        
-        /* Hide scrollbar for clean toolbars */
-        .no-scrollbar::-webkit-scrollbar { display: none; }
-        .no-scrollbar { -ms-overflow-style: none; scrollbar-width: none; }
-
-        /* Professional Soft Background for Timeline */
-        .timeline-container {
-            background-color: #f5f5f5;
-            background-image: 
-                linear-gradient(to right, rgba(0,0,0,0.03) 1px, transparent 1px),
-                linear-gradient(to bottom, rgba(0,0,0,0.03) 1px, transparent 1px);
-            background-size: 50px 50px;
-        }
-        .dark .timeline-container {
-            background-color: #0a0a0a;
-            background-image: 
-                linear-gradient(to right, rgba(255,255,255,0.02) 1px, transparent 1px),
-                linear-gradient(to bottom, rgba(255,255,255,0.02) 1px, transparent 1px);
-        }
-
-        /* Clean static design */
-        * { transition: none !important; }
-
-        /* Icon Weight Override for better legibility */
-        .lucide { stroke-width: 2.25; }
-
-        .clip {
-            touch-action: none;
-            box-shadow: 0 1px 3px rgba(0,0,0,0.08), 0 1px 2px rgba(0,0,0,0.04);
-        }
-        .dark .clip { box-shadow: 0 2px 5px rgba(0,0,0,0.5); }
-        .clip.dragging {
-            opacity: 0.95;
-            box-shadow: 0 8px 16px rgba(0, 0, 0, 0.1);
-            z-index: 50 !important;
-            cursor: grabbing !important;
-        }
-        .dark .clip.dragging { box-shadow: 0 8px 24px rgba(0,0,0,0.7); }
-        
-        /* Selected State */
-        .clip.selected {
-            box-shadow: 0 0 0 2px #6366f1 !important;
-            z-index: 45;
-        }
-
-        /* Overlap Warning Pattern */
-        .clip.overlapping {
-            background-image: repeating-linear-gradient(
-                -45deg,
-                rgba(239, 68, 68, 0.1),
-                rgba(239, 68, 68, 0.1) 10px,
-                rgba(239, 68, 68, 0.03) 10px,
-                rgba(239, 68, 68, 0.03) 20px
-            ) !important;
-            border: 2px solid #ef4444 !important;
-            z-index: 40;
-        }
-        .dark .clip.overlapping {
-            background-image: repeating-linear-gradient(-45deg, rgba(239, 68, 68, 0.25), rgba(239, 68, 68, 0.25) 10px, transparent 10px, transparent 20px) !important;
-        }
-
-        .trim-handle {
-            position: absolute;
-            top: 0; bottom: 0; width: 8px;
-            background: rgba(0,0,0,0.05);
-            cursor: col-resize;
-            z-index: 30;
-        }
-        .dark .trim-handle { background: rgba(255,255,255,0.05); }
-        .trim-handle:hover { background: rgba(0,0,0,0.2); }
-        .dark .trim-handle:hover { background: rgba(255,255,255,0.2); }
-        .trim-handle.left { left: 0; border-right: 1px solid rgba(0,0,0,0.15); }
-        .dark .trim-handle.left { border-right: 1px solid rgba(255,255,255,0.15); }
-        .trim-handle.right { right: 0; border-left: 1px solid rgba(0,0,0,0.15); }
-        .dark .trim-handle.right { border-left: 1px solid rgba(255,255,255,0.15); }
-
-        /* Unified Fixed Playhead */
-        #rulerPlayhead {
-            position: absolute; top: 0; bottom: 0; width: 1px;
-            background-color: #6366f1;
-            z-index: 100; pointer-events: none;
-        }
-        #playhead {
-            position: absolute; top: 0; bottom: 0; width: 1px;
-            background-color: #6366f1;
-            z-index: 60; pointer-events: none;
-            box-shadow: 0 0 4px rgba(99, 102, 241, 0.5);
-        }
-
-        .track-separator { border-bottom: 1px solid #e5e5e5; }
-        .dark .track-separator { border-bottom: 1px solid #262626; }
-        
-        .waveform-canvas { pointer-events: none; display: block; }
-
-        /* High Contrast Sliders */
-        input[type=range].custom-slider::-webkit-slider-thumb {
-            -webkit-appearance: none;
-            height: 14px; width: 14px;
-            border-radius: 50%;
-            background: #ffffff;
-            cursor: pointer;
-            border: 3px solid #111111;
-            box-shadow: 0 1px 3px rgba(0,0,0,0.3);
-            margin-top: -5px;
-        }
-        .dark input[type=range].custom-slider::-webkit-slider-thumb { 
-            border-color: #ffffff;
-            background: #111111;
-        }
-        input[type=range].custom-slider::-webkit-slider-runnable-track {
-            height: 4px; border-radius: 2px;
-        }
-
-        /* Sidebar Styling */
-        .sidebar-select {
-            -webkit-appearance: none;
-            background-image: url("data:image/svg+xml;charset=UTF-8,%3csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='currentColor' stroke-width='2' stroke-linecap='round' stroke-linejoin='round'%3e%3cpolyline points='6 9 12 15 18 9'%3e%3c/polyline%3e%3c/svg%3e");
-            background-repeat: no-repeat;
-            background-position: right 0.5rem center;
-            background-size: 1em;
-        }
-
-        /* Canvas cursor states */
-        #renderCanvas { cursor: default; }
-        #renderCanvas.drag-mode { cursor: grab; }
-        #renderCanvas.dragging { cursor: grabbing; }
-    </style>
-</head>
-<body class="bg-surface-50 dark:bg-surface-900 text-surface-900 dark:text-surface-100 font-sans h-screen flex flex-col overflow-hidden select-none">
-
-    <!-- Export Overlay -->
-    <div id="exportOverlay" class="fixed inset-0 bg-surface-950/80 backdrop-blur-sm z-[100] hidden flex-col items-center justify-center p-4 transition-all duration-300">
-        
-        <!-- Settings State -->
-        <div id="exportSettings" class="bg-white dark:bg-surface-800 p-6 sm:p-8 rounded-2xl shadow-2xl flex flex-col max-w-md w-full border border-surface-200 dark:border-surface-700">
-            <div class="flex justify-between items-center mb-6">
-                <h2 class="text-xl font-bold text-surface-900 dark:text-white flex items-center gap-2"><i data-lucide="download" class="w-5 h-5 text-brand-500"></i> Export Media</h2>
-                <button onclick="closeExportModal()" class="text-surface-500 hover:text-surface-900 dark:hover:text-white bg-surface-100 dark:bg-surface-900 p-1.5 rounded-md"><i data-lucide="x" class="w-4 h-4"></i></button>
-            </div>
-            
-            <div class="space-y-5">
-                <div>
-                    <label class="block text-xs font-bold text-surface-500 dark:text-surface-400 uppercase tracking-widest mb-2">Format</label>
-                    <div class="grid grid-cols-2 gap-2">
-                        <label class="cursor-pointer">
-                            <input type="radio" name="exportFormat" value="video" class="peer sr-only" checked>
-                            <div class="p-3 border border-surface-200 dark:border-surface-700 rounded-lg peer-checked:border-brand-500 peer-checked:bg-brand-50 dark:peer-checked:bg-brand-900/20 hover:bg-surface-50 dark:hover:bg-surface-700/50 transition-colors">
-                                <div class="font-bold text-sm text-surface-900 dark:text-white mb-0.5">MP4 Video</div>
-                                <div class="text-[10px] text-surface-500">Standard web video</div>
-                            </div>
-                        </label>
-                        <label class="cursor-pointer">
-                            <input type="radio" name="exportFormat" value="gif" class="peer sr-only">
-                            <div class="p-3 border border-surface-200 dark:border-surface-700 rounded-lg peer-checked:border-brand-500 peer-checked:bg-brand-50 dark:peer-checked:bg-brand-900/20 hover:bg-surface-50 dark:hover:bg-surface-700/50 transition-colors">
-                                <div class="font-bold text-sm text-surface-900 dark:text-white mb-0.5">GIF Animation</div>
-                                <div class="text-[10px] text-surface-500">Looping image sequence</div>
-                            </div>
-                        </label>
-                        <label class="cursor-pointer">
-                            <input type="radio" name="exportFormat" value="audio-webm" class="peer sr-only">
-                            <div class="p-3 border border-surface-200 dark:border-surface-700 rounded-lg peer-checked:border-brand-500 peer-checked:bg-brand-50 dark:peer-checked:bg-brand-900/20 hover:bg-surface-50 dark:hover:bg-surface-700/50 transition-colors">
-                                <div class="font-bold text-sm text-surface-900 dark:text-white mb-0.5">Audio (.webm)</div>
-                                <div class="text-[10px] text-surface-500">WebM audio format</div>
-                            </div>
-                        </label>
-                        <label class="cursor-pointer">
-                            <input type="radio" name="exportFormat" value="audio-wav" class="peer sr-only">
-                            <div class="p-3 border border-surface-200 dark:border-surface-700 rounded-lg peer-checked:border-brand-500 peer-checked:bg-brand-50 dark:peer-checked:bg-brand-900/20 hover:bg-surface-50 dark:hover:bg-surface-700/50 transition-colors">
-                                <div class="font-bold text-sm text-surface-900 dark:text-white mb-0.5">WAV Audio</div>
-                                <div class="text-[10px] text-surface-500">Uncompressed audio</div>
-                            </div>
-                        </label>
-                    </div>
-                </div>
-
-                <div>
-                    <label class="block text-xs font-bold text-surface-500 dark:text-surface-400 uppercase tracking-widest mb-2">Duration Scope</label>
-                    <div class="flex gap-4">
-                        <label class="flex items-center gap-2 text-sm font-semibold text-surface-700 dark:text-surface-300 cursor-pointer">
-                            <input type="radio" name="exportScope" value="full" class="text-brand-500 focus:ring-brand-500 bg-surface-100 border-surface-300 dark:bg-surface-900 dark:border-surface-700" checked onchange="document.getElementById('customRangeInputs').classList.add('hidden')">
-                            Full Timeline
-                        </label>
-                        <label class="flex items-center gap-2 text-sm font-semibold text-surface-700 dark:text-surface-300 cursor-pointer">
-                            <input type="radio" name="exportScope" value="custom" class="text-brand-500 focus:ring-brand-500 bg-surface-100 border-surface-300 dark:bg-surface-900 dark:border-surface-700" onchange="document.getElementById('customRangeInputs').classList.remove('hidden')">
-                            Custom Range
-                        </label>
-                    </div>
-                </div>
-
-                <div id="customRangeInputs" class="grid grid-cols-2 gap-4 hidden bg-surface-50 dark:bg-surface-900/50 p-4 rounded-lg border border-surface-200 dark:border-surface-700">
-                    <div>
-                        <label class="block text-[10px] font-bold text-surface-500 dark:text-surface-400 uppercase tracking-widest mb-1.5">Start Time (sec)</label>
-                        <input type="number" id="exportStartTime" value="0" min="0" step="0.1" class="w-full bg-white dark:bg-surface-800 border border-surface-200 dark:border-surface-700 text-surface-900 dark:text-white text-sm font-mono rounded-md px-3 py-2 focus:ring-1 focus:ring-brand-500 focus:outline-none shadow-inner">
-                    </div>
-                    <div>
-                        <label class="block text-[10px] font-bold text-surface-500 dark:text-surface-400 uppercase tracking-widest mb-1.5">End Time (sec)</label>
-                        <input type="number" id="exportEndTime" value="10" min="0" step="0.1" class="w-full bg-white dark:bg-surface-800 border border-surface-200 dark:border-surface-700 text-surface-900 dark:text-white text-sm font-mono rounded-md px-3 py-2 focus:ring-1 focus:ring-brand-500 focus:outline-none shadow-inner">
-                    </div>
-                </div>
-            </div>
-
-            <div class="mt-8 flex justify-end gap-3 pt-4 border-t border-surface-100 dark:border-surface-700">
-                <button onclick="closeExportModal()" class="px-4 py-2 text-sm font-bold text-surface-600 dark:text-surface-300 hover:text-surface-900 dark:hover:text-white hover:bg-surface-100 dark:hover:bg-surface-700 rounded-md transition-colors">Cancel</button>
-                <button onclick="submitExport()" class="px-5 py-2 bg-brand-600 hover:bg-brand-500 text-white text-sm font-bold rounded-md shadow-sm transition-colors flex items-center gap-2">Start Export <i data-lucide="arrow-right" class="w-4 h-4"></i></button>
-            </div>
-        </div>
-
-        <!-- Rendering State -->
-        <div id="exportProgress" class="bg-white dark:bg-surface-800 p-6 sm:p-8 rounded-2xl shadow-2xl flex flex-col items-center max-w-sm w-full border border-surface-200 dark:border-surface-700 hidden">
-            <i data-lucide="loader-2" class="w-10 h-10 text-brand-500 animate-spin mb-4"></i>
-            <h3 class="text-base font-semibold text-surface-900 dark:text-white mb-1">Rendering Masterpiece</h3>
-            <p class="text-xs text-surface-500 dark:text-surface-400 mb-6 text-center leading-relaxed">Processing in real-time. Please do not close or switch tabs during export.</p>
-            <div class="w-full bg-surface-100 dark:bg-surface-900 h-2.5 rounded-full overflow-hidden mb-2 border border-surface-200 dark:border-surface-700 shadow-inner">
-                <div id="exportProgressBar" class="h-full bg-brand-500 w-0 ease-linear transition-all duration-75 relative overflow-hidden">
-                    <div class="absolute inset-0 bg-white/20" style="background-image: linear-gradient(45deg,rgba(255,255,255,.15) 25%,transparent 25%,transparent 50%,rgba(255,255,255,.15) 50%,rgba(255,255,255,.15) 75%,transparent 75%,transparent); background-size: 1rem 1rem; animation: progress-stripes 1s linear infinite;"></div>
-                </div>
-            </div>
-            <p id="exportProgressText" class="text-sm font-bold text-brand-500 font-mono mb-6">0%</p>
-            <button onclick="cancelExport()" class="px-4 py-1.5 text-xs font-bold text-red-600 dark:text-red-400 hover:bg-red-50 dark:hover:bg-red-500/10 rounded border border-transparent hover:border-red-200 dark:hover:border-red-500/30 transition-all">Cancel Rendering</button>
-        </div>
-        <style>@keyframes progress-stripes { from { background-position: 1rem 0; } to { background-position: 0 0; } }</style>
-    </div>
-    <!-- Compact Professional Navbar -->
-    <header class="h-14 bg-white dark:bg-surface-800 flex items-center justify-between px-2 sm:px-4 shrink-0 z-40 shadow-sm relative w-full gap-2">
-        <!-- LEFT: Logo -->
-        <div class="flex items-center shrink-0 min-w-[40px]">
-            <div class="w-7 h-7 sm:w-8 sm:h-8 bg-brand-600 dark:bg-brand-500 text-white rounded flex items-center justify-center shadow-sm">
-                <i data-lucide="scissors" class="w-3.5 h-3.5 sm:w-4 sm:h-4"></i>
-            </div>
-        </div>
-        
-        <!-- CENTER: Context Properties (Expanded Width) -->
-        <div id="headerPropertiesPlaceholder" class="flex-1 flex items-center justify-start text-[11px] sm:text-xs font-medium text-surface-400 dark:text-surface-500 overflow-hidden pl-4">
-            <span class="bg-surface-50 dark:bg-surface-900 px-3 py-1.5 rounded-md border border-surface-200 dark:border-surface-700 shadow-inner truncate text-surface-500 dark:text-surface-400">Select a clip to edit properties</span>
-        </div>
-        <div id="headerProperties" class="flex-1 flex items-center justify-start gap-2 sm:gap-4 hidden overflow-x-auto no-scrollbar pl-4">
-            <!-- Dynamically injected context icons and slider -->
-        </div>
-
-        <!-- RIGHT: View Controls + Import / Export -->
-        <div class="flex items-center justify-end gap-1.5 sm:gap-2 shrink-0">
-            
-            <button id="btnToggleTimecode" class="p-1.5 text-surface-600 dark:text-surface-300 hover:text-surface-900 dark:hover:text-white bg-surface-100 dark:bg-surface-800 rounded-md border border-surface-200 dark:border-surface-700 shadow-sm shrink-0" title="Toggle Timecode">
-                <i data-lucide="clock" class="w-4 h-4"></i>
-            </button>
-            <div class="relative flex items-center justify-center w-8 h-8 sm:w-8 sm:h-8 rounded-md border border-surface-200 dark:border-surface-700 shadow-sm bg-surface-100 dark:bg-surface-800 hover:bg-surface-200 dark:hover:bg-surface-700 overflow-hidden shrink-0" title="Canvas Background Color">
-                <input type="color" id="canvasColorPicker" class="absolute -top-4 -left-4 w-16 h-16 cursor-pointer opacity-0 z-10" value="#231F20">
-                <i data-lucide="palette" class="w-4 h-4 text-surface-600 dark:text-surface-300 pointer-events-none relative z-0" id="canvasColorIcon" style="color: #231F20;"></i>
-            </div>
-            <button id="btnAddText" class="p-1.5 text-surface-600 dark:text-surface-300 hover:text-surface-900 dark:hover:text-white bg-surface-100 dark:bg-surface-800 rounded-md border border-surface-200 dark:border-surface-700 shadow-sm" title="Add Text">
-                <i data-lucide="type" class="w-4 h-4"></i>
-            </button>
-            <input type="file" id="mediaInput" accept="audio/*,video/*,image/*" class="hidden" multiple>
-            <button id="btnImport" class="p-1.5 text-surface-600 dark:text-surface-300 hover:text-surface-900 dark:hover:text-white bg-surface-100 dark:bg-surface-800 rounded-md border border-surface-200 dark:border-surface-700 shadow-sm" title="Import Media">
-                <i data-lucide="folder-plus" class="w-4 h-4"></i>
-            </button>
-            <div class="hidden sm:block w-px h-4 bg-surface-200 dark:bg-surface-700 mx-1"></div>
-            
-            <!-- Export Button -->
-            <div class="relative">
-                <button onclick="openExportModal()" class="bg-surface-900 hover:bg-black dark:bg-white dark:hover:bg-surface-100 text-white dark:text-surface-900 px-3 sm:px-4 py-1.5 rounded-md text-[11px] sm:text-xs font-bold flex items-center gap-1.5 shadow-sm">
-                    <i data-lucide="download" class="w-3.5 h-3.5"></i> <span class="hidden sm:inline">Export</span>
-                </button>
-            </div>
-
-            <!-- Workspace Settings Menu -->
-            <div class="relative ml-1">
-                <button id="btnViewMenu" class="p-1.5 text-surface-500 dark:text-surface-400 hover:text-surface-900 dark:hover:text-white rounded-md" title="Settings">
-                    <i data-lucide="settings" class="w-4 h-4"></i>
-                </button>
-                <div id="viewDropdown" class="absolute right-0 mt-2 w-48 bg-white dark:bg-surface-800 border border-surface-200 dark:border-surface-700 rounded-lg shadow-xl hidden flex-col overflow-hidden z-50">
-                    <div class="px-3 py-2 border-b border-surface-100 dark:border-surface-700 bg-surface-50 dark:bg-surface-900">
-                        <p class="text-[10px] font-bold text-surface-400 dark:text-surface-500 uppercase tracking-widest">Workspace Settings</p>
-                    </div>
-                    <button id="btnToggleInspector" class="px-3 py-2.5 text-xs font-semibold text-left text-surface-700 dark:text-surface-300 hover:bg-surface-100 dark:hover:bg-surface-700 hover:text-surface-900 dark:hover:text-white flex items-center gap-2">
-                        <i data-lucide="sliders-horizontal" class="w-3.5 h-3.5"></i> Inspector
-                    </button>
-                    <button id="btnToggleLayout" class="px-3 py-2.5 text-xs font-semibold text-left text-surface-700 dark:text-surface-300 hover:bg-surface-100 dark:hover:bg-surface-700 hover:text-surface-900 dark:hover:text-white flex items-center gap-2">
-                        <i data-lucide="panel-right" id="iconLayout" class="w-3.5 h-3.5"></i> Swap Layout
-                    </button>
-                    <button id="btnToggleAspect" class="px-3 py-2.5 text-xs font-semibold text-left text-surface-700 dark:text-surface-300 hover:bg-surface-100 dark:hover:bg-surface-700 hover:text-surface-900 dark:hover:text-white flex items-center gap-2">
-                        <i data-lucide="monitor" id="iconAspect" class="w-3.5 h-3.5"></i> Aspect Ratio
-                    </button>
-                    <button id="btnTogglePreview" class="px-3 py-2.5 text-xs font-semibold text-left text-surface-700 dark:text-surface-300 hover:bg-surface-100 dark:hover:bg-surface-700 hover:text-surface-900 dark:hover:text-white flex items-center gap-2">
-                        <i data-lucide="eye-off" id="iconEye" class="w-3.5 h-3.5"></i> Toggle Preview
-                    </button>
-                    <button id="btnToggleTheme" class="px-3 py-2.5 text-xs font-semibold text-left text-surface-700 dark:text-surface-300 hover:bg-surface-100 dark:hover:bg-surface-700 hover:text-surface-900 dark:hover:text-white flex items-center gap-2">
-                        <i data-lucide="sun" id="iconTheme" class="w-3.5 h-3.5"></i> Toggle Theme
-                    </button>
-                </div>
-            </div>
-        </div>
-    </header>
-
-    <!-- Main Workspace Container -->
-    <main id="mainAppWrapper" class="flex-1 flex flex-row overflow-hidden w-full relative">
-        
-        <!-- Editor Center (Preview + Timeline) -->
-        <div id="mainWorkspace" class="flex-1 flex flex-col overflow-hidden relative border-r border-surface-200 dark:border-surface-700">
-            <!-- Top Area: Preview Canvas Container -->
-            <div id="previewContainer" class="h-[45%] flex flex-col bg-surface-100 dark:bg-[#08080C] shadow-inner z-10 relative shrink-0">
-                <!-- Canvas Wrapper -->
-                <div id="previewWrapper" class="flex-1 w-full relative p-2 sm:p-4 flex items-center justify-center bg-[radial-gradient(ellipse_at_center,_var(--tw-gradient-stops))] from-surface-200 to-surface-100 dark:from-surface-900 dark:to-surface-950 overflow-hidden">
-                    <!-- Aspect Ratio Box -->
-                    <div id="canvasAspectWrapper" class="relative rounded-lg shadow-2xl border border-surface-700 overflow-hidden ring-1 ring-white/5 shrink-0" style="background-color: #231F20;">
-                        <canvas id="renderCanvas" class="absolute inset-0 w-full h-full object-contain hidden"></canvas>
-                        <div class="absolute inset-0 pointer-events-none" id="previewPlaceholder"></div>
-                        <div class="absolute inset-0 flex items-center justify-center text-white/30 font-mono font-semibold tracking-widest text-xs sm:text-sm z-10 pointer-events-none" id="previewTimeText">00:00:00.00</div>
-                    </div>
-                </div>
-            </div>
-
-            
-            <!-- Workspace Vertical Resizer (Timeline Height) -->
-            <div id="timelineResizer" class="h-1.5 w-full bg-surface-200 dark:bg-surface-800 cursor-row-resize shrink-0 z-20 flex items-center justify-center relative">
-                <div class="w-8 h-0.5 bg-surface-400 rounded-full"></div>
-            </div>
-
-            <!-- Bottom Area: Timeline -->
-            <div id="timelineContainer" class="flex-1 flex flex-col overflow-hidden bg-white dark:bg-surface-900 relative">
-                
-                <!-- Clean, Flat Timeline Toolbar -->
-                <div id="timelineToolbar" class="h-14 py-2 bg-white dark:bg-surface-800 flex flex-nowrap overflow-x-auto no-scrollbar items-center justify-between px-3 sm:px-6 shrink-0 z-10 w-full gap-4">
-                    <!-- Left Group: Playback & Time -->
-                    <div class="flex items-center gap-6 shrink-0">
-                        <!-- Playback Controls (No inner shadows, big bold play button) -->
-                        <div class="flex items-center gap-3">
-                            <button id="btnPlay" class="w-9 h-9 sm:w-10 sm:h-10 flex items-center justify-center rounded-lg bg-brand-600 dark:bg-brand-500 text-white shrink-0 shadow-md hover:opacity-90" title="Play/Pause">
-                                <span id="wrapperPlay" class="flex items-center justify-center"><i data-lucide="play" class="w-4.5 h-4.5 fill-current"></i></span>
-                                <span id="wrapperPause" class="hidden items-center justify-center"><i data-lucide="pause" class="w-4.5 h-4.5 fill-current"></i></span>
-                            </button>
-                            <button id="btnStop" class="hidden sm:flex w-8 h-8 sm:w-9 sm:h-9 items-center justify-center rounded-lg hover:bg-surface-100 dark:hover:bg-surface-700 text-surface-500 dark:text-surface-400 shrink-0" title="Stop">
-                                <i data-lucide="square" class="w-4 h-4 fill-current"></i>
-                            </button>
-                        </div>
-                        
-                        <div class="w-px h-6 bg-surface-200 dark:bg-surface-700 hidden sm:block"></div>
-                        
-                        <!-- Time Display -->
-                        <div class="font-mono text-xs sm:text-sm tracking-wider text-surface-800 dark:text-surface-100 font-bold min-w-[70px] sm:min-w-[85px] text-center shrink-0">
-                            <span id="timeDisplay">00:00.00</span>
-                        </div>
-                    </div>
-
-                    <!-- Right Group: Tools & Zoom -->
-                    <div class="flex items-center gap-5 shrink-0 flex-1 justify-end">
-                        <!-- Tools -->
-                        <div class="flex items-center gap-2 shrink-0">
-                            <button id="btnSplit" class="w-8 h-8 flex items-center justify-center rounded-md hover:bg-surface-100 dark:hover:bg-surface-700 hover:text-brand-600 dark:hover:text-brand-400 text-surface-600 dark:text-surface-400" title="Split Clip at Playhead (S)">
-                                <i data-lucide="scissors" class="w-4 h-4"></i>
-                            </button>
-                            <button id="btnDelete" class="w-8 h-8 flex items-center justify-center rounded-md hover:bg-red-50 dark:hover:bg-red-500/10 hover:text-red-600 dark:hover:text-red-400 text-surface-600 dark:text-surface-400" title="Delete Selected Clip (Del)">
-                                <i data-lucide="trash-2" class="w-4 h-4"></i>
-                            </button>
-                        </div>
-
-                        <div class="w-px h-6 bg-surface-200 dark:bg-surface-700 hidden sm:block"></div>
-
-                        
-                        <!-- Track Size -->
-                        <button id="btnToggleTrackHeight" class="w-8 h-8 flex items-center justify-center rounded-md hover:bg-surface-100 dark:hover:bg-surface-700 hover:text-brand-600 dark:hover:text-brand-400 text-surface-600 dark:text-surface-400" title="Toggle Track Height">
-                            <i data-lucide="align-justify" class="w-4 h-4"></i>
-                        </button>
-                        
-                        <div class="w-px h-6 bg-surface-200 dark:bg-surface-700 hidden sm:block mx-1"></div>
-
-                        <!-- Zoom -->
-                        <div class="flex items-center gap-2 shrink-0 ml-auto">
-                            <button id="btnZoomOut" class="w-8 h-8 flex items-center justify-center rounded-md text-surface-500 dark:text-surface-400 hover:text-brand-600 dark:hover:text-brand-400 hover:bg-surface-100 dark:hover:bg-surface-700" title="Zoom Out">
-                                <i data-lucide="zoom-out" class="w-4 h-4"></i>
-                            </button>
-                            <button id="btnZoomIn" class="w-8 h-8 flex items-center justify-center rounded-md text-surface-500 dark:text-surface-400 hover:text-brand-600 dark:hover:text-brand-400 hover:bg-surface-100 dark:hover:bg-surface-700" title="Zoom In">
-                                <i data-lucide="zoom-in" class="w-4 h-4"></i>
-                            </button>
-                        </div>
-                    </div>
-                </div>
-
-                <!-- Timeline Workspace -->
-                <div id="timelineWorkspace" class="flex-1 flex overflow-hidden relative">
-                    <!-- Compact Track Headers -->
-                    <div id="trackHeadersWrapper" class="w-16 sm:w-20 md:w-28 bg-surface-50 dark:bg-surface-900 border-r border-surface-300 dark:border-surface-700 flex flex-col shrink-0 z-20 shadow-[1px_0_4px_rgba(0,0,0,0.03)] relative overflow-hidden">
-                        <div class="h-7  bg-surface-100 dark:bg-surface-800 flex items-center justify-between px-2 shrink-0 shadow-sm z-30">
-                            <span class="text-[9px] font-bold text-surface-500 dark:text-surface-400 uppercase tracking-widest hidden sm:inline">Tracks</span>
-                        </div>
-                        
-                        <!-- Scrollable Track List Container -->
-                        <div class="flex-1 relative overflow-hidden pointer-events-none">
-                            <div id="trackHeaders" class="flex-col absolute top-0 left-0 right-0 pointer-events-auto pb-10"></div>
-                        </div>
-
-                        <!-- Add Track Bottom Panel -->
-                        <div class="p-1.5 flex flex-col sm:flex-row gap-1 sm:gap-1.5 border-t border-surface-200 dark:border-surface-700 bg-surface-100 dark:bg-surface-800 shrink-0 z-30">
-                            <button onclick="addTrack('video')" class="flex-1 py-1 text-[9px] font-semibold text-surface-600 dark:text-surface-300 hover:text-brand-600 dark:hover:text-brand-400 bg-white dark:bg-surface-900 border border-surface-200 dark:border-surface-700 hover:border-brand-500 rounded flex items-center justify-center" title="Add Video Track">
-                                <i data-lucide="film" class="w-3 h-3"></i>
-                            </button>
-                            <button onclick="addTrack('audio')" class="flex-1 py-1 text-[9px] font-semibold text-surface-600 dark:text-surface-300 hover:text-brand-600 dark:hover:text-brand-400 bg-white dark:bg-surface-900 border border-surface-200 dark:border-surface-700 hover:border-brand-500 rounded flex items-center justify-center" title="Add Audio Track">
-                                <i data-lucide="mic" class="w-3 h-3"></i>
-                            </button>
-                        </div>
-                    </div>
-
-                    <div id="timelineScrollArea" class="flex-1 flex flex-col overflow-auto relative timeline-container">
-                        <!-- Sticky Ruler Top -->
-                        <div id="rulerWrapper" class="h-7 bg-white dark:bg-surface-800 sticky top-0 z-30 shrink-0 shadow-sm min-w-full overflow-visible">
-                            <canvas id="rulerCanvas" class="h-full sticky left-0 block cursor-pointer"></canvas>
-                            <!-- Ruler Head -->
-                            <div id="rulerPlayhead">
-                                <div id="playheadTimePopup" class="absolute top-1 -translate-x-1/2 bg-brand-600 dark:bg-brand-500 text-white text-[9px] font-mono px-1.5 py-0.5 rounded shadow-lg border border-brand-400/20">00:00.00</div>
-                            </div>
-                        </div>
-                        <!-- Tracks Content (Scrolling area below ruler) -->
-                        <div id="tracksContent" class="relative z-10 min-w-full min-h-full pb-10">
-                            <div id="playhead"></div>
-                        </div>
-                    </div>
-                </div>
-
-            </div>
-        </div>
-
-        <!-- Dynamic Modular Sidebar (Inspector) -->
-        <aside id="propertiesSidebar" class="hidden relative flex-col bg-surface-50 dark:bg-surface-900 shrink-0 border-surface-200 dark:border-surface-700 z-20">
-            <div id="inspectorResizer" class="hidden absolute top-0 bottom-0 w-1 cursor-col-resize hover:bg-brand-500 z-50 transition-colors"></div>
-            <div class="h-10 bg-white dark:bg-surface-800 flex items-center justify-between px-4 shrink-0 shadow-sm sticky top-0 z-20">
-                <span class="text-xs font-bold text-surface-700 dark:text-surface-200 uppercase tracking-wider">Properties</span>
-                <div class="flex items-center gap-1">
-                    <button id="btnToggleWidth" class="p-1.5 rounded text-surface-400 hover:text-surface-900 dark:hover:text-white hover:bg-surface-100 dark:hover:bg-surface-700 transition-colors" title="Toggle Width">
-                        <i data-lucide="minimize-2" id="iconWidth" class="w-4 h-4"></i>
-                    </button>
-                    <button id="btnDockInspector" class="p-1.5 rounded text-surface-400 hover:text-surface-900 dark:hover:text-white hover:bg-surface-100 dark:hover:bg-surface-700 transition-colors" title="Change Dock Position">
-                        <i data-lucide="monitor" id="iconDock" class="w-4 h-4"></i>
-                    </button>
-                    <div class="w-px h-4 bg-surface-200 dark:border-surface-700"></div>
-                    <button id="btnCloseInspector" class="p-1.5 rounded text-surface-400 hover:text-red-600 dark:hover:text-red-400 hover:bg-red-50 dark:hover:bg-red-500/10 transition-colors" title="Collapse Inspector">
-                        <i data-lucide="x" id="iconCloseInspector" class="w-4 h-4"></i>
-                    </button>
-                </div>
-            </div>
-            
-            <div id="sidebarContent" class="p-4 flex gap-6 overflow-y-auto w-full h-full pb-10">
-                <!-- Injected via JS based on selection -->
-            </div>
-        </aside>
-
-    </main>
-
-    <script>
         lucide.createIcons();
 
         const AudioContext = window.AudioContext || window.webkitAudioContext;
@@ -528,13 +20,16 @@
         const State = {
             pixelsPerSecond: 50,
             duration: 60,
-            currentTime: 0,
+                    currentTime: 0,
             isPlaying: false,
             isExporting: false,
             lastRenderTime: 0,
             selectedClipId: null,
             activePropertyTab: 'volume', 
-            masterStreamNode: null, 
+            copiedClip: null,
+            masterStreamNode: null,
+            speakerNode: null,
+            audioCtxInitialzed: false,
             canvasBgColor: '#231F20',
             
             tracks: [
@@ -643,26 +138,37 @@
         const timelineResizer = document.getElementById('timelineResizer');
         let isResizingTimeline = false;
         let startTimelineY = 0;
+        let startTimelineX = 0;
         let startPreviewHeight = 0;
+        let startPreviewWidth = 0;
 
         if (timelineResizer && previewContainer) {
             timelineResizer.addEventListener('mousedown', (e) => {
                 isResizingTimeline = true;
                 startTimelineY = e.clientY;
+                startTimelineX = e.clientX;
                 startPreviewHeight = previewContainer.offsetHeight;
-                document.body.style.cursor = 'row-resize';
+                startPreviewWidth = previewContainer.offsetWidth;
+                document.body.style.cursor = (State.preview && State.preview.position === 'right') ? 'col-resize' : 'row-resize';
                 document.body.style.userSelect = 'none';
             });
 
             window.addEventListener('mousemove', (e) => {
                 if (!isResizingTimeline) return;
-                const dy = e.clientY - startTimelineY;
-                let newHeight = startPreviewHeight + dy;
-                // Constraints
-                const mainAppWrapper = document.getElementById('mainAppWrapper');
-                const maxH = mainAppWrapper.offsetHeight - 140; // Leave space for timeline
-                newHeight = Math.max(100, Math.min(maxH, newHeight));
-                previewContainer.style.height = `${newHeight}px`;
+                
+                if (State.preview && State.preview.position === 'right') {
+                    const dx = e.clientX - startTimelineX;
+                    let newWidth = startPreviewWidth - dx; 
+                    newWidth = Math.max(200, Math.min(window.innerWidth - 300, newWidth));
+                    previewContainer.style.width = `${newWidth}px`;
+                } else {
+                    const dy = e.clientY - startTimelineY;
+                    let newHeight = startPreviewHeight + dy;
+                    const mainAppWrapper = document.getElementById('mainAppWrapper');
+                    const maxH = mainAppWrapper.offsetHeight - 140; 
+                    newHeight = Math.max(100, Math.min(maxH, newHeight));
+                    previewContainer.style.height = `${newHeight}px`;
+                }
                 resizeCanvas();
             });
 
@@ -707,9 +213,12 @@
         }
 
         function ensureAudioContext() {
-            if (!audioCtx) {
+            if (!State.audioCtxInitialzed) {
                 audioCtx = new AudioContext();
                 State.masterStreamNode = audioCtx.createMediaStreamDestination();
+                State.speakerNode = audioCtx.createGain();
+                State.speakerNode.connect(audioCtx.destination);
+                State.audioCtxInitialzed = true;
             }
             if (audioCtx.state === 'suspended') audioCtx.resume();
         }
@@ -744,9 +253,10 @@
             const resizer = document.getElementById('inspectorResizer');
             if (resizer) {
                 resizer.classList.add('hidden');
-                resizer.classList.remove('left-0', 'right-0', '-translate-x-1/2', 'translate-x-1/2');
+                resizer.classList.remove('left-0', 'right-0', 'top-0', 'bottom-0', '-translate-x-1/2', 'translate-x-1/2', '-translate-y-1/2', 'translate-y-1/2', 'w-1', 'h-1', 'w-full', 'h-full', 'cursor-col-resize', 'cursor-row-resize');
             }
             propertiesSidebar.style.width = '';
+            propertiesSidebar.style.height = '';
 
             if (State.inspector.dock === 'right') {
                 mainAppWrapper.appendChild(propertiesSidebar);
@@ -759,7 +269,7 @@
                 
                 if (resizer) {
                     resizer.classList.remove('hidden');
-                    resizer.classList.add('left-0', '-translate-x-1/2'); 
+                    resizer.classList.add('left-0', 'top-0', 'bottom-0', 'w-1', 'h-full', 'cursor-col-resize'); 
                 }
                 
                 btnToggleWidth.classList.add('hidden');
@@ -778,7 +288,7 @@
                 
                 if (resizer) {
                     resizer.classList.remove('hidden');
-                    resizer.classList.add('right-0', 'translate-x-1/2'); 
+                    resizer.classList.add('right-0', 'top-0', 'bottom-0', 'w-1', 'h-full', 'cursor-col-resize'); 
                 }
                 
                 btnToggleWidth.classList.add('hidden');
@@ -805,7 +315,12 @@
                         timelineContainer.appendChild(propertiesSidebar);
                     }
                     
-                    propertiesSidebar.classList.add('w-full', 'h-56', 'sm:h-64', 'border-t');
+                    propertiesSidebar.classList.add('w-full', 'border-t');
+                    propertiesSidebar.style.height = `${State.inspector.height || 256}px`;
+                    if (resizer) {
+                        resizer.classList.remove('hidden');
+                        resizer.classList.add('top-0', 'left-0', 'right-0', 'h-1', 'w-full', 'cursor-row-resize');
+                    }
                     sidebarContent.classList.add('flex-row', 'flex-nowrap', 'overflow-x-auto');
                     
                     iconDock.setAttribute('data-lucide', 'monitor');
@@ -820,7 +335,12 @@
                         timelineContainer.insertBefore(propertiesSidebar, timelineContainer.firstChild);
                     }
                     
-                    propertiesSidebar.classList.add('w-full', 'h-auto', 'max-h-64', 'border-b');
+                    propertiesSidebar.classList.add('w-full', 'border-b');
+                    propertiesSidebar.style.height = `${State.inspector.height || 256}px`;
+                    if (resizer) {
+                        resizer.classList.remove('hidden');
+                        resizer.classList.add('bottom-0', 'left-0', 'right-0', 'h-1', 'w-full', 'cursor-row-resize');
+                    }
                     sidebarContent.classList.add('flex-row', 'flex-nowrap', 'overflow-x-auto');
                     
                     iconDock.setAttribute('data-lucide', 'monitor-smartphone');
@@ -832,6 +352,47 @@
             lucide.createIcons();
             setTimeout(() => { updateTimelineWidth(); drawRuler(); resizeCanvas(); }, 10);
         }
+
+
+        const btnToggleCanvasPos = document.getElementById('btnToggleCanvasPos');
+        const iconCanvasPos = document.getElementById('iconCanvasPos');
+        
+        btnToggleCanvasPos.addEventListener('click', () => {
+            State.preview = State.preview || { hidden: false };
+            State.preview.position = State.preview.position === 'right' ? 'top' : 'right';
+            
+            if (State.preview.position === 'right') {
+                mainWorkspace.classList.remove('flex-col');
+                mainWorkspace.classList.add('flex-row'); 
+                
+                previewContainer.classList.remove('w-full', 'border-b');
+                previewContainer.classList.add('border-l', 'order-last');
+                
+                previewContainer.style.height = ''; 
+                previewContainer.classList.remove('h-[45%]');
+                previewContainer.classList.add('w-[40%]', 'min-w-[300px]', 'h-full');
+                
+                timelineResizer.classList.remove('h-1.5', 'w-full', 'cursor-row-resize', 'flex-col');
+                timelineResizer.classList.add('w-1.5', 'h-full', 'cursor-col-resize', 'flex-row');
+                iconCanvasPos.setAttribute('data-lucide', 'panel-right');
+            } else {
+                mainWorkspace.classList.remove('flex-row');
+                mainWorkspace.classList.add('flex-col');
+                
+                previewContainer.classList.remove('border-l', 'order-last');
+                previewContainer.classList.add('w-full', 'border-b');
+                
+                previewContainer.style.width = '';
+                previewContainer.classList.remove('w-[40%]', 'min-w-[300px]', 'h-full');
+                previewContainer.classList.add('h-[45%]');
+                
+                timelineResizer.classList.remove('w-1.5', 'h-full', 'cursor-col-resize', 'flex-row');
+                timelineResizer.classList.add('h-1.5', 'w-full', 'cursor-row-resize', 'flex-col');
+                iconCanvasPos.setAttribute('data-lucide', 'layout-template');
+            }
+            lucide.createIcons();
+            setTimeout(() => { updateTimelineWidth(); drawRuler(); resizeCanvas(); }, 10);
+        });
 
         btnToggleInspector.addEventListener('click', () => {
             const hasVisualClip = State.selectedClipId && ['image','video','text'].includes(State.clips.find(c=>c.id===State.selectedClipId)?.type);
@@ -875,11 +436,13 @@
                 const timeText = document.getElementById('previewTimeText');
                 if (timeText) {
                     timeText.classList.toggle('hidden');
-                    const icon = btnToggleTimecode.querySelector('i');
-                    if (timeText.classList.contains('hidden')) {
-                        icon.style.opacity = '0.5';
-                    } else {
-                        icon.style.opacity = '1';
+                    const icon = btnToggleTimecode.querySelector('svg') || btnToggleTimecode.querySelector('i');
+                    if (icon) {
+                        if (timeText.classList.contains('hidden')) {
+                            icon.style.opacity = '0.5';
+                        } else {
+                            icon.style.opacity = '1';
+                        }
                     }
                 }
             });
@@ -902,34 +465,7 @@
             updatePropertiesPanel(); 
         });
 
-        btnToggleLayout.addEventListener('click', () => {
-            State.layout.isSideBySide = !State.layout.isSideBySide;
-            if (State.layout.isSideBySide) {
-                mainWorkspace.classList.remove('flex-col');
-                mainWorkspace.classList.add('flex-col', 'sm:flex-row'); 
-                
-                previewContainer.classList.remove('w-full', 'border-b');
-                previewContainer.classList.add('sm:border-l', 'order-first', 'sm:order-last');
-                
-                previewContainer.classList.remove('h-[45%]');
-                previewContainer.classList.add('h-[40%]', 'sm:w-[35%]', 'sm:min-w-[300px]', 'sm:h-full');
-                
-                iconLayout.setAttribute('data-lucide', 'panel-top');
-            } else {
-                mainWorkspace.classList.remove('flex-col', 'sm:flex-row');
-                mainWorkspace.classList.add('flex-col');
-                
-                previewContainer.classList.remove('sm:border-l', 'order-first', 'sm:order-last');
-                previewContainer.classList.add('w-full', 'border-b');
-                
-                previewContainer.classList.remove('h-[40%]', 'sm:w-[35%]', 'sm:min-w-[300px]', 'sm:h-full');
-                previewContainer.classList.add('h-[45%]');
-                
-                iconLayout.setAttribute('data-lucide', 'panel-right');
-            }
-            lucide.createIcons();
-            setTimeout(() => { updateTimelineWidth(); drawRuler(); resizeCanvas(); }, 10);
-        });
+        
 
         btnTogglePreview.addEventListener('click', () => {
             State.preview.hidden = !State.preview.hidden;
@@ -948,7 +484,7 @@
             State.preview.aspectIndex = (State.preview.aspectIndex + 1) % ASPECT_RATIOS.length;
             const aspect = ASPECT_RATIOS[State.preview.aspectIndex];
             
-            iconAspect.setAttribute('data-lucide', aspect.icon);
+                iconAspect.setAttribute('data-lucide', aspect.icon);
             btnToggleAspect.title = `Aspect Ratio: ${aspect.label}`;
             
             resizeCanvas();
@@ -960,13 +496,15 @@
             const aspectStr = ASPECT_RATIOS[State.preview.aspectIndex].value;
             const [wRatio, hRatio] = aspectStr.split('/').map(Number);
             
+            const baseRes = 1920; 
+            
             let targetW, targetH;
             if (wRatio >= hRatio) {
-                targetW = 1920;
-                targetH = 1920 * (hRatio / wRatio);
+                targetW = baseRes;
+                targetH = baseRes * (hRatio / wRatio);
             } else {
-                targetH = 1920;
-                targetW = 1920 * (wRatio / hRatio);
+                targetH = baseRes;
+                targetW = baseRes * (wRatio / hRatio);
             }
             
             if (canvas.width !== targetW || canvas.height !== targetH) {
@@ -1009,14 +547,18 @@
         const resizer = document.getElementById('inspectorResizer');
         let isResizingInspector = false;
         let startResizingX = 0;
+        let startResizingY = 0;
         let startInspectorWidth = 0;
+        let startInspectorHeight = 0;
 
         if (resizer) {
             resizer.addEventListener('mousedown', (e) => {
                 isResizingInspector = true;
                 startResizingX = e.clientX;
+                startResizingY = e.clientY;
                 startInspectorWidth = propertiesSidebar.offsetWidth;
-                document.body.style.cursor = 'col-resize';
+                startInspectorHeight = propertiesSidebar.offsetHeight;
+                document.body.style.cursor = (State.inspector.dock === 'bottom' || State.inspector.dock === 'top') ? 'row-resize' : 'col-resize';
                 document.body.style.userSelect = 'none';
                 e.preventDefault();
             });
@@ -1024,21 +566,34 @@
             window.addEventListener('mousemove', (e) => {
                 if (!isResizingInspector) return;
                 
-                const dx = e.clientX - startResizingX;
-                let newWidth = startInspectorWidth;
-                
-                if (State.inspector.dock === 'right') {
-                    newWidth = startInspectorWidth - dx;
-                } else if (State.inspector.dock === 'left') {
-                    newWidth = startInspectorWidth + dx;
+                if (State.inspector.dock === 'right' || State.inspector.dock === 'left') {
+                    const dx = e.clientX - startResizingX;
+                    let newWidth = startInspectorWidth;
+                    
+                    if (State.inspector.dock === 'right') {
+                        newWidth = startInspectorWidth - dx;
+                    } else if (State.inspector.dock === 'left') {
+                        newWidth = startInspectorWidth + dx;
+                    }
+                    
+                    newWidth = Math.max(200, Math.min(800, newWidth));
+                    State.inspector.width = newWidth;
+                    propertiesSidebar.style.width = `${newWidth}px`;
+                } else {
+                    const dy = e.clientY - startResizingY;
+                    let newHeight = startInspectorHeight;
+                    
+                    if (State.inspector.dock === 'bottom') {
+                        newHeight = startInspectorHeight - dy;
+                    } else if (State.inspector.dock === 'top') {
+                        newHeight = startInspectorHeight + dy;
+                    }
+                    
+                    newHeight = Math.max(100, Math.min(600, newHeight));
+                    State.inspector.height = newHeight;
+                    propertiesSidebar.style.height = `${newHeight}px`;
                 }
                 
-                // Clamp width between 200 and 800
-                newWidth = Math.max(200, Math.min(800, newWidth));
-                State.inspector.width = newWidth;
-                propertiesSidebar.style.width = `${newWidth}px`;
-                
-                // Request animation frame for smooth redraw
                 requestAnimationFrame(() => {
                     updateTimelineWidth();
                     drawRuler();
@@ -1068,12 +623,21 @@
         // Helper for animations
         const easeOutQuart = x => 1 - Math.pow(1 - x, 4);
 
-        function drawCanvas() {
+        function drawCanvas(targetCtx, targetW, targetH) {
             const canvas = document.getElementById('renderCanvas');
-            const ctx = canvas.getContext('2d');
+            const ctx = targetCtx || canvas.getContext('2d');
             const placeholder = document.getElementById('previewPlaceholder');
 
-            const { w, h } = updateCanvasResolution();
+            let w, h;
+            if (targetCtx && targetW && targetH) {
+                w = targetW;
+                h = targetH;
+            } else {
+                const res = updateCanvasResolution();
+                w = res.w;
+                h = res.h;
+            }
+            
             ctx.clearRect(0, 0, w, h);
             
             if (State.canvasBgColor && State.canvasBgColor !== 'transparent') {
@@ -1286,7 +850,7 @@
                         }
 
                         // Interactive Bounding Box for Selected
-                        if (clip.id === State.selectedClipId) {
+                        if (clip.id === State.selectedClipId && !State.isExporting) {
                             ctx.strokeStyle = '#6366f1';
                             ctx.lineWidth = 4 / finalScale;
                             ctx.setLineDash([10 / finalScale, 10 / finalScale]);
@@ -1412,7 +976,7 @@
                             ctx.shadowBlur = 0;
 
                             // Interactive Bounding Box for Selected
-                            if (clip.id === State.selectedClipId) {
+                            if (clip.id === State.selectedClipId && !State.isExporting) {
                                 ctx.strokeStyle = '#6366f1';
                                 ctx.lineWidth = 4 / finalScale;
                                 ctx.setLineDash([10 / finalScale, 10 / finalScale]);
@@ -1444,7 +1008,7 @@
             if (clip.audioNodes) return; 
             
             try {
-                const source = audioCtx.createMediaElementSource(clip.audioEl);
+                const source = audioCtx.createMediaElementSource(clip.audioEl || clip.videoEl);
 
                 const noiseRed = audioCtx.createBiquadFilter();
                 noiseRed.type = 'lowpass';
@@ -1477,26 +1041,37 @@
                 eq.connect(tinny);
                 
                 tinny.connect(volume);
-                volume.connect(audioCtx.destination);
+                volume.connect(State.speakerNode);
                 volume.connect(State.masterStreamNode); 
 
                 tinny.connect(delay);
                 delay.connect(echoFeedback);
                 echoFeedback.connect(delay);
                 delay.connect(echoVolume);
-                echoVolume.connect(audioCtx.destination);
+                echoVolume.connect(State.speakerNode);
                 echoVolume.connect(State.masterStreamNode);
 
                 tinny.connect(roboDelay);
                 roboDelay.connect(roboFeedback);
                 roboFeedback.connect(roboDelay);
                 roboDelay.connect(roboVolume);
-                roboVolume.connect(audioCtx.destination);
+                roboVolume.connect(State.speakerNode);
                 roboVolume.connect(State.masterStreamNode);
 
                 clip.audioNodes = { source, noiseRed, eq, tinny, volume, delay, echoFeedback, echoVolume, roboDelay, roboFeedback, roboVolume };
                 
-                if(!clip.effects) clip.effects = { volume: 1, echo: 0, cartoon: 0, cinematic: 0, robot: 0, noiseRed: 0 };
+                if (!clip.effects) clip.effects = {};
+                if (clip.effects.volume === undefined) clip.effects.volume = 1;
+        if (clip.effects.echoEnable === undefined) clip.effects.echoEnable = false;
+        if (clip.effects.cartoonEnable === undefined) clip.effects.cartoonEnable = false;
+        if (clip.effects.cinematicEnable === undefined) clip.effects.cinematicEnable = false;
+        if (clip.effects.robotEnable === undefined) clip.effects.robotEnable = false;
+        if (clip.effects.noiseRedEnable === undefined) clip.effects.noiseRedEnable = false;
+                if (clip.effects.echo === undefined) clip.effects.echo = 0.5;
+                if (clip.effects.cartoon === undefined) clip.effects.cartoon = 0.5;
+                if (clip.effects.cinematic === undefined) clip.effects.cinematic = 0.5;
+                if (clip.effects.robot === undefined) clip.effects.robot = 0.5;
+                if (clip.effects.noiseRed === undefined) clip.effects.noiseRed = 0.5;
                 applyAudioEffects(clip);
 
             } catch (err) {
@@ -1515,19 +1090,17 @@
                 clip.audioNodes.roboVolume.gain.value = 0;
             } else {
                 clip.audioNodes.volume.gain.value = fx.volume;
-                clip.audioNodes.echoVolume.gain.value = fx.echo;
-                clip.audioNodes.roboVolume.gain.value = fx.robot;
-            }
-
-            clip.audioNodes.eq.gain.value = fx.cinematic * 15; 
-            clip.audioNodes.tinny.frequency.value = fx.cartoon * 1500; 
-            clip.audioNodes.noiseRed.frequency.value = 20000 - (fx.noiseRed * 17000); 
+            clip.audioNodes.echoVolume.gain.value = fx.echoEnable ? fx.echo : 0;
+            clip.audioNodes.roboVolume.gain.value = fx.robotEnable ? fx.robot : 0;
+            clip.audioNodes.eq.gain.value = fx.cinematicEnable ? (fx.cinematic * 15) : 0;
+            clip.audioNodes.tinny.frequency.value = fx.cartoonEnable ? Math.max(1, fx.cartoon * 1500) : 0;
+            clip.audioNodes.noiseRed.frequency.value = fx.noiseRedEnable ? (20000 - (fx.noiseRed * 17000)) : 20000; 
         }
 
         window.setClipEffect = (clipId, effectName, value) => {
             const clip = State.clips.find(c => c.id === clipId);
             if (clip) {
-                if (effectName === 'shadowEnable' || effectName === 'extrudeEnable') {
+                if (effectName === 'shadowEnable' || effectName === 'extrudeEnable' || effectName.endsWith('Enable')) {
                     clip.effects[effectName] = value;
                 } else if (['shadowColor', 'animIn', 'animOut', 'animLoop', 'extrudeColor', 'fillColor', 'fontFamily', 'extrudeDir', 'textTransform', 'fontStyle', 'textDecoration', 'blendMode'].includes(effectName)) {
                     clip.effects[effectName] = value;
@@ -1566,7 +1139,7 @@
             const clip = State.clips.find(c => c.id === State.selectedClipId);
             
             if (!clip || (clip.type !== 'image' && clip.type !== 'video' && clip.type !== 'text')) {
-                sidebarContent.className = "flex flex-col items-center justify-center p-4 w-full h-full";
+                sidebarContent.className = "flex flex-col items-center justify-center p-4 w-full flex-1 min-h-0";
                 sidebarContent.innerHTML = `
                     <div class="flex flex-col items-center justify-center text-surface-500 dark:text-surface-400 py-16 h-full w-full">
                         <div class="w-16 h-16 bg-white dark:bg-surface-800 border border-surface-200 dark:border-surface-700 shadow-sm rounded-full flex items-center justify-center mb-4">
@@ -1812,6 +1385,54 @@ const isText = clip.type === 'text';
                 </details>
             `;
 
+            const vol = clip.effects.volume !== undefined ? clip.effects.volume : 1;
+            const echo = clip.effects.echo !== undefined ? clip.effects.echo : 0.5;
+            const echoEnable = clip.effects.echoEnable || false;
+            const noiseRed = clip.effects.noiseRed !== undefined ? clip.effects.noiseRed : 0.5;
+            const noiseRedEnable = clip.effects.noiseRedEnable || false;
+            const cinematic = clip.effects.cinematic !== undefined ? clip.effects.cinematic : 0.5;
+            const cinematicEnable = clip.effects.cinematicEnable || false;
+            const robot = clip.effects.robot !== undefined ? clip.effects.robot : 0.5;
+            const robotEnable = clip.effects.robotEnable || false;
+            const cartoon = clip.effects.cartoon !== undefined ? clip.effects.cartoon : 0.5;
+            const cartoonEnable = clip.effects.cartoonEnable || false;
+
+            const createAudioAccordion = (id, icon, title, enableKey, valKey, val, enabled) => `
+                <details class="group bg-white dark:bg-surface-800 border border-surface-300 dark:border-surface-700 shadow-sm rounded-lg shrink-0 ${isHorizontal ? 'w-[280px]' : 'w-full'} overflow-hidden flex flex-col" open>
+                    <summary class="flex items-center justify-between p-3 ${isHorizontal ? '' : 'cursor-pointer'} list-none appearance-none select-none bg-surface-100 dark:bg-surface-800/80 border-b border-surface-200 dark:border-surface-700 " onclick="${isHorizontal ? 'event.preventDefault();' : ''}">
+                        <div class="text-sm font-bold text-surface-800 dark:text-surface-200 flex items-center gap-2"><i data-lucide="${icon}" class="w-4 h-4 text-surface-500 dark:text-surface-400"></i> ${title}</div>
+                        <div class="flex items-center gap-2">
+                            ${enableKey ? `
+                            <label class="relative inline-flex items-center cursor-pointer" onclick="event.stopPropagation()">
+                                <input type="checkbox" class="sr-only peer" ${enabled ? 'checked' : ''} onchange="setClipEffect('${clip.id}', '${enableKey}', this.checked); updateSidebarPanel();">
+                                <div class="w-7 h-4 bg-surface-300 dark:bg-surface-700 peer-focus:outline-none rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border-surface-300 after:border after:rounded-full after:h-3 after:w-3 after:transition-all peer-checked:bg-brand-500"></div>
+                            </label>
+                            ` : ''}
+                            ${isHorizontal ? '' : '<i data-lucide="chevron-down" class="w-4 h-4 text-surface-500 transition-transform group-open:rotate-180"></i>'}
+                        </div>
+                    </summary>
+                    
+                    <div class="p-3 flex flex-col gap-2.5 bg-surface-50 dark:bg-surface-900/50 flex-1 ${(enableKey && !enabled) ? 'opacity-50 pointer-events-none' : ''}">
+                        <div>
+                            <div class="flex justify-between items-center mb-1.5">
+                                <label class="text-[10px] font-bold text-surface-500 dark:text-surface-400 uppercase tracking-widest">Intensity</label>
+                                <span class="text-xs font-bold text-surface-900 dark:text-surface-100 bg-surface-100 dark:bg-surface-800 border border-surface-200 dark:border-surface-700 px-2 py-0.5 rounded shadow-sm">${Math.round(val * 100)}%</span>
+                            </div>
+                            <input type="range" min="0" max="${id === 'volume' ? '2' : '1'}" step="0.05" value="${val}" class="w-full custom-slider" oninput="setClipEffect('${clip.id}', '${valKey}', this.value); this.previousElementSibling.querySelector('span').textContent = Math.round(this.value * 100) + '%'; this.style.background = 'linear-gradient(to right, ${sliderFill} ' + (this.value/this.max)*100 + '%, ${sliderBg} ' + (this.value/this.max)*100 + '%)'">
+                        </div>
+                    </div>
+                </details>
+            `;
+
+            const audioHTML = 
+                createAudioAccordion('volume', 'volume-2', 'Volume', null, 'volume', vol, true) +
+                createAudioAccordion('noiseRed', 'mic-off', 'Denoise', 'noiseRedEnable', 'noiseRed', noiseRed, noiseRedEnable) +
+                createAudioAccordion('echo', 'waves', 'Echo', 'echoEnable', 'echo', echo, echoEnable) +
+                createAudioAccordion('cinematic', 'speaker', 'Bass (Cinematic)', 'cinematicEnable', 'cinematic', cinematic, cinematicEnable) +
+                createAudioAccordion('robot', 'bot', 'Robot Voice', 'robotEnable', 'robot', robot, robotEnable) +
+                createAudioAccordion('cartoon', 'smile', 'Cartoon Voice', 'cartoonEnable', 'cartoon', cartoon, cartoonEnable);
+
+
             const animHTML = `
                 <details class="group bg-white dark:bg-surface-800 border border-surface-300 dark:border-surface-700 shadow-sm rounded-lg shrink-0 ${isHorizontal ? 'w-[280px]' : 'w-full'} overflow-hidden flex flex-col" open>
                     <summary class="flex items-center justify-between p-3 ${isHorizontal ? '' : 'cursor-pointer'} list-none appearance-none select-none bg-surface-100 dark:bg-surface-800/80 border-b border-surface-200 dark:border-surface-700 " onclick="${isHorizontal ? 'event.preventDefault();' : ''}">
@@ -1869,8 +1490,12 @@ const isText = clip.type === 'text';
             `;
 
             // Use a clean layout for the sidebar items
-            sidebarContent.className = isHorizontal ? "flex flex-row flex-nowrap overflow-x-auto gap-4 p-2 w-full h-full no-scrollbar" : "flex flex-col gap-3 p-2 w-full overflow-y-auto";
-            sidebarContent.innerHTML = (isText ? textHTML : '') + shadowHTML + animHTML;
+            sidebarContent.className = isHorizontal ? "flex flex-row flex-nowrap overflow-x-auto gap-4 p-2 w-full flex-1 min-w-0 no-scrollbar" : "flex flex-col gap-3 p-2 w-full flex-1 min-h-0 overflow-y-auto";
+            if (clip.type === 'audio') {
+                sidebarContent.innerHTML = audioHTML;
+            } else {
+                sidebarContent.innerHTML = (isText ? textHTML : '') + shadowHTML + animHTML;
+            }
             
             // Set initial gradient bg for sliders in sidebar
             sidebarContent.querySelectorAll('input[type="range"]').forEach(s => {
@@ -1912,20 +1537,7 @@ const isText = clip.type === 'text';
                 if (clip.type !== 'text') {
                     tabs.push({ id: 'borderRadius', icon: 'square', label: 'Radius', max: 200, step: 1, unit: 'px' });
                 }
-            } else {
-                if (!['volume', 'noiseRed', 'echo', 'cinematic', 'robot', 'cartoon'].includes(State.activePropertyTab)) {
-                    State.activePropertyTab = 'volume';
-                }
-                tabs = [
-                    { id: 'volume', icon: 'volume-2', label: 'Volume', max: 2, step: 0.05, unit: '%' },
-                    { id: 'noiseRed', icon: 'mic-off', label: 'Denoise', max: 1, step: 0.05, unit: '%' },
-                    { id: 'echo', icon: 'waves', label: 'Echo', max: 1, step: 0.05, unit: '%' },
-                    { id: 'cinematic', icon: 'speaker', label: 'Bass', max: 1, step: 0.05, unit: '%' },
-                    { id: 'robot', icon: 'bot', label: 'Robot', max: 1, step: 0.05, unit: '%' },
-                    { id: 'cartoon', icon: 'smile', label: 'Cartoon', max: 1, step: 0.05, unit: '%' }
-                ];
             }
-
             let tabsHTML = `<div class="flex gap-0.5 sm:gap-1 bg-surface-100 dark:bg-surface-800 p-0.5 sm:p-1 rounded-lg border border-surface-200 dark:border-surface-700 shrink-0">`;
             tabs.forEach(t => {
                 const isActive = State.activePropertyTab === t.id;
@@ -1972,22 +1584,30 @@ const isText = clip.type === 'text';
             const sliderFill = isDarkMode ? '#ffffff' : '#111111';
             const sliderBg = isDarkMode ? '#404040' : '#e5e5e5';
 
-            headerProperties.innerHTML = `
-                ${tabsHTML}
-                <div class="flex items-center gap-2 sm:gap-3 px-3 py-1.5 bg-surface-50 dark:bg-surface-900 border border-surface-200 dark:border-surface-700 rounded-lg w-40 sm:w-64 md:w-80 shadow-inner shrink-0">
-                    <span class="hidden sm:block text-[11px] font-semibold text-surface-500 dark:text-surface-400 uppercase w-12 truncate">${activeTab.label}</span>
-                    <input type="range" min="0" max="${activeTab.max}" step="${activeTab.step}" value="${val}"
-                        class="flex-1 w-full custom-slider appearance-none outline-none bg-transparent"
-                        oninput="setClipEffect('${clip.id}', '${State.activePropertyTab}', this.value); this.style.background = 'linear-gradient(to right, ${sliderFill} ' + (this.value/this.max)*100 + '%, ${sliderBg} ' + (this.value/this.max)*100 + '%)'">
-                    <span class="text-[11px] sm:text-xs font-mono font-extrabold text-surface-900 dark:text-white w-10 text-right shrink-0" id="lbl_${State.activePropertyTab}">${displayVal}</span>
-                </div>
-                ${extraActionsHTML}
-                <div class="hidden lg:flex items-center gap-2 pl-3 border-l border-surface-200 dark:border-surface-700 shrink-0 max-w-[150px]">
-                    <div class="w-2.5 h-2.5 rounded-full shrink-0 shadow-sm" style="background-color: ${PALETTES[clip.colorIndex].wave}"></div>
-                    <span class="text-[11px] font-semibold text-surface-700 dark:text-surface-300 truncate">${clip.title}</span>
-                </div>
-            `;
-            
+            if (clip.type === 'audio') {
+                headerProperties.innerHTML = `
+                    <div class="flex items-center gap-2 pl-3 shrink-0 max-w-[200px]">
+                        <div class="w-2.5 h-2.5 rounded-full shrink-0 shadow-sm" style="background-color: ${PALETTES[clip.colorIndex].wave}"></div>
+                        <span class="text-[12px] font-bold text-surface-700 dark:text-surface-300 truncate">${clip.title}</span>
+                    </div>
+                `;
+            } else {
+                headerProperties.innerHTML = `
+                    ${tabsHTML}
+                    <div class="flex items-center gap-2 sm:gap-3 px-3 py-1.5 bg-surface-50 dark:bg-surface-900 border border-surface-200 dark:border-surface-700 rounded-lg w-40 sm:w-64 md:w-80 shadow-inner shrink-0">
+                        <span class="hidden sm:block text-[11px] font-semibold text-surface-500 dark:text-surface-400 uppercase w-12 truncate">${activeTab.label}</span>
+                        <input type="range" min="0" max="${activeTab.max}" step="${activeTab.step}" value="${val}"
+                            class="flex-1 w-full custom-slider appearance-none outline-none bg-transparent"
+                            oninput="setClipEffect('${clip.id}', '${State.activePropertyTab}', this.value); this.style.background = 'linear-gradient(to right, ${sliderFill} ' + (this.value/this.max)*100 + '%, ${sliderBg} ' + (this.value/this.max)*100 + '%)'">
+                        <span class="text-[11px] sm:text-xs font-mono font-extrabold text-surface-900 dark:text-white w-10 text-right shrink-0" id="lbl_${State.activePropertyTab}">${displayVal}</span>
+                    </div>
+                    ${extraActionsHTML}
+                    <div class="hidden lg:flex items-center gap-2 pl-3 border-l border-surface-200 dark:border-surface-700 shrink-0 max-w-[150px]">
+                        <div class="w-2.5 h-2.5 rounded-full shrink-0 shadow-sm" style="background-color: ${PALETTES[clip.colorIndex].wave}"></div>
+                        <span class="text-[11px] font-semibold text-surface-700 dark:text-surface-300 truncate">${clip.title}</span>
+                    </div>
+                `;
+            }
             const slider = headerProperties.querySelector('input[type="range"]');
             if(slider) slider.style.background = `linear-gradient(to right, ${sliderFill} ${(val/activeTab.max)*100}%, ${sliderBg} ${(val/activeTab.max)*100}%)`;
             
@@ -2231,7 +1851,7 @@ const isText = clip.type === 'text';
                             peaksPerSecond: peaksPerSecond,
                             maxDuration: duration,
                             fileUrl: objectUrl,
-                            effects: { volume: 1, echo: 0, cartoon: 0, cinematic: 0, robot: 0, noiseRed: 0 }
+                            effects: { volume: 1, echo: 0.5, echoEnable: false, cartoon: 0.5, cartoonEnable: false, cinematic: 0.5, cinematicEnable: false, robot: 0.5, robotEnable: false, noiseRed: 0.5, noiseRedEnable: false }
                         };
 
                         buildAudioGraph(newAudioClip);
@@ -2608,12 +2228,6 @@ ctx.clearRect(0, 0, w, h);
             btnSplit.addEventListener('click', splitClipAtPlayhead);
             btnDelete.addEventListener('click', deleteSelectedClip);
 
-            btnExportMenu.addEventListener('click', (e) => {
-                e.stopPropagation();
-                exportDropdown.classList.toggle('hidden');
-                exportDropdown.classList.toggle('flex');
-            });
-
             btnViewMenu.addEventListener('click', (e) => {
                 e.stopPropagation();
                 viewDropdown.classList.toggle('hidden');
@@ -2621,17 +2235,10 @@ ctx.clearRect(0, 0, w, h);
             });
 
             document.addEventListener('click', () => {
-                if(!exportDropdown.classList.contains('hidden')){
-                    exportDropdown.classList.add('hidden');
-                    exportDropdown.classList.remove('flex');
-                }
                 if(!viewDropdown.classList.contains('hidden')){
                     viewDropdown.classList.add('hidden');
                     viewDropdown.classList.remove('flex');
                 }
-            });
-
-
             });
 
             document.addEventListener('keydown', (e) => {
@@ -3090,6 +2697,7 @@ ctx.clearRect(0, 0, w, h);
             if (State.isExporting) {
                 State.cancelExport = true;
             } else {
+                State.exportResolution = 1920;
                 closeExportModal();
             }
         }
@@ -3097,6 +2705,7 @@ ctx.clearRect(0, 0, w, h);
         function submitExport() {
             const format = document.querySelector('input[name="exportFormat"]:checked').value;
             const scope = document.querySelector('input[name="exportScope"]:checked').value;
+            State.exportResolution = parseInt(document.querySelector('input[name="exportResolution"]:checked').value);
             
             let startT = 0;
             let endT = State.duration;
@@ -3124,21 +2733,47 @@ ctx.clearRect(0, 0, w, h);
             stopMedia();
             State.currentTime = startTime;
             
-            const canvasEl = document.getElementById('renderCanvas');
+            let exportCanvas = null;
+            let exportCtx = null;
+            let exportW, exportH;
+            
             let finalStream;
             let mimeType;
             let extension;
 
-            if (format === 'video' || format === 'gif') {
-                const canvasStream = canvasEl.captureStream(30);
+            if (format.includes('video') || format === 'gif') {
+                const aspectStr = ASPECT_RATIOS[State.preview.aspectIndex].value;
+                const [wRatio, hRatio] = aspectStr.split('/').map(Number);
+                const baseRes = State.exportResolution || 1920;
+                
+                if (wRatio >= hRatio) {
+                    exportW = baseRes;
+                    exportH = baseRes * (hRatio / wRatio);
+                } else {
+                    exportH = baseRes;
+                    exportW = baseRes * (wRatio / hRatio);
+                }
+                
+                exportCanvas = document.createElement('canvas');
+                exportCanvas.width = exportW;
+                exportCanvas.height = exportH;
+                exportCtx = exportCanvas.getContext('2d');
+                
+                const canvasStream = exportCanvas.captureStream(30);
                 const audioTracks = State.masterStreamNode.stream.getAudioTracks();
                 if (audioTracks.length > 0) {
                     finalStream = new MediaStream([...canvasStream.getVideoTracks(), ...audioTracks]);
                 } else {
                     finalStream = canvasStream;
                 }
-                mimeType = 'video/webm;codecs=vp9,opus';
-                extension = format === 'gif' ? 'gif.webm' : 'webm'; // Browser can't export native gif from canvas
+                
+                if (format === 'video-mp4') {
+                    mimeType = 'video/mp4;codecs="avc1, mp4a.40.2"'; // H.264 + AAC
+                    extension = 'mp4';
+                } else {
+                    mimeType = 'video/webm;codecs=vp9,opus';
+                    extension = format === 'gif' ? 'gif.webm' : 'webm';
+                }
             } else {
                 finalStream = State.masterStreamNode.stream;
                 if (format === 'audio-wav') {
@@ -3174,6 +2809,8 @@ ctx.clearRect(0, 0, w, h);
                 }
                 
                 State.isExporting = false;
+                State.exportResolution = 1920;
+                if (State.speakerNode) State.speakerNode.gain.value = 1;
                 closeExportModal();
                 stopMedia();
             };
@@ -3181,10 +2818,13 @@ ctx.clearRect(0, 0, w, h);
             State.lastRenderTime = performance.now();
             updatePlayhead();
             
+            if (State.speakerNode) State.speakerNode.gain.value = 0;
+            
             State.clips.forEach(clip => {
                 const el = clip.audioEl || clip.videoEl;
                 if (el && clip.start < endTime && (clip.start + clip.duration) > startTime) {
-                    if (clip.audioEl) applyAudioEffects(clip);
+                    buildAudioGraph(clip);
+                    applyAudioEffects(clip);
                     
                     const offset = Math.max(0, startTime - clip.start);
                     el.currentTime = clip.sourceOffset + offset;
@@ -3224,6 +2864,12 @@ ctx.clearRect(0, 0, w, h);
                     }
                 });
 
+                if (exportCanvas && exportCtx) {
+                    drawCanvas(exportCtx, exportW, exportH);
+                } else {
+                    drawCanvas();
+                }
+
                 const durationRange = endTime - startTime;
                 const elapsed = State.currentTime - startTime;
                 const progress = Math.min(100, Math.max(0, Math.round((elapsed / durationRange) * 100)));
@@ -3240,9 +2886,6 @@ ctx.clearRect(0, 0, w, h);
             requestAnimationFrame(exportLoop);
         }
 
-            
-            requestAnimationFrame(exportLoop);
-        }
 
         updatePropertiesPanel();
         init();

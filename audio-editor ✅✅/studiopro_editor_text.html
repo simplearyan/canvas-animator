@@ -1613,11 +1613,16 @@
                 
                 if (!clip.effects) clip.effects = {};
                 if (clip.effects.volume === undefined) clip.effects.volume = 1;
-                if (clip.effects.echo === undefined) clip.effects.echo = 0;
-                if (clip.effects.cartoon === undefined) clip.effects.cartoon = 0;
-                if (clip.effects.cinematic === undefined) clip.effects.cinematic = 0;
-                if (clip.effects.robot === undefined) clip.effects.robot = 0;
-                if (clip.effects.noiseRed === undefined) clip.effects.noiseRed = 0;
+        if (clip.effects.echoEnable === undefined) clip.effects.echoEnable = false;
+        if (clip.effects.cartoonEnable === undefined) clip.effects.cartoonEnable = false;
+        if (clip.effects.cinematicEnable === undefined) clip.effects.cinematicEnable = false;
+        if (clip.effects.robotEnable === undefined) clip.effects.robotEnable = false;
+        if (clip.effects.noiseRedEnable === undefined) clip.effects.noiseRedEnable = false;
+                if (clip.effects.echo === undefined) clip.effects.echo = 0.5;
+                if (clip.effects.cartoon === undefined) clip.effects.cartoon = 0.5;
+                if (clip.effects.cinematic === undefined) clip.effects.cinematic = 0.5;
+                if (clip.effects.robot === undefined) clip.effects.robot = 0.5;
+                if (clip.effects.noiseRed === undefined) clip.effects.noiseRed = 0.5;
                 applyAudioEffects(clip);
 
             } catch (err) {
@@ -1636,13 +1641,13 @@
                 clip.audioNodes.roboVolume.gain.value = 0;
             } else {
                 clip.audioNodes.volume.gain.value = fx.volume;
-                clip.audioNodes.echoVolume.gain.value = fx.echo;
-                clip.audioNodes.roboVolume.gain.value = fx.robot;
+                clip.audioNodes.echoVolume.gain.value = fx.echoEnable ? fx.echo : 0;
+                clip.audioNodes.roboVolume.gain.value = fx.robotEnable ? fx.robot : 0;
             }
 
-            clip.audioNodes.eq.gain.value = fx.cinematic * 15; 
-            clip.audioNodes.tinny.frequency.value = fx.cartoon * 1500; 
-            clip.audioNodes.noiseRed.frequency.value = 20000 - (fx.noiseRed * 17000); 
+            clip.audioNodes.eq.gain.value = fx.cinematicEnable ? (fx.cinematic * 15) : 0;
+            clip.audioNodes.tinny.frequency.value = fx.cartoonEnable ? Math.max(1, fx.cartoon * 1500) : 0;
+            clip.audioNodes.noiseRed.frequency.value = fx.noiseRedEnable ? (20000 - (fx.noiseRed * 17000)) : 20000;
         }
 
         window.setClipEffect = (clipId, effectName, value) => {
@@ -1686,7 +1691,7 @@
         function updateSidebarPanel() {
             const clip = State.clips.find(c => c.id === State.selectedClipId);
             
-            if (!clip || (clip.type !== 'image' && clip.type !== 'video' && clip.type !== 'text')) {
+            if (!clip || !['image', 'video', 'text', 'audio'].includes(clip.type)) {
                 sidebarContent.className = "flex flex-col items-center justify-center p-4 w-full flex-1 min-h-0";
                 sidebarContent.innerHTML = `
                     <div class="flex flex-col items-center justify-center text-surface-500 dark:text-surface-400 py-16 h-full w-full">
@@ -1933,7 +1938,54 @@ const isText = clip.type === 'text';
                 </details>
             `;
 
-            const animHTML = `
+            
+            const vol = clip.effects.volume !== undefined ? clip.effects.volume : 1;
+            const echo = clip.effects.echo !== undefined ? clip.effects.echo : 0.5;
+            const echoEnable = clip.effects.echoEnable || false;
+            const noiseRed = clip.effects.noiseRed !== undefined ? clip.effects.noiseRed : 0.5;
+            const noiseRedEnable = clip.effects.noiseRedEnable || false;
+            const cinematic = clip.effects.cinematic !== undefined ? clip.effects.cinematic : 0.5;
+            const cinematicEnable = clip.effects.cinematicEnable || false;
+            const robot = clip.effects.robot !== undefined ? clip.effects.robot : 0.5;
+            const robotEnable = clip.effects.robotEnable || false;
+            const cartoon = clip.effects.cartoon !== undefined ? clip.effects.cartoon : 0.5;
+            const cartoonEnable = clip.effects.cartoonEnable || false;
+
+            const createAudioAccordion = (id, icon, title, enableKey, valKey, val, enabled) => `
+                <details class="group bg-white dark:bg-surface-800 border border-surface-300 dark:border-surface-700 shadow-sm rounded-lg shrink-0 ${isHorizontal ? 'w-[280px]' : 'w-full'} overflow-hidden flex flex-col" open>
+                    <summary class="flex items-center justify-between p-3 ${isHorizontal ? '' : 'cursor-pointer'} list-none appearance-none select-none bg-surface-100 dark:bg-surface-800/80 border-b border-surface-200 dark:border-surface-700 " onclick="${isHorizontal ? 'event.preventDefault();' : ''}">
+                        <div class="text-sm font-bold text-surface-800 dark:text-surface-200 flex items-center gap-2"><i data-lucide="${icon}" class="w-4 h-4 text-surface-500 dark:text-surface-400"></i> ${title}</div>
+                        <div class="flex items-center gap-2">
+                            ${enableKey ? `
+                            <label class="relative inline-flex items-center cursor-pointer" onclick="event.stopPropagation()">
+                                <input type="checkbox" class="sr-only peer" ${enabled ? 'checked' : ''} onchange="setClipEffect('${clip.id}', '${enableKey}', this.checked); updateSidebarPanel();">
+                                <div class="w-7 h-4 bg-surface-300 dark:bg-surface-700 peer-focus:outline-none rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border-surface-300 after:border after:rounded-full after:h-3 after:w-3 after:transition-all peer-checked:bg-brand-500"></div>
+                            </label>
+                            ` : ''}
+                            ${isHorizontal ? '' : '<i data-lucide="chevron-down" class="w-4 h-4 text-surface-500 transition-transform group-open:rotate-180"></i>'}
+                        </div>
+                    </summary>
+                    
+                    <div class="p-3 flex flex-col gap-2.5 bg-surface-50 dark:bg-surface-900/50 flex-1 ${(enableKey && !enabled) ? 'opacity-50 pointer-events-none' : ''}">
+                        <div>
+                            <div class="flex justify-between items-center mb-1.5">
+                                <label class="text-[10px] font-bold text-surface-500 dark:text-surface-400 uppercase tracking-widest">Intensity</label>
+                                <span class="text-xs font-bold text-surface-900 dark:text-surface-100 bg-surface-100 dark:bg-surface-800 border border-surface-200 dark:border-surface-700 px-2 py-0.5 rounded shadow-sm">${Math.round(val * 100)}%</span>
+                            </div>
+                            <input type="range" min="0" max="${id === 'volume' ? '2' : '1'}" step="0.05" value="${val}" class="w-full custom-slider" oninput="setClipEffect('${clip.id}', '${valKey}', this.value); this.previousElementSibling.querySelector('span').textContent = Math.round(this.value * 100) + '%'; this.style.background = 'linear-gradient(to right, ${sliderFill} ' + (this.value/this.max)*100 + '%, ${sliderBg} ' + (this.value/this.max)*100 + '%)'">
+                        </div>
+                    </div>
+                </details>
+            `;
+
+            const audioHTML = 
+                createAudioAccordion('volume', 'volume-2', 'Volume', null, 'volume', vol, true) +
+                createAudioAccordion('noiseRed', 'mic-off', 'Denoise', 'noiseRedEnable', 'noiseRed', noiseRed, noiseRedEnable) +
+                createAudioAccordion('echo', 'waves', 'Echo', 'echoEnable', 'echo', echo, echoEnable) +
+                createAudioAccordion('cinematic', 'speaker', 'Bass (Cinematic)', 'cinematicEnable', 'cinematic', cinematic, cinematicEnable) +
+                createAudioAccordion('robot', 'bot', 'Robot Voice', 'robotEnable', 'robot', robot, robotEnable) +
+                createAudioAccordion('cartoon', 'smile', 'Cartoon Voice', 'cartoonEnable', 'cartoon', cartoon, cartoonEnable);
+           const animHTML = `
                 <details class="group bg-white dark:bg-surface-800 border border-surface-300 dark:border-surface-700 shadow-sm rounded-lg shrink-0 ${isHorizontal ? 'w-[280px]' : 'w-full'} overflow-hidden flex flex-col" open>
                     <summary class="flex items-center justify-between p-3 ${isHorizontal ? '' : 'cursor-pointer'} list-none appearance-none select-none bg-surface-100 dark:bg-surface-800/80 border-b border-surface-200 dark:border-surface-700 " onclick="${isHorizontal ? 'event.preventDefault();' : ''}">
                         <div class="text-sm font-bold text-surface-800 dark:text-surface-200 flex items-center gap-2"><i data-lucide="sparkles" class="w-4 h-4 text-surface-500 dark:text-surface-400"></i> Animations</div>
@@ -1991,7 +2043,11 @@ const isText = clip.type === 'text';
 
             // Use a clean layout for the sidebar items
             sidebarContent.className = isHorizontal ? "flex flex-row flex-nowrap overflow-x-auto gap-4 p-2 w-full flex-1 min-w-0 no-scrollbar" : "flex flex-col gap-3 p-2 w-full flex-1 min-h-0 overflow-y-auto";
-            sidebarContent.innerHTML = (isText ? textHTML : '') + shadowHTML + animHTML;
+            if (clip.type === 'audio') {
+                sidebarContent.innerHTML = audioHTML;
+            } else {
+                sidebarContent.innerHTML = (isText ? textHTML : '') + shadowHTML + animHTML;
+            }
             
             // Set initial gradient bg for sliders in sidebar
             sidebarContent.querySelectorAll('input[type="range"]').forEach(s => {
@@ -2033,20 +2089,7 @@ const isText = clip.type === 'text';
                 if (clip.type !== 'text') {
                     tabs.push({ id: 'borderRadius', icon: 'square', label: 'Radius', max: 200, step: 1, unit: 'px' });
                 }
-            } else {
-                if (!['volume', 'noiseRed', 'echo', 'cinematic', 'robot', 'cartoon'].includes(State.activePropertyTab)) {
-                    State.activePropertyTab = 'volume';
-                }
-                tabs = [
-                    { id: 'volume', icon: 'volume-2', label: 'Volume', max: 2, step: 0.05, unit: '%' },
-                    { id: 'noiseRed', icon: 'mic-off', label: 'Denoise', max: 1, step: 0.05, unit: '%' },
-                    { id: 'echo', icon: 'waves', label: 'Echo', max: 1, step: 0.05, unit: '%' },
-                    { id: 'cinematic', icon: 'speaker', label: 'Bass', max: 1, step: 0.05, unit: '%' },
-                    { id: 'robot', icon: 'bot', label: 'Robot', max: 1, step: 0.05, unit: '%' },
-                    { id: 'cartoon', icon: 'smile', label: 'Cartoon', max: 1, step: 0.05, unit: '%' }
-                ];
             }
-
             let tabsHTML = `<div class="flex gap-0.5 sm:gap-1 bg-surface-100 dark:bg-surface-800 p-0.5 sm:p-1 rounded-lg border border-surface-200 dark:border-surface-700 shrink-0">`;
             tabs.forEach(t => {
                 const isActive = State.activePropertyTab === t.id;
@@ -2085,32 +2128,42 @@ const isText = clip.type === 'text';
             else if (clip.type === 'text') iconType = 'type';
             
             let displayVal = '';
-            if (activeTab.unit === '%') displayVal = `${Math.round(val * 100)}%`;
-            else if (activeTab.unit === 'x') displayVal = `${val.toFixed(2)}x`;
-            else displayVal = `${Math.round(val)}${activeTab.unit}`;
+            if (activeTab) {
+                if (activeTab.unit === '%') displayVal = `${Math.round(val * 100)}%`;
+                else if (activeTab.unit === 'x') displayVal = `${val.toFixed(2)}x`;
+                else displayVal = `${Math.round(val)}${activeTab.unit}`;
+            }
 
             // High Contrast Slider settings
             const sliderFill = isDarkMode ? '#ffffff' : '#111111';
             const sliderBg = isDarkMode ? '#404040' : '#e5e5e5';
 
-            headerProperties.innerHTML = `
-                ${tabsHTML}
-                <div class="flex items-center gap-2 sm:gap-3 px-3 py-1.5 bg-surface-50 dark:bg-surface-900 border border-surface-200 dark:border-surface-700 rounded-lg w-40 sm:w-64 md:w-80 shadow-inner shrink-0">
-                    <span class="hidden sm:block text-[11px] font-semibold text-surface-500 dark:text-surface-400 uppercase w-12 truncate">${activeTab.label}</span>
-                    <input type="range" min="0" max="${activeTab.max}" step="${activeTab.step}" value="${val}"
-                        class="flex-1 w-full custom-slider appearance-none outline-none bg-transparent"
-                        oninput="setClipEffect('${clip.id}', '${State.activePropertyTab}', this.value); this.style.background = 'linear-gradient(to right, ${sliderFill} ' + (this.value/this.max)*100 + '%, ${sliderBg} ' + (this.value/this.max)*100 + '%)'">
-                    <span class="text-[11px] sm:text-xs font-mono font-extrabold text-surface-900 dark:text-white w-10 text-right shrink-0" id="lbl_${State.activePropertyTab}">${displayVal}</span>
-                </div>
-                ${extraActionsHTML}
-                <div class="hidden lg:flex items-center gap-2 pl-3 border-l border-surface-200 dark:border-surface-700 shrink-0 max-w-[150px]">
-                    <div class="w-2.5 h-2.5 rounded-full shrink-0 shadow-sm" style="background-color: ${PALETTES[clip.colorIndex].wave}"></div>
-                    <span class="text-[11px] font-semibold text-surface-700 dark:text-surface-300 truncate">${clip.title}</span>
-                </div>
-            `;
-            
+            if (clip.type === 'audio') {
+                headerProperties.innerHTML = `
+                    <div class="flex items-center gap-2 pl-3 shrink-0 max-w-[200px]">
+                        <div class="w-2.5 h-2.5 rounded-full shrink-0 shadow-sm" style="background-color: ${PALETTES[clip.colorIndex].wave}"></div>
+                        <span class="text-[12px] font-bold text-surface-700 dark:text-surface-300 truncate">${clip.title}</span>
+                    </div>
+                `;
+            } else {
+                headerProperties.innerHTML = `
+                    ${tabsHTML}
+                    <div class="flex items-center gap-2 sm:gap-3 px-3 py-1.5 bg-surface-50 dark:bg-surface-900 border border-surface-200 dark:border-surface-700 rounded-lg w-40 sm:w-64 md:w-80 shadow-inner shrink-0">
+                        <span class="hidden sm:block text-[11px] font-semibold text-surface-500 dark:text-surface-400 uppercase w-12 truncate">${activeTab.label}</span>
+                        <input type="range" min="0" max="${activeTab.max}" step="${activeTab.step}" value="${val}"
+                            class="flex-1 w-full custom-slider appearance-none outline-none bg-transparent"
+                            oninput="setClipEffect('${clip.id}', '${State.activePropertyTab}', this.value); this.style.background = 'linear-gradient(to right, ${sliderFill} ' + (this.value/this.max)*100 + '%, ${sliderBg} ' + (this.value/this.max)*100 + '%)'">
+                        <span class="text-[11px] sm:text-xs font-mono font-extrabold text-surface-900 dark:text-white w-10 text-right shrink-0" id="lbl_${State.activePropertyTab}">${displayVal}</span>
+                    </div>
+                    ${extraActionsHTML}
+                    <div class="hidden lg:flex items-center gap-2 pl-3 border-l border-surface-200 dark:border-surface-700 shrink-0 max-w-[150px]">
+                        <div class="w-2.5 h-2.5 rounded-full shrink-0 shadow-sm" style="background-color: ${PALETTES[clip.colorIndex].wave}"></div>
+                        <span class="text-[11px] font-semibold text-surface-700 dark:text-surface-300 truncate">${clip.title}</span>
+                    </div>
+                `;
+            }
             const slider = headerProperties.querySelector('input[type="range"]');
-            if(slider) slider.style.background = `linear-gradient(to right, ${sliderFill} ${(val/activeTab.max)*100}%, ${sliderBg} ${(val/activeTab.max)*100}%)`;
+            if(slider && activeTab) slider.style.background = `linear-gradient(to right, ${sliderFill} ${(val/activeTab.max)*100}%, ${sliderBg} ${(val/activeTab.max)*100}%)`;
             
             lucide.createIcons();
         }
@@ -2352,7 +2405,7 @@ const isText = clip.type === 'text';
                             peaksPerSecond: peaksPerSecond,
                             maxDuration: duration,
                             fileUrl: objectUrl,
-                            effects: { volume: 1, echo: 0, cartoon: 0, cinematic: 0, robot: 0, noiseRed: 0 }
+                            effects: { volume: 1, echo: 0.5, echoEnable: false, cartoon: 0.5, cartoonEnable: false, cinematic: 0.5, cinematicEnable: false, robot: 0.5, robotEnable: false, noiseRed: 0.5, noiseRedEnable: false }
                         };
 
                         buildAudioGraph(newAudioClip);
