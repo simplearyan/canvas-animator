@@ -1522,48 +1522,48 @@
                             ctx.rotate(rotate * Math.PI / 180);
                             ctx.scale(finalScale * (clip.effects.flipH ? -1 : 1), finalScale * (clip.effects.flipV ? -1 : 1));
 
-                            // Apply Drop Shadow just to the image draw
-                            if (clip.effects.shadowEnable) {
-                                ctx.shadowColor = clip.effects.shadowColor || '#000000';
-                                ctx.shadowBlur = clip.effects.shadowBlur || 20;
-                                ctx.shadowOffsetX = clip.effects.shadowX || 0;
-                                ctx.shadowOffsetY = clip.effects.shadowY || 10;
-                            }
-
-                            if (borderRadius > 0) {
-                                ctx.beginPath();
-                                if (ctx.roundRect) {
-                                    ctx.roundRect(-dw/2, -dh/2, dw, dh, borderRadius);
-                                } else {
-                                    ctx.rect(-dw/2, -dh/2, dw, dh);
-                                }
-                                ctx.clip();
-                            }
-
-                            if (mosaicLevel > 0.05) {
-                                const pSize = Math.max(1, mosaicLevel * 30);
+                            if (clip.effects.shadowEnable || borderRadius > 0 || mosaicLevel > 0.05) {
                                 const offCanvas = document.createElement('canvas');
                                 const offCtx = offCanvas.getContext('2d');
                                 offCanvas.width = dw;
                                 offCanvas.height = dh;
-                                offCtx.drawImage(source, 0, 0, dw, dh);
+                                
+                                if (borderRadius > 0) {
+                                    offCtx.beginPath();
+                                    if (offCtx.roundRect) offCtx.roundRect(0, 0, dw, dh, borderRadius);
+                                    else offCtx.rect(0, 0, dw, dh);
+                                    offCtx.clip();
+                                }
+                                
+                                if (mosaicLevel > 0.05) {
+                                    const pSize = Math.max(1, mosaicLevel * 30);
+                                    const smallCanvas = document.createElement('canvas');
+                                    const smallCtx = smallCanvas.getContext('2d');
+                                    smallCanvas.width = dw / pSize;
+                                    smallCanvas.height = dh / pSize;
+                                    smallCtx.drawImage(source, 0, 0, smallCanvas.width, smallCanvas.height);
 
-                                const smallCanvas = document.createElement('canvas');
-                                const smallCtx = smallCanvas.getContext('2d');
-                                smallCanvas.width = dw / pSize;
-                                smallCanvas.height = dh / pSize;
-                                smallCtx.drawImage(offCanvas, 0, 0, smallCanvas.width, smallCanvas.height);
-
-                                ctx.imageSmoothingEnabled = false;
-                                ctx.drawImage(smallCanvas, -dw/2, -dh/2, dw, dh);
-                                ctx.imageSmoothingEnabled = true;
+                                    offCtx.imageSmoothingEnabled = false;
+                                    offCtx.drawImage(smallCanvas, 0, 0, dw, dh);
+                                    offCtx.imageSmoothingEnabled = true;
+                                } else {
+                                    offCtx.drawImage(source, 0, 0, dw, dh);
+                                }
+                                
+                                if (clip.effects.shadowEnable) {
+                                    ctx.shadowColor = clip.effects.shadowColor || '#000000';
+                                    ctx.shadowBlur = clip.effects.shadowBlur || 20;
+                                    ctx.shadowOffsetX = clip.effects.shadowX || 0;
+                                    ctx.shadowOffsetY = clip.effects.shadowY || 10;
+                                }
+                                
+                                ctx.drawImage(offCanvas, -dw/2, -dh/2, dw, dh);
+                                
+                                ctx.shadowColor = 'transparent';
+                                ctx.shadowBlur = 0;
                             } else {
                                 ctx.drawImage(source, -dw/2, -dh/2, dw, dh);
                             }
-                            
-                            // Reset shadow so it doesn't affect bounding box
-                            ctx.shadowColor = 'transparent';
-                            ctx.shadowBlur = 0;
 
                             
                         // DOM Box render inside loop
@@ -1763,8 +1763,15 @@
 
         // --- Sidebar Inspector UI ---
         function updateSidebarPanel() {
+            // Save state
+            State.ui = State.ui || { detailsState: {} };
+            const currentDetails = sidebarContent.querySelectorAll('details');
+            currentDetails.forEach(d => {
+                const summary = d.querySelector('summary');
+                if (summary) State.ui.detailsState[summary.textContent.trim()] = d.open;
+            });
+
             const clip = State.clips.find(c => c.id === State.selectedClipId);
-            
             if (!clip || !['image', 'video', 'text', 'audio'].includes(clip.type)) {
                 sidebarContent.className = "flex flex-col items-center justify-center p-4 w-full flex-1 min-h-0";
                 sidebarContent.innerHTML = `
@@ -2424,7 +2431,7 @@ const isVis = !clip.hidden;
                     maxDuration: 3600,
                     effects: { 
                         scale: 1, rotate: 0, offsetX: 0, offsetY: 0, 
-                        fontFamily: 'Inter, sans-serif', fontWeight: 700, fillColor: '#ffffff',
+                        fontFamily: 'Rubik', fontWeight: 700, fillColor: '#ffffff',
                         shadowEnable: false, shadowColor: '#000000', shadowBlur: 20, shadowX: 0, shadowY: 10, 
                         extrudeEnable: false, extrudeDepth: 5, extrudeColor: '#000000',
                         animIn: 'none', animOut: 'none', animLoop: 'none', animInDur: 1.0, animOutDur: 1.0 
