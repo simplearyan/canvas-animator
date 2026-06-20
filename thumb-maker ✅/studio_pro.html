@@ -30,9 +30,7 @@
                 if (item.type.indexOf('image') === 0) {
                     const blob = item.getAsFile();
                     const url = URL.createObjectURL(blob);
-                    const img = new Image();
-                    img.crossOrigin = "Anonymous";
-                    img.onload = () => {
+                    loadAndDownscaleImage(url, (img) => {
                         let scale = 1;
                         if(img.width > CANVAS_WIDTH/2 || img.height > CANVAS_HEIGHT/2) {
                              scale = Math.min((CANVAS_WIDTH/2) / img.width, (CANVAS_HEIGHT/2) / img.height);
@@ -55,8 +53,7 @@
                         state.elements.push(newImg);
                         selectElement(newImg.id);
                         document.querySelector('[data-target="panel-edit"]').click();
-                    };
-                    img.src = url;
+                    });
                     break;
                 }
             }
@@ -1940,6 +1937,28 @@
             elemStartY: 0
         };
 
+        const loadAndDownscaleImage = (imgSrc, callback) => {
+            const img = new Image();
+            img.crossOrigin = "Anonymous";
+            img.onload = () => {
+                const MAX_DIM = 2500;
+                if (img.width > MAX_DIM || img.height > MAX_DIM) {
+                    const ratio = Math.min(MAX_DIM / img.width, MAX_DIM / img.height);
+                    const canvas = document.createElement('canvas');
+                    canvas.width = Math.round(img.width * ratio);
+                    canvas.height = Math.round(img.height * ratio);
+                    const ctx = canvas.getContext('2d');
+                    ctx.drawImage(img, 0, 0, canvas.width, canvas.height);
+                    const resizedImg = new Image();
+                    resizedImg.onload = () => callback(resizedImg);
+                    resizedImg.src = canvas.toDataURL('image/png');
+                } else {
+                    callback(img);
+                }
+            };
+            img.src = imgSrc;
+        };
+
         const generateId = () => Math.random().toString(36).substr(2, 9);
 
         let artboards = [
@@ -3820,8 +3839,7 @@ function updateUI() {
             if (!file) return;
             const reader = new FileReader();
             reader.onload = (e) => {
-                const img = new Image();
-                img.onload = () => {
+                loadAndDownscaleImage(e.target.result, (img) => {
                     let scale = 1;
                     if(img.width > CANVAS_WIDTH/2 || img.height > CANVAS_HEIGHT/2) {
                          scale = Math.min((CANVAS_WIDTH/2) / img.width, (CANVAS_HEIGHT/2) / img.height);
@@ -3837,8 +3855,7 @@ function updateUI() {
                     state.elements.push(newImg);
                     selectElement(newImg.id);
                     document.querySelector('[data-target="panel-edit"]').click();
-                };
-                img.src = e.target.result;
+                });
             };
             reader.readAsDataURL(file);
         };
@@ -3889,8 +3906,7 @@ function updateUI() {
             }
 
             const objectUrl = URL.createObjectURL(blob);
-            const img = new Image();
-            img.onload = () => {
+            loadAndDownscaleImage(objectUrl, (img) => {
                 let scale = 1;
                 if(img.width > CANVAS_WIDTH/2 || img.height > CANVAS_HEIGHT/2) scale = Math.min((CANVAS_WIDTH/2) / img.width, (CANVAS_HEIGHT/2) / img.height);
                 const newImg = {
@@ -3905,8 +3921,7 @@ function updateUI() {
                 selectElement(newImg.id);
                 imageUrlInput.value = '';
                 document.querySelector('[data-target="panel-edit"]').click();
-            };
-            img.src = objectUrl;
+            });
         });
 
         // Ordering & Deletion
