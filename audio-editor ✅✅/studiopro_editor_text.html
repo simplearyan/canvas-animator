@@ -2521,6 +2521,14 @@ const isText = clip.type === 'text';
             let targetTrack = State.tracks.find(t => t.id === audioTargetTrackId);
             
             const audioEl = new Audio(URL.createObjectURL(audio.file));
+            audioEl.crossOrigin = "anonymous";
+            await new Promise((resolve) => {
+                if (audioEl.readyState >= 1) resolve();
+                else {
+                    audioEl.addEventListener('loadedmetadata', resolve, { once: true });
+                    audioEl.addEventListener('error', resolve, { once: true });
+                }
+            });
             
             const clip = {
                 id: 'clip_' + Math.random().toString(36).substr(2, 9),
@@ -2532,6 +2540,7 @@ const isText = clip.type === 'text';
                 trackId: audioTargetTrackId,
                 colorIndex: targetTrack ? targetTrack.colorIndex : 1,
                 audioEl: audioEl,
+                buffer: audio.buffer, // Add this for perfect Web Audio playback
                 maxDuration: audio.duration,
                 peaksPerSecond: 100,
                 effects: { volume: 1, echo: 0.5, echoEnable: false, cartoon: 0.5, cartoonEnable: false, cinematic: 0.5, cinematicEnable: false, robot: 0.5, robotEnable: false, noiseRed: 0.5, noiseRedEnable: false }
@@ -3662,24 +3671,59 @@ ctx.clearRect(0, 0, w, h);
 
         // --- Audio Synchronization Engine ---
         function syncMediaElements() {
+            if (!audioCtx) ensureAudioContext();
+            
             State.clips.forEach(clip => {
                 const track = State.tracks.find(t => t.id === clip.trackId);
                 const el = clip.audioEl || clip.videoEl;
                 
-                if (el) {
-                    if (track && track.muted && clip.audioEl) {
-                        if (!clip.audioEl.paused) clip.audioEl.pause();
-                        return;
+                if (track && track.muted) {
+                    if (el && !el.paused) el.pause();
+                    if (clip.sourceNode) {
+                        clip.sourceNode.stop();
+                        clip.sourceNode.disconnect();
+                        clip.sourceNode = null;
+                        clip.isPlaying = false;
                     }
+                    return;
+                }
 
-                    const shouldPlay = State.isPlaying && State.currentTime >= clip.start && State.currentTime <= clip.start + clip.duration;
-                    
+                const shouldPlay = State.isPlaying && State.currentTime >= clip.start && State.currentTime <= clip.start + clip.duration;
+                const isUpcoming = State.isPlaying && State.currentTime < clip.start && (clip.start - State.currentTime) < 0.5;
+                
+                if (clip.buffer) {
+                    if (shouldPlay) {
+                        if (!clip.isPlaying) {
+                            clip.sourceNode = audioCtx.createBufferSource();
+                            clip.sourceNode.buffer = clip.buffer;
+                            if (clip.audioNodes && clip.audioNodes.noiseRed) {
+                                clip.sourceNode.connect(clip.audioNodes.noiseRed);
+                            } else {
+                                clip.sourceNode.connect(audioCtx.destination);
+                            }
+                            const targetTime = clip.sourceOffset + (State.currentTime - clip.start);
+                            clip.sourceNode.start(0, targetTime);
+                            clip.isPlaying = true;
+                            if (clip.audioNodes) applyAudioEffects(clip);
+                        }
+                    } else {
+                        if (clip.isPlaying && clip.sourceNode) {
+                            clip.sourceNode.stop();
+                            clip.sourceNode.disconnect();
+                            clip.sourceNode = null;
+                            clip.isPlaying = false;
+                        }
+                    }
+                    return;
+                }
+
+                if (el) {
                     if (shouldPlay) {
                         if (clip.audioEl) applyAudioEffects(clip);
                         
                         const targetTime = clip.sourceOffset + (State.currentTime - clip.start);
                         
-                        if (Math.abs(el.currentTime - targetTime) > 0.15) {
+                        if (!el.seeking && Math.abs(el.currentTime - targetTime) > 0.25) {
                             el.currentTime = targetTime;
                         }
                         
@@ -3690,9 +3734,15 @@ ctx.clearRect(0, 0, w, h);
                         if (!el.paused) {
                             el.pause();
                         }
-                        if (!State.isPlaying && State.currentTime >= clip.start && State.currentTime <= clip.start + clip.duration) {
+                        if (isUpcoming) {
+                            if (!el.seeking && Math.abs(el.currentTime - clip.sourceOffset) > 0.1) {
+                                el.currentTime = clip.sourceOffset;
+                            }
+                        } else if (!State.isPlaying && State.currentTime >= clip.start && State.currentTime <= clip.start + clip.duration) {
                             const targetTime = clip.sourceOffset + (State.currentTime - clip.start);
-                            el.currentTime = targetTime;
+                            if (!el.seeking && Math.abs(el.currentTime - targetTime) > 0.1) {
+                                el.currentTime = targetTime;
+                            }
                         }
                     }
                 }
