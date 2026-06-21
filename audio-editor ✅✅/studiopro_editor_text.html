@@ -2279,7 +2279,7 @@ const isText = clip.type === 'text';
                                 </button>
                             </div>
                             
-                            <div class="relative w-full h-16 bg-surface-100 dark:bg-surface-800 rounded select-none" id="audioLibWaveformContainer">
+                            <div class="relative w-full h-16 bg-surface-100 dark:bg-surface-800 rounded select-none" id="audioLibWaveformContainer" onmousedown="startAudioLibTrim(event, 'new')">
                                 <canvas id="audioLibWaveform" class="absolute inset-0 w-full h-full rounded"></canvas>
                                 <div id="audioLibTrimOverlay" class="absolute inset-y-0 bg-brand-500/20 border-x border-brand-500 pointer-events-none"></div>
                                 <div id="audioLibHandleL" class="absolute top-0 bottom-0 w-4 -ml-2 cursor-ew-resize flex items-center justify-center group z-10" onmousedown="startAudioLibTrim(event, 'left')">
@@ -2403,12 +2403,25 @@ const isText = clip.type === 'text';
 
         function startAudioLibTrim(e, side) {
             e.preventDefault();
+            e.stopPropagation();
+            if (e.button !== 0) return; // Only respond to left mouse button
+            
             const container = document.getElementById('audioLibWaveformContainer');
             const audio = State.audioLibrary.find(a => a.id === State.selectedAudioLibId);
             if (!container || !audio) return;
             
             const w = container.clientWidth;
             const rect = container.getBoundingClientRect();
+            
+            let startPx = e.clientX - rect.left;
+            startPx = Math.max(0, Math.min(startPx, w));
+            let startTime = (startPx / w) * audio.duration;
+            
+            if (side === 'new') {
+                audio.inPoint = startTime;
+                audio.outPoint = Math.min(audio.duration, startTime + 0.1);
+                updateAudioLibHandles();
+            }
             
             function onMove(me) {
                 let px = me.clientX - rect.left;
@@ -2418,9 +2431,17 @@ const isText = clip.type === 'text';
                 if (side === 'left') {
                     time = Math.min(time, audio.outPoint - 0.1);
                     audio.inPoint = time;
-                } else {
+                } else if (side === 'right') {
                     time = Math.max(time, audio.inPoint + 0.1);
                     audio.outPoint = time;
+                } else if (side === 'new') {
+                    if (time >= startTime) {
+                        audio.inPoint = startTime;
+                        audio.outPoint = Math.max(startTime + 0.1, time);
+                    } else {
+                        audio.outPoint = startTime;
+                        audio.inPoint = Math.min(startTime - 0.1, time);
+                    }
                 }
                 updateAudioLibHandles();
             }
