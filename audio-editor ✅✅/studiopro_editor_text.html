@@ -551,6 +551,7 @@
             <div class="h-10 bg-white dark:bg-surface-800 flex items-center justify-between px-4 shrink-0 shadow-sm sticky top-0 z-20">
                 <div id="sidebarTabs" class="flex items-center gap-1 bg-surface-100 dark:bg-surface-800/50 p-1 rounded-md">
                     <button onclick="setSidebarTab('properties')" id="tabProperties" class="text-[10px] font-bold uppercase tracking-wider px-2 py-1 rounded transition-colors bg-white dark:bg-surface-700 text-brand-500 shadow-sm">Properties</button>
+                    <button onclick="setSidebarTab('animations')" id="tabAnimations" class="text-[10px] font-bold uppercase tracking-wider px-2 py-1 rounded transition-colors text-surface-500 dark:text-surface-400 hover:text-surface-900 dark:hover:text-surface-200">Animations</button>
                     <button onclick="setSidebarTab('audio_library')" id="tabAudioLib" class="text-[10px] font-bold uppercase tracking-wider px-2 py-1 rounded transition-colors text-surface-500 dark:text-surface-400 hover:text-surface-900 dark:hover:text-surface-200">Audio</button>
                 </div>
                 <div class="flex items-center gap-1">
@@ -1362,51 +1363,216 @@
                         ctx.textBaseline = 'middle';
                         ctx.textAlign = 'center';
 
+                        const animTextIn = clip.effects.animTextIn || 'none';
+                        const animTextOut = clip.effects.animTextOut || 'none';
+                        const animTextLoop = clip.effects.animTextLoop || 'none';
+                        const animTextEase = clip.effects.animTextEase || 'easeOut';
+                        const flashColor = clip.effects.flashColor || '#ffe600';
+
+                        // Helper to lerp hex colors
+                        const lerpColor = (a, b, amount) => {
+                            const ah = parseInt(a.replace(/#/g, ''), 16),
+                                  ar = ah >> 16, ag = ah >> 8 & 0xff, ab = ah & 0xff,
+                                  bh = parseInt(b.replace(/#/g, ''), 16),
+                                  br = bh >> 16, bg = bh >> 8 & 0xff, bb = bh & 0xff,
+                                  rr = ar + amount * (br - ar),
+                                  rg = ag + amount * (bg - ag),
+                                  rb = ab + amount * (bb - ab);
+                            return '#' + (((1 << 24) + (rr << 16) + (rg << 8) + rb) | 0).toString(16).padStart(6, '0');
+                        };
+
                         let drawText = () => {
-                            // Extrude
-                            if (clip.effects.extrudeEnable) {
-                                ctx.fillStyle = clip.effects.extrudeColor || '#000000';
-                                const depth = clip.effects.extrudeDepth || 5;
-                                let dx = 1, dy = 1;
-                                const ed = clip.effects.extrudeDir || 'br';
-                                if (ed === 'bl') { dx = -1; dy = 1; }
-                                else if (ed === 'b') { dx = 0; dy = 1; }
-                                else if (ed === 'br') { dx = 1; dy = 1; }
-                                else if (ed === 'tr') { dx = 1; dy = -1; }
-                                else if (ed === 'tl') { dx = -1; dy = -1; }
-                                else if (ed === 't') { dx = 0; dy = -1; }
-                                else if (ed === 'r') { dx = 1; dy = 0; }
-                                else if (ed === 'l') { dx = -1; dy = 0; }
+                            if (animTextIn === 'none' && animTextOut === 'none' && animTextLoop === 'none') {
+                                // Original line-based rendering for performance and proper stroke
+                                // Extrude
+                                if (clip.effects.extrudeEnable) {
+                                    ctx.fillStyle = clip.effects.extrudeColor || '#000000';
+                                    const depth = clip.effects.extrudeDepth || 5;
+                                    let dx = 1, dy = 1;
+                                    const ed = clip.effects.extrudeDir || 'br';
+                                    if (ed === 'bl') { dx = -1; dy = 1; }
+                                    else if (ed === 'b') { dx = 0; dy = 1; }
+                                    else if (ed === 'br') { dx = 1; dy = 1; }
+                                    else if (ed === 'tr') { dx = 1; dy = -1; }
+                                    else if (ed === 'tl') { dx = -1; dy = -1; }
+                                    else if (ed === 't') { dx = 0; dy = -1; }
+                                    else if (ed === 'r') { dx = 1; dy = 0; }
+                                    else if (ed === 'l') { dx = -1; dy = 0; }
 
-                                for(let i = depth; i > 0; i -= 0.5) {
-                                    lines.forEach((line, li) => {
-                                        ctx.fillText(line, dx * i, startY + li * lh + dy * i);
-                                    });
+                                    for(let i = depth; i > 0; i -= 0.5) {
+                                        lines.forEach((line, li) => {
+                                            ctx.fillText(line, dx * i, startY + li * lh + dy * i);
+                                        });
+                                    }
                                 }
-                            }
 
-                            // Drop shadow
-                            if (clip.effects.shadowEnable) {
-                                ctx.shadowColor = clip.effects.shadowColor || '#000000';
-                                ctx.shadowBlur = clip.effects.shadowBlur || 20;
-                                ctx.shadowOffsetX = clip.effects.shadowX || 0;
-                                ctx.shadowOffsetY = clip.effects.shadowY || 10;
+                                // Drop shadow
+                                if (clip.effects.shadowEnable) {
+                                    ctx.shadowColor = clip.effects.shadowColor || '#000000';
+                                    ctx.shadowBlur = clip.effects.shadowBlur || 20;
+                                    ctx.shadowOffsetX = clip.effects.shadowX || 0;
+                                    ctx.shadowOffsetY = clip.effects.shadowY || 10;
+                                } else {
+                                    ctx.shadowColor = 'transparent';
+                                    ctx.shadowBlur = 0;
+                                }
+
+                                ctx.fillStyle = clip.effects.fillColor || '#ffffff';
+                                lines.forEach((line, li) => {
+                                    ctx.fillText(line, 0, startY + li * lh);
+                                    
+                                    // Text Decoration
+                                    if (clip.effects.textDecoration === 'underline' || clip.effects.textDecoration === 'line-through') {
+                                        const lm = ctx.measureText(line);
+                                        const tdw = lm.width;
+                                        ctx.fillRect(-tdw/2, startY + li * lh + (clip.effects.textDecoration === 'underline' ? fontSize*0.4 : -fontSize*0.1), tdw, fontSize*0.08);
+                                    }
+                                });
                             } else {
-                                ctx.shadowColor = 'transparent';
-                                ctx.shadowBlur = 0;
-                            }
-
-                            ctx.fillStyle = clip.effects.fillColor || '#ffffff';
-                            lines.forEach((line, li) => {
-                                ctx.fillText(line, 0, startY + li * lh);
+                                // Character-level rendering for Vox-style animations
+                                const targetFill = clip.effects.fillColor || '#ffffff';
+                                const targetExtrude = clip.effects.extrudeColor || '#000000';
+                                const durIn = clip.effects.animInDur || 1.0;
+                                const durOut = clip.effects.animOutDur || 1.0;
+                                const timeLeft = clip.duration - clipTime;
+                                const t = clipTime;
                                 
-                                // Text Decoration (Underline / Strike)
-                                if (clip.effects.textDecoration === 'underline' || clip.effects.textDecoration === 'line-through') {
-                                    const lm = ctx.measureText(line);
-                                    const tdw = lm.width;
-                                    ctx.fillRect(-tdw/2, startY + li * lh + (clip.effects.textDecoration === 'underline' ? fontSize*0.4 : -fontSize*0.1), tdw, fontSize*0.08);
-                                }
-                            });
+                                ctx.textAlign = 'left';
+                                
+                                lines.forEach((line, li) => {
+                                    const lineY = startY + li * lh;
+                                    const lineWidth = ctx.measureText(line).width;
+                                    let currentX = -lineWidth / 2; // Keep horizontally centered overall
+                                    
+                                    for (let i = 0; i < line.length; i++) {
+                                        const char = line[i];
+                                        const charWidth = ctx.measureText(char).width;
+                                        if (char === ' ') { currentX += charWidth; continue; }
+                                        
+                                        let cX = currentX;
+                                        let cY = lineY;
+                                        let cAlpha = 1;
+                                        let cScale = 1;
+                                        let cFill = targetFill;
+                                        let cRot = 0;
+
+                                        // IN Animations
+                                        if (animTextIn !== 'none' && t < durIn) {
+                                            if (animTextIn === 'fillFlash') {
+                                                const p = Math.min(1, Math.max(0, t / durIn));
+                                                cFill = lerpColor(flashColor, targetFill, p);
+                                            } 
+                                            else if (animTextIn === 'randomSnap') {
+                                                const seed = (i * 137) % 100 / 100; 
+                                                const staggerStart = seed * (durIn * 0.5); 
+                                                const p = Math.min(1, Math.max(0, (t - staggerStart) / (durIn * 0.5)));
+                                                const easeP = EASING[animTextEase](p);
+                                                
+                                                cAlpha = easeP;
+                                                cScale = 1.5 - 0.5 * easeP;
+                                                
+                                                const rX = Math.sin(i * 99) * 50;
+                                                const rY = Math.cos(i * 99) * 50;
+                                                cX += rX * (1 - easeP);
+                                                cY += rY * (1 - easeP);
+                                            }
+                                            else if (animTextIn === 'odometer') {
+                                                const staggerStart = i * (durIn * 0.05); 
+                                                const p = Math.min(1, Math.max(0, (t - staggerStart) / (durIn * 0.5)));
+                                                const easeP = EASING[animTextEase](p); 
+                                                
+                                                cAlpha = Math.min(1, p * 2);
+                                                cY -= 60 * (1 - easeP);
+                                            }
+                                        }
+
+                                        // LOOP Animations
+                                        if (animTextLoop !== 'none' && t >= durIn && timeLeft >= durOut) {
+                                            if (animTextLoop === 'wave') {
+                                                cY += Math.sin(t * 5 + i * 0.5) * 10;
+                                            } else if (animTextLoop === 'jiggle') {
+                                                cRot = Math.sin(t * 20 + i) * 0.1;
+                                                cX += Math.sin(t * 15 + i * 2) * 2;
+                                            }
+                                        }
+
+                                        // OUT Animations
+                                        if (animTextOut !== 'none' && timeLeft < durOut) {
+                                            if (animTextOut === 'randomFly') {
+                                                const seed = (i * 137) % 100 / 100; 
+                                                const staggerStart = seed * (durOut * 0.5); 
+                                                const p = Math.min(1, Math.max(0, (durOut - timeLeft - staggerStart) / (durOut * 0.5)));
+                                                const easeP = EASING[animTextEase](p);
+                                                
+                                                cAlpha = 1 - easeP;
+                                                cScale = 1 + 0.5 * easeP;
+                                                
+                                                const rX = Math.sin(i * 99) * 50;
+                                                const rY = Math.cos(i * 99) * 50;
+                                                cX += rX * easeP;
+                                                cY += rY * easeP;
+                                            }
+                                            else if (animTextOut === 'odometerUp') {
+                                                const staggerStart = i * (durOut * 0.05); 
+                                                const p = Math.min(1, Math.max(0, (durOut - timeLeft - staggerStart) / (durOut * 0.5)));
+                                                const easeP = EASING[animTextEase](p); 
+                                                
+                                                cAlpha = 1 - Math.min(1, p * 2);
+                                                cY -= 60 * easeP;
+                                            }
+                                        }
+
+                                        ctx.save();
+                                        ctx.translate(cX + charWidth/2, cY);
+                                        if (cRot !== 0) ctx.rotate(cRot);
+                                        ctx.scale(cScale, cScale);
+                                        ctx.globalAlpha *= cAlpha;
+
+                                        // Shadow
+                                        if (clip.effects.shadowEnable) {
+                                            ctx.shadowColor = clip.effects.shadowColor || '#000000';
+                                            ctx.shadowBlur = clip.effects.shadowBlur || 20;
+                                            ctx.shadowOffsetX = clip.effects.shadowX || 0;
+                                            ctx.shadowOffsetY = clip.effects.shadowY || 10;
+                                        } else {
+                                            ctx.shadowColor = 'transparent';
+                                        }
+
+                                        // Extrude
+                                        if (clip.effects.extrudeEnable) {
+                                            ctx.fillStyle = targetExtrude;
+                                            const depth = clip.effects.extrudeDepth || 5;
+                                            let dx = 1, dy = 1;
+                                            const ed = clip.effects.extrudeDir || 'br';
+                                            if (ed === 'bl') { dx = -1; dy = 1; }
+                                            else if (ed === 'b') { dx = 0; dy = 1; }
+                                            else if (ed === 'br') { dx = 1; dy = 1; }
+                                            else if (ed === 'tr') { dx = 1; dy = -1; }
+                                            else if (ed === 'tl') { dx = -1; dy = -1; }
+                                            else if (ed === 't') { dx = 0; dy = -1; }
+                                            else if (ed === 'r') { dx = 1; dy = 0; }
+                                            else if (ed === 'l') { dx = -1; dy = 0; }
+                                            
+                                            for(let e = depth; e > 0; e -= 0.5) {
+                                                ctx.fillText(char, -charWidth/2 + dx*e, dy*e);
+                                            }
+                                        }
+
+                                        // Fill
+                                        ctx.fillStyle = cFill;
+                                        ctx.fillText(char, -charWidth/2, 0);
+
+                                        // Text Decoration
+                                        if (clip.effects.textDecoration === 'underline' || clip.effects.textDecoration === 'line-through') {
+                                            ctx.fillRect(-charWidth/2, (clip.effects.textDecoration === 'underline' ? fontSize*0.4 : -fontSize*0.1), charWidth, fontSize*0.08);
+                                        }
+
+                                        ctx.restore();
+                                        currentX += charWidth;
+                                    }
+                                });
+                                ctx.textAlign = 'center'; // Restore
+                            }
 
                             ctx.shadowColor = 'transparent';
                             ctx.shadowBlur = 0;
@@ -1771,7 +1937,7 @@
             if (clip) {
                 if (typeof value === 'boolean') {
                     clip.effects[effectName] = value;
-                } else if (['shadowColor', 'animIn', 'animOut', 'animLoop', 'extrudeColor', 'fillColor', 'fontFamily', 'extrudeDir', 'textTransform', 'fontStyle', 'textDecoration', 'blendMode'].includes(effectName)) {
+                } else if (['shadowColor', 'animIn', 'animOut', 'animLoop', 'extrudeColor', 'fillColor', 'fontFamily', 'extrudeDir', 'textTransform', 'fontStyle', 'textDecoration', 'blendMode', 'animEase', 'animTextSpecial', 'flashColor', 'animTextIn', 'animTextOut', 'animTextLoop'].includes(effectName)) {
                     clip.effects[effectName] = value;
                 } else {
                     clip.effects[effectName] = parseFloat(value);
@@ -1855,6 +2021,11 @@
             const animOutDur = fx.animOutDur || 1.0;
             const animLoop = fx.animLoop || 'none';
             const animEase = fx.animEase || 'easeOut';
+            const animTextIn = fx.animTextIn || 'none';
+            const animTextOut = fx.animTextOut || 'none';
+            const animTextLoop = fx.animTextLoop || 'none';
+            const animTextEase = fx.animTextEase || 'easeOut';
+            const flashColor = fx.flashColor || '#ffe600';
 
             const isHorizontal = State.inspector.dock === 'bottom' || State.inspector.dock === 'top';
 
@@ -2153,10 +2324,10 @@ const isText = clip.type === 'text';
                 createAudioAccordion('cinematic', 'speaker', 'Bass (Cinematic)', 'cinematicEnable', 'cinematic', cinematic, cinematicEnable) +
                 createAudioAccordion('robot', 'bot', 'Robot Voice', 'robotEnable', 'robot', robot, robotEnable) +
                 createAudioAccordion('cartoon', 'smile', 'Cartoon Voice', 'cartoonEnable', 'cartoon', cartoon, cartoonEnable);
-           const animHTML = `
+           let animHTML = `
                 <details class="group bg-white dark:bg-surface-800 border border-surface-300 dark:border-surface-700 shadow-sm rounded-lg shrink-0 ${isHorizontal ? 'w-[280px]' : 'w-full'} overflow-hidden flex flex-col" open>
                     <summary class="flex items-center justify-between p-3 ${isHorizontal ? '' : 'cursor-pointer'} list-none appearance-none select-none bg-surface-100 dark:bg-surface-800/80 border-b border-surface-200 dark:border-surface-700 " onclick="${isHorizontal ? 'event.preventDefault();' : ''}">
-                        <div class="text-sm font-bold text-surface-800 dark:text-surface-200 flex items-center gap-2"><i data-lucide="sparkles" class="w-4 h-4 text-surface-500 dark:text-surface-400"></i> Animations</div>
+                        <div class="text-sm font-bold text-surface-800 dark:text-surface-200 flex items-center gap-2"><i data-lucide="sparkles" class="w-4 h-4 text-surface-500 dark:text-surface-400"></i> Transforms</div>
                         ${isHorizontal ? '' : '<i data-lucide="chevron-down" class="w-4 h-4 text-surface-500 transition-transform group-open:rotate-180"></i>'}
                     </summary>
                     
@@ -2233,12 +2404,77 @@ const isText = clip.type === 'text';
                 </details>
             `;
 
+            if (isText) {
+                animHTML = `
+                <details class="group bg-white dark:bg-surface-800 border border-surface-300 dark:border-surface-700 shadow-sm rounded-lg shrink-0 ${isHorizontal ? 'w-[280px]' : 'w-full'} overflow-hidden flex flex-col" open>
+                    <summary class="flex items-center justify-between p-3 ${isHorizontal ? '' : 'cursor-pointer'} list-none appearance-none select-none bg-surface-100 dark:bg-surface-800/80 border-b border-surface-200 dark:border-surface-700 " onclick="${isHorizontal ? 'event.preventDefault();' : ''}">
+                        <div class="text-sm font-bold text-surface-800 dark:text-surface-200 flex items-center gap-2"><i data-lucide="type" class="w-4 h-4 text-brand-500"></i> Text Animation</div>
+                        ${isHorizontal ? '' : '<i data-lucide="chevron-down" class="w-4 h-4 text-surface-500 transition-transform group-open:rotate-180"></i>'}
+                    </summary>
+                    <div class="p-3 flex flex-col gap-3 w-full bg-surface-50 dark:bg-surface-900/50 flex-1">
+                        
+                        <div class="bg-surface-50 dark:bg-surface-800/80 p-2.5 rounded-lg border border-surface-200 dark:border-surface-700 shadow-sm flex flex-col gap-2 w-full">
+                            <span class="text-[10px] font-bold text-brand-600 dark:text-brand-400 uppercase">Easing Type</span>
+                            <select class="w-full text-xs p-2 pl-3 border border-surface-200 dark:border-surface-700 rounded bg-surface-50 dark:bg-surface-900/80 shadow-inner focus:outline-none focus:border-brand-500 focus:ring-1 focus:ring-brand-500 appearance-none cursor-pointer font-bold text-surface-800 dark:text-surface-200" onchange="setClipEffect('${clip.id}', 'animTextEase', this.value); updateSidebarPanel();">
+                                <option value="linear" ${animTextEase === 'linear' ? 'selected' : ''}>Linear</option>
+                                <option value="easeIn" ${animTextEase === 'easeIn' ? 'selected' : ''}>Ease In</option>
+                                <option value="easeOut" ${animTextEase === 'easeOut' ? 'selected' : ''}>Ease Out</option>
+                                <option value="easeInOut" ${animTextEase === 'easeInOut' ? 'selected' : ''}>Ease In-Out</option>
+                                <option value="elastic" ${animTextEase === 'elastic' ? 'selected' : ''}>Elastic</option>
+                                <option value="bounce" ${animTextEase === 'bounce' ? 'selected' : ''}>Bounce</option>
+                            </select>
+                        </div>
+
+                        <div class="bg-surface-50 dark:bg-surface-800/80 p-2.5 rounded-lg border border-surface-200 dark:border-surface-700 shadow-sm flex flex-col gap-2 w-full">
+                            <span class="text-[10px] font-bold text-brand-600 dark:text-brand-400 uppercase">In</span>
+                            <select class="w-full text-xs p-2 pl-3 border border-surface-200 dark:border-surface-700 rounded bg-surface-50 dark:bg-surface-900/80 shadow-inner focus:outline-none focus:border-brand-500 focus:ring-1 focus:ring-brand-500 appearance-none cursor-pointer font-bold text-surface-800 dark:text-surface-200" onchange="setClipEffect('${clip.id}', 'animTextIn', this.value); updateSidebarPanel();">
+                                <option value="none" ${animTextIn === 'none' ? 'selected' : ''}>None</option>
+                                <option value="fillFlash" ${animTextIn === 'fillFlash' ? 'selected' : ''}>Fill Color Flash</option>
+                                <option value="randomSnap" ${animTextIn === 'randomSnap' ? 'selected' : ''}>Random Letters Snap</option>
+                                <option value="odometer" ${animTextIn === 'odometer' ? 'selected' : ''}>Odometer Drop</option>
+                            </select>
+                            
+                            <div class="flex items-center justify-between mt-2 ${animTextIn === 'fillFlash' ? '' : 'hidden'}">
+                                <span class="text-[10px] font-bold text-surface-500 dark:text-surface-400 uppercase">Flash Color</span>
+                                <div class="relative w-6 h-6 rounded-md overflow-hidden border border-surface-300 dark:border-surface-600 shadow-sm">
+                                    <input type="color" class="absolute -top-2 -left-2 w-10 h-10 cursor-pointer" value="${flashColor}" onchange="setClipEffect('${clip.id}', 'flashColor', this.value)">
+                                </div>
+                            </div>
+                        </div>
+
+                        <div class="bg-surface-50 dark:bg-surface-800/80 p-2.5 rounded-lg border border-surface-200 dark:border-surface-700 shadow-sm flex flex-col gap-2 w-full">
+                            <span class="text-[10px] font-bold text-brand-600 dark:text-brand-400 uppercase">Out</span>
+                            <select class="w-full text-xs p-2 pl-3 border border-surface-200 dark:border-surface-700 rounded bg-surface-50 dark:bg-surface-900/80 shadow-inner focus:outline-none focus:border-brand-500 focus:ring-1 focus:ring-brand-500 appearance-none cursor-pointer font-bold text-surface-800 dark:text-surface-200" onchange="setClipEffect('${clip.id}', 'animTextOut', this.value); updateSidebarPanel();">
+                                <option value="none" ${animTextOut === 'none' ? 'selected' : ''}>None</option>
+                                <option value="randomFly" ${animTextOut === 'randomFly' ? 'selected' : ''}>Random Letters Fly</option>
+                                <option value="odometerUp" ${animTextOut === 'odometerUp' ? 'selected' : ''}>Odometer Up</option>
+                            </select>
+                        </div>
+
+                        <div class="bg-surface-50 dark:bg-surface-800/80 p-2.5 rounded-lg border border-surface-200 dark:border-surface-700 shadow-sm flex flex-col gap-2 w-full">
+                            <span class="text-[10px] font-bold text-brand-600 dark:text-brand-400 uppercase">Loop</span>
+                            <select class="w-full text-xs p-2 pl-3 border border-surface-200 dark:border-surface-700 rounded bg-surface-50 dark:bg-surface-900/80 shadow-inner focus:outline-none focus:border-brand-500 focus:ring-1 focus:ring-brand-500 appearance-none cursor-pointer font-bold text-surface-800 dark:text-surface-200" onchange="setClipEffect('${clip.id}', 'animTextLoop', this.value); updateSidebarPanel();">
+                                <option value="none" ${animTextLoop === 'none' ? 'selected' : ''}>None</option>
+                                <option value="wave" ${animTextLoop === 'wave' ? 'selected' : ''}>Wave</option>
+                                <option value="jiggle" ${animTextLoop === 'jiggle' ? 'selected' : ''}>Jiggle</option>
+                            </select>
+                        </div>
+
+                    </div>
+                </details>
+                ` + animHTML;
+            }
+
             // Use a clean layout for the sidebar items
             sidebarContent.className = isHorizontal ? "flex flex-row flex-nowrap overflow-x-auto gap-4 p-2 w-full flex-1 min-w-0 no-scrollbar" : "flex flex-col gap-3 p-2 w-full flex-1 min-h-0 overflow-y-auto";
             if (clip.type === 'audio') {
                 sidebarContent.innerHTML = audioHTML;
             } else {
-                sidebarContent.innerHTML = transformHTML + (isText ? textHTML : '') + shadowHTML + animHTML;
+                if (State.sidebarTab === 'animations') {
+                    sidebarContent.innerHTML = animHTML;
+                } else {
+                    sidebarContent.innerHTML = transformHTML + (isText ? textHTML : '') + shadowHTML;
+                }
             }
             
             // Set initial gradient bg for sliders in sidebar
@@ -2965,7 +3201,8 @@ const isVis = !clip.hidden;
                         fontFamily: 'Rubik', fontWeight: 700, fillColor: '#ffffff',
                         shadowEnable: false, shadowColor: '#000000', shadowBlur: 20, shadowX: 0, shadowY: 10, 
                         extrudeEnable: false, extrudeDepth: 5, extrudeColor: '#000000',
-                        animIn: 'none', animOut: 'none', animLoop: 'none', animInDur: 1.0, animOutDur: 1.0, animEase: 'easeOut'
+                        animIn: 'none', animOut: 'none', animLoop: 'none', animInDur: 1.0, animOutDur: 1.0, animEase: 'easeOut',
+                        animTextIn: 'none', animTextOut: 'none', animTextLoop: 'none', animTextEase: 'easeOut', flashColor: '#ffe600'
                     }
                 };
                 State.clips.push(newTextClip);
