@@ -111,6 +111,20 @@
             box-shadow: 0 0 0 2px #6366f1 !important;
             z-index: 45;
         }
+        
+        .clip.multi-selected {
+            box-shadow: 0 0 0 2px #8b5cf6 !important; /* Purple border for group */
+            z-index: 44;
+        }
+
+        #marqueeSelection {
+            position: absolute;
+            background-color: rgba(99, 102, 241, 0.2);
+            border: 1px solid rgba(99, 102, 241, 0.8);
+            z-index: 100;
+            pointer-events: none;
+            display: none;
+        }
 
         /* Overlap Warning Pattern */
         .clip.overlapping {
@@ -580,6 +594,7 @@
             isExporting: false,
             lastRenderTime: 0,
             selectedClipId: null,
+            multiSelectedClipIds: [],
             activePropertyTab: 'volume', 
             sidebarTab: 'properties', // 'properties' or 'audio_library'
             audioLibrary: [],
@@ -603,10 +618,12 @@
                 type: null,
                 clipId: null,
                 startX: 0,
+                startY: 0,
                 initialStart: 0,
                 initialDuration: 0,
                 initialSourceOffset: 0,
-                initialTrackId: null
+                initialTrackId: null,
+                initialMulti: [] // { id, start, trackId }
             },
             
             preview: { hidden: false, aspectIndex: 0 },
@@ -3025,17 +3042,21 @@ const isVis = !clip.hidden;
         // --- Editing Tools (Split & Delete) ---
         
         function deleteSelectedClip() {
-            if (!State.selectedClipId) return;
-            const clipToDelete = State.clips.find(c => c.id === State.selectedClipId);
+            const idsToDelete = State.multiSelectedClipIds && State.multiSelectedClipIds.length > 0 ? [...State.multiSelectedClipIds] : (State.selectedClipId ? [State.selectedClipId] : []);
+            if (idsToDelete.length === 0) return;
             
-            if (clipToDelete && clipToDelete.audioEl) {
-                clipToDelete.audioEl.pause();
-                clipToDelete.audioEl.removeAttribute('src');
-                if(clipToDelete.audioNodes) clipToDelete.audioNodes.source.disconnect();
-            }
+            idsToDelete.forEach(id => {
+                const clipToDelete = State.clips.find(c => c.id === id);
+                if (clipToDelete && clipToDelete.audioEl) {
+                    clipToDelete.audioEl.pause();
+                    clipToDelete.audioEl.removeAttribute('src');
+                    if(clipToDelete.audioNodes) clipToDelete.audioNodes.source.disconnect();
+                }
+            });
             
-            State.clips = State.clips.filter(c => c.id !== State.selectedClipId);
+            State.clips = State.clips.filter(c => !idsToDelete.includes(c.id));
             State.selectedClipId = null;
+            State.multiSelectedClipIds = [];
             calcOverlaps();
             renderClips();
             updatePropertiesPanel();
@@ -3182,7 +3203,9 @@ const isVis = !clip.hidden;
                 
                 let extraClasses = '';
                 if(clip.overlapping) extraClasses += ' overlapping';
-                if(State.selectedClipId === clip.id) extraClasses += ' selected';
+                
+                if (State.selectedClipId === clip.id) extraClasses += ' selected';
+                if (State.multiSelectedClipIds && State.multiSelectedClipIds.includes(clip.id)) extraClasses += ' multi-selected';
 
                 el.className = `clip absolute top-[3px] bottom-[3px] rounded border overflow-hidden cursor-pointer ${extraClasses}`;
                 if(track.muted) el.style.opacity = '0.4';
@@ -3587,12 +3610,33 @@ ctx.clearRect(0, 0, w, h);
 
             tracksContentContainer.addEventListener('mousedown', (e) => {
                 if (!e.target.closest('.clip')) {
-                    State.selectedClipId = null;
-                    renderClips(); 
-                    updatePropertiesPanel();
-                    drawCanvas();
+                    // Empty space click
+                    if (!e.ctrlKey && !e.metaKey) {
+                        State.selectedClipId = null;
+                        State.multiSelectedClipIds = [];
+                        renderClips(); 
+                        updatePropertiesPanel();
+                        drawCanvas();
+                    }
+                    
+                    // Start Marquee
+                    const rect = tracksContentContainer.getBoundingClientRect();
+                    State.drag.active = true;
+                    State.drag.type = 'marquee';
+                    State.drag.startX = e.clientX;
+                    State.drag.startY = e.clientY;
+                    
+                    const marquee = document.getElementById('marqueeSelection');
+                    if (marquee) {
+                        marquee.style.left = `${e.clientX - rect.left}px`;
+                        marquee.style.top = `${e.clientY - rect.top}px`;
+                        marquee.style.width = '0px';
+                        marquee.style.height = '0px';
+                        marquee.style.display = 'block';
+                    }
+                } else {
+                    handleMouseDown(e);
                 }
-                handleMouseDown(e);
             });
             
             document.addEventListener('mousemove', handleMouseMove);
@@ -3608,11 +3652,31 @@ ctx.clearRect(0, 0, w, h);
             const clip = State.clips.find(c => c.id === clipId);
             if (!clip) return;
 
-            if (State.selectedClipId !== clipId) {
-                State.selectedClipId = clipId;
-                renderClips(); 
+            if (e.ctrlKey || e.metaKey) {
+                if (State.multiSelectedClipIds.includes(clipId)) {
+                    State.multiSelectedClipIds = State.multiSelectedClipIds.filter(id => id !== clipId);
+                    if (State.selectedClipId === clipId) {
+                        State.selectedClipId = State.multiSelectedClipIds.length > 0 ? State.multiSelectedClipIds[0] : null;
+                    }
+                } else {
+                    State.multiSelectedClipIds.push(clipId);
+                    State.selectedClipId = clipId;
+                }
+                renderClips();
                 updatePropertiesPanel();
                 drawCanvas();
+            } else {
+                if (!State.multiSelectedClipIds.includes(clipId)) {
+                    State.multiSelectedClipIds = [clipId];
+                    State.selectedClipId = clipId;
+                    renderClips(); 
+                    updatePropertiesPanel();
+                    drawCanvas();
+                } else if (State.selectedClipId !== clipId) {
+                    State.selectedClipId = clipId;
+                    renderClips();
+                    updatePropertiesPanel();
+                }
             }
 
             State.drag.active = true;
@@ -3623,17 +3687,52 @@ ctx.clearRect(0, 0, w, h);
             State.drag.initialTrackId = clip.trackId;
             State.drag.startX = e.clientX;
 
+            State.drag.initialMulti = [];
+            if (!trimHandle && State.multiSelectedClipIds.includes(clipId)) {
+                State.multiSelectedClipIds.forEach(id => {
+                    const c = State.clips.find(x => x.id === id);
+                    if (c) State.drag.initialMulti.push({ id: c.id, start: c.start, trackId: c.trackId });
+                });
+            }
+
             if (trimHandle) {
                 State.drag.type = trimHandle.dataset.action;
             } else {
                 State.drag.type = 'move';
-                const freshClipEl = document.querySelector(`.clip[data-clip-id="${clip.id}"]`);
-                if(freshClipEl) freshClipEl.classList.add('dragging');
+                if (State.multiSelectedClipIds.includes(clipId)) {
+                    State.multiSelectedClipIds.forEach(id => {
+                        const el = document.querySelector(`.clip[data-clip-id="${id}"]`);
+                        if (el) el.classList.add('dragging');
+                    });
+                } else {
+                    const freshClipEl = document.querySelector(`.clip[data-clip-id="${clip.id}"]`);
+                    if(freshClipEl) freshClipEl.classList.add('dragging');
+                }
             }
         }
 
         function handleMouseMove(e) {
             if (!State.drag.active) return;
+
+            if (State.drag.type === 'marquee') {
+                const rect = tracksContentContainer.getBoundingClientRect();
+                const marquee = document.getElementById('marqueeSelection');
+                if (marquee) {
+                    const currentX = e.clientX;
+                    const currentY = e.clientY;
+                    
+                    const left = Math.min(State.drag.startX, currentX) - rect.left;
+                    const top = Math.min(State.drag.startY, currentY) - rect.top;
+                    const width = Math.abs(currentX - State.drag.startX);
+                    const height = Math.abs(currentY - State.drag.startY);
+                    
+                    marquee.style.left = `${left}px`;
+                    marquee.style.top = `${top}px`;
+                    marquee.style.width = `${width}px`;
+                    marquee.style.height = `${height}px`;
+                }
+                return;
+            }
 
             const clip = State.clips.find(c => c.id === State.drag.clipId);
             const clipEl = document.querySelector(`.clip[data-clip-id="${clip.id}"]`);
@@ -3645,31 +3744,42 @@ ctx.clearRect(0, 0, w, h);
             const palette = PALETTES[clip.colorIndex];
 
             if (State.drag.type === 'move') {
-                clip.start = Math.max(0, State.drag.initialStart + deltaTime);
-                clipEl.style.left = `${clip.start * State.pixelsPerSecond}px`;
+                if (State.drag.initialMulti && State.drag.initialMulti.length > 0) {
+                    State.drag.initialMulti.forEach(mc => {
+                        const mcClip = State.clips.find(c => c.id === mc.id);
+                        const mcEl = document.querySelector(`.clip[data-clip-id="${mc.id}"]`);
+                        if (mcClip && mcEl) {
+                            mcClip.start = Math.max(0, mc.start + deltaTime);
+                            mcEl.style.left = `${mcClip.start * State.pixelsPerSecond}px`;
+                        }
+                    });
+                } else {
+                    clip.start = Math.max(0, State.drag.initialStart + deltaTime);
+                    clipEl.style.left = `${clip.start * State.pixelsPerSecond}px`;
 
-                const rect = tracksContentContainer.getBoundingClientRect();
-                const yPos = e.clientY - rect.top;
-                
-                let currentY = 0;
-                let hoveredTrackId = null;
-                for (const tr of State.tracks) {
-                    if (yPos >= currentY && yPos < currentY + tr.height) { hoveredTrackId = tr.id; break; }
-                    currentY += tr.height;
-                }
-
-                if (hoveredTrackId && hoveredTrackId !== clip.trackId) {
-                    const tgtTrack = State.tracks.find(t=>t.id===hoveredTrackId);
+                    const rect = tracksContentContainer.getBoundingClientRect();
+                    const yPos = e.clientY - rect.top;
                     
-                    const isVisual = clip.type === 'video' || clip.type === 'image';
-                    const isTgtVisual = tgtTrack.type === 'video';
-                    const isAudio = clip.type === 'audio';
-                    const isTgtAudio = tgtTrack.type === 'audio';
+                    let currentY = 0;
+                    let hoveredTrackId = null;
+                    for (const tr of State.tracks) {
+                        if (yPos >= currentY && yPos < currentY + tr.height) { hoveredTrackId = tr.id; break; }
+                        currentY += tr.height;
+                    }
 
-                    if ((isVisual && isTgtVisual) || (isAudio && isTgtAudio)) {
-                        clip.trackId = hoveredTrackId;
-                        const newLane = tracksContentContainer.querySelector(`.track-lane[data-track-id="${hoveredTrackId}"]`);
-                        if(newLane) newLane.appendChild(clipEl);
+                    if (hoveredTrackId && hoveredTrackId !== clip.trackId) {
+                        const tgtTrack = State.tracks.find(t=>t.id===hoveredTrackId);
+                        
+                        const isVisual = clip.type === 'video' || clip.type === 'image';
+                        const isTgtVisual = tgtTrack.type === 'video';
+                        const isAudio = clip.type === 'audio';
+                        const isTgtAudio = tgtTrack.type === 'audio';
+
+                        if ((isVisual && isTgtVisual) || (isAudio && isTgtAudio)) {
+                            clip.trackId = hoveredTrackId;
+                            const newLane = tracksContentContainer.querySelector(`.track-lane[data-track-id="${hoveredTrackId}"]`);
+                            if(newLane) newLane.appendChild(clipEl);
+                        }
                     }
                 }
 
@@ -3724,8 +3834,53 @@ ctx.clearRect(0, 0, w, h);
 
         function handleMouseUp(e) {
             if (!State.drag.active) return;
-            const clipEl = document.querySelector(`.clip[data-clip-id="${State.drag.clipId}"]`);
-            if (clipEl) clipEl.classList.remove('dragging');
+            
+            if (State.drag.type === 'marquee') {
+                const marquee = document.getElementById('marqueeSelection');
+                if (marquee) {
+                    const mRect = marquee.getBoundingClientRect();
+                    const clipEls = tracksContentContainer.querySelectorAll('.clip');
+                    
+                    if (!e.ctrlKey && !e.metaKey) State.multiSelectedClipIds = [];
+                    
+                    clipEls.forEach(el => {
+                        const cRect = el.getBoundingClientRect();
+                        const intersect = !(
+                            mRect.right < cRect.left || 
+                            mRect.left > cRect.right || 
+                            mRect.bottom < cRect.top || 
+                            mRect.top > cRect.bottom
+                        );
+                        if (intersect) {
+                            const cid = el.dataset.clipId;
+                            if (!State.multiSelectedClipIds.includes(cid)) {
+                                State.multiSelectedClipIds.push(cid);
+                            }
+                        }
+                    });
+                    
+                    marquee.style.display = 'none';
+                    marquee.style.width = '0px';
+                    marquee.style.height = '0px';
+                    
+                    if (State.multiSelectedClipIds.length > 0) {
+                        State.selectedClipId = State.multiSelectedClipIds[0];
+                    }
+                    
+                    renderClips();
+                    updatePropertiesPanel();
+                    drawCanvas();
+                }
+            } else if (State.drag.type === 'move' && State.drag.initialMulti && State.drag.initialMulti.length > 0) {
+                State.drag.initialMulti.forEach(mc => {
+                    const mcEl = document.querySelector(`.clip[data-clip-id="${mc.id}"]`);
+                    if (mcEl) mcEl.classList.remove('dragging');
+                });
+            } else {
+                const clipEl = document.querySelector(`.clip[data-clip-id="${State.drag.clipId}"]`);
+                if (clipEl) clipEl.classList.remove('dragging');
+            }
+            
             State.drag.active = false;
             
             calcOverlaps();
