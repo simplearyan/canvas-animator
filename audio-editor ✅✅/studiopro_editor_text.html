@@ -2999,9 +2999,11 @@ const isVis = !clip.hidden;
                         let audioEl = new Audio(objectUrl);
                         audioEl.crossOrigin = "anonymous";
                         
+                        let decodedBuffer = null;
                         try {
                             const arrayBuffer = await file.arrayBuffer();
                             const audioBuffer = await audioCtx.decodeAudioData(arrayBuffer);
+                            decodedBuffer = audioBuffer;
                             duration = audioBuffer.duration;
                             
                             const data = audioBuffer.getChannelData(0);
@@ -3072,6 +3074,7 @@ const isVis = !clip.hidden;
                             duration: duration,
                             sourceOffset: 0,
                             audioEl: audioEl,
+                            buffer: decodedBuffer,
                             peaks: peaks,
                             peaksPerSecond: peaksPerSecond,
                             maxDuration: duration,
@@ -3331,7 +3334,7 @@ const isVis = !clip.hidden;
 
             State.clips.forEach(clip => {
                 const track = State.tracks.find(t => t.id === clip.trackId);
-                if (!track || track.hidden) return;
+                if (!track) return;
 
                 const lane = tracksContentContainer.querySelector(`.track-lane[data-track-id="${clip.trackId}"]`);
                 if (!lane) return;
@@ -3345,6 +3348,7 @@ const isVis = !clip.hidden;
                 if (State.selectedClipId === clip.id) extraClasses += ' selected';
                 if (State.multiSelectedClipIds && State.multiSelectedClipIds.includes(clip.id)) extraClasses += ' multi-selected';
                 if (track.locked) extraClasses += ' locked-clip grayscale-[30%] opacity-80';
+                if (track.hidden) extraClasses += ' hidden-clip grayscale-[20%] opacity-100';
 
                 el.className = `clip absolute top-[3px] bottom-[3px] rounded border overflow-hidden cursor-pointer ${extraClasses}`;
                 
@@ -4095,8 +4099,12 @@ ctx.clearRect(0, 0, w, h);
         }
 
         // --- Audio Synchronization Engine ---
+        let lastSyncTime = 0;
         function syncMediaElements() {
             if (!audioCtx) ensureAudioContext();
+            
+            const isJump = Math.abs(State.currentTime - lastSyncTime) > 0.2;
+            lastSyncTime = State.currentTime;
             
             State.clips.forEach(clip => {
                 const track = State.tracks.find(t => t.id === clip.trackId);
@@ -4118,7 +4126,10 @@ ctx.clearRect(0, 0, w, h);
                 
                 if (clip.buffer) {
                     if (shouldPlay) {
-                        if (!clip.isPlaying) {
+                        if (!clip.isPlaying || isJump) {
+                            if (clip.isPlaying && clip.sourceNode) {
+                                try { clip.sourceNode.stop(); clip.sourceNode.disconnect(); } catch(e){}
+                            }
                             clip.sourceNode = audioCtx.createBufferSource();
                             clip.sourceNode.buffer = clip.buffer;
                             if (clip.audioNodes && clip.audioNodes.noiseRed) {
