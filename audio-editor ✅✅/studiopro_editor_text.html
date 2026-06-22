@@ -113,7 +113,7 @@
         }
         
         .clip.multi-selected {
-            box-shadow: 0 0 0 2px #8b5cf6 !important; /* Purple border for group */
+            box-shadow: 0 0 0 2px #8b5cf6 !important;
             z-index: 44;
         }
 
@@ -124,6 +124,13 @@
             z-index: 100;
             pointer-events: none;
             display: none;
+        }
+        
+        .track-lane.drag-hover {
+            background-color: rgba(99, 102, 241, 0.1);
+            outline: 2px dashed rgba(99, 102, 241, 0.6);
+            outline-offset: -2px;
+            z-index: 20;
         }
 
         /* Overlap Warning Pattern */
@@ -3626,14 +3633,17 @@ ctx.clearRect(0, 0, w, h);
                     State.drag.startX = e.clientX;
                     State.drag.startY = e.clientY;
                     
-                    const marquee = document.getElementById('marqueeSelection');
-                    if (marquee) {
-                        marquee.style.left = `${e.clientX - rect.left}px`;
-                        marquee.style.top = `${e.clientY - rect.top}px`;
-                        marquee.style.width = '0px';
-                        marquee.style.height = '0px';
-                        marquee.style.display = 'block';
+                    let marquee = document.getElementById('marqueeSelection');
+                    if (!marquee) {
+                        marquee = document.createElement('div');
+                        marquee.id = 'marqueeSelection';
+                        tracksContentContainer.appendChild(marquee);
                     }
+                    marquee.style.left = `${e.clientX - rect.left}px`;
+                    marquee.style.top = `${e.clientY - rect.top}px`;
+                    marquee.style.width = '0px';
+                    marquee.style.height = '0px';
+                    marquee.style.display = 'block';
                 } else {
                     handleMouseDown(e);
                 }
@@ -3686,6 +3696,7 @@ ctx.clearRect(0, 0, w, h);
             State.drag.initialSourceOffset = clip.sourceOffset;
             State.drag.initialTrackId = clip.trackId;
             State.drag.startX = e.clientX;
+            State.drag.startY = e.clientY;
 
             State.drag.initialMulti = [];
             if (!trimHandle && State.multiSelectedClipIds.includes(clipId)) {
@@ -3744,6 +3755,43 @@ ctx.clearRect(0, 0, w, h);
             const palette = PALETTES[clip.colorIndex];
 
             if (State.drag.type === 'move') {
+                const rect = tracksContentContainer.getBoundingClientRect();
+                const rawDeltaY = e.clientY - State.drag.startY;
+                const isVerticalBreakout = Math.abs(rawDeltaY) > 20;
+
+                const yPos = isVerticalBreakout ? e.clientY - rect.top : State.drag.startY - rect.top;
+                const deltaY = isVerticalBreakout ? rawDeltaY : 0;
+                
+                let currentY = 0;
+                let hoveredTrackId = null;
+                for (const tr of State.tracks) {
+                    if (yPos >= currentY && yPos < currentY + tr.height) { hoveredTrackId = tr.id; break; }
+                    currentY += tr.height;
+                }
+
+                let typedDelta = 0;
+                if (hoveredTrackId && hoveredTrackId !== clip.trackId) {
+                    const tgtTrack = State.tracks.find(t=>t.id===hoveredTrackId);
+                    if (tgtTrack) {
+                        const isVisual = clip.type === 'video' || clip.type === 'image';
+                        const isTgtVisual = tgtTrack.type === 'video';
+                        const isAudio = clip.type === 'audio';
+                        const isTgtAudio = tgtTrack.type === 'audio';
+                        
+                        if ((isVisual && isTgtVisual) || (isAudio && isTgtAudio)) {
+                            const typedTracks = isVisual ? State.tracks.filter(t => t.type === 'video') : State.tracks.filter(t => t.type === 'audio');
+                            const initialIndex = typedTracks.findIndex(t => t.id === State.drag.initialTrackId);
+                            const newIndex = typedTracks.findIndex(t => t.id === hoveredTrackId);
+                            if (initialIndex !== -1 && newIndex !== -1) {
+                                typedDelta = newIndex - initialIndex;
+                            }
+                        }
+                    }
+                }
+
+                // Remove existing drag-hover highlights
+                tracksContentContainer.querySelectorAll('.track-lane').forEach(l => l.classList.remove('drag-hover'));
+
                 if (State.drag.initialMulti && State.drag.initialMulti.length > 0) {
                     State.drag.initialMulti.forEach(mc => {
                         const mcClip = State.clips.find(c => c.id === mc.id);
@@ -3751,35 +3799,42 @@ ctx.clearRect(0, 0, w, h);
                         if (mcClip && mcEl) {
                             mcClip.start = Math.max(0, mc.start + deltaTime);
                             mcEl.style.left = `${mcClip.start * State.pixelsPerSecond}px`;
+                            mcEl.style.transform = `translateY(${deltaY}px)`;
+                            mcEl.style.transition = 'none'; // Ensure instant visual feedback
+                            
+                            if (typedDelta !== 0) {
+                                const mcIsVisual = mcClip.type === 'video' || mcClip.type === 'image';
+                                const mcTypedTracks = mcIsVisual ? State.tracks.filter(t => t.type === 'video') : State.tracks.filter(t => t.type === 'audio');
+                                const mcInitialIndex = mcTypedTracks.findIndex(t => t.id === mc.trackId);
+                                
+                                if (mcInitialIndex !== -1) {
+                                    let targetIndex = mcInitialIndex + typedDelta;
+                                    targetIndex = Math.max(0, Math.min(targetIndex, mcTypedTracks.length - 1));
+                                    
+                                    const newTrack = mcTypedTracks[targetIndex];
+                                    if (newTrack) {
+                                        const lane = tracksContentContainer.querySelector(`.track-lane[data-track-id="${newTrack.id}"]`);
+                                        if (lane) lane.classList.add('drag-hover');
+                                        mc.targetTrackId = newTrack.id; // Store for mouseup
+                                    }
+                                }
+                            } else {
+                                mc.targetTrackId = mc.trackId; // No vertical change
+                            }
                         }
                     });
                 } else {
                     clip.start = Math.max(0, State.drag.initialStart + deltaTime);
                     clipEl.style.left = `${clip.start * State.pixelsPerSecond}px`;
+                    clipEl.style.transform = `translateY(${deltaY}px)`;
+                    clipEl.style.transition = 'none';
 
-                    const rect = tracksContentContainer.getBoundingClientRect();
-                    const yPos = e.clientY - rect.top;
-                    
-                    let currentY = 0;
-                    let hoveredTrackId = null;
-                    for (const tr of State.tracks) {
-                        if (yPos >= currentY && yPos < currentY + tr.height) { hoveredTrackId = tr.id; break; }
-                        currentY += tr.height;
-                    }
-
-                    if (hoveredTrackId && hoveredTrackId !== clip.trackId) {
-                        const tgtTrack = State.tracks.find(t=>t.id===hoveredTrackId);
-                        
-                        const isVisual = clip.type === 'video' || clip.type === 'image';
-                        const isTgtVisual = tgtTrack.type === 'video';
-                        const isAudio = clip.type === 'audio';
-                        const isTgtAudio = tgtTrack.type === 'audio';
-
-                        if ((isVisual && isTgtVisual) || (isAudio && isTgtAudio)) {
-                            clip.trackId = hoveredTrackId;
-                            const newLane = tracksContentContainer.querySelector(`.track-lane[data-track-id="${hoveredTrackId}"]`);
-                            if(newLane) newLane.appendChild(clipEl);
-                        }
+                    if (typedDelta !== 0) {
+                        const lane = tracksContentContainer.querySelector(`.track-lane[data-track-id="${hoveredTrackId}"]`);
+                        if (lane) lane.classList.add('drag-hover');
+                        State.drag.targetTrackId = hoveredTrackId;
+                    } else {
+                        State.drag.targetTrackId = clip.trackId;
                     }
                 }
 
@@ -3871,11 +3926,28 @@ ctx.clearRect(0, 0, w, h);
                     updatePropertiesPanel();
                     drawCanvas();
                 }
-            } else if (State.drag.type === 'move' && State.drag.initialMulti && State.drag.initialMulti.length > 0) {
-                State.drag.initialMulti.forEach(mc => {
-                    const mcEl = document.querySelector(`.clip[data-clip-id="${mc.id}"]`);
-                    if (mcEl) mcEl.classList.remove('dragging');
-                });
+            } else if (State.drag.type === 'move') {
+                tracksContentContainer.querySelectorAll('.track-lane').forEach(l => l.classList.remove('drag-hover'));
+                
+                if (State.drag.initialMulti && State.drag.initialMulti.length > 0) {
+                    State.drag.initialMulti.forEach(mc => {
+                        const mcClip = State.clips.find(c => c.id === mc.id);
+                        const mcEl = document.querySelector(`.clip[data-clip-id="${mc.id}"]`);
+                        if (mcClip && mcEl) {
+                            mcEl.classList.remove('dragging');
+                            mcEl.style.transform = '';
+                            if (mc.targetTrackId) mcClip.trackId = mc.targetTrackId;
+                        }
+                    });
+                } else {
+                    const clip = State.clips.find(c => c.id === State.drag.clipId);
+                    const clipEl = document.querySelector(`.clip[data-clip-id="${State.drag.clipId}"]`);
+                    if (clip && clipEl) {
+                        clipEl.classList.remove('dragging');
+                        clipEl.style.transform = '';
+                        if (State.drag.targetTrackId) clip.trackId = State.drag.targetTrackId;
+                    }
+                }
             } else {
                 const clipEl = document.querySelector(`.clip[data-clip-id="${State.drag.clipId}"]`);
                 if (clipEl) clipEl.classList.remove('dragging');
