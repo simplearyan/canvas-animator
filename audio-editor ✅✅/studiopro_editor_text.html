@@ -1204,7 +1204,73 @@
         });
 
         // Helper for animations
-        const easeOutQuart = x => 1 - Math.pow(1 - x, 4);
+        const EASING = {
+            linear: x => x,
+            easeIn: x => x * x * x,
+            easeOut: x => 1 - Math.pow(1 - x, 3),
+            easeInOut: x => x < 0.5 ? 4 * x * x * x : 1 - Math.pow(-2 * x + 2, 3) / 2,
+            elastic: x => x === 0 ? 0 : x === 1 ? 1 : Math.pow(2, -10 * x) * Math.sin((x * 10 - 0.75) * ((2 * Math.PI) / 3)) + 1,
+            bounce: x => {
+                const n1 = 7.5625, d1 = 2.75;
+                if (x < 1 / d1) return n1 * x * x;
+                if (x < 2 / d1) return n1 * (x -= 1.5 / d1) * x + 0.75;
+                if (x < 2.5 / d1) return n1 * (x -= 2.25 / d1) * x + 0.9375;
+                return n1 * (x -= 2.625 / d1) * x + 0.984375;
+            }
+        };
+
+        function calculateAnimationState(clip, clipTime, timeLeft, w, h) {
+            let animAlpha = 1; let animScale = 1; let animX = 0; let animY = 0; let animRot = 0; let mosaicLevel = 0;
+            const easeName = clip.effects.animEase || 'easeOut';
+            const easeFn = EASING[easeName] || EASING.easeOut;
+
+            if (clip.effects.animIn && clip.effects.animIn !== 'none') {
+                const dur = clip.effects.animInDur || 1;
+                if (clipTime < dur) {
+                    const p = easeFn(clipTime / dur);
+                    const invP = 1 - p;
+                    const type = clip.effects.animIn;
+                    
+                    if (type === 'fade') animAlpha *= p;
+                    if (type === 'slideUp') animY += invP * (h / 2 + 100);
+                    if (type === 'slideDown') animY -= invP * (h / 2 + 100);
+                    if (type === 'slideLeft') animX -= invP * (w / 2 + 100);
+                    if (type === 'slideRight') animX += invP * (w / 2 + 100);
+                    if (type === 'zoomIn') animScale *= p;
+                    if (type === 'pop') animScale *= p + (Math.sin(p * Math.PI) * 0.2);
+                    if (type === 'spinIn') { animRot -= invP * Math.PI * 2; animScale *= p; }
+                    if (type === 'mosaic') mosaicLevel = invP;
+                }
+            }
+
+            if (clip.effects.animOut && clip.effects.animOut !== 'none') {
+                const dur = clip.effects.animOutDur || 1;
+                if (timeLeft < dur) {
+                    const p = easeFn(timeLeft / dur);
+                    const invP = 1 - p;
+                    const type = clip.effects.animOut;
+                    
+                    if (type === 'fade') animAlpha = Math.min(animAlpha, p);
+                    if (type === 'slideUp') animY -= invP * (h / 2 + 100);
+                    if (type === 'slideDown') animY += invP * (h / 2 + 100);
+                    if (type === 'slideLeft') animX -= invP * (w / 2 + 100);
+                    if (type === 'slideRight') animX += invP * (w / 2 + 100);
+                    if (type === 'zoomOut') animScale *= Math.max(0.01, p);
+                    if (type === 'shrink') { animRot += invP * Math.PI; animScale *= Math.max(0.01, p); }
+                    if (type === 'mosaic') mosaicLevel = Math.max(mosaicLevel, invP);
+                }
+            }
+
+            if (clip.effects.animLoop && clip.effects.animLoop !== 'none') {
+                const type = clip.effects.animLoop;
+                if (type === 'pulse') animScale *= (1 + 0.05 * Math.sin(clipTime * Math.PI * 2));
+                if (type === 'float') animY += 15 * Math.sin(clipTime * Math.PI);
+                if (type === 'shake') { animX += (Math.random() - 0.5) * 10; animY += (Math.random() - 0.5) * 10; }
+                if (type === 'spin') animRot += clipTime * Math.PI;
+            }
+
+            return { animAlpha, animScale, animX, animY, animRot, mosaicLevel };
+        }
 
         function drawCanvas(targetCtx, targetW, targetH) {
             const domBoxContainer = document.getElementById('domBoundingBoxContainer');
@@ -1277,47 +1343,20 @@
                         const offsetY = clip.effects.offsetY || 0;
 
                         // Animation Math
-                        let animAlpha = 1;
-                        let animScale = 1;
-                        let animY = 0;
-                        let mosaicLevel = 0;
                         const clipTime = State.currentTime - clip.start;
                         const timeLeft = clip.duration - clipTime;
-
-                        if (clip.effects.animIn && clip.effects.animIn !== 'none') {
-                            const dur = clip.effects.animInDur || 1;
-                            if (clipTime < dur) {
-                                const p = easeOutQuart(clipTime / dur);
-                                if (clip.effects.animIn === 'fade') animAlpha *= p;
-                                if (clip.effects.animIn === 'slideUp') { animAlpha *= p; animY += (1-p) * 200; }
-                                if (clip.effects.animIn === 'zoom') { animAlpha *= p; animScale *= (0.5 + 0.5*p); }
-                                if (clip.effects.animIn === 'mosaic') { mosaicLevel = 1 - p; }
-                            }
-                        }
-                        if (clip.effects.animOut && clip.effects.animOut !== 'none') {
-                            const dur = clip.effects.animOutDur || 1;
-                            if (timeLeft < dur) {
-                                const p = easeOutQuart(timeLeft / dur);
-                                if (clip.effects.animOut === 'fade') animAlpha = Math.min(animAlpha, p);
-                                if (clip.effects.animOut === 'slideDown') { animAlpha = Math.min(animAlpha, p); animY += (1-p) * 200; }
-                                if (clip.effects.animOut === 'zoom') { animAlpha = Math.min(animAlpha, p); animScale *= Math.max(0.01, p); }
-                                if (clip.effects.animOut === 'mosaic') { mosaicLevel = Math.max(mosaicLevel, 1 - p); }
-                            }
-                        }
-                        if (clip.effects.animLoop && clip.effects.animLoop !== 'none') {
-                            if (clip.effects.animLoop === 'pulse') animScale *= (1 + 0.05 * Math.sin(clipTime * Math.PI * 2));
-                            if (clip.effects.animLoop === 'float') animY += 15 * Math.sin(clipTime * Math.PI);
-                        }
+                        const aState = calculateAnimationState(clip, clipTime, timeLeft, w, h);
+                        let mosaicLevel = aState.mosaicLevel;
 
                         ctx.save();
-                        const finalScale = baseScale * animScale;
-                        const cx = w/2 + (offsetX * w) / 100;
-                        const cy = h/2 + (offsetY * h) / 100 + animY;
+                        const finalScale = baseScale * aState.animScale;
+                        const cx = w/2 + (offsetX * w) / 100 + aState.animX;
+                        const cy = h/2 + (offsetY * h) / 100 + aState.animY;
 
-                        ctx.globalAlpha = animAlpha * (clip.effects.opacity !== undefined ? clip.effects.opacity/100 : 1);
+                        ctx.globalAlpha = aState.animAlpha * (clip.effects.opacity !== undefined ? clip.effects.opacity/100 : 1);
                         ctx.globalCompositeOperation = clip.effects.blendMode || 'source-over';
                         ctx.translate(cx, cy);
-                        ctx.rotate(rotate * Math.PI / 180);
+                        ctx.rotate((rotate * Math.PI / 180) + aState.animRot);
                         ctx.scale(finalScale * (clip.effects.flipH ? -1 : 1), finalScale * (clip.effects.flipV ? -1 : 1));
 
                         ctx.textBaseline = 'middle';
@@ -1510,49 +1549,19 @@
                             const offsetY = clip.effects.offsetY || 0;
 
                             // Animation Math
-                            let animAlpha = 1;
-                            let animScale = 1;
-                            let animY = 0;
                             const clipTime = State.currentTime - clip.start;
                             const timeLeft = clip.duration - clipTime;
-
-                            let mosaicLevel = 0;
-                            // Anim In
-                            if (clip.effects.animIn && clip.effects.animIn !== 'none') {
-                                const dur = clip.effects.animInDur || 1;
-                                if (clipTime < dur) {
-                                    const p = easeOutQuart(clipTime / dur);
-                                    if (clip.effects.animIn === 'fade') animAlpha *= p;
-                                    if (clip.effects.animIn === 'slideUp') { animAlpha *= p; animY += (1-p) * 200; }
-                                    if (clip.effects.animIn === 'zoom') { animAlpha *= p; animScale *= (0.5 + 0.5*p); }
-                                    if (clip.effects.animIn === 'mosaic') { mosaicLevel = 1 - p; }
-                                }
-                            }
-                            // Anim Out
-                            if (clip.effects.animOut && clip.effects.animOut !== 'none') {
-                                const dur = clip.effects.animOutDur || 1;
-                                if (timeLeft < dur) {
-                                    const p = easeOutQuart(timeLeft / dur);
-                                    if (clip.effects.animOut === 'fade') animAlpha = Math.min(animAlpha, p);
-                                    if (clip.effects.animOut === 'slideDown') { animAlpha = Math.min(animAlpha, p); animY += (1-p) * 200; }
-                                    if (clip.effects.animOut === 'zoom') { animAlpha = Math.min(animAlpha, p); animScale *= Math.max(0.01, p); }
-                                    if (clip.effects.animOut === 'mosaic') { mosaicLevel = Math.max(mosaicLevel, 1 - p); }
-                                }
-                            }
-                            // Anim Loop
-                            if (clip.effects.animLoop && clip.effects.animLoop !== 'none') {
-                                if (clip.effects.animLoop === 'pulse') animScale *= (1 + 0.05 * Math.sin(clipTime * Math.PI * 2));
-                                if (clip.effects.animLoop === 'float') animY += 15 * Math.sin(clipTime * Math.PI);
-                            }
+                            const aState = calculateAnimationState(clip, clipTime, timeLeft, w, h);
+                            let mosaicLevel = aState.mosaicLevel;
 
                             ctx.save();
-                            const finalScale = baseScale * animScale;
-                            const cx = w/2 + (offsetX * w) / 100;
-                            const cy = h/2 + (offsetY * h) / 100 + animY;
+                            const finalScale = baseScale * aState.animScale;
+                            const cx = w/2 + (offsetX * w) / 100 + aState.animX;
+                            const cy = h/2 + (offsetY * h) / 100 + aState.animY;
 
-                            ctx.globalAlpha = animAlpha;
+                            ctx.globalAlpha = aState.animAlpha * (clip.effects.opacity !== undefined ? clip.effects.opacity/100 : 1);
                             ctx.translate(cx, cy);
-                            ctx.rotate(rotate * Math.PI / 180);
+                            ctx.rotate((rotate * Math.PI / 180) + aState.animRot);
                             ctx.scale(finalScale * (clip.effects.flipH ? -1 : 1), finalScale * (clip.effects.flipV ? -1 : 1));
 
                             if (clip.effects.shadowEnable || borderRadius > 0 || mosaicLevel > 0.05) {
@@ -1845,6 +1854,7 @@
             const animOut = fx.animOut || 'none';
             const animOutDur = fx.animOutDur || 1.0;
             const animLoop = fx.animLoop || 'none';
+            const animEase = fx.animEase || 'easeOut';
 
             const isHorizontal = State.inspector.dock === 'bottom' || State.inspector.dock === 'top';
 
@@ -2151,13 +2161,31 @@ const isText = clip.type === 'text';
                     </summary>
                     
                     <div class="p-3 flex flex-col gap-3 w-full bg-surface-50 dark:bg-surface-900/50 flex-1">
+                        
+                        <div class="bg-surface-50 dark:bg-surface-800/80 p-2.5 rounded-lg border border-surface-200 dark:border-surface-700 shadow-sm flex flex-col gap-2 w-full">
+                            <span class="text-[10px] font-bold text-brand-600 dark:text-brand-400 uppercase">Easing Type</span>
+                            <select class="w-full text-xs p-2 pl-3 border border-surface-200 dark:border-surface-700 rounded bg-surface-50 dark:bg-surface-900/80 shadow-inner focus:outline-none focus:border-brand-500 focus:ring-1 focus:ring-brand-500 appearance-none cursor-pointer font-bold text-surface-800 dark:text-surface-200" onchange="setClipEffect('${clip.id}', 'animEase', this.value); updateSidebarPanel();">
+                                <option value="linear" ${animEase === 'linear' ? 'selected' : ''}>Linear</option>
+                                <option value="easeIn" ${animEase === 'easeIn' ? 'selected' : ''}>Ease In</option>
+                                <option value="easeOut" ${animEase === 'easeOut' ? 'selected' : ''}>Ease Out</option>
+                                <option value="easeInOut" ${animEase === 'easeInOut' ? 'selected' : ''}>Ease In-Out</option>
+                                <option value="elastic" ${animEase === 'elastic' ? 'selected' : ''}>Elastic</option>
+                                <option value="bounce" ${animEase === 'bounce' ? 'selected' : ''}>Bounce</option>
+                            </select>
+                        </div>
+
                         <div class="bg-surface-50 dark:bg-surface-800/80 p-2.5 rounded-lg border border-surface-200 dark:border-surface-700 shadow-sm flex flex-col gap-2 w-full">
                             <span class="text-[10px] font-bold text-brand-600 dark:text-brand-400 uppercase">In</span>
                             <select class="w-full text-xs p-2 pl-3 border border-surface-200 dark:border-surface-700 rounded bg-surface-50 dark:bg-surface-900/80 shadow-inner focus:outline-none focus:border-brand-500 focus:ring-1 focus:ring-brand-500 appearance-none cursor-pointer font-bold text-surface-800 dark:text-surface-200" onchange="setClipEffect('${clip.id}', 'animIn', this.value); updateSidebarPanel();">
                                 <option value="none" ${animIn === 'none' ? 'selected' : ''}>None</option>
                                 <option value="fade" ${animIn === 'fade' ? 'selected' : ''}>Fade</option>
                                 <option value="slideUp" ${animIn === 'slideUp' ? 'selected' : ''}>Slide Up</option>
-                                <option value="zoom" ${animIn === 'zoom' ? 'selected' : ''}>Zoom In</option>
+                                <option value="slideDown" ${animIn === 'slideDown' ? 'selected' : ''}>Slide Down</option>
+                                <option value="slideLeft" ${animIn === 'slideLeft' ? 'selected' : ''}>Slide Left</option>
+                                <option value="slideRight" ${animIn === 'slideRight' ? 'selected' : ''}>Slide Right</option>
+                                <option value="zoomIn" ${animIn === 'zoomIn' ? 'selected' : ''}>Zoom In</option>
+                                <option value="pop" ${animIn === 'pop' ? 'selected' : ''}>Pop (Overshoot)</option>
+                                <option value="spinIn" ${animIn === 'spinIn' ? 'selected' : ''}>Spin In</option>
                                 <option value="mosaic" ${animIn === 'mosaic' ? 'selected' : ''}>Mosaic</option>
                             </select>
                             <div class="mt-3 ${animIn === 'none' ? 'hidden' : ''}">
@@ -2175,7 +2203,11 @@ const isText = clip.type === 'text';
                                 <option value="none" ${animOut === 'none' ? 'selected' : ''}>None</option>
                                 <option value="fade" ${animOut === 'fade' ? 'selected' : ''}>Fade</option>
                                 <option value="slideDown" ${animOut === 'slideDown' ? 'selected' : ''}>Slide Down</option>
-                                <option value="zoom" ${animOut === 'zoom' ? 'selected' : ''}>Zoom Out</option>
+                                <option value="slideUp" ${animOut === 'slideUp' ? 'selected' : ''}>Slide Up</option>
+                                <option value="slideLeft" ${animOut === 'slideLeft' ? 'selected' : ''}>Slide Left</option>
+                                <option value="slideRight" ${animOut === 'slideRight' ? 'selected' : ''}>Slide Right</option>
+                                <option value="zoomOut" ${animOut === 'zoomOut' ? 'selected' : ''}>Zoom Out</option>
+                                <option value="shrink" ${animOut === 'shrink' ? 'selected' : ''}>Shrink Spin</option>
                                 <option value="mosaic" ${animOut === 'mosaic' ? 'selected' : ''}>Mosaic</option>
                             </select>
                             <div class="mt-3 ${animOut === 'none' ? 'hidden' : ''}">
@@ -2193,6 +2225,8 @@ const isText = clip.type === 'text';
                                 <option value="none" ${animLoop === 'none' ? 'selected' : ''}>None</option>
                                 <option value="pulse" ${animLoop === 'pulse' ? 'selected' : ''}>Pulse</option>
                                 <option value="float" ${animLoop === 'float' ? 'selected' : ''}>Float</option>
+                                <option value="shake" ${animLoop === 'shake' ? 'selected' : ''}>Shake</option>
+                                <option value="spin" ${animLoop === 'spin' ? 'selected' : ''}>Spin</option>
                             </select>
                         </div>
                     </div>
@@ -2931,7 +2965,7 @@ const isVis = !clip.hidden;
                         fontFamily: 'Rubik', fontWeight: 700, fillColor: '#ffffff',
                         shadowEnable: false, shadowColor: '#000000', shadowBlur: 20, shadowX: 0, shadowY: 10, 
                         extrudeEnable: false, extrudeDepth: 5, extrudeColor: '#000000',
-                        animIn: 'none', animOut: 'none', animLoop: 'none', animInDur: 1.0, animOutDur: 1.0 
+                        animIn: 'none', animOut: 'none', animLoop: 'none', animInDur: 1.0, animOutDur: 1.0, animEase: 'easeOut'
                     }
                 };
                 State.clips.push(newTextClip);
@@ -2983,7 +3017,7 @@ const isVis = !clip.hidden;
                             maxDuration: 3600,
                             fileUrl: objectUrl,
                             imageEl: img,
-                            effects: { scale: 1, rotate: 0, borderRadius: 0, offsetX: 0, offsetY: 0, shadowEnable: false, shadowColor: '#000000', shadowBlur: 20, shadowX: 0, shadowY: 10, animIn: 'none', animOut: 'none', animLoop: 'none', animInDur: 1.0, animOutDur: 1.0 }
+                            effects: { scale: 1, rotate: 0, borderRadius: 0, offsetX: 0, offsetY: 0, shadowEnable: false, shadowColor: '#000000', shadowBlur: 20, shadowX: 0, shadowY: 10, animIn: 'none', animOut: 'none', animLoop: 'none', animInDur: 1.0, animOutDur: 1.0, animEase: 'easeOut' }
                         };
                         State.clips.push(newClip);
                         
@@ -3055,7 +3089,7 @@ const isVis = !clip.hidden;
                                 maxDuration: duration,
                                 fileUrl: objectUrl,
                                 videoEl: v,
-                                effects: { scale: 1, rotate: 0, borderRadius: 0, offsetX: 0, offsetY: 0, shadowEnable: false, shadowColor: '#000000', shadowBlur: 20, shadowX: 0, shadowY: 10, animIn: 'none', animOut: 'none', animLoop: 'none', animInDur: 1.0, animOutDur: 1.0 }
+                                effects: { scale: 1, rotate: 0, borderRadius: 0, offsetX: 0, offsetY: 0, shadowEnable: false, shadowColor: '#000000', shadowBlur: 20, shadowX: 0, shadowY: 10, animIn: 'none', animOut: 'none', animLoop: 'none', animInDur: 1.0, animOutDur: 1.0, animEase: 'easeOut' }
                             };
                             State.clips.push(newVideoClip);
                         }
