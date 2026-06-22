@@ -1378,7 +1378,7 @@
                                   rr = ar + amount * (br - ar),
                                   rg = ag + amount * (bg - ag),
                                   rb = ab + amount * (bb - ab);
-                            return '#' + (((1 << 24) + (rr << 16) + (rg << 8) + rb) | 0).toString(16).padStart(6, '0');
+                            return '#' + (((1 << 24) + (rr << 16) + (rg << 8) + rb) | 0).toString(16).slice(1);
                         };
 
                         let drawText = () => {
@@ -1432,22 +1432,33 @@
                                 // Character-level rendering for Vox-style animations
                                 const targetFill = clip.effects.fillColor || '#ffffff';
                                 const targetExtrude = clip.effects.extrudeColor || '#000000';
-                                const durIn = clip.effects.animInDur || 1.0;
-                                const durOut = clip.effects.animOutDur || 1.0;
+                                const animTextStagger = clip.effects.animTextStagger || 'letter';
+                                const durIn = clip.effects.animTextInDur !== undefined ? clip.effects.animTextInDur : 1.0;
+                                const durOut = clip.effects.animTextOutDur !== undefined ? clip.effects.animTextOutDur : 1.0;
                                 const timeLeft = clip.duration - clipTime;
                                 const t = clipTime;
                                 
                                 ctx.textAlign = 'left';
+                                let wordIndex = 0;
+                                let letterIndex = 0;
                                 
                                 lines.forEach((line, li) => {
                                     const lineY = startY + li * lh;
                                     const lineWidth = ctx.measureText(line).width;
                                     let currentX = -lineWidth / 2; // Keep horizontally centered overall
                                     
-                                    for (let i = 0; i < line.length; i++) {
-                                        const char = line[i];
+                                    const chars = Array.from(line);
+                                    for (let i = 0; i < chars.length; i++) {
+                                        const char = chars[i];
                                         const charWidth = ctx.measureText(char).width;
-                                        if (char === ' ') { currentX += charWidth; continue; }
+                                        if (char === ' ') { 
+                                            currentX += charWidth; 
+                                            if (animTextStagger === 'word') wordIndex++;
+                                            continue; 
+                                        }
+
+                                        let staggerIdx = animTextStagger === 'word' ? wordIndex : letterIndex;
+                                        letterIndex++;
                                         
                                         let cX = currentX;
                                         let cY = lineY;
@@ -1462,8 +1473,30 @@
                                                 const p = Math.min(1, Math.max(0, t / durIn));
                                                 cFill = lerpColor(flashColor, targetFill, p);
                                             } 
+                                            else if (animTextIn === 'typewriter') {
+                                                const staggerStart = staggerIdx * (durIn * 0.05);
+                                                if (t < staggerStart) {
+                                                    cAlpha = 0;
+                                                }
+                                            }
+                                            else if (animTextIn === 'slideUp') {
+                                                const staggerStart = staggerIdx * (durIn * 0.05); 
+                                                const p = Math.min(1, Math.max(0, (t - staggerStart) / (durIn * 0.5)));
+                                                const easeP = EASING[animTextEase](p); 
+                                                
+                                                cAlpha = Math.min(1, p * 2);
+                                                cY += 40 * (1 - easeP);
+                                            }
+                                            else if (animTextIn === 'scaleFade') {
+                                                const staggerStart = staggerIdx * (durIn * 0.05); 
+                                                const p = Math.min(1, Math.max(0, (t - staggerStart) / (durIn * 0.5)));
+                                                const easeP = EASING[animTextEase](p); 
+                                                
+                                                cAlpha = Math.min(1, p * 2);
+                                                cScale = easeP;
+                                            }
                                             else if (animTextIn === 'randomSnap') {
-                                                const seed = (i * 137) % 100 / 100; 
+                                                const seed = (staggerIdx * 137) % 100 / 100; 
                                                 const staggerStart = seed * (durIn * 0.5); 
                                                 const p = Math.min(1, Math.max(0, (t - staggerStart) / (durIn * 0.5)));
                                                 const easeP = EASING[animTextEase](p);
@@ -1471,13 +1504,13 @@
                                                 cAlpha = easeP;
                                                 cScale = 1.5 - 0.5 * easeP;
                                                 
-                                                const rX = Math.sin(i * 99) * 50;
-                                                const rY = Math.cos(i * 99) * 50;
+                                                const rX = Math.sin(staggerIdx * 99) * 50;
+                                                const rY = Math.cos(staggerIdx * 99) * 50;
                                                 cX += rX * (1 - easeP);
                                                 cY += rY * (1 - easeP);
                                             }
                                             else if (animTextIn === 'odometer') {
-                                                const staggerStart = i * (durIn * 0.05); 
+                                                const staggerStart = staggerIdx * (durIn * 0.05); 
                                                 const p = Math.min(1, Math.max(0, (t - staggerStart) / (durIn * 0.5)));
                                                 const easeP = EASING[animTextEase](p); 
                                                 
@@ -1489,17 +1522,17 @@
                                         // LOOP Animations
                                         if (animTextLoop !== 'none' && t >= durIn && timeLeft >= durOut) {
                                             if (animTextLoop === 'wave') {
-                                                cY += Math.sin(t * 5 + i * 0.5) * 10;
+                                                cY += Math.sin(t * 5 + staggerIdx * 0.5) * 10;
                                             } else if (animTextLoop === 'jiggle') {
-                                                cRot = Math.sin(t * 20 + i) * 0.1;
-                                                cX += Math.sin(t * 15 + i * 2) * 2;
+                                                cRot = Math.sin(t * 20 + staggerIdx) * 0.1;
+                                                cX += Math.sin(t * 15 + staggerIdx * 2) * 2;
                                             }
                                         }
 
                                         // OUT Animations
                                         if (animTextOut !== 'none' && timeLeft < durOut) {
                                             if (animTextOut === 'randomFly') {
-                                                const seed = (i * 137) % 100 / 100; 
+                                                const seed = (staggerIdx * 137) % 100 / 100; 
                                                 const staggerStart = seed * (durOut * 0.5); 
                                                 const p = Math.min(1, Math.max(0, (durOut - timeLeft - staggerStart) / (durOut * 0.5)));
                                                 const easeP = EASING[animTextEase](p);
@@ -1507,13 +1540,13 @@
                                                 cAlpha = 1 - easeP;
                                                 cScale = 1 + 0.5 * easeP;
                                                 
-                                                const rX = Math.sin(i * 99) * 50;
-                                                const rY = Math.cos(i * 99) * 50;
+                                                const rX = Math.sin(staggerIdx * 99) * 50;
+                                                const rY = Math.cos(staggerIdx * 99) * 50;
                                                 cX += rX * easeP;
                                                 cY += rY * easeP;
                                             }
                                             else if (animTextOut === 'odometerUp') {
-                                                const staggerStart = i * (durOut * 0.05); 
+                                                const staggerStart = staggerIdx * (durOut * 0.05); 
                                                 const p = Math.min(1, Math.max(0, (durOut - timeLeft - staggerStart) / (durOut * 0.5)));
                                                 const easeP = EASING[animTextEase](p); 
                                                 
@@ -1522,11 +1555,12 @@
                                             }
                                         }
 
-                                        ctx.save();
-                                        ctx.translate(cX + charWidth/2, cY);
-                                        if (cRot !== 0) ctx.rotate(cRot);
-                                        ctx.scale(cScale, cScale);
-                                        ctx.globalAlpha *= cAlpha;
+                                        if (cAlpha > 0) {
+                                            ctx.save();
+                                            ctx.translate(cX + charWidth/2, cY);
+                                            if (cRot !== 0) ctx.rotate(cRot);
+                                            ctx.scale(cScale, cScale);
+                                            ctx.globalAlpha *= cAlpha;
 
                                         // Shadow
                                         if (clip.effects.shadowEnable) {
@@ -1558,16 +1592,17 @@
                                             }
                                         }
 
-                                        // Fill
-                                        ctx.fillStyle = cFill;
-                                        ctx.fillText(char, -charWidth/2, 0);
+                                            // Fill
+                                            ctx.fillStyle = cFill;
+                                            ctx.fillText(char, -charWidth/2, 0);
 
-                                        // Text Decoration
-                                        if (clip.effects.textDecoration === 'underline' || clip.effects.textDecoration === 'line-through') {
-                                            ctx.fillRect(-charWidth/2, (clip.effects.textDecoration === 'underline' ? fontSize*0.4 : -fontSize*0.1), charWidth, fontSize*0.08);
+                                            // Text Decoration
+                                            if (clip.effects.textDecoration === 'underline' || clip.effects.textDecoration === 'line-through') {
+                                                ctx.fillRect(-charWidth/2, (clip.effects.textDecoration === 'underline' ? fontSize*0.4 : -fontSize*0.1), charWidth, fontSize*0.08);
+                                            }
+
+                                            ctx.restore();
                                         }
-
-                                        ctx.restore();
                                         currentX += charWidth;
                                     }
                                 });
@@ -1937,7 +1972,7 @@
             if (clip) {
                 if (typeof value === 'boolean') {
                     clip.effects[effectName] = value;
-                } else if (['shadowColor', 'animIn', 'animOut', 'animLoop', 'extrudeColor', 'fillColor', 'fontFamily', 'extrudeDir', 'textTransform', 'fontStyle', 'textDecoration', 'blendMode', 'animEase', 'animTextSpecial', 'flashColor', 'animTextIn', 'animTextOut', 'animTextLoop'].includes(effectName)) {
+                } else if (['shadowColor', 'animIn', 'animOut', 'animLoop', 'extrudeColor', 'fillColor', 'fontFamily', 'extrudeDir', 'textTransform', 'fontStyle', 'textDecoration', 'blendMode', 'animEase', 'animTextSpecial', 'flashColor', 'animTextIn', 'animTextOut', 'animTextLoop', 'animTextEase', 'animTextStagger'].includes(effectName)) {
                     clip.effects[effectName] = value;
                 } else {
                     clip.effects[effectName] = parseFloat(value);
@@ -2025,6 +2060,9 @@
             const animTextOut = fx.animTextOut || 'none';
             const animTextLoop = fx.animTextLoop || 'none';
             const animTextEase = fx.animTextEase || 'easeOut';
+            const animTextStagger = fx.animTextStagger || 'letter';
+            const animTextInDur = fx.animTextInDur !== undefined ? fx.animTextInDur : 1.0;
+            const animTextOutDur = fx.animTextOutDur !== undefined ? fx.animTextOutDur : 1.0;
             const flashColor = fx.flashColor || '#ffe600';
 
             const isHorizontal = State.inspector.dock === 'bottom' || State.inspector.dock === 'top';
@@ -2426,12 +2464,25 @@ const isText = clip.type === 'text';
                         </div>
 
                         <div class="bg-surface-50 dark:bg-surface-800/80 p-2.5 rounded-lg border border-surface-200 dark:border-surface-700 shadow-sm flex flex-col gap-2 w-full">
-                            <span class="text-[10px] font-bold text-brand-600 dark:text-brand-400 uppercase">In</span>
+                            <span class="text-[10px] font-bold text-brand-600 dark:text-brand-400 uppercase">Stagger By</span>
+                            <select class="w-full text-xs p-2 pl-3 border border-surface-200 dark:border-surface-700 rounded bg-surface-50 dark:bg-surface-900/80 shadow-inner focus:outline-none focus:border-brand-500 focus:ring-1 focus:ring-brand-500 appearance-none cursor-pointer font-bold text-surface-800 dark:text-surface-200" onchange="setClipEffect('${clip.id}', 'animTextStagger', this.value); updateSidebarPanel();">
+                                <option value="letter" ${animTextStagger === 'letter' ? 'selected' : ''}>Letter</option>
+                                <option value="word" ${animTextStagger === 'word' ? 'selected' : ''}>Word</option>
+                            </select>
+                        </div>
+
+                        <div class="bg-surface-50 dark:bg-surface-800/80 p-2.5 rounded-lg border border-surface-200 dark:border-surface-700 shadow-sm flex flex-col gap-2 w-full">
+                            <div class="flex items-center justify-between">
+                                <span class="text-[10px] font-bold text-brand-600 dark:text-brand-400 uppercase">In</span>
+                            </div>
                             <select class="w-full text-xs p-2 pl-3 border border-surface-200 dark:border-surface-700 rounded bg-surface-50 dark:bg-surface-900/80 shadow-inner focus:outline-none focus:border-brand-500 focus:ring-1 focus:ring-brand-500 appearance-none cursor-pointer font-bold text-surface-800 dark:text-surface-200" onchange="setClipEffect('${clip.id}', 'animTextIn', this.value); updateSidebarPanel();">
                                 <option value="none" ${animTextIn === 'none' ? 'selected' : ''}>None</option>
+                                <option value="typewriter" ${animTextIn === 'typewriter' ? 'selected' : ''}>Typewriter</option>
                                 <option value="fillFlash" ${animTextIn === 'fillFlash' ? 'selected' : ''}>Fill Color Flash</option>
                                 <option value="randomSnap" ${animTextIn === 'randomSnap' ? 'selected' : ''}>Random Letters Snap</option>
                                 <option value="odometer" ${animTextIn === 'odometer' ? 'selected' : ''}>Odometer Drop</option>
+                                <option value="slideUp" ${animTextIn === 'slideUp' ? 'selected' : ''}>Slide Up Fade</option>
+                                <option value="scaleFade" ${animTextIn === 'scaleFade' ? 'selected' : ''}>Scale & Fade</option>
                             </select>
                             
                             <div class="flex items-center justify-between mt-2 ${animTextIn === 'fillFlash' ? '' : 'hidden'}">
@@ -2439,6 +2490,14 @@ const isText = clip.type === 'text';
                                 <div class="relative w-6 h-6 rounded-md overflow-hidden border border-surface-300 dark:border-surface-600 shadow-sm">
                                     <input type="color" class="absolute -top-2 -left-2 w-10 h-10 cursor-pointer" value="${flashColor}" onchange="setClipEffect('${clip.id}', 'flashColor', this.value)">
                                 </div>
+                            </div>
+
+                            <div class="mt-2 ${animTextIn === 'none' ? 'hidden' : ''}">
+                                <div class="flex justify-between items-center mb-1">
+                                    <span class="text-[10px] font-bold text-surface-500 dark:text-surface-400 uppercase">Duration</span>
+                                    <span class="text-[10px] text-surface-500">${animTextInDur}s</span>
+                                </div>
+                                <input type="range" min="0.1" max="5.0" step="0.1" value="${animTextInDur}" class="w-full custom-slider" oninput="setClipEffect('${clip.id}', 'animTextInDur', this.value); this.previousElementSibling.querySelector('span').textContent = this.value + 's'; this.style.background = 'linear-gradient(to right, ${sliderFill} ' + (this.value/this.max)*100 + '%, ${sliderBg} ' + (this.value/this.max)*100 + '%)'">
                             </div>
                         </div>
 
@@ -2449,6 +2508,14 @@ const isText = clip.type === 'text';
                                 <option value="randomFly" ${animTextOut === 'randomFly' ? 'selected' : ''}>Random Letters Fly</option>
                                 <option value="odometerUp" ${animTextOut === 'odometerUp' ? 'selected' : ''}>Odometer Up</option>
                             </select>
+
+                            <div class="mt-2 ${animTextOut === 'none' ? 'hidden' : ''}">
+                                <div class="flex justify-between items-center mb-1">
+                                    <span class="text-[10px] font-bold text-surface-500 dark:text-surface-400 uppercase">Duration</span>
+                                    <span class="text-[10px] text-surface-500">${animTextOutDur}s</span>
+                                </div>
+                                <input type="range" min="0.1" max="5.0" step="0.1" value="${animTextOutDur}" class="w-full custom-slider" oninput="setClipEffect('${clip.id}', 'animTextOutDur', this.value); this.previousElementSibling.querySelector('span').textContent = this.value + 's'; this.style.background = 'linear-gradient(to right, ${sliderFill} ' + (this.value/this.max)*100 + '%, ${sliderBg} ' + (this.value/this.max)*100 + '%)'">
+                            </div>
                         </div>
 
                         <div class="bg-surface-50 dark:bg-surface-800/80 p-2.5 rounded-lg border border-surface-200 dark:border-surface-700 shadow-sm flex flex-col gap-2 w-full">
@@ -3202,7 +3269,7 @@ const isVis = !clip.hidden;
                         shadowEnable: false, shadowColor: '#000000', shadowBlur: 20, shadowX: 0, shadowY: 10, 
                         extrudeEnable: false, extrudeDepth: 5, extrudeColor: '#000000',
                         animIn: 'none', animOut: 'none', animLoop: 'none', animInDur: 1.0, animOutDur: 1.0, animEase: 'easeOut',
-                        animTextIn: 'none', animTextOut: 'none', animTextLoop: 'none', animTextEase: 'easeOut', flashColor: '#ffe600'
+                        animTextIn: 'none', animTextOut: 'none', animTextLoop: 'none', animTextEase: 'easeOut', animTextStagger: 'letter', animTextInDur: 1.0, animTextOutDur: 1.0, flashColor: '#ffe600'
                     }
                 };
                 State.clips.push(newTextClip);
