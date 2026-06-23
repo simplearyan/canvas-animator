@@ -2166,12 +2166,13 @@
                         const srcH = (source.naturalHeight || source.videoHeight) || 100;
 
                         // Crop and Zoom settings
-                        const cropLeft = clip.effects.cropLeft || 0;
-                        const cropRight = clip.effects.cropRight || 0;
-                        const cropTop = clip.effects.cropTop || 0;
-                        const cropBottom = clip.effects.cropBottom || 0;
-                        const maskingZoom = clip.effects.maskingZoom !== undefined ? clip.effects.maskingZoom : 100;
-                        const frameZoom = clip.effects.frameZoom !== undefined ? clip.effects.frameZoom : 100;
+                        const cropEnable = clip.effects.cropEnable !== undefined ? clip.effects.cropEnable : true;
+                        const cropLeft = cropEnable ? (clip.effects.cropLeft || 0) : 0;
+                        const cropRight = cropEnable ? (clip.effects.cropRight || 0) : 0;
+                        const cropTop = cropEnable ? (clip.effects.cropTop || 0) : 0;
+                        const cropBottom = cropEnable ? (clip.effects.cropBottom || 0) : 0;
+                        const maskingZoom = cropEnable ? (clip.effects.maskingZoom !== undefined ? clip.effects.maskingZoom : 100) : 100;
+                        const frameZoom = cropEnable ? (clip.effects.frameZoom !== undefined ? clip.effects.frameZoom : 100) : 100;
 
                         // Calculate crop px bounds in source image
                         const croppedLeftPx = srcW * (cropLeft / 100);
@@ -2189,8 +2190,8 @@
                         const sw = Math.max(1, baseSw / zMask);
                         const sh = Math.max(1, baseSh / zMask);
                         
-                        const framingPanX = clip.effects.framingPanX || 0;
-                        const framingPanY = clip.effects.framingPanY || 0;
+                        const framingPanX = cropEnable ? (clip.effects.framingPanX || 0) : 0;
+                        const framingPanY = cropEnable ? (clip.effects.framingPanY || 0) : 0;
                         const maxShiftX = (baseSw - sw) / 2;
                         const maxShiftY = (baseSh - sh) / 2;
                         const sx = baseSx + (baseSw - sw) / 2 + (framingPanX / 100) * maxShiftX;
@@ -2236,7 +2237,8 @@
                         ctx.rotate((rotate * Math.PI / 180) + aState.animRot);
                         ctx.scale(finalScale * (clip.effects.flipH ? -1 : 1), finalScale * (clip.effects.flipV ? -1 : 1));
 
-                        const hasMask = clip.effects.maskType && clip.effects.maskType !== 'none';
+                        const maskEnable = clip.effects.maskEnable !== undefined ? clip.effects.maskEnable : true;
+                        const hasMask = maskEnable && clip.effects.maskType && clip.effects.maskType !== 'none';
                         if (clip.effects.shadowEnable || borderRadius > 0 || mosaicLevel > 0.05 || hasMask) {
                             const offCanvas = document.createElement('canvas');
                             const offCtx = offCanvas.getContext('2d');
@@ -2929,6 +2931,7 @@
                 </details>
             ` : '';
 
+            const cropEnable = fx.cropEnable !== undefined ? fx.cropEnable : true;
             const cropLeft = fx.cropLeft || 0;
             const cropRight = fx.cropRight || 0;
             const cropTop = fx.cropTop || 0;
@@ -2938,6 +2941,7 @@
             const framingPanX = fx.framingPanX !== undefined ? fx.framingPanX : 0;
             const framingPanY = fx.framingPanY !== undefined ? fx.framingPanY : 0;
 
+            const maskEnable = fx.maskEnable !== undefined ? fx.maskEnable : true;
             const maskType = fx.maskType || 'none';
             const maskWidth = fx.maskWidth !== undefined ? fx.maskWidth : 50;
             const maskHeight = fx.maskHeight !== undefined ? fx.maskHeight : 50;
@@ -2950,9 +2954,15 @@
                 <details class="group bg-white dark:bg-surface-800 border border-surface-300 dark:border-surface-700 shadow-sm rounded-lg shrink-0 ${isHorizontal ? 'w-[280px]' : 'w-full'} overflow-hidden flex flex-col" open>
                     <summary class="flex items-center justify-between p-3 ${isHorizontal ? '' : 'cursor-pointer'} list-none appearance-none select-none bg-surface-100 dark:bg-surface-800/80 border-b border-surface-200 dark:border-surface-700 " onclick="${isHorizontal ? 'event.preventDefault();' : ''}">
                         <div class="text-sm font-bold text-surface-800 dark:text-surface-200 flex items-center gap-2"><i data-lucide="crop" class="w-4 h-4 text-surface-500 dark:text-surface-400"></i> Crop & Zoom</div>
-                        ${isHorizontal ? '' : '<i data-lucide="chevron-down" class="w-4 h-4 text-surface-500 transition-transform group-open:rotate-180"></i>'}
+                        <div class="flex items-center gap-2">
+                            <label class="relative inline-flex items-center cursor-pointer" onclick="event.stopPropagation()">
+                                <input type="checkbox" class="sr-only peer" ${cropEnable ? 'checked' : ''} onchange="setClipEffect('${clip.id}', 'cropEnable', this.checked); updateSidebarPanel(); drawCanvas();">
+                                <div class="w-7 h-4 bg-surface-300 dark:bg-surface-700 peer-focus:outline-none rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border-surface-300 after:border after:rounded-full after:h-3 after:w-3 after:transition-all peer-checked:bg-brand-500"></div>
+                            </label>
+                            ${isHorizontal ? '' : '<i data-lucide="chevron-down" class="w-4 h-4 text-surface-500 transition-transform group-open:rotate-180"></i>'}
+                        </div>
                     </summary>
-                    <div class="p-3 flex flex-col gap-2.5 bg-surface-50 dark:bg-surface-900/50 flex-1">
+                    <div class="p-3 flex flex-col gap-2.5 bg-surface-50 dark:bg-surface-900/50 flex-1 ${!cropEnable ? 'opacity-50 pointer-events-none' : ''}">
                         <div class="grid grid-cols-2 gap-2">
                             <div>
                                 <div class="flex justify-between items-center mb-1">
@@ -3023,9 +3033,15 @@
                 <details class="group bg-white dark:bg-surface-800 border border-surface-300 dark:border-surface-700 shadow-sm rounded-lg shrink-0 ${isHorizontal ? 'w-[280px]' : 'w-full'} overflow-hidden flex flex-col" open>
                     <summary class="flex items-center justify-between p-3 ${isHorizontal ? '' : 'cursor-pointer'} list-none appearance-none select-none bg-surface-100 dark:bg-surface-800/80 border-b border-surface-200 dark:border-surface-700 " onclick="${isHorizontal ? 'event.preventDefault();' : ''}">
                         <div class="text-sm font-bold text-surface-800 dark:text-surface-200 flex items-center gap-2"><i data-lucide="aperture" class="w-4 h-4 text-surface-500 dark:text-surface-400"></i> Masking</div>
-                        ${isHorizontal ? '' : '<i data-lucide="chevron-down" class="w-4 h-4 text-surface-500 transition-transform group-open:rotate-180"></i>'}
+                        <div class="flex items-center gap-2">
+                            <label class="relative inline-flex items-center cursor-pointer" onclick="event.stopPropagation()">
+                                <input type="checkbox" class="sr-only peer" ${maskEnable ? 'checked' : ''} onchange="setClipEffect('${clip.id}', 'maskEnable', this.checked); updateSidebarPanel(); drawCanvas();">
+                                <div class="w-7 h-4 bg-surface-300 dark:bg-surface-700 peer-focus:outline-none rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border-surface-300 after:border after:rounded-full after:h-3 after:w-3 after:transition-all peer-checked:bg-brand-500"></div>
+                            </label>
+                            ${isHorizontal ? '' : '<i data-lucide="chevron-down" class="w-4 h-4 text-surface-500 transition-transform group-open:rotate-180"></i>'}
+                        </div>
                     </summary>
-                    <div class="p-3 flex flex-col gap-2.5 bg-surface-50 dark:bg-surface-900/50 flex-1">
+                    <div class="p-3 flex flex-col gap-2.5 bg-surface-50 dark:bg-surface-900/50 flex-1 ${!maskEnable ? 'opacity-50 pointer-events-none' : ''}">
                         <div>
                             <label class="block text-[10px] font-bold text-surface-500 dark:text-surface-400 uppercase tracking-widest mb-1.5">Mask Type</label>
                             <select class="w-full text-xs p-2 pl-3 border border-surface-200 dark:border-surface-700 rounded bg-surface-50 dark:bg-surface-900/80 shadow-inner focus:outline-none focus:border-brand-500 focus:ring-1 focus:ring-brand-500 appearance-none cursor-pointer font-bold text-surface-800 dark:text-surface-200" onchange="setClipEffect('${clip.id}', 'maskType', this.value); updateSidebarPanel(); drawCanvas();">
@@ -5097,11 +5113,12 @@ ctx.clearRect(0, 0, w, h);
                         const srcW = (source.naturalWidth || source.videoWidth) || 100;
                         const srcH = (source.naturalHeight || source.videoHeight) || 100;
                         
-                        const cropLeft = clip.effects.cropLeft || 0;
-                        const cropRight = clip.effects.cropRight || 0;
-                        const cropTop = clip.effects.cropTop || 0;
-                        const cropBottom = clip.effects.cropBottom || 0;
-                        const frameZoom = clip.effects.frameZoom !== undefined ? clip.effects.frameZoom : 100;
+                        const cropEnable = clip.effects.cropEnable !== undefined ? clip.effects.cropEnable : true;
+                        const cropLeft = cropEnable ? (clip.effects.cropLeft || 0) : 0;
+                        const cropRight = cropEnable ? (clip.effects.cropRight || 0) : 0;
+                        const cropTop = cropEnable ? (clip.effects.cropTop || 0) : 0;
+                        const cropBottom = cropEnable ? (clip.effects.cropBottom || 0) : 0;
+                        const frameZoom = cropEnable ? (clip.effects.frameZoom !== undefined ? clip.effects.frameZoom : 100) : 100;
 
                         const croppedLeftPx = srcW * (cropLeft / 100);
                         const croppedRightPx = srcW * (cropRight / 100);
