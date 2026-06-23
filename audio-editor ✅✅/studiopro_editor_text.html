@@ -218,6 +218,9 @@
 </head>
 <body class="bg-surface-50 dark:bg-surface-900 text-surface-900 dark:text-surface-100 font-sans h-screen flex flex-col overflow-hidden select-none">
 
+    <!-- Drag Tooltip (fixed positioning to prevent clipping under toolbar / ruler) -->
+    <div id="dragTooltip" class="fixed z-[9999] bg-surface-900 text-white text-[10px] font-bold px-2 py-1 rounded shadow-lg border border-surface-700 pointer-events-none hidden" style="transform: translate(-50%, -100%); margin-top: -8px;"></div>
+
     <!-- Export Overlay -->
     <div id="exportOverlay" class="fixed inset-0 bg-surface-950/80 backdrop-blur-sm z-[100] hidden flex-col items-center justify-center p-4 transition-all duration-300">
         
@@ -494,7 +497,13 @@
 
                         <div class="w-px h-6 bg-surface-200 dark:bg-surface-700 hidden sm:block"></div>
 
-                        
+                        <!-- Toggle Hover Playhead -->
+                        <button onclick="toggleHoverPlayhead()" id="btnHoverPlayhead" class="w-8 h-8 flex items-center justify-center rounded-md hover:bg-brand-50 dark:hover:bg-brand-500/10 hover:text-brand-600 dark:hover:text-brand-400 text-brand-600 dark:text-brand-400" title="Toggle Hover Playhead (H)">
+                            <i data-lucide="mouse-pointer-2" class="w-4 h-4"></i>
+                        </button>
+
+                        <div class="w-px h-6 bg-surface-200 dark:bg-surface-700 hidden sm:block mx-1"></div>
+
                         <!-- Track Size -->
                         <button id="btnToggleTrackHeight" class="w-8 h-8 flex items-center justify-center rounded-md hover:bg-surface-100 dark:hover:bg-surface-700 hover:text-brand-600 dark:hover:text-brand-400 text-surface-600 dark:text-surface-400" title="Toggle Track Height">
                             <i data-lucide="align-justify" class="w-4 h-4"></i>
@@ -549,6 +558,14 @@
                         </div>
                         <!-- Tracks Content (Scrolling area below ruler) -->
                         <div id="tracksContent" class="relative z-10 min-w-full min-h-full pb-10">
+                            <!-- Hover Playhead -->
+                            <div id="hoverPlayhead" class="absolute top-0 bottom-0 w-[1.5px] bg-brand-500/80 z-[100] pointer-events-none hidden">
+                                <div id="hoverPlayheadTimeContainer" class="absolute top-1 left-1/2 -translate-x-1/2 flex flex-col items-center pointer-events-none">
+                                    <div id="hoverPlayheadTime" class="bg-surface-900 text-white text-[10px] font-bold px-1.5 py-0.5 rounded shadow border border-surface-700 whitespace-nowrap">0.0</div>
+                                    <div class="border-x-[5px] border-x-transparent border-t-[6px] border-t-brand-500/80"></div>
+                                </div>
+                            </div>
+
                             <div id="playhead"></div>
                         </div>
                     </div>
@@ -649,7 +666,8 @@
             
             preview: { hidden: false, aspectIndex: 0 },
             layout: { isSideBySide: false },
-            inspector: { visible: false, dock: 'left', fullWidth: false, width: 320 }
+            inspector: { visible: false, dock: 'left', fullWidth: false, width: 320 },
+            hoverPlayheadEnabled: true
         };
 
         const ASPECT_RATIOS = [
@@ -804,6 +822,7 @@
             renderTracks();
             updateTimelineWidth();
             updatePlayhead();
+            setupHoverPlayhead();
             setupEventListeners();
             resizeCanvas();
             applyInspectorLayout();
@@ -1281,6 +1300,19 @@
             renderTracks();
             renderClips();
             drawCanvas();
+        }
+
+        function toggleHoverPlayhead() {
+            State.hoverPlayheadEnabled = !State.hoverPlayheadEnabled;
+            const btn = document.getElementById('btnHoverPlayhead');
+            if (State.hoverPlayheadEnabled) {
+                btn.classList.add('text-brand-600', 'dark:text-brand-400');
+                btn.classList.remove('text-surface-600', 'dark:text-surface-400');
+            } else {
+                btn.classList.remove('text-brand-600', 'dark:text-brand-400');
+                btn.classList.add('text-surface-600', 'dark:text-surface-400');
+                document.getElementById('hoverPlayhead').classList.add('hidden');
+            }
         }
 
         window.addEventListener('resize', () => {
@@ -4235,6 +4267,11 @@ ctx.clearRect(0, 0, w, h);
             timelineScrollArea.addEventListener('scroll', () => {
                 document.getElementById('trackHeaders').style.transform = `translateY(-${timelineScrollArea.scrollTop}px)`;
                 drawRuler();
+                
+                const hptc = document.getElementById('hoverPlayheadTimeContainer');
+                if (hptc) {
+                    hptc.style.top = `${timelineScrollArea.scrollTop + 4}px`;
+                }
             });
 
             tracksContentContainer.addEventListener('mousedown', (e) => {
@@ -4273,6 +4310,35 @@ ctx.clearRect(0, 0, w, h);
             
             document.addEventListener('mousemove', handleMouseMove);
             document.addEventListener('mouseup', handleMouseUp);
+        }
+
+        function setupHoverPlayhead() {
+            const container = document.getElementById('timelineScrollArea');
+            const hp = document.getElementById('hoverPlayhead');
+            const hpt = document.getElementById('hoverPlayheadTime');
+            const hptc = document.getElementById('hoverPlayheadTimeContainer');
+            
+            container.addEventListener('mousemove', (e) => {
+                if (!State.hoverPlayheadEnabled || State.drag.active) {
+                    hp.classList.add('hidden');
+                    return;
+                }
+                const rect = container.getBoundingClientRect();
+                const rawX = e.clientX - rect.left + container.scrollLeft;
+                const time = rawX / State.pixelsPerSecond;
+                if (time < 0) return;
+                
+                hp.style.left = `${rawX}px`;
+                hpt.textContent = formatTime(time);
+                if (hptc) {
+                    hptc.style.top = `${container.scrollTop + 4}px`;
+                }
+                hp.classList.remove('hidden');
+            });
+            
+            container.addEventListener('mouseleave', () => {
+                hp.classList.add('hidden');
+            });
         }
 
         function handleMouseDown(e) {
@@ -4380,6 +4446,8 @@ ctx.clearRect(0, 0, w, h);
                 return;
             }
 
+            const dragTooltip = document.getElementById('dragTooltip');
+
             const clip = State.clips.find(c => c.id === State.drag.clipId);
             const clipEl = document.querySelector(`.clip[data-clip-id="${clip.id}"]`);
             if (!clip || !clipEl) return;
@@ -4408,7 +4476,7 @@ ctx.clearRect(0, 0, w, h);
                 if (hoveredTrackId && hoveredTrackId !== clip.trackId) {
                     const tgtTrack = State.tracks.find(t=>t.id===hoveredTrackId);
                     if (tgtTrack) {
-                        const isVisual = clip.type === 'video' || clip.type === 'image' || clip.type === 'text';
+                        const isVisual = clip.type === 'video' || clip.type === 'image' || clip.type === 'text' || clip.type === 'scene';
                         const isTgtVisual = tgtTrack.type === 'video';
                         const isAudio = clip.type === 'audio';
                         const isTgtAudio = tgtTrack.type === 'audio';
@@ -4423,6 +4491,8 @@ ctx.clearRect(0, 0, w, h);
                         }
                     }
                 }
+
+                const dragTooltip = document.getElementById('dragTooltip');
 
                 // Remove existing drag-hover highlights
                 tracksContentContainer.querySelectorAll('.track-lane').forEach(l => l.classList.remove('drag-hover'));
@@ -4473,6 +4543,13 @@ ctx.clearRect(0, 0, w, h);
                     }
                 }
 
+                // Unified dynamic drag tooltip during move (for both single and multi-select drag)
+                dragTooltip.innerHTML = `Start: ${clip.start.toFixed(2)}s`;
+                const xVal = clip.start * State.pixelsPerSecond - timelineScrollArea.scrollLeft + timelineScrollArea.getBoundingClientRect().left;
+                dragTooltip.style.left = `${xVal}px`;
+                dragTooltip.style.top = `${e.clientY - 30}px`;
+                dragTooltip.classList.remove('hidden');
+
             } else if (State.drag.type === 'trimLeft') {
                 let newStart = State.drag.initialStart + deltaTime;
                 let newSourceOffset = State.drag.initialSourceOffset + deltaTime;
@@ -4498,6 +4575,13 @@ ctx.clearRect(0, 0, w, h);
                 clipEl.style.left = `${clip.start * State.pixelsPerSecond}px`;
                 clipEl.style.width = `${clip.duration * State.pixelsPerSecond}px`;
                 
+                const dragTooltip = document.getElementById('dragTooltip');
+                dragTooltip.innerHTML = `Start: ${clip.start.toFixed(2)}s`;
+                const xVal = clip.start * State.pixelsPerSecond - timelineScrollArea.scrollLeft + timelineScrollArea.getBoundingClientRect().left;
+                dragTooltip.style.left = `${xVal}px`;
+                dragTooltip.style.top = `${e.clientY - 30}px`;
+                dragTooltip.classList.remove('hidden');
+
                 drawCachedWaveform(clipEl.querySelector('.waveform-canvas'), clip, palette);
 
             } else if (State.drag.type === 'trimRight') {
@@ -4510,6 +4594,13 @@ ctx.clearRect(0, 0, w, h);
                 clip.duration = newDuration;
                 clipEl.style.width = `${clip.duration * State.pixelsPerSecond}px`;
                 
+                const dragTooltip = document.getElementById('dragTooltip');
+                dragTooltip.innerHTML = `End: ${(clip.start + clip.duration).toFixed(2)}s`;
+                const xVal = (clip.start + clip.duration) * State.pixelsPerSecond - timelineScrollArea.scrollLeft + timelineScrollArea.getBoundingClientRect().left;
+                dragTooltip.style.left = `${xVal}px`;
+                dragTooltip.style.top = `${e.clientY - 30}px`;
+                dragTooltip.classList.remove('hidden');
+
                 drawCachedWaveform(clipEl.querySelector('.waveform-canvas'), clip, palette);
             }
             
@@ -4524,6 +4615,9 @@ ctx.clearRect(0, 0, w, h);
 
         function handleMouseUp(e) {
             if (!State.drag.active) return;
+            
+            const dragTooltip = document.getElementById('dragTooltip');
+            if (dragTooltip) dragTooltip.classList.add('hidden');
             
             if (State.drag.type === 'marquee') {
                 const marquee = document.getElementById('marqueeSelection');
@@ -4709,10 +4803,16 @@ ctx.clearRect(0, 0, w, h);
         // --- Playback Engine ---
 
         function formatTime(seconds) {
-            const m = Math.floor(seconds / 60).toString().padStart(2, '0');
+            const h = Math.floor(seconds / 3600);
+            const m = Math.floor((seconds % 3600) / 60).toString().padStart(2, '0');
             const s = Math.floor(seconds % 60).toString().padStart(2, '0');
             const ms = Math.floor((seconds % 1) * 100).toString().padStart(2, '0');
-            return `${m}:${s}.${ms}`;
+            
+            if (h > 0) {
+                return `${h}:${m}:${s}.${ms}`;
+            } else {
+                return `${m}:${s}.${ms}`;
+            }
         }
 
         function updatePlayhead() {
