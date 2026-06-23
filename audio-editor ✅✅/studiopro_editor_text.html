@@ -384,6 +384,10 @@
             <button id="btnImport" class="p-1.5 text-surface-600 dark:text-surface-300 hover:text-surface-900 dark:hover:text-white bg-surface-100 dark:bg-surface-800 rounded-md border border-surface-200 dark:border-surface-700 shadow-sm" title="Import Media">
                 <i data-lucide="folder-plus" class="w-4 h-4"></i>
             </button>
+            <input type="file" id="fontInput" accept=".ttf,.otf,.woff,.woff2" class="hidden">
+            <button id="btnImportFont" class="p-1.5 text-surface-600 dark:text-surface-300 hover:text-surface-900 dark:hover:text-white bg-surface-100 dark:bg-surface-800 rounded-md border border-surface-200 dark:border-surface-700 shadow-sm" title="Import Custom Font">
+                <i data-lucide="file-type" class="w-4 h-4"></i>
+            </button>
             <div class="hidden sm:block w-px h-4 bg-surface-200 dark:bg-surface-700 mx-1"></div>
             
             <!-- Export Button -->
@@ -631,6 +635,7 @@
 
         // --- State Management ---
         const State = {
+            customFonts: [],
             pixelsPerSecond: 50,
             duration: 60,
                     currentTime: 0,
@@ -707,9 +712,11 @@
         const btnSplit = document.getElementById('btnSplit');
         const btnDelete = document.getElementById('btnDelete');
         const btnImport = document.getElementById('btnImport');
+        const btnImportFont = document.getElementById('btnImportFont');
         const btnAddText = document.getElementById('btnAddText');
         const btnAddShape = document.getElementById('btnAddShape');
         const mediaInput = document.getElementById('mediaInput');
+        const fontInput = document.getElementById('fontInput');
         const canvasColorPicker = document.getElementById('canvasColorPicker');
         const canvasColorIcon = document.getElementById('canvasColorIcon');
         const btnToggleTimecode = document.getElementById('btnToggleTimecode');
@@ -825,8 +832,48 @@
             });
         }
 
+        // --- Custom Fonts ---
+        function registerCustomFont(name, dataUri) {
+            const styleId = `custom-font-style-${name.replace(/[^a-zA-Z0-9]/g, '-')}`;
+            let styleEl = document.getElementById(styleId);
+            if (!styleEl) {
+                styleEl = document.createElement('style');
+                styleEl.id = styleId;
+                document.head.appendChild(styleEl);
+            }
+            styleEl.textContent = `@font-face { font-family: "${name}"; src: url("${dataUri}"); font-weight: normal; font-style: normal; }`;
+            
+            if (typeof FontFace !== 'undefined') {
+                const fontFace = new FontFace(name, `url(${dataUri})`);
+                fontFace.load().then(loadedFace => {
+                    document.fonts.add(loadedFace);
+                    drawCanvas();
+                }).catch(err => {
+                    console.error(`Error loading custom font "${name}":`, err);
+                });
+            }
+        }
+
+        function loadCustomFonts() {
+            try {
+                const stored = localStorage.getItem('studiopro_custom_fonts');
+                if (stored) {
+                    State.customFonts = JSON.parse(stored);
+                    State.customFonts.forEach(font => {
+                        registerCustomFont(font.name, font.dataUri);
+                    });
+                } else {
+                    State.customFonts = [];
+                }
+            } catch (e) {
+                console.error("Error loading custom fonts from localStorage:", e);
+                State.customFonts = [];
+            }
+        }
+
         // --- Initialization ---
         function init() {
+            loadCustomFonts();
             renderTrackHeaders();
             renderTracks();
             updateTimelineWidth();
@@ -2697,6 +2744,26 @@
             const isText = clip.type === 'text';
             let textHTML = '';
             if (isText) {
+                const defaultFonts = [
+                    { value: "Rubik", label: "Rubik (Fireship)", className: "font-rubik font-bold" },
+                    { value: "Montserrat", label: "Montserrat (Clean)", className: "font-montserrat font-bold" },
+                    { value: "Inter", label: "Inter (Modern)", className: "font-inter font-bold" },
+                    { value: "Oswald", label: "Oswald (Tall)", className: "font-oswald font-bold" },
+                    { value: "Bebas Neue", label: "Bebas Neue (Impact)", className: "font-bebas font-bold" },
+                    { value: "Bangers", label: "Bangers (Comic)", className: "font-bangers font-bold" },
+                    { value: "Fredoka", label: "Fredoka (Round)", className: "font-fredoka font-bold" },
+                    { value: "Lora", label: "Lora (Serif)", className: "font-lora font-bold" },
+                    { value: "Plus Jakarta Sans", label: "Jakarta (UI)", className: "font-sans font-bold" }
+                ];
+
+                const fontOptionsHtml = defaultFonts.map(font => 
+                    `<option value="${font.value}" class="${font.className}" ${fx.fontFamily === font.value ? 'selected' : ''}>${font.label}</option>`
+                ).join('');
+                
+                const customFontOptionsHtml = (State.customFonts || []).map(font => 
+                    `<option value="${font.name}" style="font-family: '${font.name}'; font-weight: bold;" ${fx.fontFamily === font.name ? 'selected' : ''}>${font.name} (Custom)</option>`
+                ).join('');
+
                 textHTML = `
                     <details class="group bg-white dark:bg-surface-800 border border-surface-300 dark:border-surface-700 shadow-sm rounded-lg shrink-0 ${isHorizontal ? 'w-[280px]' : 'w-full'} overflow-hidden flex flex-col" open>
                         <summary class="flex items-center justify-between p-3 ${isHorizontal ? '' : 'cursor-pointer'} list-none appearance-none select-none bg-surface-100 dark:bg-surface-800/80 border-b border-surface-200 dark:border-surface-700 " onclick="${isHorizontal ? 'event.preventDefault();' : ''}">
@@ -2710,15 +2777,8 @@
                                 <div>
                                     <label class="block text-[10px] font-bold text-surface-500 dark:text-surface-400 uppercase tracking-widest mb-1.5">Font</label>
                                     <select class="w-full text-xs p-2 pl-3 border border-surface-200 dark:border-surface-700 rounded bg-surface-50 dark:bg-surface-900/80 shadow-inner focus:outline-none focus:border-brand-500 focus:ring-1 focus:ring-brand-500 appearance-none cursor-pointer font-bold text-surface-800 dark:text-surface-200" onchange="setClipEffect('${clip.id}', 'fontFamily', this.value)">
-                                        <option value="Rubik" class="font-rubik font-bold" ${fx.fontFamily === 'Rubik' ? 'selected' : ''}>Rubik (Fireship)</option>
-                                        <option value="Montserrat" class="font-montserrat font-bold" ${fx.fontFamily === 'Montserrat' ? 'selected' : ''}>Montserrat (Clean)</option>
-                                        <option value="Inter" class="font-inter font-bold" ${fx.fontFamily === 'Inter' ? 'selected' : ''}>Inter (Modern)</option>
-                                        <option value="Oswald" class="font-oswald font-bold" ${fx.fontFamily === 'Oswald' ? 'selected' : ''}>Oswald (Tall)</option>
-                                        <option value="Bebas Neue" class="font-bebas font-bold" ${fx.fontFamily === 'Bebas Neue' ? 'selected' : ''}>Bebas Neue (Impact)</option>
-                                        <option value="Bangers" class="font-bangers font-bold" ${fx.fontFamily === 'Bangers' ? 'selected' : ''}>Bangers (Comic)</option>
-                                        <option value="Fredoka" class="font-fredoka font-bold" ${fx.fontFamily === 'Fredoka' ? 'selected' : ''}>Fredoka (Round)</option>
-                                        <option value="Lora" class="font-lora font-bold" ${fx.fontFamily === 'Lora' ? 'selected' : ''}>Lora (Serif)</option>
-                                        <option value="Plus Jakarta Sans" class="font-sans font-bold" ${fx.fontFamily === 'Plus Jakarta Sans' ? 'selected' : ''}>Jakarta (UI)</option>
+                                        ${fontOptionsHtml}
+                                        ${customFontOptionsHtml}
                                     </select>
                                 </div>
                                 <div class="grid grid-cols-2 gap-2 mt-2">
@@ -4373,6 +4433,71 @@ const isVis = !clip.hidden;
             mediaInput.value = ''; 
         });
 
+        btnImportFont.addEventListener('click', () => {
+            fontInput.click();
+        });
+
+        fontInput.addEventListener('change', (e) => {
+            const files = Array.from(e.target.files);
+            if (!files.length) return;
+
+            btnImportFont.innerHTML = `<i data-lucide="loader-2" class="w-4 h-4 animate-spin"></i>`;
+            lucide.createIcons();
+
+            const file = files[0];
+            if (file.size > 2.5 * 1024 * 1024) {
+                alert("Font file is too large (max 2.5MB). Please upload a smaller font file (Woff/Woff2 are highly recommended) to ensure it fits in browser storage.");
+                btnImportFont.innerHTML = `<i data-lucide="file-type" class="w-4 h-4"></i>`;
+                lucide.createIcons();
+                fontInput.value = '';
+                return;
+            }
+
+            const reader = new FileReader();
+            reader.onload = function(evt) {
+                try {
+                    const dataUri = evt.target.result;
+                    const name = file.name.replace(/\.[^/.]+$/, "");
+
+                    if (!State.customFonts) {
+                        State.customFonts = [];
+                    }
+                    const existingIdx = State.customFonts.findIndex(f => f.name.toLowerCase() === name.toLowerCase());
+                    if (existingIdx !== -1) {
+                        State.customFonts[existingIdx] = { name, dataUri };
+                    } else {
+                        State.customFonts.push({ name, dataUri });
+                    }
+
+                    try {
+                        localStorage.setItem('studiopro_custom_fonts', JSON.stringify(State.customFonts));
+                    } catch (storageErr) {
+                        console.error("LocalStorage save failed:", storageErr);
+                        alert("Could not persist font to browser storage (LocalStorage limit exceeded). It will be available for this session only.");
+                    }
+
+                    registerCustomFont(name, dataUri);
+                    updatePropertiesPanel();
+                } catch (err) {
+                    console.error("Error reading font file:", err);
+                    alert("Error loading font file.");
+                } finally {
+                    btnImportFont.innerHTML = `<i data-lucide="file-type" class="w-4 h-4"></i>`;
+                    lucide.createIcons();
+                    fontInput.value = '';
+                }
+            };
+
+            reader.onerror = function() {
+                alert("Failed to read the font file.");
+                btnImportFont.innerHTML = `<i data-lucide="file-type" class="w-4 h-4"></i>`;
+                lucide.createIcons();
+                fontInput.value = '';
+            };
+
+            reader.readAsDataURL(file);
+        });
+
         // --- Editing Tools (Split & Delete) ---
         
         function deleteSelectedClip() {
@@ -5100,7 +5225,7 @@ ctx.clearRect(0, 0, w, h);
                     
                     if (clip.type === 'text') {
                         const ctx = canvas.getContext('2d');
-                        ctx.font = `${clip.effects.fontWeight} 100px ${clip.effects.fontFamily}`;
+                        ctx.font = `${clip.effects.fontWeight} 100px "${clip.effects.fontFamily}"`;
                         const metrics = ctx.measureText(clip.text);
                         dw = metrics.width;
                         dh = 100;
