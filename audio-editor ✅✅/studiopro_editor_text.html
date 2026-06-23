@@ -636,6 +636,10 @@
         // --- State Management ---
         const State = {
             customFonts: [],
+            googleFonts: [],
+            importedSystemFonts: [],
+            systemFonts: [],
+            systemFontsLoaded: false,
             pixelsPerSecond: 50,
             duration: 60,
                     currentTime: 0,
@@ -871,9 +875,51 @@
             }
         }
 
+        function loadGoogleFonts() {
+            try {
+                const stored = localStorage.getItem('studiopro_google_fonts');
+                if (stored) {
+                    State.googleFonts = JSON.parse(stored);
+                    State.googleFonts.forEach(fontName => {
+                        const apiName = fontName.replace(/\s+/g, '+');
+                        const url = `https://fonts.googleapis.com/css2?family=${apiName}:wght@400;600;700;900&display=swap`;
+                        const linkId = `gfont-${fontName.replace(/\s+/g, '-').toLowerCase()}`;
+                        if (!document.getElementById(linkId)) {
+                            const link = document.createElement('link');
+                            link.id = linkId;
+                            link.rel = 'stylesheet';
+                            link.href = url;
+                            document.head.appendChild(link);
+                        }
+                    });
+                } else {
+                    State.googleFonts = [];
+                }
+            } catch (e) {
+                console.error("Error loading Google Fonts from localStorage:", e);
+                State.googleFonts = [];
+            }
+        }
+
+        function loadImportedSystemFonts() {
+            try {
+                const stored = localStorage.getItem('studiopro_imported_system_fonts');
+                if (stored) {
+                    State.importedSystemFonts = JSON.parse(stored);
+                } else {
+                    State.importedSystemFonts = [];
+                }
+            } catch (e) {
+                console.error("Error loading imported system fonts from localStorage:", e);
+                State.importedSystemFonts = [];
+            }
+        }
+
         // --- Initialization ---
         function init() {
             loadCustomFonts();
+            loadGoogleFonts();
+            loadImportedSystemFonts();
             renderTrackHeaders();
             renderTracks();
             updateTimelineWidth();
@@ -2591,6 +2637,145 @@
             drawCanvas();
         };
 
+        window.importGoogleFontFromInput = () => {
+            const input = document.getElementById('inputGoogleFont');
+            if (!input) return;
+            const fontName = input.value.trim();
+            if (!fontName) return;
+
+            const btn = document.getElementById('btnImportGoogleFont');
+            const originalHTML = btn ? btn.innerHTML : '';
+            if (btn) {
+                btn.innerHTML = `<i data-lucide="loader-2" class="w-4 h-4 animate-spin"></i>`;
+                lucide.createIcons();
+                btn.disabled = true;
+            }
+
+            const apiName = fontName.replace(/\s+/g, '+');
+            const url = `https://fonts.googleapis.com/css2?family=${apiName}:wght@400;600;700;900&display=swap`;
+
+            fetch(url)
+                .then(res => {
+                    if (!res.ok) throw new Error("Font not found");
+                    
+                    const linkId = `gfont-${fontName.replace(/\s+/g, '-').toLowerCase()}`;
+                    if (!document.getElementById(linkId)) {
+                        const link = document.createElement('link');
+                        link.id = linkId;
+                        link.rel = 'stylesheet';
+                        link.href = url;
+                        document.head.appendChild(link);
+                    }
+
+                    if (!State.googleFonts) {
+                        State.googleFonts = [];
+                    }
+                    if (!State.googleFonts.includes(fontName)) {
+                        State.googleFonts.push(fontName);
+                    }
+
+                    localStorage.setItem('studiopro_google_fonts', JSON.stringify(State.googleFonts));
+                    input.value = '';
+                    updatePropertiesPanel();
+                    document.fonts.ready.then(() => drawCanvas());
+                })
+                .catch(err => {
+                    console.error(err);
+                    alert(`Could not load Google Font "${fontName}". Please verify the spelling on fonts.google.com.`);
+                })
+                .finally(() => {
+                    if (btn) {
+                        btn.innerHTML = originalHTML;
+                        btn.disabled = false;
+                        lucide.createIcons();
+                    }
+                });
+        };
+
+        window.removeGoogleFont = (fontName) => {
+            if (!State.googleFonts) return;
+            State.googleFonts = State.googleFonts.filter(f => f !== fontName);
+            localStorage.setItem('studiopro_google_fonts', JSON.stringify(State.googleFonts));
+
+            const linkId = `gfont-${fontName.replace(/\s+/g, '-').toLowerCase()}`;
+            const link = document.getElementById(linkId);
+            if (link) {
+                link.parentNode.removeChild(link);
+            }
+
+            updatePropertiesPanel();
+            drawCanvas();
+        };
+
+        window.fetchSystemFonts = async () => {
+            if (!('queryLocalFonts' in window)) {
+                alert("The Local Font Access API is not supported in this browser. Please use a desktop version of Chrome, Edge, or Opera to search local system fonts.");
+                return;
+            }
+
+            const btn = document.getElementById('btnFetchSystemFonts');
+            const originalHTML = btn ? btn.innerHTML : '';
+            if (btn) {
+                btn.innerHTML = `<i data-lucide="loader-2" class="w-4 h-4 animate-spin"></i> Fetching...`;
+                lucide.createIcons();
+                btn.disabled = true;
+            }
+
+            try {
+                const availableFonts = await window.queryLocalFonts();
+                const uniqueFamilies = Array.from(new Set(availableFonts.map(f => f.family))).sort();
+                State.systemFonts = uniqueFamilies;
+                State.systemFontsLoaded = true;
+                updatePropertiesPanel();
+            } catch (err) {
+                console.error("Local fonts access error:", err);
+                if (err.name === 'NotAllowedError') {
+                    alert("Permission to access local fonts was denied.");
+                } else {
+                    alert("An error occurred while fetching system fonts: " + err.message);
+                }
+            } finally {
+                if (btn) {
+                    btn.innerHTML = originalHTML;
+                    btn.disabled = false;
+                    lucide.createIcons();
+                }
+            }
+        };
+
+        window.filterSystemFonts = (searchTerm) => {
+            const term = searchTerm.toLowerCase().trim();
+            const items = document.querySelectorAll('.system-font-item');
+            items.forEach(item => {
+                const fontName = item.getAttribute('data-font-name').toLowerCase();
+                if (fontName.includes(term)) {
+                    item.classList.remove('hidden');
+                } else {
+                    item.classList.add('hidden');
+                }
+            });
+        };
+
+        window.importSystemFont = (fontName) => {
+            if (!State.importedSystemFonts) {
+                State.importedSystemFonts = [];
+            }
+            if (!State.importedSystemFonts.includes(fontName)) {
+                State.importedSystemFonts.push(fontName);
+                localStorage.setItem('studiopro_imported_system_fonts', JSON.stringify(State.importedSystemFonts));
+            }
+            updatePropertiesPanel();
+            drawCanvas();
+        };
+
+        window.removeSystemFont = (fontName) => {
+            if (!State.importedSystemFonts) return;
+            State.importedSystemFonts = State.importedSystemFonts.filter(f => f !== fontName);
+            localStorage.setItem('studiopro_imported_system_fonts', JSON.stringify(State.importedSystemFonts));
+            updatePropertiesPanel();
+            drawCanvas();
+        };
+
         // --- Sidebar Inspector UI ---
         function updateSidebarPanel() {
             // Save state
@@ -2764,6 +2949,14 @@
                     `<option value="${font.name}" style="font-family: '${font.name}'; font-weight: bold;" ${fx.fontFamily === font.name ? 'selected' : ''}>${font.name} (Custom)</option>`
                 ).join('');
 
+                const googleFontOptionsHtml = (State.googleFonts || []).map(fontName => 
+                    `<option value="${fontName}" style="font-family: '${fontName}'; font-weight: bold;" ${fx.fontFamily === fontName ? 'selected' : ''}>${fontName} (Google Font)</option>`
+                ).join('');
+
+                const systemFontOptionsHtml = (State.importedSystemFonts || []).map(fontName => 
+                    `<option value="${fontName}" style="font-family: '${fontName}'; font-weight: bold;" ${fx.fontFamily === fontName ? 'selected' : ''}>${fontName} (PC Font)</option>`
+                ).join('');
+
                 textHTML = `
                     <details class="group bg-white dark:bg-surface-800 border border-surface-300 dark:border-surface-700 shadow-sm rounded-lg shrink-0 ${isHorizontal ? 'w-[280px]' : 'w-full'} overflow-hidden flex flex-col" open>
                         <summary class="flex items-center justify-between p-3 ${isHorizontal ? '' : 'cursor-pointer'} list-none appearance-none select-none bg-surface-100 dark:bg-surface-800/80 border-b border-surface-200 dark:border-surface-700 " onclick="${isHorizontal ? 'event.preventDefault();' : ''}">
@@ -2779,6 +2972,8 @@
                                     <select class="w-full text-xs p-2 pl-3 border border-surface-200 dark:border-surface-700 rounded bg-surface-50 dark:bg-surface-900/80 shadow-inner focus:outline-none focus:border-brand-500 focus:ring-1 focus:ring-brand-500 appearance-none cursor-pointer font-bold text-surface-800 dark:text-surface-200" onchange="setClipEffect('${clip.id}', 'fontFamily', this.value)">
                                         ${fontOptionsHtml}
                                         ${customFontOptionsHtml}
+                                        ${googleFontOptionsHtml}
+                                        ${systemFontOptionsHtml}
                                     </select>
                                 </div>
                                 <div class="grid grid-cols-2 gap-2 mt-2">
@@ -3250,6 +3445,89 @@
                 </details>
             `;
 
+            const systemFontsHTML = isText ? `
+                <details class="group bg-white dark:bg-surface-800 border border-surface-300 dark:border-surface-700 shadow-sm rounded-lg shrink-0 ${isHorizontal ? 'w-[280px]' : 'w-full'} overflow-hidden flex flex-col" ${(State.ui && State.ui.detailsState && State.ui.detailsState['System Fonts (PC)']) ? 'open' : ''}>
+                    <summary class="flex items-center justify-between p-3 ${isHorizontal ? '' : 'cursor-pointer'} list-none appearance-none select-none bg-surface-100 dark:bg-surface-800/80 border-b border-surface-200 dark:border-surface-700 " onclick="${isHorizontal ? 'event.preventDefault();' : ''}">
+                        <div class="text-sm font-bold text-surface-800 dark:text-surface-200 flex items-center gap-2"><i data-lucide="laptop" class="w-4 h-4 text-surface-500 dark:text-surface-400"></i> System Fonts (PC)</div>
+                        ${isHorizontal ? '' : '<i data-lucide="chevron-down" class="w-4 h-4 text-surface-500 transition-transform group-open:rotate-180"></i>'}
+                    </summary>
+                    <div class="p-3 flex flex-col gap-3 bg-surface-50 dark:bg-surface-900/50 flex-1">
+                        ${!State.systemFontsLoaded ? `
+                            <button id="btnFetchSystemFonts" onclick="fetchSystemFonts()" class="w-full bg-brand-600 hover:bg-brand-700 text-white font-bold py-2 px-3 rounded text-xs flex items-center justify-center gap-2 shadow-sm transition-colors">
+                                <svg class="w-4 h-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="2" y="3" width="20" height="14" rx="2" ry="2"></rect><line x1="8" y1="21" x2="16" y2="21"></line><line x1="12" y1="17" x2="12" y2="21"></line></svg>
+                                Fetch System Fonts
+                            </button>
+                        ` : `
+                            <div class="flex flex-col gap-2">
+                                <input type="text" id="inputLocalFontSearch" placeholder="Search local fonts..." class="w-full text-xs px-2 py-1.5 bg-surface-50 dark:bg-surface-900/80 border border-surface-200 dark:border-surface-700 rounded shadow-inner text-surface-800 dark:text-surface-200 outline-none focus:border-brand-500 focus:ring-1 focus:ring-brand-500 font-bold" oninput="filterSystemFonts(this.value)">
+                                <div class="flex flex-col gap-1 max-h-40 overflow-y-auto pr-1 no-scrollbar border border-surface-200 dark:border-surface-700 rounded bg-surface-50 dark:bg-surface-900/60 p-1.5 shadow-inner">
+                                    ${State.systemFonts.map(fontName => `
+                                        <div class="system-font-item flex items-center justify-between p-1 hover:bg-surface-200 dark:hover:bg-surface-800/80 rounded" data-font-name="${fontName}">
+                                            <span style="font-family: '${fontName}'; font-size: 13px; font-weight: bold;" class="text-surface-800 dark:text-surface-200 select-none">${fontName}</span>
+                                            <button onclick="importSystemFont('${fontName}')" class="text-brand-500 hover:text-brand-600 p-1 rounded bg-white dark:bg-surface-750 shadow-sm border border-surface-200 dark:border-surface-700 shrink-0" title="Import Font">
+                                                <svg class="w-3.5 h-3.5" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><line x1="12" y1="5" x2="12" y2="19"></line><line x1="5" y1="12" x2="19" y2="12"></line></svg>
+                                            </button>
+                                        </div>
+                                    `).join('')}
+                                </div>
+                            </div>
+                        `}
+                        
+                        <div class="flex flex-col gap-1.5 border-t border-surface-200 dark:border-surface-700/60 pt-2.5">
+                            <label class="block text-[9px] font-bold text-surface-500 dark:text-surface-400 uppercase tracking-widest">Imported PC Fonts</label>
+                            ${(State.importedSystemFonts && State.importedSystemFonts.length > 0) ? `
+                                <div class="flex flex-col gap-1.5 mt-1 max-h-36 overflow-y-auto pr-1 no-scrollbar">
+                                    ${State.importedSystemFonts.map(fontName => `
+                                        <div class="flex items-center justify-between bg-surface-100 dark:bg-surface-800/80 px-2 py-1.5 rounded-md text-xs font-bold text-surface-800 dark:text-surface-200">
+                                            <span style="font-family: '${fontName}';">${fontName}</span>
+                                            <button onclick="removeSystemFont('${fontName}')" class="text-surface-400 hover:text-red-500 rounded p-0.5" title="Remove Font">
+                                                <i data-lucide="trash-2" class="w-3.5 h-3.5"></i>
+                                            </button>
+                                        </div>
+                                    `).join('')}
+                                </div>
+                            ` : `
+                                <div class="text-[11px] text-surface-400 dark:text-surface-500 text-center py-2 italic bg-surface-100/40 dark:bg-surface-800/20 rounded-md">No PC Fonts imported yet</div>
+                            `}
+                        </div>
+                    </div>
+                </details>
+            ` : '';
+
+            const googleFontsHTML = isText ? `
+                <details class="group bg-white dark:bg-surface-800 border border-surface-300 dark:border-surface-700 shadow-sm rounded-lg shrink-0 ${isHorizontal ? 'w-[280px]' : 'w-full'} overflow-hidden flex flex-col" ${(State.ui && State.ui.detailsState && State.ui.detailsState['Google Fonts']) ? 'open' : ''}>
+                    <summary class="flex items-center justify-between p-3 ${isHorizontal ? '' : 'cursor-pointer'} list-none appearance-none select-none bg-surface-100 dark:bg-surface-800/80 border-b border-surface-200 dark:border-surface-700 " onclick="${isHorizontal ? 'event.preventDefault();' : ''}">
+                        <div class="text-sm font-bold text-surface-800 dark:text-surface-200 flex items-center gap-2"><i data-lucide="globe" class="w-4 h-4 text-surface-500 dark:text-surface-400"></i> Google Fonts</div>
+                        ${isHorizontal ? '' : '<i data-lucide="chevron-down" class="w-4 h-4 text-surface-500 transition-transform group-open:rotate-180"></i>'}
+                    </summary>
+                    <div class="p-3 flex flex-col gap-3 bg-surface-50 dark:bg-surface-900/50 flex-1">
+                        <div class="flex gap-2">
+                            <input type="text" id="inputGoogleFont" placeholder="e.g. Poppins, Roboto" class="flex-1 text-xs px-2 py-1.5 bg-surface-50 dark:bg-surface-900/80 border border-surface-200 dark:border-surface-700 rounded shadow-inner text-surface-800 dark:text-surface-200 outline-none focus:border-brand-500 focus:ring-1 focus:ring-brand-500 font-bold" onkeydown="if(event.key === 'Enter') importGoogleFontFromInput();">
+                            <button onclick="importGoogleFontFromInput()" id="btnImportGoogleFont" class="bg-brand-600 hover:bg-brand-700 text-white p-1.5 rounded flex items-center justify-center shadow-sm" title="Add Google Font">
+                                <i data-lucide="plus" class="w-4 h-4"></i>
+                            </button>
+                        </div>
+                        <div class="flex flex-col gap-1.5">
+                            <label class="block text-[9px] font-bold text-surface-500 dark:text-surface-400 uppercase tracking-widest">Imported Fonts</label>
+                            ${(State.googleFonts && State.googleFonts.length > 0) ? `
+                                <div class="flex flex-col gap-1.5 mt-1 max-h-36 overflow-y-auto pr-1 no-scrollbar">
+                                    ${State.googleFonts.map(fontName => `
+                                        <div class="flex items-center justify-between bg-surface-100 dark:bg-surface-800/80 px-2 py-1.5 rounded-md text-xs font-bold text-surface-800 dark:text-surface-200">
+                                            <span style="font-family: '${fontName}';">${fontName}</span>
+                                            <button onclick="removeGoogleFont('${fontName}')" class="text-surface-400 hover:text-red-500 rounded p-0.5" title="Remove Font">
+                                                <i data-lucide="trash-2" class="w-3.5 h-3.5"></i>
+                                            </button>
+                                        </div>
+                                    `).join('')}
+                                </div>
+                            ` : `
+                                <div class="text-[11px] text-surface-400 dark:text-surface-500 text-center py-2 italic bg-surface-100/40 dark:bg-surface-800/20 rounded-md">No Google Fonts imported yet</div>
+                            `}
+                        </div>
+                    </div>
+                </details>
+            ` : '';
+
             
             const vol = clip.effects.volume !== undefined ? clip.effects.volume : 1;
             const echo = clip.effects.echo !== undefined ? clip.effects.echo : 0.5;
@@ -3475,7 +3753,7 @@
                 if (State.sidebarTab === 'animations') {
                     sidebarContent.innerHTML = animHTML;
                 } else {
-                    sidebarContent.innerHTML = transformHTML + (isText ? textHTML : '') + (isShape ? shapeHTML : '') + cropHTML + maskHTML + strokeHTML + extrudeHTML + blendingHTML + shadowHTML;
+                    sidebarContent.innerHTML = transformHTML + (isText ? textHTML : '') + (isShape ? shapeHTML : '') + cropHTML + maskHTML + strokeHTML + extrudeHTML + blendingHTML + shadowHTML + (isText ? systemFontsHTML : '') + (isText ? googleFontsHTML : '');
                 }
             }
             
