@@ -509,6 +509,11 @@
                             <i data-lucide="mouse-pointer-2" class="w-4 h-4"></i>
                         </button>
 
+                        <!-- Toggle Click-to-Seek Anywhere -->
+                        <button onclick="toggleTimelineSeekAnywhere()" id="btnTimelineSeekAnywhere" class="w-8 h-8 flex items-center justify-center rounded-md hover:bg-brand-50 dark:hover:bg-brand-500/10 hover:text-brand-600 dark:hover:text-brand-400 text-surface-600 dark:text-surface-400" title="Toggle Click-to-Seek Anywhere on Timeline (C)">
+                            <i data-lucide="target" class="w-4 h-4"></i>
+                        </button>
+
                         <button onclick="toggleKeyboardSeekClip()" id="btnKeyboardSeekClip" class="w-8 h-8 flex items-center justify-center rounded-md hover:bg-brand-50 dark:hover:bg-brand-500/10 hover:text-brand-600 dark:hover:text-brand-400 text-surface-600 dark:text-surface-400" title="Keyboard Seeks Selected Clip (Toggle J/L keys behavior)">
                             <i data-lucide="keyboard" class="w-4 h-4"></i>
                         </button>
@@ -684,6 +689,7 @@
             layout: { isSideBySide: false },
             inspector: { visible: false, dock: 'left', fullWidth: false, width: 320 },
             hoverPlayheadEnabled: true,
+            timelineSeekAnywhere: false,
             keyboardSeekClip: false
         };
 
@@ -1426,6 +1432,18 @@
             State.keyboardSeekClip = !State.keyboardSeekClip;
             const btn = document.getElementById('btnKeyboardSeekClip');
             if (State.keyboardSeekClip) {
+                btn.classList.add('text-brand-600', 'dark:text-brand-400');
+                btn.classList.remove('text-surface-600', 'dark:text-surface-400');
+            } else {
+                btn.classList.remove('text-brand-600', 'dark:text-brand-400');
+                btn.classList.add('text-surface-600', 'dark:text-surface-400');
+            }
+        }
+
+        function toggleTimelineSeekAnywhere() {
+            State.timelineSeekAnywhere = !State.timelineSeekAnywhere;
+            const btn = document.getElementById('btnTimelineSeekAnywhere');
+            if (State.timelineSeekAnywhere) {
                 btn.classList.add('text-brand-600', 'dark:text-brand-400');
                 btn.classList.remove('text-surface-600', 'dark:text-surface-400');
             } else {
@@ -5517,6 +5535,10 @@ ctx.clearRect(0, 0, w, h);
                     if (e.shiftKey) handleCenterV();
                     else handleFlipV();
                 }
+                else if (k === 'c') {
+                    e.preventDefault();
+                    toggleTimelineSeekAnywhere();
+                }
                 else if (e.key === '\\') handleToggleVis();
             });
 
@@ -5697,36 +5719,61 @@ ctx.clearRect(0, 0, w, h);
             });
 
             tracksContentContainer.addEventListener('mousedown', (e) => {
-                if (!e.target.closest('.clip')) {
-                    // Empty space click
-                    if (!e.ctrlKey && !e.metaKey) {
-                        State.selectedClipId = null;
-                        State.multiSelectedClipIds = [];
-                        renderClips(); 
-                        updatePropertiesPanel();
-                        drawCanvas();
-                    }
-                    
-                    // Start Marquee
+                if (State.timelineSeekAnywhere) {
+                    ensureAudioContext();
                     const rect = tracksContentContainer.getBoundingClientRect();
-                    State.drag.active = true;
-                    State.drag.type = 'marquee';
-                    State.drag.startX = e.clientX;
-                    State.drag.startY = e.clientY;
+                    const updateTimeFromMouse = (ev) => {
+                        const xInVisibleContainer = ev.clientX - rect.left;
+                        const absoluteX = timelineScrollArea.scrollLeft + xInVisibleContainer;
+                        State.currentTime = Math.max(0, Math.min(absoluteX / State.pixelsPerSecond, State.duration));
+                        updatePlayhead();
+                        syncMediaElements();
+                        drawCanvas();
+                    };
                     
-                    let marquee = document.getElementById('marqueeSelection');
-                    if (!marquee) {
-                        marquee = document.createElement('div');
-                        marquee.id = 'marqueeSelection';
-                        tracksContentContainer.appendChild(marquee);
+                    updateTimeFromMouse(e);
+                    
+                    if (e.target.closest('.clip')) {
+                        handleMouseDown(e);
+                    } else {
+                        const onMouseMove = (ev) => updateTimeFromMouse(ev);
+                        const onMouseUp = () => {
+                            document.removeEventListener('mousemove', onMouseMove);
+                            document.removeEventListener('mouseup', onMouseUp);
+                        };
+                        document.addEventListener('mousemove', onMouseMove);
+                        document.addEventListener('mouseup', onMouseUp);
                     }
-                    marquee.style.left = `${e.clientX - rect.left}px`;
-                    marquee.style.top = `${e.clientY - rect.top}px`;
-                    marquee.style.width = '0px';
-                    marquee.style.height = '0px';
-                    marquee.style.display = 'block';
                 } else {
-                    handleMouseDown(e);
+                    if (!e.target.closest('.clip')) {
+                        if (!e.ctrlKey && !e.metaKey) {
+                            State.selectedClipId = null;
+                            State.multiSelectedClipIds = [];
+                            renderClips(); 
+                            updatePropertiesPanel();
+                            drawCanvas();
+                        }
+                        
+                        const rect = tracksContentContainer.getBoundingClientRect();
+                        State.drag.active = true;
+                        State.drag.type = 'marquee';
+                        State.drag.startX = e.clientX;
+                        State.drag.startY = e.clientY;
+                        
+                        let marquee = document.getElementById('marqueeSelection');
+                        if (!marquee) {
+                            marquee = document.createElement('div');
+                            marquee.id = 'marqueeSelection';
+                            tracksContentContainer.appendChild(marquee);
+                        }
+                        marquee.style.left = `${e.clientX - rect.left}px`;
+                        marquee.style.top = `${e.clientY - rect.top}px`;
+                        marquee.style.width = '0px';
+                        marquee.style.height = '0px';
+                        marquee.style.display = 'block';
+                    } else {
+                        handleMouseDown(e);
+                    }
                 }
             });
             
