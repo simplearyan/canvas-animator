@@ -1875,6 +1875,7 @@
                         const rotate = clip.effects.rotate !== undefined ? clip.effects.rotate : 0;
                         const offsetX = clip.effects.offsetX || 0;
                         const offsetY = clip.effects.offsetY || 0;
+                        const borderRadius = clip.effects.borderRadius || 0;
 
                         // Animation Math
                         const clipTime = State.currentTime - clip.start;
@@ -1892,52 +1893,94 @@
                         ctx.rotate((rotate * Math.PI / 180) + aState.animRot);
                         ctx.scale(finalScale * (clip.effects.flipH ? -1 : 1), finalScale * (clip.effects.flipV ? -1 : 1));
 
-                        // Define path for shapeType
                         const shapeType = clip.effects.shapeType || 'rect';
-                        ctx.beginPath();
-                        if (shapeType === 'rect') {
-                            ctx.rect(-sw/2, -sh/2, sw, sh);
-                        } else if (shapeType === 'circle') {
-                            ctx.ellipse(0, 0, sw/2, sh/2, 0, 0, Math.PI * 2);
-                        } else if (shapeType === 'semicircle') {
-                            ctx.ellipse(0, 0, sw/2, sh/2, 0, 0, Math.PI, false);
-                            ctx.closePath();
-                        } else if (shapeType === 'triangle') {
-                            ctx.moveTo(0, -sh/2);
-                            ctx.lineTo(sw/2, sh/2);
-                            ctx.lineTo(-sw/2, sh/2);
-                            ctx.closePath();
-                        } else if (shapeType === 'polygon') {
-                            const sides = clip.effects.sides || 5;
-                            const rx = sw / 2;
-                            const ry = sh / 2;
-                            for (let i = 0; i < sides; i++) {
-                                const angle = (i * 2 * Math.PI / sides) - Math.PI / 2;
-                                const x = rx * Math.cos(angle);
-                                const y = ry * Math.sin(angle);
-                                if (i === 0) ctx.moveTo(x, y);
-                                else ctx.lineTo(x, y);
+
+                        function drawShapePath(c, type, w_val, h_val, r_val) {
+                            c.beginPath();
+                            if (type === 'rect') {
+                                if (r_val > 0 && c.roundRect) {
+                                    c.roundRect(-w_val/2, -h_val/2, w_val, h_val, r_val);
+                                } else {
+                                    c.rect(-w_val/2, -h_val/2, w_val, h_val);
+                                }
+                            } else if (type === 'circle') {
+                                c.ellipse(0, 0, w_val/2, h_val/2, 0, 0, Math.PI * 2);
+                            } else if (type === 'semicircle') {
+                                c.ellipse(0, 0, w_val/2, h_val/2, 0, 0, Math.PI, false);
+                                c.closePath();
+                            } else if (type === 'triangle') {
+                                c.moveTo(0, -h_val/2);
+                                c.lineTo(w_val/2, h_val/2);
+                                c.lineTo(-w_val/2, h_val/2);
+                                c.closePath();
+                            } else if (type === 'polygon') {
+                                const sides = clip.effects.sides || 5;
+                                const rx = w_val / 2;
+                                const ry = h_val / 2;
+                                for (let i = 0; i < sides; i++) {
+                                    const angle = (i * 2 * Math.PI / sides) - Math.PI / 2;
+                                    const x = rx * Math.cos(angle);
+                                    const y = ry * Math.sin(angle);
+                                    if (i === 0) c.moveTo(x, y);
+                                    else c.lineTo(x, y);
+                                }
+                                c.closePath();
+                            } else if (type === 'star') {
+                                const points = clip.effects.points || 5;
+                                const rx = w_val / 2;
+                                const ry = h_val / 2;
+                                const innerRatio = clip.effects.innerRadiusRatio || 0.4;
+                                for (let i = 0; i < points * 2; i++) {
+                                    const angle = (i * Math.PI / points) - Math.PI / 2;
+                                    const isEven = i % 2 === 0;
+                                    const currRx = isEven ? rx : rx * innerRatio;
+                                    const currRy = isEven ? ry : ry * innerRatio;
+                                    const x = currRx * Math.cos(angle);
+                                    const y = currRy * Math.sin(angle);
+                                    if (i === 0) c.moveTo(x, y);
+                                    else c.lineTo(x, y);
+                                }
+                                c.closePath();
                             }
-                            ctx.closePath();
-                        } else if (shapeType === 'star') {
-                            const points = clip.effects.points || 5;
-                            const rx = sw / 2;
-                            const ry = sh / 2;
-                            const innerRatio = clip.effects.innerRadiusRatio || 0.4;
-                            for (let i = 0; i < points * 2; i++) {
-                                const angle = (i * Math.PI / points) - Math.PI / 2;
-                                const isEven = i % 2 === 0;
-                                const currRx = isEven ? rx : rx * innerRatio;
-                                const currRy = isEven ? ry : ry * innerRatio;
-                                const x = currRx * Math.cos(angle);
-                                const y = currRy * Math.sin(angle);
-                                if (i === 0) ctx.moveTo(x, y);
-                                else ctx.lineTo(x, y);
-                            }
-                            ctx.closePath();
                         }
 
-                        // Apply Shadow
+                        // Draw Extrude 3D
+                        if (clip.effects.extrudeEnable) {
+                            let dx = 0, dy = 0;
+                            const ed = clip.effects.extrudeDir || 'br';
+                            if (ed === 'bl') { dx = -1; dy = 1; }
+                            else if (ed === 'b') { dx = 0; dy = 1; }
+                            else if (ed === 'br') { dx = 1; dy = 1; }
+                            else if (ed === 'tr') { dx = 1; dy = -1; }
+                            else if (ed === 'tl') { dx = -1; dy = -1; }
+                            else if (ed === 't') { dx = 0; dy = -1; }
+                            else if (ed === 'r') { dx = 1; dy = 0; }
+                            else if (ed === 'l') { dx = -1; dy = 0; }
+
+                            const depth = clip.effects.extrudeDepth || 5;
+                            ctx.save();
+                            ctx.shadowColor = 'transparent';
+                            ctx.shadowBlur = 0;
+                            ctx.fillStyle = clip.effects.extrudeColor || '#000000';
+                            if (clip.effects.strokeEnable) {
+                                ctx.strokeStyle = clip.effects.extrudeColor || '#000000';
+                                ctx.lineWidth = clip.effects.strokeWidth || 4;
+                            }
+                            
+                            for (let i = depth; i > 0; i -= 0.5) {
+                                ctx.save();
+                                ctx.translate(dx * i, dy * i);
+                                drawShapePath(ctx, shapeType, sw, sh, borderRadius);
+                                ctx.fill();
+                                if (clip.effects.strokeEnable) {
+                                    ctx.stroke();
+                                }
+                                ctx.restore();
+                            }
+                            ctx.restore();
+                        }
+
+                        // Apply Shadow (for the main shape layer)
                         if (clip.effects.shadowEnable) {
                             ctx.shadowColor = clip.effects.shadowColor || '#000000';
                             ctx.shadowBlur = clip.effects.shadowBlur || 20;
@@ -1948,15 +1991,16 @@
                             ctx.shadowBlur = 0;
                         }
 
-                        // Draw Fill
-                        ctx.fillStyle = clip.effects.fillColor || '#6366f1';
+                        // Draw main shape Fill
+                        drawShapePath(ctx, shapeType, sw, sh, borderRadius);
+                        ctx.fillStyle = clip.effects.fillColor || '#ffbb00';
                         ctx.fill();
 
                         // Clear shadow before drawing stroke
                         ctx.shadowColor = 'transparent';
                         ctx.shadowBlur = 0;
 
-                        // Draw Stroke
+                        // Draw main shape Stroke
                         if (clip.effects.strokeEnable) {
                             ctx.strokeStyle = clip.effects.strokeColor || '#ffffff';
                             ctx.lineWidth = clip.effects.strokeWidth || 4;
@@ -2498,9 +2542,9 @@
                                 <div class="mt-2">
                                     <label class="block text-[10px] font-bold text-surface-500 dark:text-surface-400 uppercase tracking-widest mb-1.5">Fill Color</label>
                                     <div class="relative flex items-center bg-surface-50 dark:bg-surface-900 border border-surface-200 dark:border-surface-700 rounded p-1.5 cursor-pointer shadow-inner w-full">
-                                        <div class="w-6 h-6 rounded shadow-sm" style="background-color: ${fx.fillColor || '#6366f1'}"></div>
-                                        <span class="ml-3 font-mono font-bold text-xs text-surface-700 dark:text-surface-200 uppercase">${fx.fillColor || '#6366f1'}</span>
-                                        <input type="color" value="${fx.fillColor || '#6366f1'}" class="absolute inset-0 opacity-0 cursor-pointer w-full h-full" oninput="setClipEffect('${clip.id}', 'fillColor', this.value); this.previousElementSibling.textContent = this.value; this.previousElementSibling.previousElementSibling.style.backgroundColor = this.value; drawCanvas();">
+                                        <div class="w-6 h-6 rounded shadow-sm" style="background-color: ${fx.fillColor || '#ffbb00'}"></div>
+                                        <span class="ml-3 font-mono font-bold text-xs text-surface-700 dark:text-surface-200 uppercase">${fx.fillColor || '#ffbb00'}</span>
+                                        <input type="color" value="${fx.fillColor || '#ffbb00'}" class="absolute inset-0 opacity-0 cursor-pointer w-full h-full" oninput="setClipEffect('${clip.id}', 'fillColor', this.value); this.previousElementSibling.textContent = this.value; this.previousElementSibling.previousElementSibling.style.backgroundColor = this.value; drawCanvas();">
                                     </div>
                                 </div>
                             </div>
@@ -2651,53 +2695,54 @@
                             </div>
                         </div>
                     </details>
-                    
-                    <details class="group bg-white dark:bg-surface-800 border border-surface-300 dark:border-surface-700 shadow-sm rounded-lg shrink-0 ${isHorizontal ? 'w-[280px]' : 'w-full'} overflow-hidden flex flex-col" open>
-                        <summary class="flex items-center justify-between p-3 ${isHorizontal ? '' : 'cursor-pointer'} list-none appearance-none select-none bg-surface-100 dark:bg-surface-800/80 border-b border-surface-200 dark:border-surface-700 " onclick="${isHorizontal ? 'event.preventDefault();' : ''}">
-                            <div class="text-sm font-bold text-surface-800 dark:text-surface-200 flex items-center gap-2"><i data-lucide="box" class="w-4 h-4 text-surface-500 dark:text-surface-400"></i> Extrude 3D</div>
-                            <div class="flex items-center gap-2">
-                                <label class="relative inline-flex items-center cursor-pointer" onclick="event.stopPropagation()">
-                                    <input type="checkbox" class="sr-only peer" ${fx.extrudeEnable ? 'checked' : ''} onchange="setClipEffect('${clip.id}', 'extrudeEnable', this.checked); updateSidebarPanel();">
-                                    <div class="w-7 h-4 bg-surface-300 dark:bg-surface-700 peer-focus:outline-none rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border-surface-300 after:border after:rounded-full after:h-3 after:w-3 after:transition-all peer-checked:bg-brand-500"></div>
-                                </label>
-                                ${isHorizontal ? '' : '<i data-lucide="chevron-down" class="w-4 h-4 text-surface-500 transition-transform group-open:rotate-180"></i>'}
-                            </div>
-                        </summary>
-                        <div class="p-3 flex flex-col gap-2.5 bg-surface-50 dark:bg-surface-900/50 flex-1 ${!fx.extrudeEnable ? 'opacity-50 pointer-events-none' : ''}">
-                            <div>
-                                <label class="block text-[10px] font-bold text-surface-500 dark:text-surface-400 uppercase tracking-widest mb-1.5">Color</label>
-                                <div class="relative flex items-center bg-surface-50 dark:bg-surface-900 border border-surface-200 dark:border-surface-700 rounded p-1.5 cursor-pointer shadow-inner w-full">
-                                    <div class="w-6 h-6 rounded shadow-sm" style="background-color: ${fx.extrudeColor || '#000000'}"></div>
-                                    <span class="ml-3 font-mono font-bold text-xs text-surface-700 dark:text-surface-200 uppercase">${fx.extrudeColor || '#000000'}</span>
-                                    <input type="color" value="${fx.extrudeColor || '#000000'}" class="absolute inset-0 opacity-0 cursor-pointer w-full h-full" oninput="setClipEffect('${clip.id}', 'extrudeColor', this.value); this.previousElementSibling.textContent = this.value; this.previousElementSibling.previousElementSibling.style.backgroundColor = this.value; drawCanvas();">
-                                </div>
-                            </div>
-                            <div class="mt-1">
-                                <label class="block text-[10px] font-bold text-surface-500 dark:text-surface-400 uppercase tracking-widest mb-1.5">Direction</label>
-                                <select class="w-full text-xs p-2 pl-3 border border-surface-200 dark:border-surface-700 rounded bg-surface-50 dark:bg-surface-900/80 shadow-inner focus:outline-none focus:border-brand-500 focus:ring-1 focus:ring-brand-500 appearance-none cursor-pointer font-bold text-surface-800 dark:text-surface-200" onchange="setClipEffect('${clip.id}', 'extrudeDir', this.value)">
-                                    <option value="br" ${(fx.extrudeDir || 'br') === 'br' ? 'selected' : ''}>Bottom Right</option>
-                                    <option value="bl" ${fx.extrudeDir === 'bl' ? 'selected' : ''}>Bottom Left</option>
-                                    <option value="tr" ${fx.extrudeDir === 'tr' ? 'selected' : ''}>Top Right</option>
-                                    <option value="tl" ${fx.extrudeDir === 'tl' ? 'selected' : ''}>Top Left</option>
-                                    <option value="b" ${fx.extrudeDir === 'b' ? 'selected' : ''}>Bottom</option>
-                                    <option value="t" ${fx.extrudeDir === 't' ? 'selected' : ''}>Top</option>
-                                    <option value="l" ${fx.extrudeDir === 'l' ? 'selected' : ''}>Left</option>
-                                    <option value="r" ${fx.extrudeDir === 'r' ? 'selected' : ''}>Right</option>
-                                </select>
-                            </div>
-                            <div class="mt-1">
-                                <div class="flex justify-between items-center mb-1.5">
-                                    <label class="text-[10px] font-bold text-surface-500 dark:text-surface-400 uppercase tracking-widest">Depth</label>
-                                    <span class="text-xs font-bold text-surface-900 dark:text-surface-100 bg-surface-100 dark:bg-surface-800 border border-surface-200 dark:border-surface-700 px-2 py-0.5 rounded shadow-sm">${fx.extrudeDepth || 5}</span>
-                                </div>
-                                <input type="range" min="1" max="50" value="${fx.extrudeDepth || 5}" class="w-full custom-slider" oninput="setClipEffect('${clip.id}', 'extrudeDepth', this.value); this.previousElementSibling.querySelector('span').textContent = this.value; this.style.background = 'linear-gradient(to right, ${sliderFill} ' + (this.value/this.max)*100 + '%, ${sliderBg} ' + (this.value/this.max)*100 + '%)'">
-                            </div>
-                        </div>
-                    </details>
                 `;
             }
 
-            
+            const extrudeHTML = (clip.type === 'text' || clip.type === 'shape') ? `
+                <details class="group bg-white dark:bg-surface-800 border border-surface-300 dark:border-surface-700 shadow-sm rounded-lg shrink-0 ${isHorizontal ? 'w-[280px]' : 'w-full'} overflow-hidden flex flex-col" open>
+                    <summary class="flex items-center justify-between p-3 ${isHorizontal ? '' : 'cursor-pointer'} list-none appearance-none select-none bg-surface-100 dark:bg-surface-800/80 border-b border-surface-200 dark:border-surface-700 " onclick="${isHorizontal ? 'event.preventDefault();' : ''}">
+                        <div class="text-sm font-bold text-surface-800 dark:text-surface-200 flex items-center gap-2"><i data-lucide="box" class="w-4 h-4 text-surface-500 dark:text-surface-400"></i> Extrude 3D</div>
+                        <div class="flex items-center gap-2">
+                            <label class="relative inline-flex items-center cursor-pointer" onclick="event.stopPropagation()">
+                                <input type="checkbox" class="sr-only peer" ${fx.extrudeEnable ? 'checked' : ''} onchange="setClipEffect('${clip.id}', 'extrudeEnable', this.checked); updateSidebarPanel();">
+                                <div class="w-7 h-4 bg-surface-300 dark:bg-surface-700 peer-focus:outline-none rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border-surface-300 after:border after:rounded-full after:h-3 after:w-3 after:transition-all peer-checked:bg-brand-500"></div>
+                            </label>
+                            ${isHorizontal ? '' : '<i data-lucide="chevron-down" class="w-4 h-4 text-surface-500 transition-transform group-open:rotate-180"></i>'}
+                        </div>
+                    </summary>
+                    <div class="p-3 flex flex-col gap-2.5 bg-surface-50 dark:bg-surface-900/50 flex-1 ${!fx.extrudeEnable ? 'opacity-50 pointer-events-none' : ''}">
+                        <div>
+                            <label class="block text-[10px] font-bold text-surface-500 dark:text-surface-400 uppercase tracking-widest mb-1.5">Color</label>
+                            <div class="relative flex items-center bg-surface-50 dark:bg-surface-900 border border-surface-200 dark:border-surface-700 rounded p-1.5 cursor-pointer shadow-inner w-full">
+                                <div class="w-6 h-6 rounded shadow-sm" style="background-color: ${fx.extrudeColor || '#000000'}"></div>
+                                <span class="ml-3 font-mono font-bold text-xs text-surface-700 dark:text-surface-200 uppercase">${fx.extrudeColor || '#000000'}</span>
+                                <input type="color" value="${fx.extrudeColor || '#000000'}" class="absolute inset-0 opacity-0 cursor-pointer w-full h-full" oninput="setClipEffect('${clip.id}', 'extrudeColor', this.value); this.previousElementSibling.textContent = this.value; this.previousElementSibling.previousElementSibling.style.backgroundColor = this.value; drawCanvas();">
+                            </div>
+                        </div>
+                        <div class="mt-1">
+                            <label class="block text-[10px] font-bold text-surface-500 dark:text-surface-400 uppercase tracking-widest mb-1.5">Direction</label>
+                            <select class="w-full text-xs p-2 pl-3 border border-surface-200 dark:border-surface-700 rounded bg-surface-50 dark:bg-surface-900/80 shadow-inner focus:outline-none focus:border-brand-500 focus:ring-1 focus:ring-brand-500 appearance-none cursor-pointer font-bold text-surface-800 dark:text-surface-200" onchange="setClipEffect('${clip.id}', 'extrudeDir', this.value); drawCanvas();">
+                                <option value="br" ${(fx.extrudeDir || 'br') === 'br' ? 'selected' : ''}>Bottom Right</option>
+                                <option value="bl" ${fx.extrudeDir === 'bl' ? 'selected' : ''}>Bottom Left</option>
+                                <option value="tr" ${fx.extrudeDir === 'tr' ? 'selected' : ''}>Top Right</option>
+                                <option value="tl" ${fx.extrudeDir === 'tl' ? 'selected' : ''}>Top Left</option>
+                                <option value="b" ${fx.extrudeDir === 'b' ? 'selected' : ''}>Bottom</option>
+                                <option value="t" ${fx.extrudeDir === 't' ? 'selected' : ''}>Top</option>
+                                <option value="l" ${fx.extrudeDir === 'l' ? 'selected' : ''}>Left</option>
+                                <option value="r" ${fx.extrudeDir === 'r' ? 'selected' : ''}>Right</option>
+                            </select>
+                        </div>
+                        <div class="mt-1">
+                            <div class="flex justify-between items-center mb-1.5">
+                                <label class="text-[10px] font-bold text-surface-500 dark:text-surface-400 uppercase tracking-widest">Depth</label>
+                                <span class="text-xs font-bold text-surface-900 dark:text-surface-100 bg-surface-100 dark:bg-surface-800 border border-surface-200 dark:border-surface-700 px-2 py-0.5 rounded shadow-sm">${fx.extrudeDepth || 5}</span>
+                            </div>
+                            <input type="range" min="1" max="50" value="${fx.extrudeDepth || 5}" class="w-full custom-slider" oninput="setClipEffect('${clip.id}', 'extrudeDepth', this.value); this.previousElementSibling.querySelector('span').textContent = this.value; this.style.background = 'linear-gradient(to right, ${sliderFill} ' + (this.value/this.max)*100 + '%, ${sliderBg} ' + (this.value/this.max)*100 + '%)'; drawCanvas();">
+                        </div>
+                    </div>
+                </details>
+            ` : '';
+
             const scaleVal = fx.scale !== undefined ? fx.scale : 1;
             const rotateVal = fx.rotate !== undefined ? fx.rotate : 0;
             const radiusVal = fx.borderRadius !== undefined ? fx.borderRadius : 0;
@@ -2723,7 +2768,7 @@
                             </div>
                             <input type="range" min="0" max="360" step="1" value="${rotateVal}" class="w-full custom-slider" oninput="setClipEffect('${clip.id}', 'rotate', this.value); this.previousElementSibling.querySelector('span').textContent = this.value + '°'; this.style.background = 'linear-gradient(to right, ${sliderFill} ' + (this.value/this.max)*100 + '%, ${sliderBg} ' + (this.value/this.max)*100 + '%)'; drawCanvas();">
                         </div>
-                        ${(clip.type !== 'text' && clip.type !== 'shape') ? `
+                        ${(clip.type === 'shape' && fx.shapeType === 'rect') || (clip.type !== 'text' && clip.type !== 'shape') ? `
                         <div>
                             <div class="flex justify-between items-center mb-1.5">
                                 <label class="text-[10px] font-bold text-surface-500 dark:text-surface-400 uppercase tracking-widest">Border Radius</label>
@@ -3008,7 +3053,7 @@
                 if (State.sidebarTab === 'animations') {
                     sidebarContent.innerHTML = animHTML;
                 } else {
-                    sidebarContent.innerHTML = transformHTML + (isText ? textHTML : '') + (isShape ? shapeHTML : '') + shadowHTML;
+                    sidebarContent.innerHTML = transformHTML + (isText ? textHTML : '') + (isShape ? shapeHTML : '') + extrudeHTML + shadowHTML;
                 }
             }
             
@@ -3770,11 +3815,11 @@ const isVis = !clip.hidden;
                     sourceOffset: 0,
                     maxDuration: 3600,
                     effects: { 
-                        scale: 1, rotate: 0, offsetX: 0, offsetY: 0, 
+                        scale: 1, rotate: 0, borderRadius: 0, offsetX: 0, offsetY: 0, 
                         shapeType: 'rect', // 'rect', 'circle', 'semicircle', 'triangle', 'star', 'polygon'
                         shapeWidth: 200,
                         shapeHeight: 200,
-                        fillColor: '#6366f1',
+                        fillColor: '#ffbb00',
                         strokeEnable: false,
                         strokeColor: '#ffffff',
                         strokeWidth: 4,
@@ -3782,6 +3827,7 @@ const isVis = !clip.hidden;
                         points: 5,
                         innerRadiusRatio: 0.4,
                         shadowEnable: false, shadowColor: '#000000', shadowBlur: 20, shadowX: 0, shadowY: 10,
+                        extrudeEnable: false, extrudeDepth: 5, extrudeColor: '#000000', extrudeDir: 'br',
                         animIn: 'none', animOut: 'none', animLoop: 'none', animInDur: 1.0, animOutDur: 1.0, animEase: 'easeOut',
                         opacity: 100, blendMode: 'source-over'
                     }
