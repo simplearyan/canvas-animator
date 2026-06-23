@@ -1866,6 +1866,7 @@
                                 container.appendChild(box);
                             }
                         }
+                        ctx.restore();
 
                     } else if (clip.type === 'shape') {
                         const sw = clip.effects.shapeWidth || 200;
@@ -2146,6 +2147,7 @@
                             const cy = h/2 + (offsetY * h) / 100 + aState.animY;
 
                             ctx.globalAlpha = aState.animAlpha * (clip.effects.opacity !== undefined ? clip.effects.opacity/100 : 1);
+                            ctx.globalCompositeOperation = clip.effects.blendMode || 'source-over';
                             ctx.translate(cx, cy);
                             ctx.rotate((rotate * Math.PI / 180) + aState.animRot);
                             ctx.scale(finalScale * (clip.effects.flipH ? -1 : 1), finalScale * (clip.effects.flipV ? -1 : 1));
@@ -2522,24 +2524,6 @@
                                 ` : ''}
 
                                 <div>
-                                    <div class="flex justify-between items-center mb-1.5">
-                                        <label class="text-[10px] font-bold text-surface-500 dark:text-surface-400 uppercase tracking-widest">Opacity</label>
-                                        <span class="text-[10px] font-bold text-surface-900 dark:text-surface-100 bg-surface-100 dark:bg-surface-800 px-1.5 py-0.5 rounded">${fx.opacity !== undefined ? fx.opacity : 100}%</span>
-                                    </div>
-                                    <input type="range" min="0" max="100" value="${fx.opacity !== undefined ? fx.opacity : 100}" class="w-full custom-slider" oninput="setClipEffect('${clip.id}', 'opacity', this.value); this.previousElementSibling.querySelector('span').textContent = this.value + '%'; drawCanvas();">
-                                </div>
-
-                                <div>
-                                    <label class="block text-[10px] font-bold text-surface-500 dark:text-surface-400 uppercase tracking-widest mb-1.5">Blend Mode</label>
-                                    <select class="w-full text-xs p-2 border border-surface-200 dark:border-surface-700 rounded bg-surface-50 dark:bg-surface-900/80 shadow-inner appearance-none font-bold text-surface-800 dark:text-surface-200" onchange="setClipEffect('${clip.id}', 'blendMode', this.value); drawCanvas();">
-                                        <option value="source-over" ${(fx.blendMode || 'source-over') === 'source-over' ? 'selected' : ''}>Normal</option>
-                                        <option value="multiply" ${fx.blendMode === 'multiply' ? 'selected' : ''}>Multiply</option>
-                                        <option value="screen" ${fx.blendMode === 'screen' ? 'selected' : ''}>Screen</option>
-                                        <option value="overlay" ${fx.blendMode === 'overlay' ? 'selected' : ''}>Overlay</option>
-                                    </select>
-                                </div>
-
-                                <div class="mt-2">
                                     <label class="block text-[10px] font-bold text-surface-500 dark:text-surface-400 uppercase tracking-widest mb-1.5">Fill Color</label>
                                     <div class="relative flex items-center bg-surface-50 dark:bg-surface-900 border border-surface-200 dark:border-surface-700 rounded p-1.5 cursor-pointer shadow-inner w-full">
                                         <div class="w-6 h-6 rounded shadow-sm" style="background-color: ${fx.fillColor || '#ffbb00'}"></div>
@@ -2667,22 +2651,6 @@
                                         </div>
                                         <input type="range" min="0.5" max="3" step="0.1" value="${fx.lineHeight || 1.1}" class="w-full custom-slider" oninput="setClipEffect('${clip.id}', 'lineHeight', this.value); this.previousElementSibling.querySelector('span').textContent = this.value + 'x'; drawCanvas();">
                                     </div>
-                                    <div>
-                                        <label class="block text-[10px] font-bold text-surface-500 dark:text-surface-400 uppercase tracking-widest mb-1.5">Blend Mode</label>
-                                        <select class="w-full text-xs p-2 border border-surface-200 dark:border-surface-700 rounded bg-surface-50 dark:bg-surface-900/80 shadow-inner appearance-none font-bold text-surface-800 dark:text-surface-200" onchange="setClipEffect('${clip.id}', 'blendMode', this.value); drawCanvas();">
-                                            <option value="source-over" ${(fx.blendMode || 'source-over') === 'source-over' ? 'selected' : ''}>Normal</option>
-                                            <option value="multiply" ${fx.blendMode === 'multiply' ? 'selected' : ''}>Multiply</option>
-                                            <option value="screen" ${fx.blendMode === 'screen' ? 'selected' : ''}>Screen</option>
-                                            <option value="overlay" ${fx.blendMode === 'overlay' ? 'selected' : ''}>Overlay</option>
-                                        </select>
-                                    </div>
-                                    <div>
-                                        <div class="flex justify-between items-center mb-1.5">
-                                            <label class="text-[10px] font-bold text-surface-500 dark:text-surface-400 uppercase tracking-widest">Opacity</label>
-                                            <span class="text-[10px] font-bold text-surface-900 dark:text-surface-100 bg-surface-100 dark:bg-surface-800 px-1.5 py-0.5 rounded">${fx.opacity !== undefined ? fx.opacity : 100}%</span>
-                                        </div>
-                                        <input type="range" min="0" max="100" value="${fx.opacity !== undefined ? fx.opacity : 100}" class="w-full custom-slider" oninput="setClipEffect('${clip.id}', 'opacity', this.value); this.previousElementSibling.querySelector('span').textContent = this.value + '%'; drawCanvas();">
-                                    </div>
                                 </div>
                                 <div class="mt-2">
                                     <label class="block text-[10px] font-bold text-surface-500 dark:text-surface-400 uppercase tracking-widest mb-1.5">Fill Color</label>
@@ -2738,6 +2706,67 @@
                                 <span class="text-xs font-bold text-surface-900 dark:text-surface-100 bg-surface-100 dark:bg-surface-800 border border-surface-200 dark:border-surface-700 px-2 py-0.5 rounded shadow-sm">${fx.extrudeDepth || 5}</span>
                             </div>
                             <input type="range" min="1" max="50" value="${fx.extrudeDepth || 5}" class="w-full custom-slider" oninput="setClipEffect('${clip.id}', 'extrudeDepth', this.value); this.previousElementSibling.querySelector('span').textContent = this.value; this.style.background = 'linear-gradient(to right, ${sliderFill} ' + (this.value/this.max)*100 + '%, ${sliderBg} ' + (this.value/this.max)*100 + '%)'; drawCanvas();">
+                        </div>
+                    </div>
+                </details>
+            ` : '';
+
+            const blendingHTML = (clip.type === 'image' || clip.type === 'video' || clip.type === 'text' || clip.type === 'shape') ? `
+                <details class="group bg-white dark:bg-surface-800 border border-surface-300 dark:border-surface-700 shadow-sm rounded-lg shrink-0 ${isHorizontal ? 'w-[280px]' : 'w-full'} overflow-hidden flex flex-col" open>
+                    <summary class="flex items-center justify-between p-3 ${isHorizontal ? '' : 'cursor-pointer'} list-none appearance-none select-none bg-surface-100 dark:bg-surface-800/80 border-b border-surface-200 dark:border-surface-700 " onclick="${isHorizontal ? 'event.preventDefault();' : ''}">
+                        <div class="text-sm font-bold text-surface-800 dark:text-surface-200 flex items-center gap-2"><i data-lucide="layers" class="w-4 h-4 text-surface-500 dark:text-surface-400"></i> Opacity & Blending</div>
+                        ${isHorizontal ? '' : '<i data-lucide="chevron-down" class="w-4 h-4 text-surface-500 transition-transform group-open:rotate-180"></i>'}
+                    </summary>
+                    <div class="p-3 flex flex-col gap-2.5 bg-surface-50 dark:bg-surface-900/50 flex-1">
+                        <div>
+                            <div class="flex justify-between items-center mb-1.5">
+                                <label class="text-[10px] font-bold text-surface-500 dark:text-surface-400 uppercase tracking-widest">Opacity</label>
+                                <span class="text-xs font-bold text-surface-900 dark:text-surface-100 bg-surface-100 dark:bg-surface-800 border border-surface-200 dark:border-surface-700 px-2 py-0.5 rounded shadow-sm">${fx.opacity !== undefined ? fx.opacity : 100}%</span>
+                            </div>
+                            <input type="range" min="0" max="100" value="${fx.opacity !== undefined ? fx.opacity : 100}" class="w-full custom-slider" oninput="setClipEffect('${clip.id}', 'opacity', this.value); this.previousElementSibling.querySelector('span').textContent = this.value + '%'; this.style.background = 'linear-gradient(to right, ${sliderFill} ' + (this.value/this.max)*100 + '%, ${sliderBg} ' + (this.value/this.max)*100 + '%)'; drawCanvas();">
+                        </div>
+                        <div>
+                            <label class="block text-[10px] font-bold text-surface-500 dark:text-surface-400 uppercase tracking-widest mb-1.5">Blend Mode</label>
+                            <select class="w-full text-xs p-2 pl-3 border border-surface-200 dark:border-surface-700 rounded bg-surface-50 dark:bg-surface-900/80 shadow-inner focus:outline-none focus:border-brand-500 focus:ring-1 focus:ring-brand-500 appearance-none cursor-pointer font-bold text-surface-800 dark:text-surface-200" onchange="setClipEffect('${clip.id}', 'blendMode', this.value); drawCanvas();">
+                                <option value="source-over" ${(fx.blendMode || 'source-over') === 'source-over' ? 'selected' : ''}>Normal (Source Over)</option>
+                                <optgroup label="Darken" class="bg-white dark:bg-surface-800 text-surface-800 dark:text-surface-200 font-bold">
+                                    <option value="multiply" ${fx.blendMode === 'multiply' ? 'selected' : ''}>Multiply</option>
+                                    <option value="darken" ${fx.blendMode === 'darken' ? 'selected' : ''}>Darken</option>
+                                    <option value="color-burn" ${fx.blendMode === 'color-burn' ? 'selected' : ''}>Color Burn</option>
+                                </optgroup>
+                                <optgroup label="Lighten" class="bg-white dark:bg-surface-800 text-surface-800 dark:text-surface-200 font-bold">
+                                    <option value="screen" ${fx.blendMode === 'screen' ? 'selected' : ''}>Screen</option>
+                                    <option value="lighten" ${fx.blendMode === 'lighten' ? 'selected' : ''}>Lighten</option>
+                                    <option value="color-dodge" ${fx.blendMode === 'color-dodge' ? 'selected' : ''}>Color Dodge</option>
+                                </optgroup>
+                                <optgroup label="Contrast" class="bg-white dark:bg-surface-800 text-surface-800 dark:text-surface-200 font-bold">
+                                    <option value="overlay" ${fx.blendMode === 'overlay' ? 'selected' : ''}>Overlay</option>
+                                    <option value="hard-light" ${fx.blendMode === 'hard-light' ? 'selected' : ''}>Hard Light</option>
+                                    <option value="soft-light" ${fx.blendMode === 'soft-light' ? 'selected' : ''}>Soft Light</option>
+                                </optgroup>
+                                <optgroup label="Inversion / Difference" class="bg-white dark:bg-surface-800 text-surface-800 dark:text-surface-200 font-bold">
+                                    <option value="difference" ${fx.blendMode === 'difference' ? 'selected' : ''}>Difference</option>
+                                    <option value="exclusion" ${fx.blendMode === 'exclusion' ? 'selected' : ''}>Exclusion</option>
+                                </optgroup>
+                                <optgroup label="Component" class="bg-white dark:bg-surface-800 text-surface-800 dark:text-surface-200 font-bold">
+                                    <option value="hue" ${fx.blendMode === 'hue' ? 'selected' : ''}>Hue</option>
+                                    <option value="saturation" ${fx.blendMode === 'saturation' ? 'selected' : ''}>Saturation</option>
+                                    <option value="color" ${fx.blendMode === 'color' ? 'selected' : ''}>Color</option>
+                                    <option value="luminosity" ${fx.blendMode === 'luminosity' ? 'selected' : ''}>Luminosity</option>
+                                </optgroup>
+                                <optgroup label="Composite" class="bg-white dark:bg-surface-800 text-surface-800 dark:text-surface-200 font-bold">
+                                    <option value="source-in" ${fx.blendMode === 'source-in' ? 'selected' : ''}>Source In</option>
+                                    <option value="source-out" ${fx.blendMode === 'source-out' ? 'selected' : ''}>Source Out</option>
+                                    <option value="source-atop" ${fx.blendMode === 'source-atop' ? 'selected' : ''}>Source Atop</option>
+                                    <option value="destination-over" ${fx.blendMode === 'destination-over' ? 'selected' : ''}>Destination Over</option>
+                                    <option value="destination-in" ${fx.blendMode === 'destination-in' ? 'selected' : ''}>Destination In</option>
+                                    <option value="destination-out" ${fx.blendMode === 'destination-out' ? 'selected' : ''}>Destination Out</option>
+                                    <option value="destination-atop" ${fx.blendMode === 'destination-atop' ? 'selected' : ''}>Destination Atop</option>
+                                    <option value="lighter" ${fx.blendMode === 'lighter' ? 'selected' : ''}>Lighter</option>
+                                    <option value="xor" ${fx.blendMode === 'xor' ? 'selected' : ''}>XOR</option>
+                                    <option value="copy" ${fx.blendMode === 'copy' ? 'selected' : ''}>Copy</option>
+                                </optgroup>
+                            </select>
                         </div>
                     </div>
                 </details>
@@ -3053,7 +3082,7 @@
                 if (State.sidebarTab === 'animations') {
                     sidebarContent.innerHTML = animHTML;
                 } else {
-                    sidebarContent.innerHTML = transformHTML + (isText ? textHTML : '') + (isShape ? shapeHTML : '') + extrudeHTML + shadowHTML;
+                    sidebarContent.innerHTML = transformHTML + (isText ? textHTML : '') + (isShape ? shapeHTML : '') + extrudeHTML + blendingHTML + shadowHTML;
                 }
             }
             
@@ -5062,7 +5091,7 @@ ctx.clearRect(0, 0, w, h);
                 if (hoveredTrackId && hoveredTrackId !== clip.trackId) {
                     const tgtTrack = State.tracks.find(t=>t.id===hoveredTrackId);
                     if (tgtTrack) {
-                        const isVisual = clip.type === 'video' || clip.type === 'image' || clip.type === 'text' || clip.type === 'scene';
+                        const isVisual = clip.type === 'video' || clip.type === 'image' || clip.type === 'text' || clip.type === 'scene' || clip.type === 'shape';
                         const isTgtVisual = tgtTrack.type === 'video';
                         const isAudio = clip.type === 'audio';
                         const isTgtAudio = tgtTrack.type === 'audio';
@@ -5094,7 +5123,7 @@ ctx.clearRect(0, 0, w, h);
                             mcEl.style.transition = 'none'; // Ensure instant visual feedback
                             
                             if (typedDelta !== 0) {
-                                const mcIsVisual = mcClip.type === 'video' || mcClip.type === 'image' || mcClip.type === 'text';
+                                const mcIsVisual = mcClip.type === 'video' || mcClip.type === 'image' || mcClip.type === 'text' || mcClip.type === 'shape';
                                 const mcTypedTracks = mcIsVisual ? State.tracks.filter(t => t.type === 'video') : State.tracks.filter(t => t.type === 'audio');
                                 const mcInitialIndex = mcTypedTracks.findIndex(t => t.id === mc.trackId);
                                 
