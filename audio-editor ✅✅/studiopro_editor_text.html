@@ -2188,8 +2188,13 @@
                         const zMask = maskingZoom / 100;
                         const sw = Math.max(1, baseSw / zMask);
                         const sh = Math.max(1, baseSh / zMask);
-                        const sx = baseSx + (baseSw - sw) / 2;
-                        const sy = baseSy + (baseSh - sh) / 2;
+                        
+                        const framingPanX = clip.effects.framingPanX || 0;
+                        const framingPanY = clip.effects.framingPanY || 0;
+                        const maxShiftX = (baseSw - sw) / 2;
+                        const maxShiftY = (baseSh - sh) / 2;
+                        const sx = baseSx + (baseSw - sw) / 2 + (framingPanX / 100) * maxShiftX;
+                        const sy = baseSy + (baseSh - sh) / 2 + (framingPanY / 100) * maxShiftY;
 
                         const cropRatio = baseSw / baseSh;
                         const cRatio = w / h;
@@ -2231,7 +2236,8 @@
                         ctx.rotate((rotate * Math.PI / 180) + aState.animRot);
                         ctx.scale(finalScale * (clip.effects.flipH ? -1 : 1), finalScale * (clip.effects.flipV ? -1 : 1));
 
-                        if (clip.effects.shadowEnable || borderRadius > 0 || mosaicLevel > 0.05) {
+                        const hasMask = clip.effects.maskType && clip.effects.maskType !== 'none';
+                        if (clip.effects.shadowEnable || borderRadius > 0 || mosaicLevel > 0.05 || hasMask) {
                             const offCanvas = document.createElement('canvas');
                             const offCtx = offCanvas.getContext('2d');
                             offCanvas.width = dw;
@@ -2257,6 +2263,59 @@
                                 offCtx.imageSmoothingEnabled = true;
                             } else {
                                 offCtx.drawImage(source, sx, sy, sw, sh, 0, 0, dw, dh);
+                            }
+
+                            if (hasMask) {
+                                const maskCanvas = document.createElement('canvas');
+                                maskCanvas.width = dw;
+                                maskCanvas.height = dh;
+                                const maskCtx = maskCanvas.getContext('2d');
+
+                                const maskWidth = clip.effects.maskWidth !== undefined ? parseFloat(clip.effects.maskWidth) : 50;
+                                const maskHeight = clip.effects.maskHeight !== undefined ? parseFloat(clip.effects.maskHeight) : 50;
+                                const maskX = clip.effects.maskX !== undefined ? parseFloat(clip.effects.maskX) : 0;
+                                const maskY = clip.effects.maskY !== undefined ? parseFloat(clip.effects.maskY) : 0;
+                                const maskFeather = clip.effects.maskFeather !== undefined ? parseFloat(clip.effects.maskFeather) : 0;
+                                const maskInvert = clip.effects.maskInvert || false;
+
+                                const px = (maskX / 100) * dw;
+                                const py = (maskY / 100) * dh;
+                                const cx_mask = dw / 2 + px;
+                                const cy_mask = dh / 2 + py;
+                                const mw = (maskWidth / 100) * dw;
+                                const mh = (maskHeight / 100) * dh;
+
+                                if (maskFeather > 0) {
+                                    maskCtx.filter = `blur(${maskFeather}px)`;
+                                }
+
+                                maskCtx.fillStyle = '#ffffff';
+                                if (clip.effects.maskType === 'circle') {
+                                    maskCtx.beginPath();
+                                    maskCtx.arc(cx_mask, cy_mask, Math.max(0, mw / 2), 0, Math.PI * 2);
+                                    maskCtx.fill();
+                                } else if (clip.effects.maskType === 'rectangle') {
+                                    maskCtx.beginPath();
+                                    maskCtx.rect(cx_mask - mw / 2, cy_mask - mh / 2, Math.max(0, mw), Math.max(0, mh));
+                                    maskCtx.fill();
+                                }
+
+                                if (maskFeather > 0) {
+                                    maskCtx.filter = 'none';
+                                }
+
+                                if (maskInvert) {
+                                    maskCtx.save();
+                                    maskCtx.globalCompositeOperation = 'source-out';
+                                    maskCtx.fillStyle = '#ffffff';
+                                    maskCtx.fillRect(0, 0, dw, dh);
+                                    maskCtx.restore();
+                                }
+
+                                offCtx.save();
+                                offCtx.globalCompositeOperation = 'destination-in';
+                                offCtx.drawImage(maskCanvas, 0, 0);
+                                offCtx.restore();
                             }
                             
                             if (clip.effects.shadowEnable) {
@@ -2451,7 +2510,7 @@
             if (clip) {
                 if (typeof value === 'boolean') {
                     clip.effects[effectName] = value;
-                } else if (['shadowColor', 'animIn', 'animOut', 'animLoop', 'extrudeColor', 'fillColor', 'fontFamily', 'extrudeDir', 'textTransform', 'fontStyle', 'textDecoration', 'blendMode', 'animEase', 'animTextSpecial', 'flashColor', 'animTextIn', 'animTextOut', 'animTextLoop', 'animTextEase', 'animTextStagger', 'shapeType', 'strokeColor'].includes(effectName)) {
+                } else if (['shadowColor', 'animIn', 'animOut', 'animLoop', 'extrudeColor', 'fillColor', 'fontFamily', 'extrudeDir', 'textTransform', 'fontStyle', 'textDecoration', 'blendMode', 'animEase', 'animTextSpecial', 'flashColor', 'animTextIn', 'animTextOut', 'animTextLoop', 'animTextEase', 'animTextStagger', 'shapeType', 'strokeColor', 'maskType'].includes(effectName)) {
                     clip.effects[effectName] = value;
                 } else {
                     clip.effects[effectName] = parseFloat(value);
@@ -2876,6 +2935,16 @@
             const cropBottom = fx.cropBottom || 0;
             const maskingZoom = fx.maskingZoom !== undefined ? fx.maskingZoom : 100;
             const frameZoom = fx.frameZoom !== undefined ? fx.frameZoom : 100;
+            const framingPanX = fx.framingPanX !== undefined ? fx.framingPanX : 0;
+            const framingPanY = fx.framingPanY !== undefined ? fx.framingPanY : 0;
+
+            const maskType = fx.maskType || 'none';
+            const maskWidth = fx.maskWidth !== undefined ? fx.maskWidth : 50;
+            const maskHeight = fx.maskHeight !== undefined ? fx.maskHeight : 50;
+            const maskX = fx.maskX !== undefined ? fx.maskX : 0;
+            const maskY = fx.maskY !== undefined ? fx.maskY : 0;
+            const maskFeather = fx.maskFeather !== undefined ? fx.maskFeather : 0;
+            const maskInvert = fx.maskInvert || false;
 
             const cropHTML = (clip.type === 'image' || clip.type === 'video') ? `
                 <details class="group bg-white dark:bg-surface-800 border border-surface-300 dark:border-surface-700 shadow-sm rounded-lg shrink-0 ${isHorizontal ? 'w-[280px]' : 'w-full'} overflow-hidden flex flex-col" open>
@@ -2917,17 +2986,104 @@
                         <div class="w-full h-px bg-surface-200 dark:bg-surface-700 my-1.5"></div>
                         <div>
                             <div class="flex justify-between items-center mb-1.5">
-                                <label class="text-[10px] font-bold text-surface-500 dark:text-surface-400 uppercase tracking-widest">Masking Zoom</label>
+                                <label class="text-[10px] font-bold text-surface-500 dark:text-surface-400 uppercase tracking-widest">Framing Zoom</label>
                                 <span class="text-xs font-bold text-surface-900 dark:text-surface-100 bg-surface-100 dark:bg-surface-800 border border-surface-200 dark:border-surface-700 px-2 py-0.5 rounded shadow-sm">${maskingZoom}%</span>
                             </div>
                             <input type="range" min="100" max="500" value="${maskingZoom}" class="w-full custom-slider" oninput="setClipEffect('${clip.id}', 'maskingZoom', this.value); this.previousElementSibling.querySelector('span').textContent = this.value + '%'; drawCanvas();">
                         </div>
+                        <div class="grid grid-cols-2 gap-2 mt-1">
+                            <div>
+                                <div class="flex justify-between items-center mb-1">
+                                    <label class="text-[9px] font-bold text-surface-500 dark:text-surface-400 uppercase tracking-widest">Framing Pan X</label>
+                                    <span class="text-[10px] font-bold text-surface-900 dark:text-surface-100 bg-surface-100 dark:bg-surface-800 border border-surface-200 dark:border-surface-700 px-1 py-0.5 rounded shadow-sm">${framingPanX}%</span>
+                                </div>
+                                <input type="range" min="-100" max="100" value="${framingPanX}" class="w-full custom-slider" oninput="setClipEffect('${clip.id}', 'framingPanX', this.value); this.previousElementSibling.querySelector('span').textContent = this.value + '%'; drawCanvas();">
+                            </div>
+                            <div>
+                                <div class="flex justify-between items-center mb-1">
+                                    <label class="text-[9px] font-bold text-surface-500 dark:text-surface-400 uppercase tracking-widest">Framing Pan Y</label>
+                                    <span class="text-[10px] font-bold text-surface-900 dark:text-surface-100 bg-surface-100 dark:bg-surface-800 border border-surface-200 dark:border-surface-700 px-1 py-0.5 rounded shadow-sm">${framingPanY}%</span>
+                                </div>
+                                <input type="range" min="-100" max="100" value="${framingPanY}" class="w-full custom-slider" oninput="setClipEffect('${clip.id}', 'framingPanY', this.value); this.previousElementSibling.querySelector('span').textContent = this.value + '%'; drawCanvas();">
+                            </div>
+                        </div>
+                        <div class="w-full h-px bg-surface-200 dark:bg-surface-700 my-1"></div>
                         <div>
                             <div class="flex justify-between items-center mb-1.5">
                                 <label class="text-[10px] font-bold text-surface-500 dark:text-surface-400 uppercase tracking-widest">Frame Zoom</label>
                                 <span class="text-xs font-bold text-surface-900 dark:text-surface-100 bg-surface-100 dark:bg-surface-800 border border-surface-200 dark:border-surface-700 px-2 py-0.5 rounded shadow-sm">${frameZoom}%</span>
                             </div>
                             <input type="range" min="100" max="500" value="${frameZoom}" class="w-full custom-slider" oninput="setClipEffect('${clip.id}', 'frameZoom', this.value); this.previousElementSibling.querySelector('span').textContent = this.value + '%'; drawCanvas();">
+                        </div>
+                    </div>
+                </details>
+            ` : '';
+
+            const maskHTML = (clip.type === 'image' || clip.type === 'video') ? `
+                <details class="group bg-white dark:bg-surface-800 border border-surface-300 dark:border-surface-700 shadow-sm rounded-lg shrink-0 ${isHorizontal ? 'w-[280px]' : 'w-full'} overflow-hidden flex flex-col" open>
+                    <summary class="flex items-center justify-between p-3 ${isHorizontal ? '' : 'cursor-pointer'} list-none appearance-none select-none bg-surface-100 dark:bg-surface-800/80 border-b border-surface-200 dark:border-surface-700 " onclick="${isHorizontal ? 'event.preventDefault();' : ''}">
+                        <div class="text-sm font-bold text-surface-800 dark:text-surface-200 flex items-center gap-2"><i data-lucide="aperture" class="w-4 h-4 text-surface-500 dark:text-surface-400"></i> Masking</div>
+                        ${isHorizontal ? '' : '<i data-lucide="chevron-down" class="w-4 h-4 text-surface-500 transition-transform group-open:rotate-180"></i>'}
+                    </summary>
+                    <div class="p-3 flex flex-col gap-2.5 bg-surface-50 dark:bg-surface-900/50 flex-1">
+                        <div>
+                            <label class="block text-[10px] font-bold text-surface-500 dark:text-surface-400 uppercase tracking-widest mb-1.5">Mask Type</label>
+                            <select class="w-full text-xs p-2 pl-3 border border-surface-200 dark:border-surface-700 rounded bg-surface-50 dark:bg-surface-900/80 shadow-inner focus:outline-none focus:border-brand-500 focus:ring-1 focus:ring-brand-500 appearance-none cursor-pointer font-bold text-surface-800 dark:text-surface-200" onchange="setClipEffect('${clip.id}', 'maskType', this.value); updateSidebarPanel(); drawCanvas();">
+                                <option value="none" ${maskType === 'none' ? 'selected' : ''}>None</option>
+                                <option value="circle" ${maskType === 'circle' ? 'selected' : ''}>Circle Shape</option>
+                                <option value="rectangle" ${maskType === 'rectangle' ? 'selected' : ''}>Rectangle Shape</option>
+                            </select>
+                        </div>
+                        
+                        <div class="${maskType === 'none' ? 'hidden' : 'flex flex-col gap-2.5'}">
+                            <div class="flex items-center justify-between mt-1">
+                                <span class="text-[10px] font-bold text-surface-500 dark:text-surface-400 uppercase tracking-widest">Invert Mask</span>
+                                <label class="relative inline-flex items-center cursor-pointer">
+                                    <input type="checkbox" class="sr-only peer" ${maskInvert ? 'checked' : ''} onchange="setClipEffect('${clip.id}', 'maskInvert', this.checked); drawCanvas();">
+                                    <div class="w-7 h-4 bg-surface-300 dark:bg-surface-700 peer-focus:outline-none rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border-surface-300 after:border after:rounded-full after:h-3 after:w-3 after:transition-all peer-checked:bg-brand-500"></div>
+                                </label>
+                            </div>
+
+                            <div class="w-full h-px bg-surface-200 dark:bg-surface-700 my-1"></div>
+
+                            <div class="grid grid-cols-2 gap-2">
+                                <div>
+                                    <div class="flex justify-between items-center mb-1">
+                                        <label class="text-[9px] font-bold text-surface-500 dark:text-surface-400 uppercase tracking-widest">Mask Width</label>
+                                        <span class="text-[10px] font-bold text-surface-900 dark:text-surface-100 bg-surface-100 dark:bg-surface-800 border border-surface-200 dark:border-surface-700 px-1 py-0.5 rounded shadow-sm">${maskWidth}%</span>
+                                    </div>
+                                    <input type="range" min="0" max="200" value="${maskWidth}" class="w-full custom-slider" oninput="setClipEffect('${clip.id}', 'maskWidth', this.value); this.previousElementSibling.querySelector('span').textContent = this.value + '%'; drawCanvas();">
+                                </div>
+                                <div>
+                                    <div class="flex justify-between items-center mb-1">
+                                        <label class="text-[9px] font-bold text-surface-500 dark:text-surface-400 uppercase tracking-widest">Mask Height</label>
+                                        <span class="text-[10px] font-bold text-surface-900 dark:text-surface-100 bg-surface-100 dark:bg-surface-800 border border-surface-200 dark:border-surface-700 px-1 py-0.5 rounded shadow-sm">${maskHeight}%</span>
+                                    </div>
+                                    <input type="range" min="0" max="200" value="${maskHeight}" class="w-full custom-slider" oninput="setClipEffect('${clip.id}', 'maskHeight', this.value); this.previousElementSibling.querySelector('span').textContent = this.value + '%'; drawCanvas();">
+                                </div>
+                                <div>
+                                    <div class="flex justify-between items-center mb-1">
+                                        <label class="text-[9px] font-bold text-surface-500 dark:text-surface-400 uppercase tracking-widest">Mask Pan X</label>
+                                        <span class="text-[10px] font-bold text-surface-900 dark:text-surface-100 bg-surface-100 dark:bg-surface-800 border border-surface-200 dark:border-surface-700 px-1 py-0.5 rounded shadow-sm">${maskX}%</span>
+                                    </div>
+                                    <input type="range" min="-100" max="100" value="${maskX}" class="w-full custom-slider" oninput="setClipEffect('${clip.id}', 'maskX', this.value); this.previousElementSibling.querySelector('span').textContent = this.value + '%'; drawCanvas();">
+                                </div>
+                                <div>
+                                    <div class="flex justify-between items-center mb-1">
+                                        <label class="text-[9px] font-bold text-surface-500 dark:text-surface-400 uppercase tracking-widest">Mask Pan Y</label>
+                                        <span class="text-[10px] font-bold text-surface-900 dark:text-surface-100 bg-surface-100 dark:bg-surface-800 border border-surface-200 dark:border-surface-700 px-1 py-0.5 rounded shadow-sm">${maskY}%</span>
+                                    </div>
+                                    <input type="range" min="-100" max="100" value="${maskY}" class="w-full custom-slider" oninput="setClipEffect('${clip.id}', 'maskY', this.value); this.previousElementSibling.querySelector('span').textContent = this.value + '%'; drawCanvas();">
+                                </div>
+                            </div>
+
+                            <div>
+                                <div class="flex justify-between items-center mb-1">
+                                    <label class="text-[10px] font-bold text-surface-500 dark:text-surface-400 uppercase tracking-widest">Mask Feather</label>
+                                    <span class="text-[10px] font-bold text-surface-900 dark:text-surface-100 bg-surface-100 dark:bg-surface-800 border border-surface-200 dark:border-surface-700 px-1.5 py-0.5 rounded shadow-sm">${maskFeather}px</span>
+                                </div>
+                                <input type="range" min="0" max="100" value="${maskFeather}" class="w-full custom-slider" oninput="setClipEffect('${clip.id}', 'maskFeather', this.value); this.previousElementSibling.querySelector('span').textContent = this.value + 'px'; drawCanvas();">
+                            </div>
                         </div>
                     </div>
                 </details>
@@ -3243,7 +3399,7 @@
                 if (State.sidebarTab === 'animations') {
                     sidebarContent.innerHTML = animHTML;
                 } else {
-                    sidebarContent.innerHTML = transformHTML + (isText ? textHTML : '') + (isShape ? shapeHTML : '') + cropHTML + strokeHTML + extrudeHTML + blendingHTML + shadowHTML;
+                    sidebarContent.innerHTML = transformHTML + (isText ? textHTML : '') + (isShape ? shapeHTML : '') + cropHTML + maskHTML + strokeHTML + extrudeHTML + blendingHTML + shadowHTML;
                 }
             }
             
@@ -4075,7 +4231,7 @@ const isVis = !clip.hidden;
                             maxDuration: 3600,
                             fileUrl: objectUrl,
                             imageEl: img,
-                            effects: { scale: 1, rotate: 0, borderRadius: 0, offsetX: 0, offsetY: 0, strokeEnable: false, strokeColor: '#ffffff', strokeWidth: 4, shadowEnable: false, shadowColor: '#000000', shadowBlur: 20, shadowX: 0, shadowY: 10, animIn: 'none', animOut: 'none', animLoop: 'none', animInDur: 1.0, animOutDur: 1.0, animEase: 'easeOut', cropLeft: 0, cropRight: 0, cropTop: 0, cropBottom: 0, maskingZoom: 100, frameZoom: 100 }
+                            effects: { scale: 1, rotate: 0, borderRadius: 0, offsetX: 0, offsetY: 0, strokeEnable: false, strokeColor: '#ffffff', strokeWidth: 4, shadowEnable: false, shadowColor: '#000000', shadowBlur: 20, shadowX: 0, shadowY: 10, animIn: 'none', animOut: 'none', animLoop: 'none', animInDur: 1.0, animOutDur: 1.0, animEase: 'easeOut', cropLeft: 0, cropRight: 0, cropTop: 0, cropBottom: 0, maskingZoom: 100, frameZoom: 100, framingPanX: 0, framingPanY: 0, maskType: 'none', maskWidth: 50, maskHeight: 50, maskX: 0, maskY: 0, maskFeather: 0, maskInvert: false }
                         };
                         State.clips.push(newClip);
                         
@@ -4157,7 +4313,7 @@ const isVis = !clip.hidden;
                                 maxDuration: duration,
                                 fileUrl: objectUrl,
                                 videoEl: v,
-                                effects: { scale: 1, rotate: 0, borderRadius: 0, offsetX: 0, offsetY: 0, strokeEnable: false, strokeColor: '#ffffff', strokeWidth: 4, shadowEnable: false, shadowColor: '#000000', shadowBlur: 20, shadowX: 0, shadowY: 10, animIn: 'none', animOut: 'none', animLoop: 'none', animInDur: 1.0, animOutDur: 1.0, animEase: 'easeOut', cropLeft: 0, cropRight: 0, cropTop: 0, cropBottom: 0, maskingZoom: 100, frameZoom: 100 }
+                                effects: { scale: 1, rotate: 0, borderRadius: 0, offsetX: 0, offsetY: 0, strokeEnable: false, strokeColor: '#ffffff', strokeWidth: 4, shadowEnable: false, shadowColor: '#000000', shadowBlur: 20, shadowX: 0, shadowY: 10, animIn: 'none', animOut: 'none', animLoop: 'none', animInDur: 1.0, animOutDur: 1.0, animEase: 'easeOut', cropLeft: 0, cropRight: 0, cropTop: 0, cropBottom: 0, maskingZoom: 100, frameZoom: 100, framingPanX: 0, framingPanY: 0, maskType: 'none', maskWidth: 50, maskHeight: 50, maskX: 0, maskY: 0, maskFeather: 0, maskInvert: false }
                             };
                             State.clips.push(newVideoClip);
                         }
