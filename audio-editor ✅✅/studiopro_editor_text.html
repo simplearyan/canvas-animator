@@ -1556,6 +1556,21 @@
                                     ctx.shadowBlur = 0;
                                 }
 
+                                // Stroke Settings for Text
+                                if (clip.effects.strokeEnable) {
+                                    ctx.strokeStyle = clip.effects.strokeColor || '#ffffff';
+                                    ctx.lineWidth = clip.effects.strokeWidth || 4;
+                                    ctx.lineJoin = 'round';
+                                    lines.forEach((line, li) => {
+                                        ctx.strokeText(line, 0, startY + li * lh);
+                                    });
+                                    // Disable shadow before fill to prevent shadow doubling
+                                    ctx.shadowColor = 'transparent';
+                                    ctx.shadowBlur = 0;
+                                    ctx.shadowOffsetX = 0;
+                                    ctx.shadowOffsetY = 0;
+                                }
+
                                 ctx.fillStyle = clip.effects.fillColor || '#ffffff';
                                 lines.forEach((line, li) => {
                                     ctx.fillText(line, 0, startY + li * lh);
@@ -1731,6 +1746,19 @@
                                             }
                                         }
 
+                                            // Stroke for character-level text
+                                            if (clip.effects.strokeEnable) {
+                                                ctx.strokeStyle = clip.effects.strokeColor || '#ffffff';
+                                                ctx.lineWidth = clip.effects.strokeWidth || 4;
+                                                ctx.lineJoin = 'round';
+                                                ctx.strokeText(char, -charWidth/2, 0);
+                                                // Disable shadow before fill to prevent shadow doubling
+                                                ctx.shadowColor = 'transparent';
+                                                ctx.shadowBlur = 0;
+                                                ctx.shadowOffsetX = 0;
+                                                ctx.shadowOffsetY = 0;
+                                            }
+
                                             // Fill
                                             ctx.fillStyle = cFill;
                                             ctx.fillText(char, -charWidth/2, 0);
@@ -1791,6 +1819,22 @@
                                 offCtx.shadowOffsetX = clip.effects.shadowX || 0;
                                 offCtx.shadowOffsetY = clip.effects.shadowY || 10;
                             }
+                            
+                            // Stroke on offscreen
+                            if (clip.effects.strokeEnable) {
+                                offCtx.strokeStyle = clip.effects.strokeColor || '#ffffff';
+                                offCtx.lineWidth = clip.effects.strokeWidth || 4;
+                                offCtx.lineJoin = 'round';
+                                lines.forEach((line, li) => {
+                                    offCtx.strokeText(line, 0, startY + li * lh);
+                                });
+                                // Disable shadow before fill to prevent shadow doubling
+                                offCtx.shadowColor = 'transparent';
+                                offCtx.shadowBlur = 0;
+                                offCtx.shadowOffsetX = 0;
+                                offCtx.shadowOffsetY = 0;
+                            }
+
                             offCtx.fillStyle = clip.effects.fillColor || '#ffffff';
                             lines.forEach((line, li) => {
                                 offCtx.fillText(line, 0, startY + li * lh);
@@ -2195,6 +2239,20 @@
                                 ctx.drawImage(source, -dw/2, -dh/2, dw, dh);
                             }
 
+                            // Stroke/Outline Settings for Image/Video
+                            if (clip.effects.strokeEnable) {
+                                ctx.strokeStyle = clip.effects.strokeColor || '#ffffff';
+                                ctx.lineWidth = clip.effects.strokeWidth || 4;
+                                ctx.lineJoin = 'round';
+                                ctx.beginPath();
+                                if (borderRadius > 0 && ctx.roundRect) {
+                                    ctx.roundRect(-dw/2, -dh/2, dw, dh, borderRadius);
+                                } else {
+                                    ctx.rect(-dw/2, -dh/2, dw, dh);
+                                }
+                                ctx.stroke();
+                            }
+
                             
                         // DOM Box render inside loop
                         if (clip.id === State.selectedClipId && !State.isExporting) {
@@ -2437,6 +2495,10 @@
             const shadowX = fx.shadowX || 0;
             const shadowY = fx.shadowY !== undefined ? fx.shadowY : 10;
 
+            const strokeEnable = fx.strokeEnable || false;
+            const strokeColor = fx.strokeColor || '#ffffff';
+            const strokeWidth = fx.strokeWidth !== undefined ? fx.strokeWidth : 4;
+
             const animIn = fx.animIn || 'none';
             const animInDur = fx.animInDur || 1.0;
             const animOut = fx.animOut || 'none';
@@ -2531,36 +2593,6 @@
                                         <input type="color" value="${fx.fillColor || '#ffbb00'}" class="absolute inset-0 opacity-0 cursor-pointer w-full h-full" oninput="setClipEffect('${clip.id}', 'fillColor', this.value); this.previousElementSibling.textContent = this.value; this.previousElementSibling.previousElementSibling.style.backgroundColor = this.value; drawCanvas();">
                                     </div>
                                 </div>
-                            </div>
-                        </div>
-                    </details>
-
-                    <details class="group bg-white dark:bg-surface-800 border border-surface-300 dark:border-surface-700 shadow-sm rounded-lg shrink-0 ${isHorizontal ? 'w-[280px]' : 'w-full'} overflow-hidden flex flex-col" open>
-                        <summary class="flex items-center justify-between p-3 ${isHorizontal ? '' : 'cursor-pointer'} list-none appearance-none select-none bg-surface-100 dark:bg-surface-800/80 border-b border-surface-200 dark:border-surface-700 " onclick="${isHorizontal ? 'event.preventDefault();' : ''}">
-                            <div class="text-sm font-bold text-surface-800 dark:text-surface-200 flex items-center gap-2"><i data-lucide="edit-3" class="w-4 h-4 text-surface-500 dark:text-surface-400"></i> Stroke Settings</div>
-                            <div class="flex items-center gap-2">
-                                <label class="relative inline-flex items-center cursor-pointer" onclick="event.stopPropagation()">
-                                    <input type="checkbox" class="sr-only peer" ${fx.strokeEnable ? 'checked' : ''} onchange="setClipEffect('${clip.id}', 'strokeEnable', this.checked); updateSidebarPanel();">
-                                    <div class="w-7 h-4 bg-surface-300 dark:bg-surface-700 peer-focus:outline-none rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border-surface-300 after:border after:rounded-full after:h-3 after:w-3 after:transition-all peer-checked:bg-brand-500"></div>
-                                </label>
-                                ${isHorizontal ? '' : '<i data-lucide="chevron-down" class="w-4 h-4 text-surface-500 transition-transform group-open:rotate-180"></i>'}
-                            </div>
-                        </summary>
-                        <div class="p-3 flex flex-col gap-2.5 bg-surface-50 dark:bg-surface-900/50 flex-1 ${!fx.strokeEnable ? 'opacity-50 pointer-events-none' : ''}">
-                            <div>
-                                <label class="block text-[10px] font-bold text-surface-500 dark:text-surface-400 uppercase tracking-widest mb-1.5">Stroke Color</label>
-                                <div class="relative flex items-center bg-surface-50 dark:bg-surface-900 border border-surface-200 dark:border-surface-700 rounded p-1.5 cursor-pointer shadow-inner w-full">
-                                    <div class="w-6 h-6 rounded shadow-sm" style="background-color: ${fx.strokeColor || '#ffffff'}"></div>
-                                    <span class="ml-3 font-mono font-bold text-xs text-surface-700 dark:text-surface-200 uppercase">${fx.strokeColor || '#ffffff'}</span>
-                                    <input type="color" value="${fx.strokeColor || '#ffffff'}" class="absolute inset-0 opacity-0 cursor-pointer w-full h-full" oninput="setClipEffect('${clip.id}', 'strokeColor', this.value); this.previousElementSibling.textContent = this.value; this.previousElementSibling.previousElementSibling.style.backgroundColor = this.value; drawCanvas();">
-                                </div>
-                            </div>
-                            <div class="mt-1">
-                                <div class="flex justify-between items-center mb-1.5">
-                                    <label class="text-[10px] font-bold text-surface-500 dark:text-surface-400 uppercase tracking-widest">Stroke Width</label>
-                                    <span class="text-xs font-bold text-surface-900 dark:text-surface-100 bg-surface-100 dark:bg-surface-800 border border-surface-200 dark:border-surface-700 px-2 py-0.5 rounded shadow-sm">${fx.strokeWidth || 4}px</span>
-                                </div>
-                                <input type="range" min="1" max="50" value="${fx.strokeWidth || 4}" class="w-full custom-slider" oninput="setClipEffect('${clip.id}', 'strokeWidth', this.value); this.previousElementSibling.querySelector('span').textContent = this.value + 'px'; drawCanvas();">
                             </div>
                         </div>
                     </details>
@@ -2767,6 +2799,38 @@
                                     <option value="copy" ${fx.blendMode === 'copy' ? 'selected' : ''}>Copy</option>
                                 </optgroup>
                             </select>
+                        </div>
+                    </div>
+                </details>
+            ` : '';
+
+            const strokeHTML = (clip.type === 'text' || clip.type === 'shape' || clip.type === 'image' || clip.type === 'video') ? `
+                <details class="group bg-white dark:bg-surface-800 border border-surface-300 dark:border-surface-700 shadow-sm rounded-lg shrink-0 ${isHorizontal ? 'w-[280px]' : 'w-full'} overflow-hidden flex flex-col" open>
+                    <summary class="flex items-center justify-between p-3 ${isHorizontal ? '' : 'cursor-pointer'} list-none appearance-none select-none bg-surface-100 dark:bg-surface-800/80 border-b border-surface-200 dark:border-surface-700 " onclick="${isHorizontal ? 'event.preventDefault();' : ''}">
+                        <div class="text-sm font-bold text-surface-800 dark:text-surface-200 flex items-center gap-2"><i data-lucide="edit-3" class="w-4 h-4 text-surface-500 dark:text-surface-400"></i> Stroke & Outline</div>
+                        <div class="flex items-center gap-2">
+                            <label class="relative inline-flex items-center cursor-pointer" onclick="event.stopPropagation()">
+                                <input type="checkbox" class="sr-only peer" ${strokeEnable ? 'checked' : ''} onchange="setClipEffect('${clip.id}', 'strokeEnable', this.checked); updateSidebarPanel();">
+                                <div class="w-7 h-4 bg-surface-300 dark:bg-surface-700 peer-focus:outline-none rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border-surface-300 after:border after:rounded-full after:h-3 after:w-3 after:transition-all peer-checked:bg-brand-500"></div>
+                            </label>
+                            ${isHorizontal ? '' : '<i data-lucide="chevron-down" class="w-4 h-4 text-surface-500 transition-transform group-open:rotate-180"></i>'}
+                        </div>
+                    </summary>
+                    <div class="p-3 flex flex-col gap-2.5 bg-surface-50 dark:bg-surface-900/50 flex-1 ${!strokeEnable ? 'opacity-50 pointer-events-none' : ''}">
+                        <div>
+                            <label class="block text-[10px] font-bold text-surface-500 dark:text-surface-400 uppercase tracking-widest mb-1.5">Stroke Color</label>
+                            <div class="relative flex items-center bg-surface-50 dark:bg-surface-900 border border-surface-200 dark:border-surface-700 rounded p-1.5 cursor-pointer shadow-inner w-full">
+                                <div class="w-6 h-6 rounded shadow-sm" style="background-color: ${strokeColor}"></div>
+                                <span class="ml-3 font-mono font-bold text-xs text-surface-700 dark:text-surface-200 uppercase">${strokeColor}</span>
+                                <input type="color" value="${strokeColor}" class="absolute inset-0 opacity-0 cursor-pointer w-full h-full" oninput="setClipEffect('${clip.id}', 'strokeColor', this.value); this.previousElementSibling.textContent = this.value; this.previousElementSibling.previousElementSibling.style.backgroundColor = this.value; drawCanvas();">
+                            </div>
+                        </div>
+                        <div class="mt-1">
+                            <div class="flex justify-between items-center mb-1.5">
+                                <label class="text-[10px] font-bold text-surface-500 dark:text-surface-400 uppercase tracking-widest">Stroke Width</label>
+                                <span class="text-xs font-bold text-surface-900 dark:text-surface-100 bg-surface-100 dark:bg-surface-800 border border-surface-200 dark:border-surface-700 px-2 py-0.5 rounded shadow-sm">${strokeWidth}px</span>
+                            </div>
+                            <input type="range" min="1" max="50" value="${strokeWidth}" class="w-full custom-slider" oninput="setClipEffect('${clip.id}', 'strokeWidth', this.value); this.previousElementSibling.querySelector('span').textContent = this.value + 'px'; drawCanvas();">
                         </div>
                     </div>
                 </details>
@@ -3082,7 +3146,7 @@
                 if (State.sidebarTab === 'animations') {
                     sidebarContent.innerHTML = animHTML;
                 } else {
-                    sidebarContent.innerHTML = transformHTML + (isText ? textHTML : '') + (isShape ? shapeHTML : '') + extrudeHTML + blendingHTML + shadowHTML;
+                    sidebarContent.innerHTML = transformHTML + (isText ? textHTML : '') + (isShape ? shapeHTML : '') + strokeHTML + extrudeHTML + blendingHTML + shadowHTML;
                 }
             }
             
@@ -3810,6 +3874,7 @@ const isVis = !clip.hidden;
                     effects: { 
                         scale: 1, rotate: 0, offsetX: 0, offsetY: 0, 
                         fontFamily: 'Rubik', fontWeight: 700, fillColor: '#ffffff',
+                        strokeEnable: false, strokeColor: '#ffffff', strokeWidth: 4,
                         shadowEnable: false, shadowColor: '#000000', shadowBlur: 20, shadowX: 0, shadowY: 10, 
                         extrudeEnable: false, extrudeDepth: 5, extrudeColor: '#000000',
                         animIn: 'none', animOut: 'none', animLoop: 'none', animInDur: 1.0, animOutDur: 1.0, animEase: 'easeOut',
@@ -3913,7 +3978,7 @@ const isVis = !clip.hidden;
                             maxDuration: 3600,
                             fileUrl: objectUrl,
                             imageEl: img,
-                            effects: { scale: 1, rotate: 0, borderRadius: 0, offsetX: 0, offsetY: 0, shadowEnable: false, shadowColor: '#000000', shadowBlur: 20, shadowX: 0, shadowY: 10, animIn: 'none', animOut: 'none', animLoop: 'none', animInDur: 1.0, animOutDur: 1.0, animEase: 'easeOut' }
+                            effects: { scale: 1, rotate: 0, borderRadius: 0, offsetX: 0, offsetY: 0, strokeEnable: false, strokeColor: '#ffffff', strokeWidth: 4, shadowEnable: false, shadowColor: '#000000', shadowBlur: 20, shadowX: 0, shadowY: 10, animIn: 'none', animOut: 'none', animLoop: 'none', animInDur: 1.0, animOutDur: 1.0, animEase: 'easeOut' }
                         };
                         State.clips.push(newClip);
                         
@@ -3995,7 +4060,7 @@ const isVis = !clip.hidden;
                                 maxDuration: duration,
                                 fileUrl: objectUrl,
                                 videoEl: v,
-                                effects: { scale: 1, rotate: 0, borderRadius: 0, offsetX: 0, offsetY: 0, shadowEnable: false, shadowColor: '#000000', shadowBlur: 20, shadowX: 0, shadowY: 10, animIn: 'none', animOut: 'none', animLoop: 'none', animInDur: 1.0, animOutDur: 1.0, animEase: 'easeOut' }
+                                effects: { scale: 1, rotate: 0, borderRadius: 0, offsetX: 0, offsetY: 0, strokeEnable: false, strokeColor: '#ffffff', strokeWidth: 4, shadowEnable: false, shadowColor: '#000000', shadowBlur: 20, shadowX: 0, shadowY: 10, animIn: 'none', animOut: 'none', animLoop: 'none', animInDur: 1.0, animOutDur: 1.0, animEase: 'easeOut' }
                             };
                             State.clips.push(newVideoClip);
                         }
