@@ -502,6 +502,10 @@
                             <i data-lucide="mouse-pointer-2" class="w-4 h-4"></i>
                         </button>
 
+                        <button onclick="toggleKeyboardSeekClip()" id="btnKeyboardSeekClip" class="w-8 h-8 flex items-center justify-center rounded-md hover:bg-brand-50 dark:hover:bg-brand-500/10 hover:text-brand-600 dark:hover:text-brand-400 text-surface-600 dark:text-surface-400" title="Keyboard Seeks Selected Clip (Toggle J/L keys behavior)">
+                            <i data-lucide="keyboard" class="w-4 h-4"></i>
+                        </button>
+
                         <div class="w-px h-6 bg-surface-200 dark:bg-surface-700 hidden sm:block mx-1"></div>
 
                         <!-- Track Size -->
@@ -667,7 +671,8 @@
             preview: { hidden: false, aspectIndex: 0 },
             layout: { isSideBySide: false },
             inspector: { visible: false, dock: 'left', fullWidth: false, width: 320 },
-            hoverPlayheadEnabled: true
+            hoverPlayheadEnabled: true,
+            keyboardSeekClip: false
         };
 
         const ASPECT_RATIOS = [
@@ -1312,6 +1317,18 @@
                 btn.classList.remove('text-brand-600', 'dark:text-brand-400');
                 btn.classList.add('text-surface-600', 'dark:text-surface-400');
                 document.getElementById('hoverPlayhead').classList.add('hidden');
+            }
+        }
+
+        function toggleKeyboardSeekClip() {
+            State.keyboardSeekClip = !State.keyboardSeekClip;
+            const btn = document.getElementById('btnKeyboardSeekClip');
+            if (State.keyboardSeekClip) {
+                btn.classList.add('text-brand-600', 'dark:text-brand-400');
+                btn.classList.remove('text-surface-600', 'dark:text-surface-400');
+            } else {
+                btn.classList.remove('text-brand-600', 'dark:text-brand-400');
+                btn.classList.add('text-surface-600', 'dark:text-surface-400');
             }
         }
 
@@ -3718,6 +3735,79 @@ const isVis = !clip.hidden;
             drawCanvas();
         }
 
+        function seekTimelinePlayhead(delta) {
+            State.currentTime = Math.max(0, Math.min(State.currentTime + delta, State.duration));
+            updatePlayhead();
+            syncMediaElements();
+            drawCanvas();
+        }
+
+        let keyboardNudgeTooltipTimeout = null;
+
+        function nudgeSelectedClips(delta) {
+            const idsToNudge = State.multiSelectedClipIds && State.multiSelectedClipIds.length > 0 ? [...State.multiSelectedClipIds] : (State.selectedClipId ? [State.selectedClipId] : []);
+            
+            let movedAny = false;
+            let primaryClip = null;
+            idsToNudge.forEach(id => {
+                const clip = State.clips.find(c => c.id === id);
+                if (clip) {
+                    const track = State.tracks.find(t => t.id === clip.trackId);
+                    if (track && track.locked) return; // Skip locked tracks
+                    
+                    clip.start = Math.max(0, clip.start + delta);
+                    movedAny = true;
+                    if (id === State.selectedClipId) {
+                        primaryClip = clip;
+                    }
+                }
+            });
+            
+            if (movedAny) {
+                // Adjust timeline duration if clips moved beyond current duration
+                let maxEnd = 0;
+                State.clips.forEach(c => {
+                    if (c.start + c.duration > maxEnd) {
+                        maxEnd = c.start + c.duration;
+                    }
+                });
+                if (maxEnd > State.duration) {
+                    State.duration = Math.ceil(maxEnd + 10);
+                    updateTimelineWidth();
+                }
+                
+                calcOverlaps();
+                renderClips();
+                syncMediaElements();
+                drawCanvas();
+                updatePropertiesPanel();
+
+                // Dynamic tooltip feedback for keyboard nudging
+                const tooltipClip = primaryClip || (idsToNudge.length > 0 ? State.clips.find(c => c.id === idsToNudge[0]) : null);
+                if (tooltipClip) {
+                    const clipEl = document.querySelector(`.clip[data-clip-id="${tooltipClip.id}"]`);
+                    const dragTooltip = document.getElementById('dragTooltip');
+                    if (clipEl && dragTooltip) {
+                        const rect = clipEl.getBoundingClientRect();
+                        dragTooltip.innerHTML = `Start: ${tooltipClip.start.toFixed(2)}s`;
+                        
+                        // Center tooltip horizontally above the clip
+                        dragTooltip.style.left = `${rect.left + rect.width / 2}px`;
+                        dragTooltip.style.top = `${rect.top - 28}px`;
+                        dragTooltip.classList.remove('hidden');
+                        
+                        if (keyboardNudgeTooltipTimeout) {
+                            clearTimeout(keyboardNudgeTooltipTimeout);
+                        }
+                        keyboardNudgeTooltipTimeout = setTimeout(() => {
+                            dragTooltip.classList.add('hidden');
+                            keyboardNudgeTooltipTimeout = null;
+                        }, 1000);
+                    }
+                }
+            }
+        }
+
         function calcOverlaps() {
             State.clips.forEach(c => c.overlapping = false);
             for(let i=0; i<State.clips.length; i++) {
@@ -3893,8 +3983,12 @@ const isVis = !clip.hidden;
 
                 const hasWaveform = clip.peaks && clip.peaks.length > 0;
                 
+                const isAudioClip = clip.type === 'audio';
+                const headerBgStyle = isAudioClip ? '' : `style="background-color: ${palette.bg}cc"`;
+                const headerBlurClass = isAudioClip ? '' : 'backdrop-blur-sm';
+
                 el.innerHTML = `
-                    <div class="absolute inset-x-0 top-0 h-4 sm:h-5 flex items-center px-1.5 sm:px-2 gap-1.5 z-20 backdrop-blur-sm pointer-events-none" style="background-color: ${palette.bg}cc">
+                    <div class="absolute inset-x-0 top-0 h-4 sm:h-5 flex items-center px-1.5 sm:px-2 gap-1.5 z-20 pointer-events-none ${headerBlurClass}" ${headerBgStyle}>
                         <i data-lucide="${icon}" class="w-3 h-3 shrink-0" style="color: ${palette.text}"></i>
                         <span class="text-[10px] font-semibold truncate" style="color: ${palette.text}">${clip.title}</span>
                     </div>
@@ -4173,7 +4267,7 @@ ctx.clearRect(0, 0, w, h);
             });
 
             document.addEventListener('keydown', (e) => {
-                if (e.target.tagName === 'INPUT' || e.target.tagName === 'TEXTAREA') return;
+                if (e.target.tagName === 'INPUT' || e.target.tagName === 'TEXTAREA' || e.target.isContentEditable) return;
                 
                 const k = e.key.toLowerCase();
                 
@@ -4185,6 +4279,35 @@ ctx.clearRect(0, 0, w, h);
                         toggleAudioLibPlayback();
                     } else {
                         togglePlay(); 
+                    }
+                }
+                else if (k === 'j' || k === 'l') {
+                    e.preventDefault();
+                    const isForward = (k === 'l');
+                    const baseSeconds = e.ctrlKey ? 10 : 5;
+                    const delta = isForward ? baseSeconds : -baseSeconds;
+                    
+                    const hasSelection = State.selectedClipId || (State.multiSelectedClipIds && State.multiSelectedClipIds.length > 0);
+                    const seekClip = hasSelection && (State.keyboardSeekClip || e.shiftKey || e.altKey);
+                    
+                    if (seekClip) {
+                        nudgeSelectedClips(delta);
+                    } else {
+                        seekTimelinePlayhead(delta);
+                    }
+                }
+                else if (e.key === ',' || e.key === '<' || e.key === '.' || e.key === '>') {
+                    e.preventDefault();
+                    const isForward = (e.key === '.' || e.key === '>');
+                    const delta = isForward ? (1/30) : -(1/30);
+                    
+                    const hasSelection = State.selectedClipId || (State.multiSelectedClipIds && State.multiSelectedClipIds.length > 0);
+                    const seekClip = hasSelection && (State.keyboardSeekClip || e.altKey || (e.ctrlKey && e.shiftKey));
+                    
+                    if (seekClip) {
+                        nudgeSelectedClips(delta);
+                    } else {
+                        seekTimelinePlayhead(delta);
                     }
                 }
                 else if (e.key === 'ArrowUp' || e.key === 'ArrowDown') {
