@@ -2162,82 +2162,117 @@
                     } else {
                         let source = clip.type === 'image' ? clip.imageEl : clip.videoEl;
                     if (source) {
-                        const sRatio = (source.naturalWidth || source.videoWidth) / (source.naturalHeight || source.videoHeight);
+                        const srcW = (source.naturalWidth || source.videoWidth) || 100;
+                        const srcH = (source.naturalHeight || source.videoHeight) || 100;
+
+                        // Crop and Zoom settings
+                        const cropLeft = clip.effects.cropLeft || 0;
+                        const cropRight = clip.effects.cropRight || 0;
+                        const cropTop = clip.effects.cropTop || 0;
+                        const cropBottom = clip.effects.cropBottom || 0;
+                        const maskingZoom = clip.effects.maskingZoom !== undefined ? clip.effects.maskingZoom : 100;
+                        const frameZoom = clip.effects.frameZoom !== undefined ? clip.effects.frameZoom : 100;
+
+                        // Calculate crop px bounds in source image
+                        const croppedLeftPx = srcW * (cropLeft / 100);
+                        const croppedRightPx = srcW * (cropRight / 100);
+                        const croppedTopPx = srcH * (cropTop / 100);
+                        const croppedBottomPx = srcH * (cropBottom / 100);
+                        
+                        const baseSw = Math.max(1, srcW - croppedLeftPx - croppedRightPx);
+                        const baseSh = Math.max(1, srcH - croppedTopPx - croppedBottomPx);
+                        const baseSx = croppedLeftPx;
+                        const baseSy = croppedTopPx;
+
+                        // Apply masking zoom (scales down source dimensions centered on crop frame)
+                        const zMask = maskingZoom / 100;
+                        const sw = Math.max(1, baseSw / zMask);
+                        const sh = Math.max(1, baseSh / zMask);
+                        const sx = baseSx + (baseSw - sw) / 2;
+                        const sy = baseSy + (baseSh - sh) / 2;
+
+                        const cropRatio = baseSw / baseSh;
                         const cRatio = w / h;
                         let dw = w, dh = h;
 
-                        if (!isNaN(sRatio) && sRatio > 0) {
-                            if (sRatio > cRatio) {
-                                dh = w / sRatio;
+                        if (!isNaN(cropRatio) && cropRatio > 0) {
+                            if (cropRatio > cRatio) {
+                                dh = w / cropRatio;
                             } else {
-                                dw = h * sRatio;
+                                dw = h * cropRatio;
                             }
+                        }
 
-                            const baseScale = clip.effects.scale !== undefined ? clip.effects.scale : 1;
-                            const rotate = clip.effects.rotate !== undefined ? clip.effects.rotate : 0;
-                            const borderRadius = clip.effects.borderRadius !== undefined ? clip.effects.borderRadius : 0;
-                            const offsetX = clip.effects.offsetX || 0;
-                            const offsetY = clip.effects.offsetY || 0;
+                        // Apply frame zoom (scales output viewport dimensions)
+                        const zFrame = frameZoom / 100;
+                        dw = dw * zFrame;
+                        dh = dh * zFrame;
 
-                            // Animation Math
-                            const clipTime = State.currentTime - clip.start;
-                            const timeLeft = clip.duration - clipTime;
-                            const aState = calculateAnimationState(clip, clipTime, timeLeft, w, h);
-                            let mosaicLevel = aState.mosaicLevel;
+                        const baseScale = clip.effects.scale !== undefined ? clip.effects.scale : 1;
+                        const rotate = clip.effects.rotate !== undefined ? clip.effects.rotate : 0;
+                        const borderRadius = clip.effects.borderRadius !== undefined ? clip.effects.borderRadius : 0;
+                        const offsetX = clip.effects.offsetX || 0;
+                        const offsetY = clip.effects.offsetY || 0;
 
-                            ctx.save();
-                            const finalScale = baseScale * aState.animScale;
-                            const cx = w/2 + (offsetX * w) / 100 + aState.animX;
-                            const cy = h/2 + (offsetY * h) / 100 + aState.animY;
+                        // Animation Math
+                        const clipTime = State.currentTime - clip.start;
+                        const timeLeft = clip.duration - clipTime;
+                        const aState = calculateAnimationState(clip, clipTime, timeLeft, w, h);
+                        let mosaicLevel = aState.mosaicLevel;
 
-                            ctx.globalAlpha = aState.animAlpha * (clip.effects.opacity !== undefined ? clip.effects.opacity/100 : 1);
-                            ctx.globalCompositeOperation = clip.effects.blendMode || 'source-over';
-                            ctx.translate(cx, cy);
-                            ctx.rotate((rotate * Math.PI / 180) + aState.animRot);
-                            ctx.scale(finalScale * (clip.effects.flipH ? -1 : 1), finalScale * (clip.effects.flipV ? -1 : 1));
+                        ctx.save();
+                        const finalScale = baseScale * aState.animScale;
+                        const cx = w/2 + (offsetX * w) / 100 + aState.animX;
+                        const cy = h/2 + (offsetY * h) / 100 + aState.animY;
 
-                            if (clip.effects.shadowEnable || borderRadius > 0 || mosaicLevel > 0.05) {
-                                const offCanvas = document.createElement('canvas');
-                                const offCtx = offCanvas.getContext('2d');
-                                offCanvas.width = dw;
-                                offCanvas.height = dh;
-                                
-                                if (borderRadius > 0) {
-                                    offCtx.beginPath();
-                                    if (offCtx.roundRect) offCtx.roundRect(0, 0, dw, dh, borderRadius);
-                                    else offCtx.rect(0, 0, dw, dh);
-                                    offCtx.clip();
-                                }
-                                
-                                if (mosaicLevel > 0.05) {
-                                    const pSize = Math.max(1, mosaicLevel * 30);
-                                    const smallCanvas = document.createElement('canvas');
-                                    const smallCtx = smallCanvas.getContext('2d');
-                                    smallCanvas.width = dw / pSize;
-                                    smallCanvas.height = dh / pSize;
-                                    smallCtx.drawImage(source, 0, 0, smallCanvas.width, smallCanvas.height);
+                        ctx.globalAlpha = aState.animAlpha * (clip.effects.opacity !== undefined ? clip.effects.opacity/100 : 1);
+                        ctx.globalCompositeOperation = clip.effects.blendMode || 'source-over';
+                        ctx.translate(cx, cy);
+                        ctx.rotate((rotate * Math.PI / 180) + aState.animRot);
+                        ctx.scale(finalScale * (clip.effects.flipH ? -1 : 1), finalScale * (clip.effects.flipV ? -1 : 1));
 
-                                    offCtx.imageSmoothingEnabled = false;
-                                    offCtx.drawImage(smallCanvas, 0, 0, dw, dh);
-                                    offCtx.imageSmoothingEnabled = true;
-                                } else {
-                                    offCtx.drawImage(source, 0, 0, dw, dh);
-                                }
-                                
-                                if (clip.effects.shadowEnable) {
-                                    ctx.shadowColor = clip.effects.shadowColor || '#000000';
-                                    ctx.shadowBlur = clip.effects.shadowBlur || 20;
-                                    ctx.shadowOffsetX = clip.effects.shadowX || 0;
-                                    ctx.shadowOffsetY = clip.effects.shadowY || 10;
-                                }
-                                
-                                ctx.drawImage(offCanvas, -dw/2, -dh/2, dw, dh);
-                                
-                                ctx.shadowColor = 'transparent';
-                                ctx.shadowBlur = 0;
+                        if (clip.effects.shadowEnable || borderRadius > 0 || mosaicLevel > 0.05) {
+                            const offCanvas = document.createElement('canvas');
+                            const offCtx = offCanvas.getContext('2d');
+                            offCanvas.width = dw;
+                            offCanvas.height = dh;
+                            
+                            if (borderRadius > 0) {
+                                offCtx.beginPath();
+                                if (offCtx.roundRect) offCtx.roundRect(0, 0, dw, dh, borderRadius);
+                                else offCtx.rect(0, 0, dw, dh);
+                                offCtx.clip();
+                            }
+                            
+                            if (mosaicLevel > 0.05) {
+                                const pSize = Math.max(1, mosaicLevel * 30);
+                                const smallCanvas = document.createElement('canvas');
+                                const smallCtx = smallCanvas.getContext('2d');
+                                smallCanvas.width = dw / pSize;
+                                smallCanvas.height = dh / pSize;
+                                smallCtx.drawImage(source, sx, sy, sw, sh, 0, 0, smallCanvas.width, smallCanvas.height);
+
+                                offCtx.imageSmoothingEnabled = false;
+                                offCtx.drawImage(smallCanvas, 0, 0, dw, dh);
+                                offCtx.imageSmoothingEnabled = true;
                             } else {
-                                ctx.drawImage(source, -dw/2, -dh/2, dw, dh);
+                                offCtx.drawImage(source, sx, sy, sw, sh, 0, 0, dw, dh);
                             }
+                            
+                            if (clip.effects.shadowEnable) {
+                                ctx.shadowColor = clip.effects.shadowColor || '#000000';
+                                ctx.shadowBlur = clip.effects.shadowBlur || 20;
+                                ctx.shadowOffsetX = clip.effects.shadowX || 0;
+                                ctx.shadowOffsetY = clip.effects.shadowY || 10;
+                            }
+                            
+                            ctx.drawImage(offCanvas, -dw/2, -dh/2, dw, dh);
+                            
+                            ctx.shadowColor = 'transparent';
+                            ctx.shadowBlur = 0;
+                        } else {
+                            ctx.drawImage(source, sx, sy, sw, sh, -dw/2, -dh/2, dw, dh);
+                        }
 
                             // Stroke/Outline Settings for Image/Video
                             if (clip.effects.strokeEnable) {
@@ -2306,7 +2341,6 @@
 
                         ctx.restore();
                         }
-                    }
                     }
                 });
             } else {
@@ -2836,6 +2870,69 @@
                 </details>
             ` : '';
 
+            const cropLeft = fx.cropLeft || 0;
+            const cropRight = fx.cropRight || 0;
+            const cropTop = fx.cropTop || 0;
+            const cropBottom = fx.cropBottom || 0;
+            const maskingZoom = fx.maskingZoom !== undefined ? fx.maskingZoom : 100;
+            const frameZoom = fx.frameZoom !== undefined ? fx.frameZoom : 100;
+
+            const cropHTML = (clip.type === 'image' || clip.type === 'video') ? `
+                <details class="group bg-white dark:bg-surface-800 border border-surface-300 dark:border-surface-700 shadow-sm rounded-lg shrink-0 ${isHorizontal ? 'w-[280px]' : 'w-full'} overflow-hidden flex flex-col" open>
+                    <summary class="flex items-center justify-between p-3 ${isHorizontal ? '' : 'cursor-pointer'} list-none appearance-none select-none bg-surface-100 dark:bg-surface-800/80 border-b border-surface-200 dark:border-surface-700 " onclick="${isHorizontal ? 'event.preventDefault();' : ''}">
+                        <div class="text-sm font-bold text-surface-800 dark:text-surface-200 flex items-center gap-2"><i data-lucide="crop" class="w-4 h-4 text-surface-500 dark:text-surface-400"></i> Crop & Zoom</div>
+                        ${isHorizontal ? '' : '<i data-lucide="chevron-down" class="w-4 h-4 text-surface-500 transition-transform group-open:rotate-180"></i>'}
+                    </summary>
+                    <div class="p-3 flex flex-col gap-2.5 bg-surface-50 dark:bg-surface-900/50 flex-1">
+                        <div class="grid grid-cols-2 gap-2">
+                            <div>
+                                <div class="flex justify-between items-center mb-1">
+                                    <label class="text-[9px] font-bold text-surface-500 dark:text-surface-400 uppercase tracking-widest">Crop Left</label>
+                                    <span class="text-xs font-bold text-surface-900 dark:text-surface-100 bg-surface-100 dark:bg-surface-800 border border-surface-200 dark:border-surface-700 px-1.5 py-0.5 rounded shadow-sm">${cropLeft}%</span>
+                                </div>
+                                <input type="range" min="0" max="100" value="${cropLeft}" class="w-full custom-slider" oninput="setClipEffect('${clip.id}', 'cropLeft', this.value); this.previousElementSibling.querySelector('span').textContent = this.value + '%'; drawCanvas();">
+                            </div>
+                            <div>
+                                <div class="flex justify-between items-center mb-1">
+                                    <label class="text-[9px] font-bold text-surface-500 dark:text-surface-400 uppercase tracking-widest">Crop Right</label>
+                                    <span class="text-xs font-bold text-surface-900 dark:text-surface-100 bg-surface-100 dark:bg-surface-800 border border-surface-200 dark:border-surface-700 px-1.5 py-0.5 rounded shadow-sm">${cropRight}%</span>
+                                </div>
+                                <input type="range" min="0" max="100" value="${cropRight}" class="w-full custom-slider" oninput="setClipEffect('${clip.id}', 'cropRight', this.value); this.previousElementSibling.querySelector('span').textContent = this.value + '%'; drawCanvas();">
+                            </div>
+                            <div>
+                                <div class="flex justify-between items-center mb-1">
+                                    <label class="text-[9px] font-bold text-surface-500 dark:text-surface-400 uppercase tracking-widest">Crop Top</label>
+                                    <span class="text-xs font-bold text-surface-900 dark:text-surface-100 bg-surface-100 dark:bg-surface-800 border border-surface-200 dark:border-surface-700 px-1.5 py-0.5 rounded shadow-sm">${cropTop}%</span>
+                                </div>
+                                <input type="range" min="0" max="100" value="${cropTop}" class="w-full custom-slider" oninput="setClipEffect('${clip.id}', 'cropTop', this.value); this.previousElementSibling.querySelector('span').textContent = this.value + '%'; drawCanvas();">
+                            </div>
+                            <div>
+                                <div class="flex justify-between items-center mb-1">
+                                    <label class="text-[9px] font-bold text-surface-500 dark:text-surface-400 uppercase tracking-widest">Crop Bottom</label>
+                                    <span class="text-xs font-bold text-surface-900 dark:text-surface-100 bg-surface-100 dark:bg-surface-800 border border-surface-200 dark:border-surface-700 px-1.5 py-0.5 rounded shadow-sm">${cropBottom}%</span>
+                                </div>
+                                <input type="range" min="0" max="100" value="${cropBottom}" class="w-full custom-slider" oninput="setClipEffect('${clip.id}', 'cropBottom', this.value); this.previousElementSibling.querySelector('span').textContent = this.value + '%'; drawCanvas();">
+                            </div>
+                        </div>
+                        <div class="w-full h-px bg-surface-200 dark:bg-surface-700 my-1.5"></div>
+                        <div>
+                            <div class="flex justify-between items-center mb-1.5">
+                                <label class="text-[10px] font-bold text-surface-500 dark:text-surface-400 uppercase tracking-widest">Masking Zoom</label>
+                                <span class="text-xs font-bold text-surface-900 dark:text-surface-100 bg-surface-100 dark:bg-surface-800 border border-surface-200 dark:border-surface-700 px-2 py-0.5 rounded shadow-sm">${maskingZoom}%</span>
+                            </div>
+                            <input type="range" min="100" max="500" value="${maskingZoom}" class="w-full custom-slider" oninput="setClipEffect('${clip.id}', 'maskingZoom', this.value); this.previousElementSibling.querySelector('span').textContent = this.value + '%'; drawCanvas();">
+                        </div>
+                        <div>
+                            <div class="flex justify-between items-center mb-1.5">
+                                <label class="text-[10px] font-bold text-surface-500 dark:text-surface-400 uppercase tracking-widest">Frame Zoom</label>
+                                <span class="text-xs font-bold text-surface-900 dark:text-surface-100 bg-surface-100 dark:bg-surface-800 border border-surface-200 dark:border-surface-700 px-2 py-0.5 rounded shadow-sm">${frameZoom}%</span>
+                            </div>
+                            <input type="range" min="100" max="500" value="${frameZoom}" class="w-full custom-slider" oninput="setClipEffect('${clip.id}', 'frameZoom', this.value); this.previousElementSibling.querySelector('span').textContent = this.value + '%'; drawCanvas();">
+                        </div>
+                    </div>
+                </details>
+            ` : '';
+
             const scaleVal = fx.scale !== undefined ? fx.scale : 1;
             const rotateVal = fx.rotate !== undefined ? fx.rotate : 0;
             const radiusVal = fx.borderRadius !== undefined ? fx.borderRadius : 0;
@@ -3146,7 +3243,7 @@
                 if (State.sidebarTab === 'animations') {
                     sidebarContent.innerHTML = animHTML;
                 } else {
-                    sidebarContent.innerHTML = transformHTML + (isText ? textHTML : '') + (isShape ? shapeHTML : '') + strokeHTML + extrudeHTML + blendingHTML + shadowHTML;
+                    sidebarContent.innerHTML = transformHTML + (isText ? textHTML : '') + (isShape ? shapeHTML : '') + cropHTML + strokeHTML + extrudeHTML + blendingHTML + shadowHTML;
                 }
             }
             
@@ -3978,7 +4075,7 @@ const isVis = !clip.hidden;
                             maxDuration: 3600,
                             fileUrl: objectUrl,
                             imageEl: img,
-                            effects: { scale: 1, rotate: 0, borderRadius: 0, offsetX: 0, offsetY: 0, strokeEnable: false, strokeColor: '#ffffff', strokeWidth: 4, shadowEnable: false, shadowColor: '#000000', shadowBlur: 20, shadowX: 0, shadowY: 10, animIn: 'none', animOut: 'none', animLoop: 'none', animInDur: 1.0, animOutDur: 1.0, animEase: 'easeOut' }
+                            effects: { scale: 1, rotate: 0, borderRadius: 0, offsetX: 0, offsetY: 0, strokeEnable: false, strokeColor: '#ffffff', strokeWidth: 4, shadowEnable: false, shadowColor: '#000000', shadowBlur: 20, shadowX: 0, shadowY: 10, animIn: 'none', animOut: 'none', animLoop: 'none', animInDur: 1.0, animOutDur: 1.0, animEase: 'easeOut', cropLeft: 0, cropRight: 0, cropTop: 0, cropBottom: 0, maskingZoom: 100, frameZoom: 100 }
                         };
                         State.clips.push(newClip);
                         
@@ -4060,7 +4157,7 @@ const isVis = !clip.hidden;
                                 maxDuration: duration,
                                 fileUrl: objectUrl,
                                 videoEl: v,
-                                effects: { scale: 1, rotate: 0, borderRadius: 0, offsetX: 0, offsetY: 0, strokeEnable: false, strokeColor: '#ffffff', strokeWidth: 4, shadowEnable: false, shadowColor: '#000000', shadowBlur: 20, shadowX: 0, shadowY: 10, animIn: 'none', animOut: 'none', animLoop: 'none', animInDur: 1.0, animOutDur: 1.0, animEase: 'easeOut' }
+                                effects: { scale: 1, rotate: 0, borderRadius: 0, offsetX: 0, offsetY: 0, strokeEnable: false, strokeColor: '#ffffff', strokeWidth: 4, shadowEnable: false, shadowColor: '#000000', shadowBlur: 20, shadowX: 0, shadowY: 10, animIn: 'none', animOut: 'none', animLoop: 'none', animInDur: 1.0, animOutDur: 1.0, animEase: 'easeOut', cropLeft: 0, cropRight: 0, cropTop: 0, cropBottom: 0, maskingZoom: 100, frameZoom: 100 }
                             };
                             State.clips.push(newVideoClip);
                         }
@@ -4841,12 +4938,38 @@ ctx.clearRect(0, 0, w, h);
                     } else {
                         let source = clip.type === 'image' ? clip.imageEl : clip.videoEl;
                         if (!source) continue;
-                        const sRatio = (source.naturalWidth || source.videoWidth) / (source.naturalHeight || source.videoHeight);
+                        const srcW = (source.naturalWidth || source.videoWidth) || 100;
+                        const srcH = (source.naturalHeight || source.videoHeight) || 100;
+                        
+                        const cropLeft = clip.effects.cropLeft || 0;
+                        const cropRight = clip.effects.cropRight || 0;
+                        const cropTop = clip.effects.cropTop || 0;
+                        const cropBottom = clip.effects.cropBottom || 0;
+                        const frameZoom = clip.effects.frameZoom !== undefined ? clip.effects.frameZoom : 100;
+
+                        const croppedLeftPx = srcW * (cropLeft / 100);
+                        const croppedRightPx = srcW * (cropRight / 100);
+                        const croppedTopPx = srcH * (cropTop / 100);
+                        const croppedBottomPx = srcH * (cropBottom / 100);
+
+                        const baseSw = Math.max(1, srcW - croppedLeftPx - croppedRightPx);
+                        const baseSh = Math.max(1, srcH - croppedTopPx - croppedBottomPx);
+
+                        const cropRatio = baseSw / baseSh;
                         const cRatio = canvas.width / canvas.height;
-                        if (!isNaN(sRatio) && sRatio > 0) {
-                            if (sRatio > cRatio) dh = canvas.width / sRatio;
-                            else dw = canvas.height * sRatio;
+                        
+                        if (!isNaN(cropRatio) && cropRatio > 0) {
+                            if (cropRatio > cRatio) {
+                                dw = canvas.width;
+                                dh = canvas.width / cropRatio;
+                            } else {
+                                dh = canvas.height;
+                                dw = canvas.height * cropRatio;
+                            }
                         }
+                        const zFrame = frameZoom / 100;
+                        dw = dw * zFrame;
+                        dh = dh * zFrame;
                     }
 
                     const scale = clip.effects.scale !== undefined ? clip.effects.scale : 1;
