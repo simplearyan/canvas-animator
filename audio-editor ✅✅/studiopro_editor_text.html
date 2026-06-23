@@ -906,6 +906,11 @@
                 const stored = localStorage.getItem('studiopro_imported_system_fonts');
                 if (stored) {
                     State.importedSystemFonts = JSON.parse(stored);
+                    State.importedSystemFonts.forEach(fontName => {
+                        if (window.registerLocalSystemFont) {
+                            window.registerLocalSystemFont(fontName);
+                        }
+                    });
                 } else {
                     State.importedSystemFonts = [];
                 }
@@ -2756,6 +2761,27 @@
             });
         };
 
+        window.registerLocalSystemFont = (name) => {
+            const styleId = `system-font-style-${name.replace(/[^a-zA-Z0-9]/g, '-')}`;
+            let styleEl = document.getElementById(styleId);
+            if (!styleEl) {
+                styleEl = document.createElement('style');
+                styleEl.id = styleId;
+                document.head.appendChild(styleEl);
+            }
+            styleEl.textContent = `@font-face { font-family: "${name}"; src: local("${name}"); font-weight: normal; font-style: normal; }`;
+            
+            if (typeof FontFace !== 'undefined') {
+                const fontFace = new FontFace(name, `local("${name}")`);
+                fontFace.load().then(loadedFace => {
+                    document.fonts.add(loadedFace);
+                    drawCanvas();
+                }).catch(err => {
+                    console.error(`Error registering local system font face "${name}":`, err);
+                });
+            }
+        };
+
         window.importSystemFont = (fontName) => {
             if (!State.importedSystemFonts) {
                 State.importedSystemFonts = [];
@@ -2764,6 +2790,7 @@
                 State.importedSystemFonts.push(fontName);
                 localStorage.setItem('studiopro_imported_system_fonts', JSON.stringify(State.importedSystemFonts));
             }
+            window.registerLocalSystemFont(fontName);
             updatePropertiesPanel();
             drawCanvas();
         };
@@ -2772,6 +2799,22 @@
             if (!State.importedSystemFonts) return;
             State.importedSystemFonts = State.importedSystemFonts.filter(f => f !== fontName);
             localStorage.setItem('studiopro_imported_system_fonts', JSON.stringify(State.importedSystemFonts));
+            
+            const styleId = `system-font-style-${fontName.replace(/[^a-zA-Z0-9]/g, '-')}`;
+            const styleEl = document.getElementById(styleId);
+            if (styleEl) {
+                styleEl.parentNode.removeChild(styleEl);
+            }
+            
+            if (typeof FontFace !== 'undefined') {
+                for (let font of document.fonts) {
+                    if (font.family === fontName) {
+                        document.fonts.delete(font);
+                        break;
+                    }
+                }
+            }
+
             updatePropertiesPanel();
             drawCanvas();
         };
@@ -3463,7 +3506,7 @@
                                 <div class="flex flex-col gap-1 max-h-40 overflow-y-auto pr-1 no-scrollbar border border-surface-200 dark:border-surface-700 rounded bg-surface-50 dark:bg-surface-900/60 p-1.5 shadow-inner">
                                     ${State.systemFonts.map(fontName => `
                                         <div class="system-font-item flex items-center justify-between p-1 hover:bg-surface-200 dark:hover:bg-surface-800/80 rounded" data-font-name="${fontName}">
-                                            <span style="font-family: '${fontName}'; font-size: 13px; font-weight: bold;" class="text-surface-800 dark:text-surface-200 select-none">${fontName}</span>
+                                            <span class="text-surface-800 dark:text-surface-200 select-none text-xs font-bold">${fontName}</span>
                                             <button onclick="importSystemFont('${fontName}')" class="text-brand-500 hover:text-brand-600 p-1 rounded bg-white dark:bg-surface-750 shadow-sm border border-surface-200 dark:border-surface-700 shrink-0" title="Import Font">
                                                 <svg class="w-3.5 h-3.5" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><line x1="12" y1="5" x2="12" y2="19"></line><line x1="5" y1="12" x2="19" y2="12"></line></svg>
                                             </button>
