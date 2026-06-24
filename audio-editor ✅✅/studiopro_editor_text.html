@@ -1415,6 +1415,42 @@
             }
         };
 
+        window.updateActivePropertyNav = (activeCardId) => {
+            const nav = document.getElementById('propertiesLayoutNav');
+            const container = document.getElementById('propertiesCardContainer');
+            if (!nav || !container) return;
+
+            const isHorizontal = container.classList.contains('flex-row');
+            
+            nav.querySelectorAll('button').forEach(btn => {
+                const isBtnActive = btn.id === `navBtn_${activeCardId}`;
+                
+                // Clear active style classes
+                btn.classList.remove(
+                    'bg-white', 'dark:bg-surface-700', 'dark:bg-surface-800',
+                    'text-brand-600', 'dark:text-brand-400', 
+                    'text-surface-900', 'dark:text-white',
+                    'shadow-sm', 'border-surface-200', 'dark:border-surface-700', 'dark:border-surface-600'
+                );
+                
+                // Reset inactive state classes
+                btn.classList.add('text-surface-500', 'dark:text-surface-400', 'border-transparent');
+                
+                if (isBtnActive) {
+                    btn.classList.remove('text-surface-500', 'dark:text-surface-400', 'border-transparent');
+                    btn.classList.add(
+                        'bg-white', 'dark:bg-surface-700', 
+                        'text-surface-900', 'dark:text-white', 
+                        'shadow-sm', 'border-surface-200', 'dark:border-surface-600'
+                    );
+                    
+                    if (!isHorizontal) {
+                        window.scrollNavBtnIntoView(`navBtn_${activeCardId}`);
+                    }
+                }
+            });
+        };
+
         window.scrollToPropertyCard = (cardId) => {
             State.activePropertyCardId = cardId;
             State.isProgrammaticScrolling = true;
@@ -1451,24 +1487,7 @@
                     setTimeout(() => focusable.focus(), 300);
                 }
                 
-                const nav = document.getElementById('propertiesLayoutNav');
-                if (nav) {
-                    const isHorizontalNav = container.classList.contains('flex-row');
-                    nav.querySelectorAll('button').forEach(btn => {
-                        btn.classList.remove('bg-white', 'dark:bg-surface-800', 'text-brand-600', 'dark:text-brand-400', 'shadow-sm', 'bg-brand-500', 'bg-brand-600', 'dark:bg-brand-500', 'text-white');
-                        btn.classList.add('text-surface-700', 'dark:text-surface-300');
-                    });
-                    const activeBtn = document.getElementById(`navBtn_${cardId}`);
-                    if (activeBtn) {
-                        activeBtn.classList.remove('text-surface-700', 'dark:text-surface-300');
-                        if (isHorizontalNav) {
-                            activeBtn.classList.add('bg-white', 'dark:bg-surface-800', 'text-brand-600', 'dark:text-brand-400', 'shadow-sm');
-                        } else {
-                            activeBtn.classList.add('bg-brand-600', 'dark:bg-brand-500', 'text-white', 'shadow-sm');
-                            window.scrollNavBtnIntoView(`navBtn_${cardId}`);
-                        }
-                    }
-                }
+                window.updateActivePropertyNav(cardId);
             } else if (card) {
                 card.scrollIntoView({ behavior: 'auto', block: 'nearest' });
                 
@@ -3513,7 +3532,7 @@
                 typographyHTML = `
                     <details id="cardTypography" class="group bg-white dark:bg-surface-800 border border-surface-300 dark:border-surface-700 shadow-sm rounded-lg shrink-0 ${isHorizontal ? 'w-[280px]' : 'w-full'} overflow-hidden flex flex-col" open>
                         <summary class="flex items-center justify-between p-3 ${isHorizontal ? '' : 'cursor-pointer'} list-none appearance-none select-none bg-surface-100 dark:bg-surface-800/80 border-b border-surface-200 dark:border-surface-700 " onclick="${isHorizontal ? 'event.preventDefault();' : ''}">
-                            <div class="text-sm font-bold text-surface-800 dark:text-surface-200 flex items-center gap-2"><i data-lucide="font" class="w-4 h-4 text-surface-500 dark:text-surface-400"></i> Typography</div>
+                            <div class="text-sm font-bold text-surface-800 dark:text-surface-200 flex items-center gap-2"><i data-lucide="case-sensitive" class="w-4 h-4 text-surface-500 dark:text-surface-400"></i> Typography</div>
                             ${isHorizontal ? '' : '<i data-lucide="chevron-down" class="w-4 h-4 text-surface-500 transition-transform group-open:rotate-180"></i>'}
                         </summary>
                         <div class="p-3 flex flex-col gap-3 bg-surface-50 dark:bg-surface-900/50 flex-1">
@@ -4299,7 +4318,7 @@
                 if (transformHTML) navItems.push({ id: 'cardTransform', name: 'Transform', icon: 'move' });
                 if (isText) {
                     navItems.push({ id: 'cardContent', name: 'Content', icon: 'type' });
-                    navItems.push({ id: 'cardTypography', name: 'Typography', icon: 'font' });
+                    navItems.push({ id: 'cardTypography', name: 'Typography', icon: 'case-sensitive' });
                     navItems.push({ id: 'cardSpacing', name: 'Spacing', icon: 'sliders' });
                 }
                 if (isShape) navItems.push({ id: 'cardContent', name: 'Shape', icon: 'shapes' });
@@ -4314,23 +4333,24 @@
                 if (isText) {
                     if (systemFontsHTML) navItems.push({ id: 'cardSystemFonts', name: 'PC Fonts', icon: 'laptop' });
                     if (googleFontsHTML) navItems.push({ id: 'cardGoogleFonts', name: 'Google Fonts', icon: 'globe' });
-                              if (navItems.length > 1) {
+                }
+                if (navItems.length > 1) {
                     sidebarContent.className = "flex overflow-hidden bg-surface-50 dark:bg-surface-950 w-full flex-1 min-h-0 " + (isHorizontal ? "flex-row" : "flex-col");
                     
                     const navHtml = isHorizontal ? `
                         <div id="propertiesLayoutNav" class="w-32 bg-surface-100 dark:bg-surface-900 border-r border-surface-200 dark:border-surface-700 flex flex-col gap-1 p-2 shrink-0 overflow-y-auto no-scrollbar">
                             ${navItems.map(item => `
-                                <button onclick="scrollToPropertyCard('${item.id}'); event.stopPropagation();" id="navBtn_${item.id}" class="text-left text-[10px] font-bold text-surface-700 dark:text-surface-300 hover:bg-surface-200 dark:hover:bg-surface-850 hover:text-surface-900 dark:hover:text-white px-2 py-1.5 rounded transition-all flex items-center gap-1.5 w-full" title="${item.name}">
-                                    <i data-lucide="${item.icon}" class="w-3.5 h-3.5 shrink-0 text-surface-400 dark:text-surface-500"></i>
+                                <button onclick="scrollToPropertyCard('${item.id}'); event.stopPropagation();" id="navBtn_${item.id}" class="text-left text-[10px] font-bold border border-transparent text-surface-500 dark:text-surface-400 hover:text-surface-900 dark:hover:text-surface-100 px-2.5 py-1.5 rounded transition-colors flex items-center gap-1.5 w-full" title="${item.name}">
+                                    <i data-lucide="${item.icon}" class="w-3.5 h-3.5 shrink-0 opacity-70"></i>
                                     <span class="truncate">${item.name}</span>
                                 </button>
                             `).join('')}
                         </div>
                     ` : `
-                        <div id="propertiesLayoutNav" class="flex flex-row items-center gap-1.5 p-2 overflow-x-auto shrink-0 w-full bg-surface-100 dark:bg-surface-900 border-b border-surface-200 dark:border-surface-700 no-scrollbar">
+                        <div id="propertiesLayoutNav" class="flex flex-row items-center gap-1.5 p-2 px-4 overflow-x-auto shrink-0 w-full bg-transparent no-scrollbar">
                             ${navItems.map(item => `
-                                <button onclick="scrollToPropertyCard('${item.id}'); event.stopPropagation();" id="navBtn_${item.id}" class="flex items-center gap-1 px-2.5 py-1 text-[10px] font-bold rounded-full transition-all shrink-0 text-surface-700 dark:text-surface-300 hover:bg-surface-200 dark:hover:bg-surface-800 hover:text-surface-955 dark:hover:text-white" title="${item.name}">
-                                    <i data-lucide="${item.icon}" class="w-3.5 h-3.5 shrink-0 text-surface-400 dark:text-surface-500"></i>
+                                <button onclick="scrollToPropertyCard('${item.id}'); event.stopPropagation();" id="navBtn_${item.id}" class="flex items-center gap-1 px-3 py-1 text-[10px] font-bold border border-transparent rounded-md transition-colors shrink-0 text-surface-500 dark:text-surface-400 hover:text-surface-900 dark:hover:text-surface-100" title="${item.name}">
+                                    <i data-lucide="${item.icon}" class="w-3.5 h-3.5 shrink-0 opacity-70"></i>
                                     <span>${item.name}</span>
                                 </button>
                             `).join('')}
@@ -4360,16 +4380,7 @@
                     // Style the active button corresponding to the first item or active card
                     setTimeout(() => {
                         const activeId = State.activePropertyCardId || navItems[0].id;
-                        const activeBtn = document.getElementById(`navBtn_${activeId}`);
-                        if (activeBtn) {
-                            if (isHorizontal) {
-                                activeBtn.classList.remove('text-surface-700', 'dark:text-surface-300');
-                                activeBtn.classList.add('bg-white', 'dark:bg-surface-800', 'text-brand-600', 'dark:text-brand-400', 'shadow-sm');
-                            } else {
-                                activeBtn.classList.remove('text-surface-700', 'dark:text-surface-300');
-                                activeBtn.classList.add('bg-brand-600', 'dark:bg-brand-500', 'text-white', 'shadow-sm');
-                            }
-                        }
+                        window.updateActivePropertyNav(activeId);
                         
                         // Scroll spy implementation to auto-highlight nav button on scroll
                         const cardContainer = document.getElementById('propertiesCardContainer');
@@ -4409,24 +4420,7 @@
                                     
                                     if (bestCardId && State.activePropertyCardId !== bestCardId) {
                                         State.activePropertyCardId = bestCardId;
-                                        
-                                        const navBar = document.getElementById('propertiesLayoutNav');
-                                        if (navBar) {
-                                            navBar.querySelectorAll('button').forEach(btn => {
-                                                btn.classList.remove('bg-white', 'dark:bg-surface-800', 'text-brand-600', 'dark:text-brand-400', 'shadow-sm', 'bg-brand-500', 'bg-brand-600', 'dark:bg-brand-500', 'text-white');
-                                                btn.classList.add('text-surface-700', 'dark:text-surface-300');
-                                            });
-                                            const actBtn = document.getElementById(`navBtn_${bestCardId}`);
-                                            if (actBtn) {
-                                                actBtn.classList.remove('text-surface-700', 'dark:text-surface-300');
-                                                if (isHorizontal) {
-                                                    actBtn.classList.add('bg-white', 'dark:bg-surface-800', 'text-brand-600', 'dark:text-brand-400', 'shadow-sm');
-                                                } else {
-                                                    actBtn.classList.add('bg-brand-600', 'dark:bg-brand-500', 'text-white', 'shadow-sm');
-                                                    window.scrollNavBtnIntoView(`navBtn_${bestCardId}`);
-                                                }
-                                            }
-                                        }
+                                        window.updateActivePropertyNav(bestCardId);
                                     }
                                 }, 50);
                             });
@@ -4435,7 +4429,7 @@
                 } else {
                     sidebarContent.className = "flex flex-col gap-3 p-4 w-full flex-1 min-h-0 overflow-y-auto";
                     sidebarContent.innerHTML = transformHTML + (isText ? (textHTML + typographyHTML + spacingHTML) : '') + (isShape ? shapeHTML : '') + cropHTML + maskHTML + strokeHTML + extrudeHTML + blendingHTML + shadowHTML + (isText ? systemFontsHTML : '') + (isText ? googleFontsHTML : '');
-                }      }
+                }
             }
             
             // Set initial gradient bg for sliders in sidebar
