@@ -6058,6 +6058,15 @@ ctx.clearRect(0, 0, w, h);
         }
 
         function setupEventListeners() {
+            let currentHoveredArea = 'timeline';
+            if (propertiesSidebar) {
+                propertiesSidebar.addEventListener('mouseenter', () => { currentHoveredArea = 'properties'; });
+                propertiesSidebar.addEventListener('mouseleave', () => { currentHoveredArea = 'timeline'; });
+            }
+            if (timelineScrollArea) {
+                timelineScrollArea.addEventListener('mouseenter', () => { currentHoveredArea = 'timeline'; });
+            }
+
             function setZoom(newPPS) {
                 newPPS = Math.max(10, Math.min(300, newPPS));
                 if (newPPS === State.pixelsPerSecond) return;
@@ -6130,10 +6139,48 @@ ctx.clearRect(0, 0, w, h);
                 
                 const k = e.key.toLowerCase();
                 
+                // WASD / Shift+WASD scrolling
+                if (['w', 'a', 's', 'd'].includes(k) && !e.altKey && !e.ctrlKey && !e.metaKey) {
+                    e.preventDefault();
+                    if (currentHoveredArea === 'properties') {
+                        const container = document.getElementById('propertiesCardContainer') || document.getElementById('sidebarContent');
+                        if (container) {
+                            if (e.shiftKey) {
+                                if (k === 'w') container.scrollTop = 0;
+                                else if (k === 's') container.scrollTop = container.scrollHeight;
+                                else if (k === 'a') container.scrollLeft = 0;
+                                else if (k === 'd') container.scrollLeft = container.scrollWidth;
+                            } else {
+                                const scrollAmount = 60;
+                                if (k === 'w') container.scrollBy({ top: -scrollAmount, behavior: 'auto' });
+                                else if (k === 's') container.scrollBy({ top: scrollAmount, behavior: 'auto' });
+                                else if (k === 'a') container.scrollBy({ left: -scrollAmount, behavior: 'auto' });
+                                else if (k === 'd') container.scrollBy({ left: scrollAmount, behavior: 'auto' });
+                            }
+                        }
+                    } else {
+                        // timelineScrollArea
+                        if (timelineScrollArea) {
+                            if (e.shiftKey) {
+                                if (k === 'w') timelineScrollArea.scrollTop = 0;
+                                else if (k === 's') timelineScrollArea.scrollTop = timelineScrollArea.scrollHeight;
+                                else if (k === 'a') timelineScrollArea.scrollLeft = 0;
+                                else if (k === 'd') timelineScrollArea.scrollLeft = timelineScrollArea.scrollWidth;
+                            } else {
+                                const scrollAmount = 60;
+                                if (k === 'w') timelineScrollArea.scrollBy({ top: -scrollAmount, behavior: 'auto' });
+                                else if (k === 's') timelineScrollArea.scrollBy({ top: scrollAmount, behavior: 'auto' });
+                                else if (k === 'a') timelineScrollArea.scrollBy({ left: -scrollAmount, behavior: 'auto' });
+                                else if (k === 'd') timelineScrollArea.scrollBy({ left: scrollAmount, behavior: 'auto' });
+                            }
+                        }
+                    }
+                    return;
+                }
+
                 // Properties card jump shortcuts
                 if (State.sidebarTab === 'properties') {
                     if (k === 't') { e.preventDefault(); scrollToPropertyCard('cardTransform'); return; }
-                    else if (k === 'w') { e.preventDefault(); scrollToPropertyCard('cardContent'); return; }
                     else if (k === 'y') { e.preventDefault(); scrollToPropertyCard('cardTypography'); return; }
                     else if (k === 'g') { e.preventDefault(); scrollToPropertyCard('cardSpacing'); return; }
                     else if (k === 'o') { e.preventDefault(); scrollToPropertyCard('cardStroke'); return; }
@@ -6161,7 +6208,7 @@ ctx.clearRect(0, 0, w, h);
                     }
                 }
                 
-                if (k === 's') splitClipAtPlayhead();
+                if ((k === 's' && e.altKey) || (e.ctrlKey && k === 'b')) splitClipAtPlayhead();
                 else if (e.key === 'Delete' || e.key === 'Backspace') deleteSelectedClip();
                 else if (e.code === 'Space') { 
                     e.preventDefault(); 
