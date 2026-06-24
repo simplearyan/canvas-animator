@@ -3308,8 +3308,10 @@
             const container = document.getElementById('propertiesCardContainer');
             if (container) {
                 State.ui.propertiesScrollLeft = container.scrollLeft;
+                State.ui.propertiesScrollTop = container.scrollTop;
             } else if (!isSameClip) {
                 State.ui.propertiesScrollLeft = 0;
+                State.ui.propertiesScrollTop = 0;
             }
             const nav = document.getElementById('propertiesLayoutNav');
             if (nav) {
@@ -4101,8 +4103,8 @@
             const cartoon = clip.effects.cartoon !== undefined ? clip.effects.cartoon : 0.5;
             const cartoonEnable = clip.effects.cartoonEnable || false;
 
-            const createAudioAccordion = (id, icon, title, enableKey, valKey, val, enabled) => `
-                <details class="group bg-white dark:bg-surface-800 border border-surface-300 dark:border-surface-700 shadow-sm rounded-lg shrink-0 ${isHorizontal ? 'w-[280px]' : 'w-full'} overflow-hidden flex flex-col" open>
+            const createAudioAccordion = (id, icon, title, enableKey, valKey, val, enabled, cardId) => `
+                <details id="${cardId || ''}" class="group bg-white dark:bg-surface-800 border border-surface-300 dark:border-surface-700 shadow-sm rounded-lg shrink-0 ${isHorizontal ? 'w-[280px]' : 'w-full'} overflow-hidden flex flex-col" open>
                     <summary class="flex items-center justify-between p-3 ${isHorizontal ? '' : 'cursor-pointer'} list-none appearance-none select-none bg-surface-100 dark:bg-surface-800/80 border-b border-surface-200 dark:border-surface-700 " onclick="${isHorizontal ? 'event.preventDefault();' : ''}">
                         <div class="text-sm font-bold text-surface-800 dark:text-surface-200 flex items-center gap-2"><i data-lucide="${icon}" class="w-4 h-4 text-surface-500 dark:text-surface-400"></i> ${title}</div>
                         <div class="flex items-center gap-2">
@@ -4129,12 +4131,12 @@
             `;
 
             const audioHTML = 
-                createAudioAccordion('volume', 'volume-2', 'Volume', null, 'volume', vol, true) +
-                createAudioAccordion('noiseRed', 'mic-off', 'Denoise', 'noiseRedEnable', 'noiseRed', noiseRed, noiseRedEnable) +
-                createAudioAccordion('echo', 'waves', 'Echo', 'echoEnable', 'echo', echo, echoEnable) +
-                createAudioAccordion('cinematic', 'speaker', 'Bass (Cinematic)', 'cinematicEnable', 'cinematic', cinematic, cinematicEnable) +
-                createAudioAccordion('robot', 'bot', 'Robot Voice', 'robotEnable', 'robot', robot, robotEnable) +
-                createAudioAccordion('cartoon', 'smile', 'Cartoon Voice', 'cartoonEnable', 'cartoon', cartoon, cartoonEnable);
+                createAudioAccordion('volume', 'volume-2', 'Volume', null, 'volume', vol, true, 'cardAudioVolume') +
+                createAudioAccordion('noiseRed', 'mic-off', 'Denoise', 'noiseRedEnable', 'noiseRed', noiseRed, noiseRedEnable, 'cardAudioDenoise') +
+                createAudioAccordion('echo', 'waves', 'Echo', 'echoEnable', 'echo', echo, echoEnable, 'cardAudioEcho') +
+                createAudioAccordion('cinematic', 'speaker', 'Bass (Cinematic)', 'cinematicEnable', 'cinematic', cinematic, cinematicEnable, 'cardAudioBass') +
+                createAudioAccordion('robot', 'bot', 'Robot Voice', 'robotEnable', 'robot', robot, robotEnable, 'cardAudioRobot') +
+                createAudioAccordion('cartoon', 'smile', 'Cartoon Voice', 'cartoonEnable', 'cartoon', cartoon, cartoonEnable, 'cardAudioCartoon');
            let animHTML = `
                 <details class="group bg-white dark:bg-surface-800 border border-surface-300 dark:border-surface-700 shadow-sm rounded-lg shrink-0 ${isHorizontal ? 'w-[280px]' : 'w-full'} overflow-hidden flex flex-col" open>
                     <summary class="flex items-center justify-between p-3 ${isHorizontal ? '' : 'cursor-pointer'} list-none appearance-none select-none bg-surface-100 dark:bg-surface-800/80 border-b border-surface-200 dark:border-surface-700 " onclick="${isHorizontal ? 'event.preventDefault();' : ''}">
@@ -4307,8 +4309,83 @@
 
             // Use a clean layout for the sidebar items
             if (clip.type === 'audio') {
-                sidebarContent.className = isHorizontal ? "flex flex-row flex-nowrap overflow-x-auto gap-4 p-2 w-full flex-1 min-w-0 no-scrollbar" : "flex flex-col gap-3 p-2 w-full flex-1 min-h-0 overflow-y-auto";
-                sidebarContent.innerHTML = audioHTML;
+                if (isHorizontal) {
+                    const navItems = [
+                        { id: 'cardAudioVolume', name: 'Volume', icon: 'volume-2' },
+                        { id: 'cardAudioDenoise', name: 'Denoise', icon: 'mic-off' },
+                        { id: 'cardAudioEcho', name: 'Echo', icon: 'waves' },
+                        { id: 'cardAudioBass', name: 'Bass', icon: 'speaker' },
+                        { id: 'cardAudioRobot', name: 'Robot', icon: 'bot' },
+                        { id: 'cardAudioCartoon', name: 'Cartoon', icon: 'smile' }
+                    ];
+                    
+                    sidebarContent.className = "flex overflow-hidden bg-surface-50 dark:bg-surface-950 w-full flex-1 min-h-0 flex-row";
+                    
+                    const navHtml = `
+                        <div id="propertiesLayoutNav" class="w-32 bg-surface-100 dark:bg-surface-900 border-r border-surface-200 dark:border-surface-700 flex flex-col gap-1 p-2 shrink-0 overflow-y-auto no-scrollbar">
+                            ${navItems.map(item => `
+                                <button onclick="scrollToPropertyCard('${item.id}'); event.stopPropagation();" id="navBtn_${item.id}" class="text-left text-[10px] font-bold border border-transparent text-surface-500 dark:text-surface-400 hover:text-surface-900 dark:hover:text-surface-100 px-2.5 py-1.5 rounded transition-colors flex items-center gap-1.5 w-full" title="${item.name}">
+                                    <i data-lucide="${item.icon}" class="w-3.5 h-3.5 shrink-0 opacity-70"></i>
+                                    <span class="truncate">${item.name}</span>
+                                </button>
+                            `).join('')}
+                        </div>
+                    `;
+                    
+                    const cardsHtml = `
+                        <div id="propertiesCardContainer" class="p-4 flex gap-6 min-w-0 flex-row overflow-x-auto flex-1 no-scrollbar">
+                            ${audioHTML}
+                        </div>
+                    `;
+                    
+                    sidebarContent.innerHTML = navHtml + cardsHtml;
+                    
+                    setTimeout(() => {
+                        const activeId = State.activePropertyCardId || navItems[0].id;
+                        window.updateActivePropertyNav(activeId);
+                        
+                        const cardContainer = document.getElementById('propertiesCardContainer');
+                        if (cardContainer) {
+                            let scrollTimeout = null;
+                            cardContainer.addEventListener('scroll', () => {
+                                if (State.isProgrammaticScrolling) {
+                                    if (State.programmaticScrollTimeout) clearTimeout(State.programmaticScrollTimeout);
+                                    State.programmaticScrollTimeout = setTimeout(() => {
+                                        State.isProgrammaticScrolling = false;
+                                    }, 250);
+                                    return;
+                                }
+                                if (scrollTimeout) clearTimeout(scrollTimeout);
+                                scrollTimeout = setTimeout(() => {
+                                    const containerRect = cardContainer.getBoundingClientRect();
+                                    const cards = cardContainer.querySelectorAll('details');
+                                    let bestCardId = null;
+                                    let bestDiff = Infinity;
+                                    
+                                    cards.forEach(c => {
+                                        const rect = c.getBoundingClientRect();
+                                        const cCenter = rect.left + rect.width / 2;
+                                        const containerCenter = containerRect.left + containerRect.width / 2;
+                                        const diff = Math.abs(cCenter - containerCenter);
+                                        
+                                        if (diff < bestDiff) {
+                                            bestDiff = diff;
+                                            bestCardId = c.id;
+                                        }
+                                    });
+                                    
+                                    if (bestCardId && State.activePropertyCardId !== bestCardId) {
+                                        State.activePropertyCardId = bestCardId;
+                                        window.updateActivePropertyNav(bestCardId);
+                                    }
+                                }, 50);
+                            });
+                        }
+                    }, 0);
+                } else {
+                    sidebarContent.className = "flex flex-col gap-3 p-4 w-full flex-1 min-h-0 overflow-y-auto";
+                    sidebarContent.innerHTML = audioHTML;
+                }
             } else if (State.sidebarTab === 'animations') {
                 sidebarContent.className = isHorizontal ? "flex flex-row flex-nowrap overflow-x-auto gap-4 p-2 w-full flex-1 min-w-0 no-scrollbar" : "flex flex-col gap-3 p-2 w-full flex-1 min-h-0 overflow-y-auto";
                 sidebarContent.innerHTML = animHTML;
@@ -4460,8 +4537,9 @@
                 if (State.ui.sidebarScrollTop !== undefined) sidebarContent.scrollTop = State.ui.sidebarScrollTop;
             }
             const newContainer = document.getElementById('propertiesCardContainer');
-            if (newContainer && State.ui.propertiesScrollLeft !== undefined) {
-                newContainer.scrollLeft = State.ui.propertiesScrollLeft;
+            if (newContainer) {
+                if (State.ui.propertiesScrollLeft !== undefined) newContainer.scrollLeft = State.ui.propertiesScrollLeft;
+                if (State.ui.propertiesScrollTop !== undefined) newContainer.scrollTop = State.ui.propertiesScrollTop;
             }
             const newNav = document.getElementById('propertiesLayoutNav');
             if (newNav && State.ui.navScrollTop !== undefined) {
@@ -4475,8 +4553,9 @@
                     if (State.ui.sidebarScrollTop !== undefined) sidebarContent.scrollTop = State.ui.sidebarScrollTop;
                 }
                 const delayedContainer = document.getElementById('propertiesCardContainer');
-                if (delayedContainer && State.ui.propertiesScrollLeft !== undefined) {
-                    delayedContainer.scrollLeft = State.ui.propertiesScrollLeft;
+                if (delayedContainer) {
+                    if (State.ui.propertiesScrollLeft !== undefined) delayedContainer.scrollLeft = State.ui.propertiesScrollLeft;
+                    if (State.ui.propertiesScrollTop !== undefined) delayedContainer.scrollTop = State.ui.propertiesScrollTop;
                 }
                 const delayedNav = document.getElementById('propertiesLayoutNav');
                 if (delayedNav && State.ui.navScrollTop !== undefined) {
