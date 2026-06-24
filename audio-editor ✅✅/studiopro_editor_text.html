@@ -1375,6 +1375,55 @@
             }
         }
 
+        window.scrollToPropertyCard = (cardId) => {
+            State.activePropertyCardId = cardId;
+            const container = document.getElementById('propertiesCardContainer');
+            const card = document.getElementById(cardId);
+            
+            if (card) {
+                card.open = true;
+            }
+            
+            if (container && card) {
+                card.scrollIntoView({ behavior: 'smooth', block: 'nearest', inline: 'center' });
+                
+                card.classList.add('ring-2', 'ring-brand-500', 'transition-all', 'duration-300');
+                setTimeout(() => {
+                    card.classList.remove('ring-2', 'ring-brand-500');
+                }, 1000);
+                
+                const focusable = card.querySelector('input[type="text"], textarea, select');
+                if (focusable) {
+                    setTimeout(() => focusable.focus(), 300);
+                }
+                
+                const nav = document.getElementById('propertiesLayoutNav');
+                if (nav) {
+                    nav.querySelectorAll('button').forEach(btn => {
+                        btn.classList.remove('bg-white', 'dark:bg-surface-800', 'text-brand-600', 'dark:text-brand-400', 'shadow-sm');
+                        btn.classList.add('text-surface-500', 'dark:text-surface-400');
+                    });
+                    const activeBtn = document.getElementById(`navBtn_${cardId}`);
+                    if (activeBtn) {
+                        activeBtn.classList.remove('text-surface-500', 'dark:text-surface-400');
+                        activeBtn.classList.add('bg-white', 'dark:bg-surface-800', 'text-brand-600', 'dark:text-brand-400', 'shadow-sm');
+                    }
+                }
+            } else if (card) {
+                card.scrollIntoView({ behavior: 'smooth', block: 'nearest' });
+                
+                card.classList.add('ring-2', 'ring-brand-500', 'transition-all', 'duration-300');
+                setTimeout(() => {
+                    card.classList.remove('ring-2', 'ring-brand-500');
+                }, 1000);
+                
+                const focusable = card.querySelector('input[type="text"], textarea, select');
+                if (focusable) {
+                    setTimeout(() => focusable.focus(), 300);
+                }
+            }
+        };
+
         const iconCanvasPos = document.getElementById('iconCanvasPos');
         
         window.applyCanvasPosition = (position) => {
@@ -3167,11 +3216,35 @@
         function updateSidebarPanel() {
             // Save state
             State.ui = State.ui || { detailsState: {} };
+            const isSameClip = State.ui.lastSelectedClipId === State.selectedClipId;
+            State.ui.lastSelectedClipId = State.selectedClipId;
+
             const currentDetails = sidebarContent.querySelectorAll('details');
             currentDetails.forEach(d => {
                 const summary = d.querySelector('summary');
                 if (summary) State.ui.detailsState[summary.textContent.trim()] = d.open;
             });
+
+            // Save scroll positions
+            const container = document.getElementById('propertiesCardContainer');
+            if (container) {
+                State.ui.propertiesScrollLeft = container.scrollLeft;
+            } else if (!isSameClip) {
+                State.ui.propertiesScrollLeft = 0;
+            }
+            const nav = document.getElementById('propertiesLayoutNav');
+            if (nav) {
+                State.ui.navScrollTop = nav.scrollTop;
+            } else if (!isSameClip) {
+                State.ui.navScrollTop = 0;
+            }
+            if (sidebarContent) {
+                State.ui.sidebarScrollLeft = sidebarContent.scrollLeft;
+                State.ui.sidebarScrollTop = sidebarContent.scrollTop;
+            } else if (!isSameClip) {
+                State.ui.sidebarScrollLeft = 0;
+                State.ui.sidebarScrollTop = 0;
+            }
 
             if (State.sidebarTab === 'audio_library') {
                 renderAudioLibrary();
@@ -3238,7 +3311,7 @@
             let shapeHTML = '';
             if (isShape) {
                 shapeHTML = `
-                    <details class="group bg-white dark:bg-surface-800 border border-surface-300 dark:border-surface-700 shadow-sm rounded-lg shrink-0 ${isHorizontal ? 'w-[280px]' : 'w-full'} overflow-hidden flex flex-col" open>
+                    <details id="cardContent" class="group bg-white dark:bg-surface-800 border border-surface-300 dark:border-surface-700 shadow-sm rounded-lg shrink-0 ${isHorizontal ? 'w-[280px]' : 'w-full'} overflow-hidden flex flex-col" open>
                         <summary class="flex items-center justify-between p-3 ${isHorizontal ? '' : 'cursor-pointer'} list-none appearance-none select-none bg-surface-100 dark:bg-surface-800/80 border-b border-surface-200 dark:border-surface-700 " onclick="${isHorizontal ? 'event.preventDefault();' : ''}">
                             <div class="text-sm font-bold text-surface-800 dark:text-surface-200 flex items-center gap-2"><i data-lucide="shapes" class="w-4 h-4 text-surface-500 dark:text-surface-400"></i> Shape Properties</div>
                             ${isHorizontal ? '' : '<i data-lucide="chevron-down" class="w-4 h-4 text-surface-500 transition-transform group-open:rotate-180"></i>'}
@@ -3345,7 +3418,7 @@
                 ).join('');
 
                 textHTML = `
-                    <details class="group bg-white dark:bg-surface-800 border border-surface-300 dark:border-surface-700 shadow-sm rounded-lg shrink-0 ${isHorizontal ? 'w-[280px]' : 'w-full'} overflow-hidden flex flex-col" open>
+                    <details id="cardContent" class="group bg-white dark:bg-surface-800 border border-surface-300 dark:border-surface-700 shadow-sm rounded-lg shrink-0 ${isHorizontal ? 'w-[280px]' : 'w-full'} overflow-hidden flex flex-col" open>
                         <summary class="flex items-center justify-between p-3 ${isHorizontal ? '' : 'cursor-pointer'} list-none appearance-none select-none bg-surface-100 dark:bg-surface-800/80 border-b border-surface-200 dark:border-surface-700 " onclick="${isHorizontal ? 'event.preventDefault();' : ''}">
                             <div class="text-sm font-bold text-surface-800 dark:text-surface-200 flex items-center gap-2"><i data-lucide="type" class="w-4 h-4 text-surface-500 dark:text-surface-400"></i> Text Content</div>
                             ${isHorizontal ? '' : '<i data-lucide="chevron-down" class="w-4 h-4 text-surface-500 transition-transform group-open:rotate-180"></i>'}
@@ -3436,7 +3509,7 @@
             }
 
             const extrudeHTML = (clip.type === 'text' || clip.type === 'shape') ? `
-                <details class="group bg-white dark:bg-surface-800 border border-surface-300 dark:border-surface-700 shadow-sm rounded-lg shrink-0 ${isHorizontal ? 'w-[280px]' : 'w-full'} overflow-hidden flex flex-col" open>
+                <details id="cardExtrude" class="group bg-white dark:bg-surface-800 border border-surface-300 dark:border-surface-700 shadow-sm rounded-lg shrink-0 ${isHorizontal ? 'w-[280px]' : 'w-full'} overflow-hidden flex flex-col" open>
                     <summary class="flex items-center justify-between p-3 ${isHorizontal ? '' : 'cursor-pointer'} list-none appearance-none select-none bg-surface-100 dark:bg-surface-800/80 border-b border-surface-200 dark:border-surface-700 " onclick="${isHorizontal ? 'event.preventDefault();' : ''}">
                         <div class="text-sm font-bold text-surface-800 dark:text-surface-200 flex items-center gap-2"><i data-lucide="box" class="w-4 h-4 text-surface-500 dark:text-surface-400"></i> Extrude 3D</div>
                         <div class="flex items-center gap-2">
@@ -3481,7 +3554,7 @@
             ` : '';
 
             const blendingHTML = (clip.type === 'image' || clip.type === 'video' || clip.type === 'text' || clip.type === 'shape') ? `
-                <details class="group bg-white dark:bg-surface-800 border border-surface-300 dark:border-surface-700 shadow-sm rounded-lg shrink-0 ${isHorizontal ? 'w-[280px]' : 'w-full'} overflow-hidden flex flex-col" open>
+                <details id="cardOpacity" class="group bg-white dark:bg-surface-800 border border-surface-300 dark:border-surface-700 shadow-sm rounded-lg shrink-0 ${isHorizontal ? 'w-[280px]' : 'w-full'} overflow-hidden flex flex-col" open>
                     <summary class="flex items-center justify-between p-3 ${isHorizontal ? '' : 'cursor-pointer'} list-none appearance-none select-none bg-surface-100 dark:bg-surface-800/80 border-b border-surface-200 dark:border-surface-700 " onclick="${isHorizontal ? 'event.preventDefault();' : ''}">
                         <div class="text-sm font-bold text-surface-800 dark:text-surface-200 flex items-center gap-2"><i data-lucide="layers" class="w-4 h-4 text-surface-500 dark:text-surface-400"></i> Opacity & Blending</div>
                         ${isHorizontal ? '' : '<i data-lucide="chevron-down" class="w-4 h-4 text-surface-500 transition-transform group-open:rotate-180"></i>'}
@@ -3542,7 +3615,7 @@
             ` : '';
 
             const strokeHTML = (clip.type === 'text' || clip.type === 'shape' || clip.type === 'image' || clip.type === 'video') ? `
-                <details class="group bg-white dark:bg-surface-800 border border-surface-300 dark:border-surface-700 shadow-sm rounded-lg shrink-0 ${isHorizontal ? 'w-[280px]' : 'w-full'} overflow-hidden flex flex-col" open>
+                <details id="cardStroke" class="group bg-white dark:bg-surface-800 border border-surface-300 dark:border-surface-700 shadow-sm rounded-lg shrink-0 ${isHorizontal ? 'w-[280px]' : 'w-full'} overflow-hidden flex flex-col" open>
                     <summary class="flex items-center justify-between p-3 ${isHorizontal ? '' : 'cursor-pointer'} list-none appearance-none select-none bg-surface-100 dark:bg-surface-800/80 border-b border-surface-200 dark:border-surface-700 " onclick="${isHorizontal ? 'event.preventDefault();' : ''}">
                         <div class="text-sm font-bold text-surface-800 dark:text-surface-200 flex items-center gap-2"><i data-lucide="edit-3" class="w-4 h-4 text-surface-500 dark:text-surface-400"></i> Stroke & Outline</div>
                         <div class="flex items-center gap-2">
@@ -3593,7 +3666,7 @@
             const maskInvert = fx.maskInvert || false;
 
             const cropHTML = (clip.type === 'image' || clip.type === 'video') ? `
-                <details class="group bg-white dark:bg-surface-800 border border-surface-300 dark:border-surface-700 shadow-sm rounded-lg shrink-0 ${isHorizontal ? 'w-[280px]' : 'w-full'} overflow-hidden flex flex-col" open>
+                <details id="cardCrop" class="group bg-white dark:bg-surface-800 border border-surface-300 dark:border-surface-700 shadow-sm rounded-lg shrink-0 ${isHorizontal ? 'w-[280px]' : 'w-full'} overflow-hidden flex flex-col" open>
                     <summary class="flex items-center justify-between p-3 ${isHorizontal ? '' : 'cursor-pointer'} list-none appearance-none select-none bg-surface-100 dark:bg-surface-800/80 border-b border-surface-200 dark:border-surface-700 " onclick="${isHorizontal ? 'event.preventDefault();' : ''}">
                         <div class="text-sm font-bold text-surface-800 dark:text-surface-200 flex items-center gap-2"><i data-lucide="crop" class="w-4 h-4 text-surface-500 dark:text-surface-400"></i> Crop & Zoom</div>
                         <div class="flex items-center gap-2">
@@ -3672,7 +3745,7 @@
             ` : '';
 
             const maskHTML = (clip.type === 'image' || clip.type === 'video') ? `
-                <details class="group bg-white dark:bg-surface-800 border border-surface-300 dark:border-surface-700 shadow-sm rounded-lg shrink-0 ${isHorizontal ? 'w-[280px]' : 'w-full'} overflow-hidden flex flex-col" open>
+                <details id="cardMask" class="group bg-white dark:bg-surface-800 border border-surface-300 dark:border-surface-700 shadow-sm rounded-lg shrink-0 ${isHorizontal ? 'w-[280px]' : 'w-full'} overflow-hidden flex flex-col" open>
                     <summary class="flex items-center justify-between p-3 ${isHorizontal ? '' : 'cursor-pointer'} list-none appearance-none select-none bg-surface-100 dark:bg-surface-800/80 border-b border-surface-200 dark:border-surface-700 " onclick="${isHorizontal ? 'event.preventDefault();' : ''}">
                         <div class="text-sm font-bold text-surface-800 dark:text-surface-200 flex items-center gap-2"><i data-lucide="aperture" class="w-4 h-4 text-surface-500 dark:text-surface-400"></i> Masking</div>
                         <div class="flex items-center gap-2">
@@ -3752,7 +3825,7 @@
             const radiusVal = fx.borderRadius !== undefined ? fx.borderRadius : 0;
 
             const transformHTML = (clip.type === 'image' || clip.type === 'video' || clip.type === 'text' || clip.type === 'shape') ? `
-                <details class="group bg-white dark:bg-surface-800 border border-surface-300 dark:border-surface-700 shadow-sm rounded-lg shrink-0 ${isHorizontal ? 'w-[280px]' : 'w-full'} overflow-hidden flex flex-col" open>
+                <details id="cardTransform" class="group bg-white dark:bg-surface-800 border border-surface-300 dark:border-surface-700 shadow-sm rounded-lg shrink-0 ${isHorizontal ? 'w-[280px]' : 'w-full'} overflow-hidden flex flex-col" open>
                     <summary class="flex items-center justify-between p-3 ${isHorizontal ? '' : 'cursor-pointer'} list-none appearance-none select-none bg-surface-100 dark:bg-surface-800/80 border-b border-surface-200 dark:border-surface-700 " onclick="${isHorizontal ? 'event.preventDefault();' : ''}">
                         <div class="text-sm font-bold text-surface-800 dark:text-surface-200 flex items-center gap-2"><i data-lucide="maximize" class="w-4 h-4 text-surface-500 dark:text-surface-400"></i> Transform</div>
                         ${isHorizontal ? '' : '<i data-lucide="chevron-down" class="w-4 h-4 text-surface-500 transition-transform group-open:rotate-180"></i>'}
@@ -3786,7 +3859,7 @@
             ` : '';
 
             const shadowHTML = `
-                <details class="group bg-white dark:bg-surface-800 border border-surface-300 dark:border-surface-700 shadow-sm rounded-lg shrink-0 ${isHorizontal ? 'w-[280px]' : 'w-full'} overflow-hidden flex flex-col" open>
+                <details id="cardShadow" class="group bg-white dark:bg-surface-800 border border-surface-300 dark:border-surface-700 shadow-sm rounded-lg shrink-0 ${isHorizontal ? 'w-[280px]' : 'w-full'} overflow-hidden flex flex-col" open>
                     <summary class="flex items-center justify-between p-3 ${isHorizontal ? '' : 'cursor-pointer'} list-none appearance-none select-none bg-surface-100 dark:bg-surface-800/80 border-b border-surface-200 dark:border-surface-700 " onclick="${isHorizontal ? 'event.preventDefault();' : ''}">
                         <div class="text-sm font-bold text-surface-800 dark:text-surface-200 flex items-center gap-2"><i data-lucide="copy" class="w-4 h-4 text-surface-500 dark:text-surface-400"></i> Drop Shadow</div>
                         <div class="flex items-center gap-2">
@@ -3833,7 +3906,7 @@
             `;
 
             const systemFontsHTML = isText ? `
-                <details class="group bg-white dark:bg-surface-800 border border-surface-300 dark:border-surface-700 shadow-sm rounded-lg shrink-0 ${isHorizontal ? 'w-[280px]' : 'w-full'} overflow-hidden flex flex-col" ${(State.ui && State.ui.detailsState && State.ui.detailsState['System Fonts (PC)']) ? 'open' : ''}>
+                <details id="cardSystemFonts" class="group bg-white dark:bg-surface-800 border border-surface-300 dark:border-surface-700 shadow-sm rounded-lg shrink-0 ${isHorizontal ? 'w-[280px]' : 'w-full'} overflow-hidden flex flex-col" ${(State.ui && State.ui.detailsState && State.ui.detailsState['System Fonts (PC)']) ? 'open' : ''}>
                     <summary class="flex items-center justify-between p-3 ${isHorizontal ? '' : 'cursor-pointer'} list-none appearance-none select-none bg-surface-100 dark:bg-surface-800/80 border-b border-surface-200 dark:border-surface-700 " onclick="${isHorizontal ? 'event.preventDefault();' : ''}">
                         <div class="text-sm font-bold text-surface-800 dark:text-surface-200 flex items-center gap-2"><i data-lucide="laptop" class="w-4 h-4 text-surface-500 dark:text-surface-400"></i> System Fonts (PC)</div>
                         ${isHorizontal ? '' : '<i data-lucide="chevron-down" class="w-4 h-4 text-surface-500 transition-transform group-open:rotate-180"></i>'}
@@ -3882,7 +3955,7 @@
             ` : '';
 
             const googleFontsHTML = isText ? `
-                <details class="group bg-white dark:bg-surface-800 border border-surface-300 dark:border-surface-700 shadow-sm rounded-lg shrink-0 ${isHorizontal ? 'w-[280px]' : 'w-full'} overflow-hidden flex flex-col" ${(State.ui && State.ui.detailsState && State.ui.detailsState['Google Fonts']) ? 'open' : ''}>
+                <details id="cardGoogleFonts" class="group bg-white dark:bg-surface-800 border border-surface-300 dark:border-surface-700 shadow-sm rounded-lg shrink-0 ${isHorizontal ? 'w-[280px]' : 'w-full'} overflow-hidden flex flex-col" ${(State.ui && State.ui.detailsState && State.ui.detailsState['Google Fonts']) ? 'open' : ''}>
                     <summary class="flex items-center justify-between p-3 ${isHorizontal ? '' : 'cursor-pointer'} list-none appearance-none select-none bg-surface-100 dark:bg-surface-800/80 border-b border-surface-200 dark:border-surface-700 " onclick="${isHorizontal ? 'event.preventDefault();' : ''}">
                         <div class="text-sm font-bold text-surface-800 dark:text-surface-200 flex items-center gap-2"><i data-lucide="globe" class="w-4 h-4 text-surface-500 dark:text-surface-400"></i> Google Fonts</div>
                         ${isHorizontal ? '' : '<i data-lucide="chevron-down" class="w-4 h-4 text-surface-500 transition-transform group-open:rotate-180"></i>'}
@@ -4133,13 +4206,74 @@
             }
 
             // Use a clean layout for the sidebar items
-            sidebarContent.className = isHorizontal ? "flex flex-row flex-nowrap overflow-x-auto gap-4 p-2 w-full flex-1 min-w-0 no-scrollbar" : "flex flex-col gap-3 p-2 w-full flex-1 min-h-0 overflow-y-auto";
             if (clip.type === 'audio') {
+                sidebarContent.className = isHorizontal ? "flex flex-row flex-nowrap overflow-x-auto gap-4 p-2 w-full flex-1 min-w-0 no-scrollbar" : "flex flex-col gap-3 p-2 w-full flex-1 min-h-0 overflow-y-auto";
                 sidebarContent.innerHTML = audioHTML;
+            } else if (State.sidebarTab === 'animations') {
+                sidebarContent.className = isHorizontal ? "flex flex-row flex-nowrap overflow-x-auto gap-4 p-2 w-full flex-1 min-w-0 no-scrollbar" : "flex flex-col gap-3 p-2 w-full flex-1 min-h-0 overflow-y-auto";
+                sidebarContent.innerHTML = animHTML;
             } else {
-                if (State.sidebarTab === 'animations') {
-                    sidebarContent.innerHTML = animHTML;
+                // Compile navigation items for Properties tab
+                const navItems = [];
+                if (transformHTML) navItems.push({ id: 'cardTransform', name: 'Transform', icon: 'move' });
+                if (isText) navItems.push({ id: 'cardContent', name: 'Content', icon: 'type' });
+                if (isShape) navItems.push({ id: 'cardContent', name: 'Shape', icon: 'shapes' });
+                if (clip.type === 'image' || clip.type === 'video') {
+                    if (cropHTML) navItems.push({ id: 'cardCrop', name: 'Crop', icon: 'crop' });
+                    if (maskHTML) navItems.push({ id: 'cardMask', name: 'Mask', icon: 'scissors' });
+                }
+                if (strokeHTML) navItems.push({ id: 'cardStroke', name: 'Stroke', icon: 'edit-3' });
+                if (extrudeHTML) navItems.push({ id: 'cardExtrude', name: 'Extrude 3D', icon: 'box' });
+                if (blendingHTML) navItems.push({ id: 'cardOpacity', name: 'Blending', icon: 'eye' });
+                if (shadowHTML) navItems.push({ id: 'cardShadow', name: 'Shadow', icon: 'layers' });
+                if (isText) {
+                    if (systemFontsHTML) navItems.push({ id: 'cardSystemFonts', name: 'PC Fonts', icon: 'laptop' });
+                    if (googleFontsHTML) navItems.push({ id: 'cardGoogleFonts', name: 'Google Fonts', icon: 'globe' });
+                }
+
+                if (isHorizontal && navItems.length > 1) {
+                    sidebarContent.className = "flex flex-row p-0 w-full flex-1 min-h-0 overflow-hidden bg-surface-50 dark:bg-surface-950";
+                    
+                    const navHtml = `
+                        <div id="propertiesLayoutNav" class="w-32 bg-surface-100 dark:bg-surface-900 border-r border-surface-200 dark:border-surface-700 flex flex-col gap-1 p-2 shrink-0 overflow-y-auto no-scrollbar">
+                            ${navItems.map(item => `
+                                <button onclick="scrollToPropertyCard('${item.id}'); event.stopPropagation();" id="navBtn_${item.id}" class="text-left text-[10px] font-bold text-surface-600 dark:text-surface-400 hover:bg-surface-200 dark:hover:bg-surface-850 hover:text-surface-900 dark:hover:text-white px-2 py-1.5 rounded transition-all flex items-center gap-1.5 w-full">
+                                    <i data-lucide="${item.icon}" class="w-3.5 h-3.5 shrink-0 text-surface-400 dark:text-surface-500"></i>
+                                    <span class="truncate">${item.name}</span>
+                                </button>
+                            `).join('')}
+                        </div>
+                    `;
+                    
+                    const cardsHtml = `
+                        <div id="propertiesCardContainer" class="p-4 flex flex-row flex-nowrap gap-6 overflow-x-auto flex-1 min-w-0 no-scrollbar">
+                            ${transformHTML}
+                            ${isText ? textHTML : ''}
+                            ${isShape ? shapeHTML : ''}
+                            ${cropHTML}
+                            ${maskHTML}
+                            ${strokeHTML}
+                            ${extrudeHTML}
+                            ${blendingHTML}
+                            ${shadowHTML}
+                            ${isText ? systemFontsHTML : ''}
+                            ${isText ? googleFontsHTML : ''}
+                        </div>
+                    `;
+                    
+                    sidebarContent.innerHTML = navHtml + cardsHtml;
+                    
+                    // Style the active button corresponding to the first item or active card
+                    setTimeout(() => {
+                        const activeId = State.activePropertyCardId || navItems[0].id;
+                        const activeBtn = document.getElementById(`navBtn_${activeId}`);
+                        if (activeBtn) {
+                            activeBtn.classList.remove('text-surface-600', 'dark:text-surface-400');
+                            activeBtn.classList.add('bg-white', 'dark:bg-surface-800', 'text-brand-600', 'dark:text-brand-400', 'shadow-sm');
+                        }
+                    }, 0);
                 } else {
+                    sidebarContent.className = "flex flex-col gap-3 p-4 w-full flex-1 min-h-0 overflow-y-auto";
                     sidebarContent.innerHTML = transformHTML + (isText ? textHTML : '') + (isShape ? shapeHTML : '') + cropHTML + maskHTML + strokeHTML + extrudeHTML + blendingHTML + shadowHTML + (isText ? systemFontsHTML : '') + (isText ? googleFontsHTML : '');
                 }
             }
@@ -4165,6 +4299,36 @@
                     }
                 }
             });
+
+            // Restore scroll positions synchronously
+            if (sidebarContent) {
+                if (State.ui.sidebarScrollLeft !== undefined) sidebarContent.scrollLeft = State.ui.sidebarScrollLeft;
+                if (State.ui.sidebarScrollTop !== undefined) sidebarContent.scrollTop = State.ui.sidebarScrollTop;
+            }
+            const newContainer = document.getElementById('propertiesCardContainer');
+            if (newContainer && State.ui.propertiesScrollLeft !== undefined) {
+                newContainer.scrollLeft = State.ui.propertiesScrollLeft;
+            }
+            const newNav = document.getElementById('propertiesLayoutNav');
+            if (newNav && State.ui.navScrollTop !== undefined) {
+                newNav.scrollTop = State.ui.navScrollTop;
+            }
+
+            // Restore scroll positions inside setTimeout to ensure rendering and reflow layout passes have completed
+            setTimeout(() => {
+                if (sidebarContent) {
+                    if (State.ui.sidebarScrollLeft !== undefined) sidebarContent.scrollLeft = State.ui.sidebarScrollLeft;
+                    if (State.ui.sidebarScrollTop !== undefined) sidebarContent.scrollTop = State.ui.sidebarScrollTop;
+                }
+                const delayedContainer = document.getElementById('propertiesCardContainer');
+                if (delayedContainer && State.ui.propertiesScrollLeft !== undefined) {
+                    delayedContainer.scrollLeft = State.ui.propertiesScrollLeft;
+                }
+                const delayedNav = document.getElementById('propertiesLayoutNav');
+                if (delayedNav && State.ui.navScrollTop !== undefined) {
+                    delayedNav.scrollTop = State.ui.navScrollTop;
+                }
+            }, 0);
 
             lucide.createIcons();
         }
@@ -5799,9 +5963,47 @@ ctx.clearRect(0, 0, w, h);
             });
 
             document.addEventListener('keydown', (e) => {
+                // Alt + 1/2/3 to switch inspector tabs
+                if (e.altKey && (e.key === '1' || e.key === '2' || e.key === '3')) {
+                    e.preventDefault();
+                    if (e.key === '1') setSidebarTab('properties');
+                    else if (e.key === '2') setSidebarTab('animations');
+                    else if (e.key === '3') setSidebarTab('audio_library');
+                    return;
+                }
+
                 if (e.target.tagName === 'INPUT' || e.target.tagName === 'TEXTAREA' || e.target.isContentEditable) return;
                 
                 const k = e.key.toLowerCase();
+                
+                // Properties card jump shortcuts
+                if (State.sidebarTab === 'properties') {
+                    if (k === 't') { e.preventDefault(); scrollToPropertyCard('cardTransform'); return; }
+                    else if (k === 'w') { e.preventDefault(); scrollToPropertyCard('cardContent'); return; }
+                    else if (k === 'o') { e.preventDefault(); scrollToPropertyCard('cardStroke'); return; }
+                    else if (k === 'x') { e.preventDefault(); scrollToPropertyCard('cardExtrude'); return; }
+                    else if (k === 'b') { e.preventDefault(); scrollToPropertyCard('cardOpacity'); return; }
+                    else if (k === 'f') { 
+                        e.preventDefault(); 
+                        const targetId = document.getElementById('cardSystemFonts') ? 'cardSystemFonts' : 'cardGoogleFonts';
+                        scrollToPropertyCard(targetId); 
+                        return; 
+                    }
+                    
+                    // Arrow keys scroll properties panel horizontally when in horizontal dock
+                    const container = document.getElementById('propertiesCardContainer');
+                    if (container) {
+                        if (e.key === 'ArrowLeft' && !e.altKey && !e.ctrlKey && !e.shiftKey) {
+                            e.preventDefault();
+                            container.scrollBy({ left: -200, behavior: 'smooth' });
+                            return;
+                        } else if (e.key === 'ArrowRight' && !e.altKey && !e.ctrlKey && !e.shiftKey) {
+                            e.preventDefault();
+                            container.scrollBy({ left: 200, behavior: 'smooth' });
+                            return;
+                        }
+                    }
+                }
                 
                 if (k === 's') splitClipAtPlayhead();
                 else if (e.key === 'Delete' || e.key === 'Backspace') deleteSelectedClip();
