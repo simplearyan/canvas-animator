@@ -874,6 +874,13 @@
                     isResizingTimeline = false;
                     document.body.style.cursor = '';
                     document.body.style.userSelect = '';
+                    const isHorizontal = State.preview && (State.preview.position === 'right' || State.preview.position === 'left');
+                    if (isHorizontal) {
+                        State.preview.width = previewContainer.offsetWidth;
+                    } else {
+                        State.preview.height = previewContainer.offsetHeight;
+                    }
+                    saveLayoutSettings();
                 }
             });
         }
@@ -895,6 +902,7 @@
                 renderTrackHeaders();
                 renderTracks();
                 renderClips();
+                saveLayoutSettings();
             });
         }
 
@@ -1169,6 +1177,29 @@
 
         // --- Initialization ---
         function init() {
+            // Restore workspace layout configurations
+            try {
+                const savedLayout = localStorage.getItem('studiopro_layout_config');
+                if (savedLayout) {
+                    const config = JSON.parse(savedLayout);
+                    if (config.canvasPosition) State.preview.position = config.canvasPosition;
+                    if (config.canvasWidth) State.preview.width = config.canvasWidth;
+                    if (config.canvasHeight) State.preview.height = config.canvasHeight;
+                    if (config.inspectorVisible !== undefined) State.inspector.visible = config.inspectorVisible;
+                    if (config.inspectorDock) State.inspector.dock = config.inspectorDock;
+                    if (config.inspectorFullWidth !== undefined) State.inspector.fullWidth = config.inspectorFullWidth;
+                    if (config.inspectorWidth) State.inspector.width = config.inspectorWidth;
+                    if (config.inspectorHeight) State.inspector.height = config.inspectorHeight;
+                    if (config.trackSize && TRACK_SIZES[config.trackSize]) {
+                        currentTrackSize = config.trackSize;
+                        const newHeight = TRACK_SIZES[currentTrackSize].height;
+                        State.tracks.forEach(t => t.height = newHeight);
+                    }
+                }
+            } catch (e) {
+                console.error("Error restoring layout configuration:", e);
+            }
+
             loadCustomFonts();
             loadGoogleFonts();
             loadImportedSystemFonts();
@@ -1320,9 +1351,29 @@
             }
 
             lucide.createIcons();
+            saveLayoutSettings();
             setTimeout(() => { updateTimelineWidth(); drawRuler(); resizeCanvas(); }, 10);
         }
 
+
+        function saveLayoutSettings() {
+            try {
+                const config = {
+                    canvasPosition: State.preview ? State.preview.position : 'top',
+                    canvasWidth: State.preview ? State.preview.width : null,
+                    canvasHeight: State.preview ? State.preview.height : null,
+                    inspectorVisible: State.inspector ? State.inspector.visible : false,
+                    inspectorDock: State.inspector ? State.inspector.dock : 'left',
+                    inspectorFullWidth: State.inspector ? State.inspector.fullWidth : false,
+                    inspectorWidth: State.inspector ? State.inspector.width : 320,
+                    inspectorHeight: State.inspector ? State.inspector.height : 256,
+                    trackSize: typeof currentTrackSize !== 'undefined' ? currentTrackSize : 'medium'
+                };
+                localStorage.setItem('studiopro_layout_config', JSON.stringify(config));
+            } catch (e) {
+                console.error("Error saving layout settings:", e);
+            }
+        }
 
         const iconCanvasPos = document.getElementById('iconCanvasPos');
         
@@ -1339,17 +1390,32 @@
 
             if (position === 'top') {
                 mainWorkspace.classList.add('flex-col');
-                previewContainer.classList.add('w-full', 'h-[45%]', 'border-b');
+                previewContainer.classList.add('w-full');
+                if (State.preview.height) {
+                    previewContainer.style.height = `${State.preview.height}px`;
+                } else {
+                    previewContainer.classList.add('h-[45%]');
+                }
                 timelineResizer.classList.add('h-1.5', 'w-full', 'cursor-row-resize', 'flex-col');
                 if (iconCanvasPos) iconCanvasPos.setAttribute('data-lucide', 'layout-template');
             } else if (position === 'right') {
                 mainWorkspace.classList.add('flex-row');
-                previewContainer.classList.add('w-[40%]', 'min-w-[300px]', 'h-full', 'border-l', 'order-last');
+                previewContainer.classList.add('h-full', 'order-last');
+                if (State.preview.width) {
+                    previewContainer.style.width = `${State.preview.width}px`;
+                } else {
+                    previewContainer.classList.add('w-[40%]', 'min-w-[300px]');
+                }
                 timelineResizer.classList.add('w-1.5', 'h-full', 'cursor-col-resize', 'flex-row');
                 if (iconCanvasPos) iconCanvasPos.setAttribute('data-lucide', 'panel-right');
             } else if (position === 'left') {
                 mainWorkspace.classList.add('flex-row');
-                previewContainer.classList.add('w-[40%]', 'min-w-[300px]', 'h-full', 'border-r');
+                previewContainer.classList.add('h-full');
+                if (State.preview.width) {
+                    previewContainer.style.width = `${State.preview.width}px`;
+                } else {
+                    previewContainer.classList.add('w-[40%]', 'min-w-[300px]');
+                }
                 timelineResizer.classList.add('w-1.5', 'h-full', 'cursor-col-resize', 'flex-row');
                 if (iconCanvasPos) iconCanvasPos.setAttribute('data-lucide', 'panel-left');
             }
@@ -1372,6 +1438,8 @@
                 activeBtn.classList.remove('text-surface-500', 'dark:text-surface-400', 'hover:text-surface-900', 'dark:hover:text-white');
                 activeBtn.classList.add('bg-white', 'dark:bg-surface-700', 'text-surface-900', 'dark:text-white', 'shadow-sm', 'font-extrabold');
             }
+            
+            saveLayoutSettings();
             
             lucide.createIcons();
             setTimeout(() => { updateTimelineWidth(); drawRuler(); resizeCanvas(); }, 10);
@@ -1589,6 +1657,7 @@
                     isResizingInspector = false;
                     document.body.style.cursor = '';
                     document.body.style.userSelect = '';
+                    saveLayoutSettings();
                     updateTimelineWidth();
                     drawRuler();
                     resizeCanvas();
