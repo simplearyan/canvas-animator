@@ -121,7 +121,7 @@
             background-size: 50px 50px;
         }
         .dark .timeline-container {
-            background-color: #0a0a0a;
+            background-color: rgb(var(--surface-900));
             background-image: 
                 linear-gradient(to right, rgba(255,255,255,0.02) 1px, transparent 1px),
                 linear-gradient(to bottom, rgba(255,255,255,0.02) 1px, transparent 1px);
@@ -3140,6 +3140,7 @@
                 }
                 
                 if (clip.type === 'image' || clip.type === 'video' || clip.type === 'text' || clip.type === 'shape') drawCanvas();
+                if (clip.type === 'text') renderClips();
                 if (clip.audioNodes) applyAudioEffects(clip);
                 
                 const label = document.getElementById(`lbl_${effectName}`);
@@ -3558,7 +3559,7 @@
                             ${isHorizontal ? '' : '<i data-lucide="chevron-down" class="w-4 h-4 text-surface-500 transition-transform group-open:rotate-180"></i>'}
                         </summary>
                         <div class="p-3 flex flex-col gap-3 bg-surface-50 dark:bg-surface-900/50 flex-1">
-                            <textarea class="w-full h-20 bg-surface-50 dark:bg-surface-900/80 shadow-inner border border-surface-200 dark:border-surface-700 rounded-lg p-2 text-sm text-surface-900 dark:text-white outline-none focus:border-brand-500 focus:ring-1 focus:ring-brand-500" oninput="State.clips.find(c=>c.id==='${clip.id}').text=this.value; drawCanvas();">${clip.text}</textarea>
+                            <textarea class="w-full h-20 bg-surface-50 dark:bg-surface-900/80 shadow-inner border border-surface-200 dark:border-surface-700 rounded-lg p-2 text-sm text-surface-900 dark:text-white outline-none focus:border-brand-500 focus:ring-1 focus:ring-brand-500" oninput="State.clips.find(c=>c.id==='${clip.id}').text=this.value; drawCanvas(); renderClips();">${clip.text}</textarea>
                             
                             <div class="flex flex-col gap-2 mt-1">
                                 <div>
@@ -5957,16 +5958,36 @@ const isVis = !clip.hidden;
                 const hasWaveform = clip.peaks && clip.peaks.length > 0;
                 
                 const isAudioClip = clip.type === 'audio';
+                const isTextClip = clip.type === 'text';
                 const headerBgStyle = isAudioClip ? '' : `style="background-color: ${palette.bg}cc"`;
                 const headerBlurClass = isAudioClip ? '' : 'backdrop-blur-sm';
 
+                let textPreviewHtml = '';
+                if (isTextClip && clip.text) {
+                    const fontFamily = (clip.effects && clip.effects.fontFamily) ? clip.effects.fontFamily : 'Inter';
+                    const fontWeight = (clip.effects && clip.effects.fontWeight) ? clip.effects.fontWeight : 'bold';
+                    
+                    textPreviewHtml = `
+                        <div class="absolute inset-0 flex items-center justify-center overflow-hidden pointer-events-none opacity-90 z-10 px-2">
+                            <span class="truncate w-full text-center" style="font-family: '${fontFamily}', sans-serif; font-weight: ${fontWeight}; font-size: 14px; color: ${palette.text}; line-height: 1.2;">
+                                ${clip.text}
+                            </span>
+                        </div>
+                    `;
+                }
+
+                const showHeader = !isTextClip;
+
                 el.innerHTML = `
+                    ${showHeader ? `
                     <div class="absolute inset-x-0 top-0 h-4 sm:h-5 flex items-center px-1.5 sm:px-2 gap-1.5 z-20 pointer-events-none ${headerBlurClass}" ${headerBgStyle}>
                         <i data-lucide="${icon}" class="w-3 h-3 shrink-0" style="color: ${palette.text}"></i>
                         <span class="text-[10px] font-semibold truncate" style="color: ${palette.text}">${clip.title}</span>
                     </div>
+                    ` : ''}
                     <div class="trim-handle left" data-action="trimLeft"></div>
                     <div class="trim-handle right" data-action="trimRight"></div>
+                    ${textPreviewHtml}
                     ${hasWaveform ? `<canvas class="waveform-canvas absolute top-0 bottom-0 z-10 opacity-90"></canvas>` : ''}
                 `;
 
