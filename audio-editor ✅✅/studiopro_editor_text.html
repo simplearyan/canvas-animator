@@ -1889,6 +1889,15 @@
 
         function enterScene(sceneId) {
             State.activeSceneId = sceneId;
+            
+            // Lazy load default tracks for this scene if none exist
+            if (!State.tracks.some(t => t.sceneId === sceneId)) {
+                State.tracks.push(
+                    { id: 'v1_' + sceneId, type: 'video', name: 'V1', height: 90, colorIndex: 0, hidden: false, locked: false, sceneId: sceneId }, 
+                    { id: 'a1_' + sceneId, type: 'audio', name: 'A1', height: 90, colorIndex: 1, hidden: false, locked: false, sceneId: sceneId }
+                );
+            }
+
             const sceneClip = State.clips.find(c => c.id === sceneId);
             document.getElementById('sceneBreadcrumb').classList.remove('hidden');
             document.getElementById('sceneBreadcrumb').classList.add('flex');
@@ -2770,6 +2779,22 @@
                                 box.style.transform = `translate(-50%, -50%) rotate(${rotate}deg) scale(${clip.effects.flipH ? -1 : 1}, ${clip.effects.flipV ? -1 : 1})`;
                                 box.style.border = '2px solid #6366f1';
                                 box.style.boxShadow = '0 0 10px rgba(99, 102, 241, 0.4)';
+
+                                const handleHtml = `
+                                    <div style="position: absolute; width: 12px; height: 12px; background: white; border: 3px solid #6366f1; border-radius: 50%; left: -7px; top: -7px;"></div>
+                                    <div style="position: absolute; width: 12px; height: 12px; background: white; border: 3px solid #6366f1; border-radius: 50%; right: -7px; top: -7px;"></div>
+                                    <div style="position: absolute; width: 12px; height: 12px; background: white; border: 3px solid #6366f1; border-radius: 50%; left: -7px; bottom: -7px;"></div>
+                                    <div style="position: absolute; width: 12px; height: 12px; background: white; border: 3px solid #6366f1; border-radius: 50%; right: -7px; bottom: -7px;"></div>
+                                    <div style="position: absolute; width: 2px; height: 30px; background: #6366f1; left: 50%; top: -30px; transform: translateX(-50%);"></div>
+                                    <div style="position: absolute; width: 12px; height: 12px; background: white; border: 3px solid #6366f1; border-radius: 50%; left: 50%; top: -36px; transform: translateX(-50%); cursor: grab;"></div>
+                                `;
+                                
+                                if (State.multiSelectedClipIds && State.multiSelectedClipIds.length > 1) {
+                                    box.innerHTML = '';
+                                } else {
+                                    box.innerHTML = handleHtml;
+                                }
+
                                 container.appendChild(box);
                             }
                         }
@@ -3440,7 +3465,7 @@
             }
 
             const clip = State.clips.find(c => c.id === State.selectedClipId);
-            if (!clip || !['image', 'video', 'text', 'audio', 'shape'].includes(clip.type)) {
+            if (!clip || !['image', 'video', 'text', 'audio', 'shape', 'scene'].includes(clip.type)) {
                 sidebarContent.className = "flex flex-col items-center justify-center p-4 w-full flex-1 min-h-0";
                 sidebarContent.innerHTML = `
                     <div class="flex flex-col items-center justify-center text-surface-500 dark:text-surface-400 py-16 h-full w-full">
@@ -3762,7 +3787,7 @@
                 </details>
             ` : '';
 
-            const blendingHTML = (clip.type === 'image' || clip.type === 'video' || clip.type === 'text' || clip.type === 'shape') ? `
+            const blendingHTML = (clip.type === 'image' || clip.type === 'video' || clip.type === 'text' || clip.type === 'shape' || clip.type === 'scene') ? `
                 <details id="cardOpacity" class="group bg-white dark:bg-surface-800 border border-surface-300 dark:border-surface-700 shadow-sm rounded-lg shrink-0 ${isHorizontal ? 'w-[280px]' : 'w-full'} overflow-hidden flex flex-col" open>
                     <summary class="flex items-center justify-between p-3 ${isHorizontal ? '' : 'cursor-pointer'} list-none appearance-none select-none bg-surface-100 dark:bg-surface-800/80 border-b border-surface-200 dark:border-surface-700 " onclick="${isHorizontal ? 'event.preventDefault();' : ''}">
                         <div class="text-sm font-bold text-surface-800 dark:text-surface-200 flex items-center gap-2"><i data-lucide="layers" class="w-4 h-4 text-surface-500 dark:text-surface-400"></i> Opacity & Blending</div>
@@ -4033,7 +4058,7 @@
             const rotateVal = fx.rotate !== undefined ? fx.rotate : 0;
             const radiusVal = fx.borderRadius !== undefined ? fx.borderRadius : 0;
 
-            const transformHTML = (clip.type === 'image' || clip.type === 'video' || clip.type === 'text' || clip.type === 'shape') ? `
+            const transformHTML = (clip.type === 'image' || clip.type === 'video' || clip.type === 'text' || clip.type === 'shape' || clip.type === 'scene') ? `
                 <details id="cardTransform" class="group bg-white dark:bg-surface-800 border border-surface-300 dark:border-surface-700 shadow-sm rounded-lg shrink-0 ${isHorizontal ? 'w-[280px]' : 'w-full'} overflow-hidden flex flex-col" open>
                     <summary class="flex items-center justify-between p-3 ${isHorizontal ? '' : 'cursor-pointer'} list-none appearance-none select-none bg-surface-100 dark:bg-surface-800/80 border-b border-surface-200 dark:border-surface-700 " onclick="${isHorizontal ? 'event.preventDefault();' : ''}">
                         <div class="text-sm font-bold text-surface-800 dark:text-surface-200 flex items-center gap-2"><i data-lucide="maximize" class="w-4 h-4 text-surface-500 dark:text-surface-400"></i> Transform</div>
@@ -5270,14 +5295,16 @@ const isVis = !clip.hidden;
 
         // --- Track Management ---
         window.addTrack = (type) => {
-            const count = State.tracks.filter(t => t.type === type).length + 1;
+            const currentSceneId = State.activeSceneId || null;
+            const count = State.tracks.filter(t => t.type === type && (t.sceneId || null) === currentSceneId).length + 1;
             const newTrack = {
                 id: type.charAt(0) + Date.now(),
                 type: type,
                 name: `${type === 'video' ? 'V' : 'A'}${count}`,
                 height: 90, 
                 colorIndex: State.tracks.length % PALETTES.length,
-                muted: false
+                muted: false,
+                sceneId: currentSceneId
             };
             if (type === 'video') {
                 State.tracks.unshift(newTrack);
@@ -5356,13 +5383,27 @@ const isVis = !clip.hidden;
         window.deleteTrack = (trackId) => {
             const trackIdx = State.tracks.findIndex(t => t.id === trackId);
             if (trackIdx !== -1) {
-                const clipsToDelete = State.clips.filter(c => c.trackId === trackId);
+                const track = State.tracks[trackIdx];
+                const currentSceneId = State.activeSceneId || null;
+                
+                const clipsToDelete = State.clips.filter(c => c.trackId === trackId && (c.sceneId || null) === currentSceneId);
                 clipsToDelete.forEach(c => {
                     if (c.audioEl) { c.audioEl.pause(); c.audioEl.removeAttribute('src'); }
                     if (c.audioNodes) c.audioNodes.source.disconnect();
                 });
-                State.clips = State.clips.filter(c => c.trackId !== trackId);
-                State.tracks.splice(trackIdx, 1);
+                
+                State.clips = State.clips.filter(c => !(c.trackId === trackId && (c.sceneId || null) === currentSceneId));
+                
+                const isUsedInOtherScenes = State.clips.some(c => c.trackId === trackId && (c.sceneId || null) !== currentSceneId);
+                
+                if (isUsedInOtherScenes) {
+                    const firstOtherClip = State.clips.find(c => c.trackId === trackId && (c.sceneId || null) !== currentSceneId);
+                    if (firstOtherClip) {
+                        track.sceneId = firstOtherClip.sceneId || null;
+                    }
+                } else {
+                    State.tracks.splice(trackIdx, 1);
+                }
                 
                 State.multiSelectedClipIds = State.multiSelectedClipIds.filter(id => State.clips.some(c => c.id === id));
                 if (State.selectedClipId && !State.clips.some(c => c.id === State.selectedClipId)) {
@@ -5917,7 +5958,7 @@ const isVis = !clip.hidden;
 
         function renderTrackHeaders() {
             trackHeadersContainer.innerHTML = '';
-            State.tracks.forEach(track => {
+            State.tracks.filter(t => (t.sceneId || null) === (State.activeSceneId || null)).forEach(track => {
                 const palette = PALETTES[track.colorIndex];
                 const eyeIcon = track.hidden ? 'eye-off' : 'eye';
                 const lockIcon = track.locked ? 'lock' : 'unlock';
@@ -5988,7 +6029,7 @@ const isVis = !clip.hidden;
             const elementsToRemove = tracksContentContainer.querySelectorAll('.track-lane');
             elementsToRemove.forEach(e => e.remove());
 
-            State.tracks.forEach(track => {
+            State.tracks.filter(t => (t.sceneId || null) === (State.activeSceneId || null)).forEach(track => {
                 const el = document.createElement('div');
                 el.className = `track-lane track-separator relative w-full`;
                 el.style.height = `${track.height}px`;
