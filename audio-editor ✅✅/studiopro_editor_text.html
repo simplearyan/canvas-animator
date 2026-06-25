@@ -1085,6 +1085,7 @@
 
                 const newClip = {
                     id: 'c_' + Date.now() + Math.random().toString(36).substr(2, 5),
+                    sceneId: State.activeSceneId || null,
                     trackId: targetTrackId,
                     colorIndex: clipColor,
                     type: 'image',
@@ -1889,6 +1890,24 @@
 
         function enterScene(sceneId) {
             State.activeSceneId = sceneId;
+            
+            // Migrate legacy clips to scene-specific tracks
+            State.clips.filter(c => c.sceneId === sceneId).forEach(clip => {
+                const track = State.tracks.find(t => t.id === clip.trackId);
+                if (track && (track.sceneId || null) !== sceneId) {
+                    let sceneTrack = State.tracks.find(t => t.sceneId === sceneId && t.type === track.type && t.name === track.name);
+                    if (!sceneTrack) {
+                        sceneTrack = {
+                            ...track,
+                            id: track.type.charAt(0) + '_' + Date.now() + Math.random().toString(36).substr(2, 5),
+                            sceneId: sceneId
+                        };
+                        if (sceneTrack.type === 'video') State.tracks.unshift(sceneTrack);
+                        else State.tracks.push(sceneTrack);
+                    }
+                    clip.trackId = sceneTrack.id;
+                }
+            });
             
             // Lazy load default tracks for this scene if none exist
             if (!State.tracks.some(t => t.sceneId === sceneId)) {
@@ -3215,7 +3234,7 @@
                         clip.effects[effectName] = parseFloat(value);
                     }
                     
-                    if (clip.type === 'image' || clip.type === 'video' || clip.type === 'text' || clip.type === 'shape') needsCanvasRedraw = true;
+                    if (clip.type === 'image' || clip.type === 'video' || clip.type === 'text' || clip.type === 'shape' || clip.type === 'scene') needsCanvasRedraw = true;
                     if (clip.type === 'text' || clip.type === 'shape') needsClipsRedraw = true;
                     if (clip.audioNodes) applyAudioEffects(clip);
                 }
@@ -5317,21 +5336,23 @@ const isVis = !clip.hidden;
         };
 
         function getAvailableTrack(type, start, duration) {
-            for (const track of State.tracks.filter(t => t.type === type)) {
+            const currentSceneId = State.activeSceneId || null;
+            for (const track of State.tracks.filter(t => t.type === type && (t.sceneId || null) === currentSceneId)) {
                 const hasOverlap = State.clips.some(c => 
                     c.trackId === track.id && 
                     (start < c.start + c.duration && start + duration > c.start)
                 );
                 if (!hasOverlap) return track.id;
             }
-            const count = State.tracks.filter(t => t.type === type).length + 1;
+            const count = State.tracks.filter(t => t.type === type && (t.sceneId || null) === currentSceneId).length + 1;
             const newTrack = {
                 id: type.charAt(0) + Date.now(),
                 type: type,
                 name: `${type === 'video' ? 'V' : 'A'}${count}`,
                 height: 90,
                 colorIndex: State.tracks.length % PALETTES.length,
-                muted: false
+                muted: false,
+                sceneId: currentSceneId
             };
             if (type === 'video') {
                 State.tracks.unshift(newTrack);
@@ -5438,6 +5459,7 @@ const isVis = !clip.hidden;
 
                 const newTextClip = {
                     id: 'c_' + Date.now() + Math.random().toString(36).substr(2, 5),
+                    sceneId: State.activeSceneId || null,
                     trackId: targetTrackId,
                     colorIndex: clipColor,
                     type: 'text',
@@ -5476,6 +5498,7 @@ const isVis = !clip.hidden;
 
                 const newShapeClip = {
                     id: 'c_' + Date.now() + Math.random().toString(36).substr(2, 5),
+                    sceneId: State.activeSceneId || null,
                     trackId: targetTrackId,
                     colorIndex: clipColor,
                     type: 'shape',
@@ -5544,6 +5567,7 @@ const isVis = !clip.hidden;
 
                         const newClip = {
                             id: 'c_' + Date.now() + Math.random().toString(36).substr(2, 5),
+                            sceneId: State.activeSceneId || null,
                             trackId: targetTrackId,
                             colorIndex: clipColor,
                             type: 'image',
@@ -5626,6 +5650,7 @@ const isVis = !clip.hidden;
 
                             const newVideoClip = {
                                 id: 'c_' + Date.now() + Math.random().toString(36).substr(2, 5),
+                                sceneId: State.activeSceneId || null,
                                 trackId: videoTargetTrackId,
                                 colorIndex: clipColor,
                                 type: 'video',
@@ -5647,6 +5672,7 @@ const isVis = !clip.hidden;
 
                         const newAudioClip = {
                             id: 'c_' + Date.now() + Math.random().toString(36).substr(2, 5),
+                            sceneId: State.activeSceneId || null,
                             trackId: audioTargetTrackId,
                             colorIndex: clipColor,
                             type: 'audio',
