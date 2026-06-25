@@ -3128,29 +3128,92 @@
             clip.audioNodes.noiseRed.frequency.value = fx.noiseRedEnable ? (20000 - (fx.noiseRed * 17000)) : 20000;
         }
 
+        window.alignSelectedClips = (alignment) => {
+            const targetIds = (State.multiSelectedClipIds && State.multiSelectedClipIds.length > 0) 
+                ? State.multiSelectedClipIds 
+                : (State.selectedClipId ? [State.selectedClipId] : []);
+            
+            if (targetIds.length === 0) return;
+
+            if (targetIds.length === 1) {
+                const clip = State.clips.find(c => c.id === targetIds[0]);
+                if (!clip) return;
+                if (!clip.effects) clip.effects = {};
+                
+                if (alignment === 'left') clip.effects.offsetX = -50;
+                if (alignment === 'center') clip.effects.offsetX = 0;
+                if (alignment === 'right') clip.effects.offsetX = 50;
+                if (alignment === 'top') clip.effects.offsetY = -50;
+                if (alignment === 'middle') clip.effects.offsetY = 0;
+                if (alignment === 'bottom') clip.effects.offsetY = 50;
+            } else {
+                const clips = targetIds.map(id => State.clips.find(c => c.id === id)).filter(Boolean);
+                clips.forEach(c => { if (!c.effects) c.effects = {}; });
+                
+                if (alignment === 'left') {
+                    const minX = Math.min(...clips.map(c => c.effects.offsetX || 0));
+                    clips.forEach(c => c.effects.offsetX = minX);
+                }
+                if (alignment === 'center') {
+                    const avgX = clips.reduce((sum, c) => sum + (c.effects.offsetX || 0), 0) / clips.length;
+                    clips.forEach(c => c.effects.offsetX = avgX);
+                }
+                if (alignment === 'right') {
+                    const maxX = Math.max(...clips.map(c => c.effects.offsetX || 0));
+                    clips.forEach(c => c.effects.offsetX = maxX);
+                }
+                if (alignment === 'top') {
+                    const minY = Math.min(...clips.map(c => c.effects.offsetY || 0));
+                    clips.forEach(c => c.effects.offsetY = minY);
+                }
+                if (alignment === 'middle') {
+                    const avgY = clips.reduce((sum, c) => sum + (c.effects.offsetY || 0), 0) / clips.length;
+                    clips.forEach(c => c.effects.offsetY = avgY);
+                }
+                if (alignment === 'bottom') {
+                    const maxY = Math.max(...clips.map(c => c.effects.offsetY || 0));
+                    clips.forEach(c => c.effects.offsetY = maxY);
+                }
+            }
+            drawCanvas();
+        };
         window.setClipEffect = (clipId, effectName, value) => {
-            const clip = State.clips.find(c => c.id === clipId);
-            if (clip) {
-                if (typeof value === 'boolean') {
-                    clip.effects[effectName] = value;
-                } else if (['shadowColor', 'animIn', 'animOut', 'animLoop', 'extrudeColor', 'fillColor', 'fontFamily', 'extrudeDir', 'textTransform', 'fontStyle', 'textDecoration', 'blendMode', 'animEase', 'animTextSpecial', 'flashColor', 'animTextIn', 'animTextOut', 'animTextLoop', 'animTextEase', 'animTextStagger', 'shapeType', 'strokeColor', 'maskType'].includes(effectName)) {
-                    clip.effects[effectName] = value;
-                } else {
-                    clip.effects[effectName] = parseFloat(value);
+            const targetIds = (State.multiSelectedClipIds && State.multiSelectedClipIds.length > 0 && State.multiSelectedClipIds.includes(clipId)) 
+                ? State.multiSelectedClipIds 
+                : [clipId];
+
+            let primaryClip = null;
+            let needsCanvasRedraw = false;
+            let needsClipsRedraw = false;
+
+            targetIds.forEach(id => {
+                const clip = State.clips.find(c => c.id === id);
+                if (clip) {
+                    if (id === clipId) primaryClip = clip;
+                    
+                    if (typeof value === 'boolean') {
+                        clip.effects[effectName] = value;
+                    } else if (['shadowColor', 'animIn', 'animOut', 'animLoop', 'extrudeColor', 'fillColor', 'fontFamily', 'extrudeDir', 'textTransform', 'fontStyle', 'textDecoration', 'blendMode', 'animEase', 'animTextSpecial', 'flashColor', 'animTextIn', 'animTextOut', 'animTextLoop', 'animTextEase', 'animTextStagger', 'shapeType', 'strokeColor', 'maskType'].includes(effectName)) {
+                        clip.effects[effectName] = value;
+                    } else {
+                        clip.effects[effectName] = parseFloat(value);
+                    }
+                    
+                    if (clip.type === 'image' || clip.type === 'video' || clip.type === 'text' || clip.type === 'shape') needsCanvasRedraw = true;
+                    if (clip.type === 'text' || clip.type === 'shape') needsClipsRedraw = true;
+                    if (clip.audioNodes) applyAudioEffects(clip);
                 }
-                
-                if (clip.type === 'image' || clip.type === 'video' || clip.type === 'text' || clip.type === 'shape') drawCanvas();
-                if (clip.type === 'image' || clip.type === 'video' || clip.type === 'text' || clip.type === 'shape') drawCanvas();
-                if (clip.type === 'text' || clip.type === 'shape') renderClips();
-                if (clip.audioNodes) applyAudioEffects(clip);
-                
-                const label = document.getElementById(`lbl_${effectName}`);
-                if (label && typeof value === 'number') {
-                    if (effectName === 'scale') label.textContent = `${clip.effects[effectName].toFixed(2)}x`;
-                    else if (effectName === 'rotate') label.textContent = `${Math.round(clip.effects[effectName])}°`;
-                    else if (effectName === 'borderRadius') label.textContent = `${Math.round(clip.effects[effectName])}px`;
-                    else label.textContent = `${Math.round(clip.effects[effectName] * 100)}%`;
-                }
+            });
+
+            if (needsCanvasRedraw) drawCanvas();
+            if (needsClipsRedraw) renderClips();
+            
+            const label = document.getElementById(`lbl_${effectName}`);
+            if (label && primaryClip && typeof value === 'number') {
+                if (effectName === 'scale') label.textContent = `${primaryClip.effects[effectName].toFixed(2)}x`;
+                else if (effectName === 'rotate') label.textContent = `${Math.round(primaryClip.effects[effectName])}°`;
+                else if (effectName === 'borderRadius') label.textContent = `${Math.round(primaryClip.effects[effectName])}px`;
+                else label.textContent = `${Math.round(primaryClip.effects[effectName] * 100)}%`;
 
                 if (State.activePropertyTab === effectName && document.getElementById(`lbl_${effectName}`)) {
                     updatePropertiesPanel();
@@ -4009,6 +4072,37 @@
                             <input type="range" min="0" max="200" step="1" value="${radiusVal}" class="w-full custom-slider" oninput="setClipEffect('${clip.id}', 'borderRadius', this.value); this.previousElementSibling.querySelector('span').textContent = this.value + 'px'; this.style.background = 'linear-gradient(to right, ${sliderFill} ' + (this.value/this.max)*100 + '%, ${sliderBg} ' + (this.value/this.max)*100 + '%)'; drawCanvas();">
                         </div>
                         ` : ''}
+                        
+                        <!-- Alignment & Flip Controls -->
+                        <div class="mt-2 pt-2 border-t border-surface-200 dark:border-surface-700">
+                            <label class="block text-[10px] font-bold text-surface-500 dark:text-surface-400 uppercase tracking-widest mb-1.5">Align & Flip</label>
+                            <div class="grid grid-cols-4 gap-1">
+                                <button onclick="alignSelectedClips('left')" class="p-1.5 flex items-center justify-center bg-surface-100 dark:bg-surface-800 hover:bg-brand-500 hover:text-white rounded border border-surface-200 dark:border-surface-700 transition-colors" title="Align Left">
+                                    <i data-lucide="align-horizontal-justify-start" class="w-4 h-4"></i>
+                                </button>
+                                <button onclick="alignSelectedClips('center')" class="p-1.5 flex items-center justify-center bg-surface-100 dark:bg-surface-800 hover:bg-brand-500 hover:text-white rounded border border-surface-200 dark:border-surface-700 transition-colors" title="Align Center Horizontally">
+                                    <i data-lucide="align-horizontal-justify-center" class="w-4 h-4"></i>
+                                </button>
+                                <button onclick="alignSelectedClips('right')" class="p-1.5 flex items-center justify-center bg-surface-100 dark:bg-surface-800 hover:bg-brand-500 hover:text-white rounded border border-surface-200 dark:border-surface-700 transition-colors" title="Align Right">
+                                    <i data-lucide="align-horizontal-justify-end" class="w-4 h-4"></i>
+                                </button>
+                                <button onclick="setClipEffect('${clip.id}', 'flipH', !${fx.flipH || false})" class="p-1.5 flex items-center justify-center bg-surface-100 dark:bg-surface-800 hover:bg-brand-500 hover:text-white rounded border border-surface-200 dark:border-surface-700 transition-colors ${fx.flipH ? 'bg-brand-500 text-white' : ''}" title="Flip Horizontally">
+                                    <i data-lucide="flip-horizontal" class="w-4 h-4"></i>
+                                </button>
+                                <button onclick="alignSelectedClips('top')" class="p-1.5 flex items-center justify-center bg-surface-100 dark:bg-surface-800 hover:bg-brand-500 hover:text-white rounded border border-surface-200 dark:border-surface-700 transition-colors" title="Align Top">
+                                    <i data-lucide="align-vertical-justify-start" class="w-4 h-4"></i>
+                                </button>
+                                <button onclick="alignSelectedClips('middle')" class="p-1.5 flex items-center justify-center bg-surface-100 dark:bg-surface-800 hover:bg-brand-500 hover:text-white rounded border border-surface-200 dark:border-surface-700 transition-colors" title="Align Center Vertically">
+                                    <i data-lucide="align-vertical-justify-center" class="w-4 h-4"></i>
+                                </button>
+                                <button onclick="alignSelectedClips('bottom')" class="p-1.5 flex items-center justify-center bg-surface-100 dark:bg-surface-800 hover:bg-brand-500 hover:text-white rounded border border-surface-200 dark:border-surface-700 transition-colors" title="Align Bottom">
+                                    <i data-lucide="align-vertical-justify-end" class="w-4 h-4"></i>
+                                </button>
+                                <button onclick="setClipEffect('${clip.id}', 'flipV', !${fx.flipV || false})" class="p-1.5 flex items-center justify-center bg-surface-100 dark:bg-surface-800 hover:bg-brand-500 hover:text-white rounded border border-surface-200 dark:border-surface-700 transition-colors ${fx.flipV ? 'bg-brand-500 text-white' : ''}" title="Flip Vertically">
+                                    <i data-lucide="flip-vertical" class="w-4 h-4"></i>
+                                </button>
+                            </div>
+                        </div>
                     </div>
                 </details>
             ` : '';
@@ -5961,8 +6055,8 @@ const isVis = !clip.hidden;
                 const isAudioClip = clip.type === 'audio';
                 const isTextClip = clip.type === 'text';
                 const isShapeClip = clip.type === 'shape';
-                const headerBgStyle = (isAudioClip || isShapeClip) ? '' : `style="background-color: ${palette.bg}cc"`;
-                const headerBlurClass = (isAudioClip || isShapeClip) ? '' : 'backdrop-blur-sm';
+                const headerBgStyle = (isAudioClip || isShapeClip || isTextClip) ? '' : `style="background-color: ${palette.bg}cc"`;
+                const headerBlurClass = (isAudioClip || isShapeClip || isTextClip) ? '' : 'backdrop-blur-sm';
 
                 let textPreviewHtml = '';
                 if (isTextClip && clip.text) {
@@ -5999,7 +6093,7 @@ const isVis = !clip.hidden;
                     `;
                 }
 
-                const showHeader = !isTextClip;
+                const showHeader = true;
                 
                 let headerTitle = clip.title;
                 if (isShapeClip) {
@@ -6566,20 +6660,51 @@ const isVis = !clip.hidden;
                 }
 
                 if (clickedClip) {
-                    State.selectedClipId = clickedClip.id;
+                    if (e.ctrlKey || e.metaKey) {
+                        if (State.multiSelectedClipIds.includes(clickedClip.id)) {
+                            State.multiSelectedClipIds = State.multiSelectedClipIds.filter(id => id !== clickedClip.id);
+                            if (State.selectedClipId === clickedClip.id) {
+                                State.selectedClipId = State.multiSelectedClipIds.length > 0 ? State.multiSelectedClipIds[0] : null;
+                            }
+                        } else {
+                            if (State.selectedClipId && !State.multiSelectedClipIds.includes(State.selectedClipId)) {
+                                State.multiSelectedClipIds.push(State.selectedClipId);
+                            }
+                            State.multiSelectedClipIds.push(clickedClip.id);
+                            State.selectedClipId = clickedClip.id;
+                        }
+                    } else {
+                        if (!State.multiSelectedClipIds.includes(clickedClip.id)) {
+                            State.multiSelectedClipIds = [clickedClip.id];
+                            State.selectedClipId = clickedClip.id;
+                        }
+                    }
+
                     updatePropertiesPanel();
                     renderClips();
                     drawCanvas();
                     
                     canvasDrag.active = true;
-                    canvasDrag.clipId = clickedClip.id;
                     canvasDrag.startX = pos.x;
                     canvasDrag.startY = pos.y;
-                    canvasDrag.initOffsetX = clickedClip.effects.offsetX || 0;
-                    canvasDrag.initOffsetY = clickedClip.effects.offsetY || 0;
+                    
+                    canvasDrag.initOffsets = {};
+                    const idsToDrag = State.multiSelectedClipIds.length > 0 ? State.multiSelectedClipIds : [State.selectedClipId];
+                    idsToDrag.forEach(id => {
+                        const c = State.clips.find(clip => clip.id === id);
+                        if (c) {
+                            if (!c.effects) c.effects = {};
+                            canvasDrag.initOffsets[id] = {
+                                x: c.effects.offsetX || 0,
+                                y: c.effects.offsetY || 0
+                            };
+                        }
+                    });
+
                     document.getElementById('renderCanvas').classList.add('dragging');
                 } else {
                     State.selectedClipId = null;
+                    State.multiSelectedClipIds = [];
                     updatePropertiesPanel();
                     renderClips();
                     drawCanvas();
@@ -6589,14 +6714,21 @@ const isVis = !clip.hidden;
             window.addEventListener('mousemove', (e) => {
                 if (canvasDrag.active) {
                     const pos = getCanvasMousePos(e);
-                    const clip = State.clips.find(c => c.id === canvasDrag.clipId);
-                    if (clip) {
-                        if (!clip.effects) clip.effects = {};
-                        const renderCanvas = document.getElementById('renderCanvas');
-                        const dxPercent = ((pos.x - canvasDrag.startX) / renderCanvas.width) * 100;
-                        const dyPercent = ((pos.y - canvasDrag.startY) / renderCanvas.height) * 100;
-                        clip.effects.offsetX = canvasDrag.initOffsetX + dxPercent;
-                        clip.effects.offsetY = canvasDrag.initOffsetY + dyPercent;
+                    const renderCanvas = document.getElementById('renderCanvas');
+                    const dxPercent = ((pos.x - canvasDrag.startX) / renderCanvas.width) * 100;
+                    const dyPercent = ((pos.y - canvasDrag.startY) / renderCanvas.height) * 100;
+
+                    const idsToDrag = State.multiSelectedClipIds.length > 0 ? State.multiSelectedClipIds : (State.selectedClipId ? [State.selectedClipId] : []);
+                    
+                    idsToDrag.forEach(id => {
+                        const clip = State.clips.find(c => c.id === id);
+                        if (clip && canvasDrag.initOffsets && canvasDrag.initOffsets[id]) {
+                            clip.effects.offsetX = canvasDrag.initOffsets[id].x + dxPercent;
+                            clip.effects.offsetY = canvasDrag.initOffsets[id].y + dyPercent;
+                        }
+                    });
+                    
+                    if (idsToDrag.length > 0) {
                         drawCanvas();
                     }
                 }
