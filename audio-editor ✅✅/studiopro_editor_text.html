@@ -3140,7 +3140,8 @@
                 }
                 
                 if (clip.type === 'image' || clip.type === 'video' || clip.type === 'text' || clip.type === 'shape') drawCanvas();
-                if (clip.type === 'text') renderClips();
+                if (clip.type === 'image' || clip.type === 'video' || clip.type === 'text' || clip.type === 'shape') drawCanvas();
+                if (clip.type === 'text' || clip.type === 'shape') renderClips();
                 if (clip.audioNodes) applyAudioEffects(clip);
                 
                 const label = document.getElementById(`lbl_${effectName}`);
@@ -5959,35 +5960,65 @@ const isVis = !clip.hidden;
                 
                 const isAudioClip = clip.type === 'audio';
                 const isTextClip = clip.type === 'text';
-                const headerBgStyle = isAudioClip ? '' : `style="background-color: ${palette.bg}cc"`;
-                const headerBlurClass = isAudioClip ? '' : 'backdrop-blur-sm';
+                const isShapeClip = clip.type === 'shape';
+                const headerBgStyle = (isAudioClip || isShapeClip) ? '' : `style="background-color: ${palette.bg}cc"`;
+                const headerBlurClass = (isAudioClip || isShapeClip) ? '' : 'backdrop-blur-sm';
 
                 let textPreviewHtml = '';
                 if (isTextClip && clip.text) {
-                    const fontFamily = (clip.effects && clip.effects.fontFamily) ? clip.effects.fontFamily : 'Inter';
                     const fontWeight = (clip.effects && clip.effects.fontWeight) ? clip.effects.fontWeight : 'bold';
                     
                     textPreviewHtml = `
                         <div class="absolute inset-0 flex items-center justify-center overflow-hidden pointer-events-none opacity-90 z-10 px-2">
-                            <span class="truncate w-full text-center" style="font-family: '${fontFamily}', sans-serif; font-weight: ${fontWeight}; font-size: 14px; color: ${palette.text}; line-height: 1.2;">
+                            <span class="truncate w-full text-center" style="font-family: 'Rubik', sans-serif; font-weight: ${fontWeight}; font-size: 14px; color: ${palette.text}; line-height: 1.2;">
                                 ${clip.text}
                             </span>
                         </div>
                     `;
                 }
 
+                let shapePreviewHtml = '';
+                if (isShapeClip) {
+                    const shapeType = (clip.effects && clip.effects.shapeType) ? clip.effects.shapeType : 'rect';
+                    const fillColor = (clip.effects && clip.effects.fillColor) ? clip.effects.fillColor : palette.text;
+                    let svgContent = '';
+                    
+                    if (shapeType === 'rect') svgContent = `<rect x="15" y="15" width="70" height="70" rx="8" fill="${fillColor}" />`;
+                    else if (shapeType === 'circle') svgContent = `<circle cx="50" cy="50" r="35" fill="${fillColor}" />`;
+                    else if (shapeType === 'semicircle') svgContent = `<path d="M 15 50 A 35 35 0 0 1 85 50 Z" fill="${fillColor}" />`;
+                    else if (shapeType === 'triangle') svgContent = `<polygon points="50,15 85,85 15,85" fill="${fillColor}" />`;
+                    else if (shapeType === 'polygon') svgContent = `<polygon points="50,15 83,39 70,80 30,80 17,39" fill="${fillColor}" />`;
+                    else if (shapeType === 'star') svgContent = `<polygon points="50,15 61,35 85,35 66,50 73,75 50,60 27,75 34,50 15,35 39,35" fill="${fillColor}" />`;
+
+                    shapePreviewHtml = `
+                        <div class="absolute inset-0 flex items-center justify-center overflow-hidden pointer-events-none opacity-90 z-10">
+                            <svg viewBox="0 0 100 100" class="h-4/5 max-h-[40px] drop-shadow-md">
+                                ${svgContent}
+                            </svg>
+                        </div>
+                    `;
+                }
+
                 const showHeader = !isTextClip;
+                
+                let headerTitle = clip.title;
+                if (isShapeClip) {
+                    const shapeType = (clip.effects && clip.effects.shapeType) ? clip.effects.shapeType : 'rect';
+                    const shapeName = shapeType === 'rect' ? 'Rectangle' : shapeType === 'semicircle' ? 'Semicircle' : shapeType.charAt(0).toUpperCase() + shapeType.slice(1);
+                    headerTitle = `Shape: ${shapeName}`;
+                }
 
                 el.innerHTML = `
                     ${showHeader ? `
                     <div class="absolute inset-x-0 top-0 h-4 sm:h-5 flex items-center px-1.5 sm:px-2 gap-1.5 z-20 pointer-events-none ${headerBlurClass}" ${headerBgStyle}>
                         <i data-lucide="${icon}" class="w-3 h-3 shrink-0" style="color: ${palette.text}"></i>
-                        <span class="text-[10px] font-semibold truncate" style="color: ${palette.text}">${clip.title}</span>
+                        <span class="text-[10px] font-semibold truncate" style="color: ${palette.text}">${headerTitle}</span>
                     </div>
                     ` : ''}
                     <div class="trim-handle left" data-action="trimLeft"></div>
                     <div class="trim-handle right" data-action="trimRight"></div>
                     ${textPreviewHtml}
+                    ${shapePreviewHtml}
                     ${hasWaveform ? `<canvas class="waveform-canvas absolute top-0 bottom-0 z-10 opacity-90"></canvas>` : ''}
                 `;
 
