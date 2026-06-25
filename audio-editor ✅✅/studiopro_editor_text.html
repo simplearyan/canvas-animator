@@ -1277,6 +1277,21 @@
 
             loadCustomFonts();
             loadGoogleFonts();
+            
+            // Handle headphone plug/unplug in real-time
+            if (navigator.mediaDevices && navigator.mediaDevices.addEventListener) {
+                navigator.mediaDevices.addEventListener('devicechange', () => {
+                    if (audioCtx) {
+                        if (typeof audioCtx.setSinkId === 'function') {
+                            audioCtx.setSinkId('').catch(e => console.warn('setSinkId error:', e));
+                        }
+                        if (audioCtx.state === 'suspended') {
+                            audioCtx.resume();
+                        }
+                    }
+                });
+            }
+
             loadImportedSystemFonts();
             renderTrackHeaders();
             renderTracks();
@@ -1301,10 +1316,8 @@
 
         // --- Inspector Layout Logic ---
         function applyInspectorLayout() {
-            const hasVisualClip = State.selectedClipId && ['image','video','text','shape'].includes(State.clips.find(c=>c.id===State.selectedClipId)?.type);
-            
             // Sync Menu Item State
-            if (State.inspector.visible && hasVisualClip) {
+            if (State.inspector.visible) {
                 btnToggleInspector.classList.add('text-brand-600', 'dark:text-brand-400');
                 btnToggleInspector.classList.remove('text-surface-700', 'dark:text-surface-300');
             } else {
@@ -1312,7 +1325,7 @@
                 btnToggleInspector.classList.add('text-surface-700', 'dark:text-surface-300');
             }
 
-            if (!State.inspector.visible || !hasVisualClip) {
+            if (!State.inspector.visible) {
                 propertiesSidebar.classList.add('hidden');
                 propertiesSidebar.classList.remove('flex');
                 setTimeout(() => { updateTimelineWidth(); drawRuler(); resizeCanvas(); }, 10);
@@ -1624,11 +1637,8 @@
         };
 
         btnToggleInspector.addEventListener('click', () => {
-            const hasVisualClip = State.selectedClipId && ['image','video','text','shape'].includes(State.clips.find(c=>c.id===State.selectedClipId)?.type);
-            if(hasVisualClip) {
-                State.inspector.visible = !State.inspector.visible;
-                applyInspectorLayout();
-            }
+            State.inspector.visible = !State.inspector.visible;
+            applyInspectorLayout();
         });
 
         btnToggleWidth.addEventListener('click', () => {
@@ -5230,6 +5240,7 @@
                 headerProperties.classList.add('hidden');
                 headerProperties.classList.remove('flex');
                 headerPropertiesPlaceholder.classList.remove('hidden');
+                updateSidebarPanel();
                 return;
             }
 
