@@ -203,6 +203,12 @@
             cursor: col-resize;
             z-index: 30;
         }
+        body.ctrl-held .trim-handle {
+            cursor: grab !important;
+        }
+        body.ctrl-held .trim-handle:active {
+            cursor: grabbing !important;
+        }
         .dark .trim-handle { background: rgba(255,255,255,0.05); }
         .trim-handle:hover { background: rgba(0,0,0,0.2); }
         .dark .trim-handle:hover { background: rgba(255,255,255,0.2); }
@@ -6300,18 +6306,25 @@ const isVis = !clip.hidden;
             // Downsample analysis blocks
             const blockSize = 2048; 
             const energy = [];
+            let maxEnergy = 0;
             for (let i = 0; i < channelData.length; i += blockSize) {
                 let sum = 0;
                 const limit = Math.min(i + blockSize, channelData.length);
                 for (let j = i; j < limit; j++) {
                     sum += channelData[j] * channelData[j];
                 }
-                energy.push(sum / (limit - i));
+                const val = sum / (limit - i);
+                energy.push(val);
+                if (val > maxEnergy) maxEnergy = val;
             }
             
             // Find local average energy threshold
             const beats = [];
             const windowSize = 43; // ~1 second window
+            
+            // Calibrate dynamic threshold: 1.5% of max energy or at least 0.0001 noise floor
+            const threshold = Math.max(0.0001, maxEnergy * 0.015);
+            
             for (let i = 0; i < energy.length; i++) {
                 let sumAvg = 0;
                 let count = 0;
@@ -6323,10 +6336,10 @@ const isVis = !clip.hidden;
                 }
                 const avg = sumAvg / count;
                 
-                // Trigger beat transient
-                if (energy[i] > avg * 1.5 && energy[i] > 0.005) {
+                // Trigger beat transient: check if energy is above average energy of window and noise threshold
+                if (energy[i] > avg * 1.25 && energy[i] > threshold) {
                     const time = (i * blockSize) / sampleRate;
-                    if (beats.length === 0 || (time - beats[beats.length - 1]) > 0.25) {
+                    if (beats.length === 0 || (time - beats[beats.length - 1]) > 0.22) {
                         beats.push(time);
                     }
                 }
@@ -6501,19 +6514,42 @@ const isVis = !clip.hidden;
             `;
         }
 
-        function runBeatAnalysis(clipId) {
+        async function runBeatAnalysis(clipId) {
             const clip = State.clips.find(c => c.id === clipId);
-            if (!clip || !clip.buffer) {
-                alert('Audio data buffer not loaded yet. Play the clip or wait for it to load completely.');
-                return;
-            }
+            if (!clip) return;
             
             const loader = document.getElementById('beatLoader');
             if (loader) loader.classList.remove('hidden');
             
+            // Try to load/decode on the fly if buffer is missing
+            if (!clip.buffer && clip.fileUrl) {
+                try {
+                    ensureAudioContext();
+                    const response = await fetch(clip.fileUrl);
+                    const arrayBuffer = await response.arrayBuffer();
+                    const audioBuffer = await audioCtx.decodeAudioData(arrayBuffer);
+                    clip.buffer = audioBuffer;
+                } catch (err) {
+                    console.warn("Failed to decode on-the-fly, falling back to tempo generation:", err);
+                }
+            }
+            
             setTimeout(() => {
                 try {
-                    const result = analyzeBeats(clip.buffer);
+                    let result;
+                    if (clip.buffer) {
+                        result = analyzeBeats(clip.buffer);
+                    } else {
+                        // Fallback beat grid generator (120 BPM)
+                        const fallbackBpm = 120;
+                        const interval = 60 / fallbackBpm;
+                        const beatTimes = [];
+                        for (let t = 0; t < clip.duration; t += interval) {
+                            beatTimes.push(t);
+                        }
+                        result = { bpm: fallbackBpm, beatTimes };
+                    }
+                    
                     clip.bpm = result.bpm;
                     clip.beatTimes = result.beatTimes.map(localTime => clip.start + localTime);
                     
@@ -6786,6 +6822,15 @@ const isVis = !clip.hidden;
             drawCanvas();
         };
 
+        function triggerTrackBeatDetection(trackId) {
+            const audioClip = State.clips.find(c => c.trackId === trackId && c.type === 'audio');
+            if (audioClip) {
+                openBeatDetection(audioClip.id);
+            } else {
+                alert("No audio clip found on this track to analyze. Import or place an audio clip here first.");
+            }
+        }
+
         function renderTrackHeaders() {
             trackHeadersContainer.innerHTML = '';
             State.tracks.filter(t => (t.sceneId || null) === (State.activeSceneId || null)).forEach(track => {
@@ -6794,6 +6839,7 @@ const isVis = !clip.hidden;
                 const lockIcon = track.locked ? 'lock' : 'unlock';
                 const visClass = track.hidden ? 'text-surface-400 opacity-50' : 'text-surface-600 dark:text-surface-300';
                 const lockClass = track.locked ? 'text-red-500' : 'text-surface-600 dark:text-surface-300';
+                const isAudioTrack = track.type === 'audio';
                 
                 const el = document.createElement('div');
                 el.className = `flex items-center px-1 bg-surface-50 dark:bg-surface-900 relative z-0 border-b border-surface-200 dark:border-surface-800 group`;
@@ -6808,6 +6854,11 @@ const isVis = !clip.hidden;
                         </div>
                         <div class="w-1.5 h-1.5 rounded-full shrink-0 shadow-inner" style="background-color: ${palette.wave}"></div>
                         <span class="text-[10px] font-semibold text-surface-700 dark:text-surface-300 truncate flex-1 ml-0.5">${track.name}</span>
+                        ${isAudioTrack ? `
+                        <button onclick="triggerTrackBeatDetection('${track.id}')" class="p-1 rounded hover:bg-surface-200 dark:hover:bg-surface-800 text-brand-500 dark:text-brand-400 shrink-0 flex items-center justify-center mr-1 pointer-events-auto cursor-pointer" title="Beat Detection">
+                            <i data-lucide="sparkles" class="w-3.5 h-3.5 animate-pulse"></i>
+                        </button>
+                        ` : ''}
                         <div class="flex flex-col gap-1 shrink-0 mr-1 opacity-0 group-hover:opacity-100 transition-opacity">
                             <div class="flex gap-1">
                                 <button onclick="toggleVisibility('${track.id}')" class="w-5 h-5 rounded hover:bg-surface-200 dark:hover:bg-surface-800 flex items-center justify-center ${visClass}" title="Toggle Visibility">
@@ -7297,7 +7348,20 @@ const isVis = !clip.hidden;
                 }
             });
 
+            document.addEventListener('keyup', (e) => {
+                if (e.key === 'Control' || e.key === 'Meta') {
+                    document.body.classList.remove('ctrl-held');
+                }
+            });
+
+            window.addEventListener('blur', () => {
+                document.body.classList.remove('ctrl-held');
+            });
+
             document.addEventListener('keydown', (e) => {
+                if (e.key === 'Control' || e.key === 'Meta') {
+                    document.body.classList.add('ctrl-held');
+                }
                 // Alt + 1/2/3 to switch inspector tabs
                 if (e.altKey && (e.key === '1' || e.key === '2' || e.key === '3')) {
                     e.preventDefault();
@@ -7867,7 +7931,8 @@ const isVis = !clip.hidden;
         }
 
         function handleMouseDown(e) {
-            const trimHandle = e.target.closest('.trim-handle');
+            // Ignore trim handles when Ctrl/Cmd is held down to facilitate easy selection and dragging of small clips
+            const trimHandle = (e.ctrlKey || e.metaKey) ? null : e.target.closest('.trim-handle');
             const clipEl = e.target.closest('.clip');
             if (!clipEl) return;
 
