@@ -6293,6 +6293,320 @@ const isVis = !clip.hidden;
             drawCanvas();
         }
 
+        }
+
+        function analyzeBeats(audioBuffer) {
+            const channelData = audioBuffer.getChannelData(0);
+            const sampleRate = audioBuffer.sampleRate;
+            
+            // Downsample analysis blocks
+            const blockSize = 2048; 
+            const energy = [];
+            for (let i = 0; i < channelData.length; i += blockSize) {
+                let sum = 0;
+                const limit = Math.min(i + blockSize, channelData.length);
+                for (let j = i; j < limit; j++) {
+                    sum += channelData[j] * channelData[j];
+                }
+                energy.push(sum / (limit - i));
+            }
+            
+            // Find local average energy threshold
+            const beats = [];
+            const windowSize = 43; // ~1 second window
+            for (let i = 0; i < energy.length; i++) {
+                let sumAvg = 0;
+                let count = 0;
+                const start = Math.max(0, i - windowSize / 2);
+                const end = Math.min(energy.length, i + windowSize / 2);
+                for (let j = start; j < end; j++) {
+                    sumAvg += energy[j];
+                    count++;
+                }
+                const avg = sumAvg / count;
+                
+                // Trigger beat transient
+                if (energy[i] > avg * 1.5 && energy[i] > 0.005) {
+                    const time = (i * blockSize) / sampleRate;
+                    if (beats.length === 0 || (time - beats[beats.length - 1]) > 0.25) {
+                        beats.push(time);
+                    }
+                }
+            }
+            
+            // Estimate BPM
+            let bpm = 120;
+            if (beats.length > 1) {
+                const intervals = [];
+                for (let i = 1; i < beats.length; i++) {
+                    intervals.push(beats[i] - beats[i - 1]);
+                }
+                
+                const bins = {};
+                intervals.forEach(interval => {
+                    const rounded = Math.round(interval * 20) / 20;
+                    bins[rounded] = (bins[rounded] || 0) + 1;
+                });
+                
+                let bestBin = null;
+                let maxCount = 0;
+                for (const bin in bins) {
+                    if (bins[bin] > maxCount) {
+                        maxCount = bins[bin];
+                        bestBin = parseFloat(bin);
+                    }
+                }
+                
+                if (bestBin > 0) {
+                    bpm = Math.round(60 / bestBin);
+                    while (bpm < 60) bpm *= 2;
+                    while (bpm > 180) bpm /= 2;
+                    bpm = Math.round(bpm);
+                }
+            }
+            
+            return { bpm, beatTimes: beats };
+        }
+
+        let activeBeatDetectionClipId = null;
+
+        function openBeatDetection(clipId) {
+            const clip = State.clips.find(c => c.id === clipId);
+            if (!clip || clip.type !== 'audio') return;
+            
+            activeBeatDetectionClipId = clipId;
+            
+            const existing = document.getElementById('beatDetectionModal');
+            if (existing) existing.remove();
+            
+            // Inject heartbeat styles dynamically
+            if (!document.getElementById('beatDetectionAnimationStyles')) {
+                const style = document.createElement('style');
+                style.id = 'beatDetectionAnimationStyles';
+                style.innerHTML = `
+                    @keyframes beat {
+                        0% { transform: scale(0.95); opacity: 0.85; }
+                        100% { transform: scale(1.1); opacity: 1; }
+                    }
+                    .animate-beat {
+                        animation: beat 0.48s infinite alternate ease-in-out;
+                    }
+                `;
+                document.head.appendChild(style);
+            }
+            
+            const modal = document.createElement('div');
+            modal.id = 'beatDetectionModal';
+            modal.className = 'fixed inset-0 bg-black/60 backdrop-blur-sm z-[99999] flex items-center justify-center p-4';
+            
+            updateBeatDetectionModalContent(modal, clip);
+            document.body.appendChild(modal);
+            lucide.createIcons();
+        }
+
+        function closeBeatDetectionModal() {
+            const modal = document.getElementById('beatDetectionModal');
+            if (modal) modal.remove();
+            activeBeatDetectionClipId = null;
+        }
+
+        function updateBeatDetectionModalContent(modal, clip) {
+            const hasBeats = clip.beatTimes && clip.beatTimes.length > 0;
+            
+            modal.innerHTML = `
+                <div class="bg-white dark:bg-surface-800 text-surface-900 dark:text-white rounded-xl shadow-2xl w-[440px] max-w-full overflow-hidden border border-surface-200 dark:border-surface-700 flex flex-col transform transition-all duration-200 scale-100">
+                    <!-- Header -->
+                    <div class="px-5 py-4 border-b border-surface-150 dark:border-surface-750 flex justify-between items-center bg-surface-50 dark:bg-surface-900/40">
+                        <div class="flex items-center gap-2">
+                            <i data-lucide="sparkles" class="w-4 h-4 text-brand-500"></i>
+                            <h3 class="text-sm font-bold tracking-tight">Beat Detection & Sync</h3>
+                        </div>
+                        <button onclick="closeBeatDetectionModal()" class="p-1 rounded-md text-surface-400 hover:text-surface-700 dark:hover:text-white hover:bg-surface-150 dark:hover:bg-surface-750 transition-colors">
+                            <i data-lucide="x" class="w-4 h-4"></i>
+                        </button>
+                    </div>
+                    
+                    <!-- Content Body -->
+                    <div class="p-5 flex-1 min-h-0 flex flex-col gap-4">
+                        <div class="bg-surface-50 dark:bg-surface-900/60 p-3 rounded-lg border border-surface-150 dark:border-surface-750 flex flex-col gap-1">
+                            <span class="text-[9px] font-bold text-surface-400 dark:text-surface-500 uppercase tracking-wider">Audio Track</span>
+                            <span class="text-xs font-semibold truncate text-surface-800 dark:text-surface-200">${clip.title}</span>
+                        </div>
+                        
+                        ${!hasBeats ? `
+                            <!-- Analysis View -->
+                            <div class="flex-1 flex flex-col gap-3 py-2">
+                                <p class="text-xs text-surface-500 dark:text-surface-400 leading-relaxed">
+                                    Analyze this audio clip's waveform to detect transients and estimate the music tempo (BPM). This helps you align visual tracks and cut video/text clips exactly on beats.
+                                </p>
+                                
+                                <div class="flex flex-col gap-2 mt-2">
+                                    <label class="flex items-center gap-2.5 cursor-pointer text-xs text-surface-700 dark:text-surface-300">
+                                        <input type="checkbox" id="beatOptMarkers" checked class="rounded border-surface-300 dark:border-surface-700 text-brand-600 focus:ring-brand-500 h-4 w-4">
+                                        <span>Create timeline beat guide markers</span>
+                                    </label>
+                                    <label class="flex items-center gap-2.5 cursor-pointer text-xs text-surface-700 dark:text-surface-300">
+                                        <input type="checkbox" id="beatOptSnap" class="rounded border-surface-300 dark:border-surface-700 text-brand-600 focus:ring-brand-500 h-4 w-4">
+                                        <span>Enable edit snapping to beats</span>
+                                    </label>
+                                </div>
+                            </div>
+                            
+                            <!-- Footer Action -->
+                            <div class="flex justify-end gap-2 border-t border-surface-150 dark:border-surface-750 pt-4 mt-2">
+                                <button onclick="closeBeatDetectionModal()" class="px-4 py-2 rounded-lg text-xs font-semibold border border-surface-200 dark:border-surface-700 hover:bg-surface-50 dark:hover:bg-surface-750 transition-colors">
+                                    Cancel
+                                </button>
+                                <button onclick="runBeatAnalysis('${clip.id}')" class="px-4 py-2 rounded-lg text-xs font-semibold bg-brand-600 hover:bg-brand-700 text-white shadow transition-all flex items-center gap-1.5">
+                                    <i data-lucide="loader-2" class="w-3.5 h-3.5 animate-spin hidden" id="beatLoader"></i>
+                                    <span>Analyze Beat Grid</span>
+                                </button>
+                            </div>
+                        ` : `
+                            <!-- Results View -->
+                            <div class="flex-1 flex flex-col items-center gap-4 py-4">
+                                <div class="flex flex-col items-center gap-1">
+                                    <div class="w-16 h-16 rounded-full bg-brand-50 dark:bg-brand-500/10 flex items-center justify-center text-brand-500 border border-brand-200 dark:border-brand-500/20 shadow-inner relative">
+                                        <i data-lucide="heart" class="w-8 h-8 animate-beat text-brand-500"></i>
+                                    </div>
+                                    <span class="text-2xl font-black text-brand-600 dark:text-brand-400 mt-2">${clip.bpm || 120} <span class="text-xs font-bold text-surface-400">BPM</span></span>
+                                    <span class="text-[10px] text-surface-500 dark:text-surface-400">Tempo estimated from transient beats</span>
+                                </div>
+                                
+                                <div class="w-full flex flex-col gap-2 border-t border-surface-150 dark:border-surface-750 pt-4 mt-2">
+                                    <span class="text-[9px] font-bold text-surface-400 dark:text-surface-500 uppercase tracking-wider">Sync & Slice Tools</span>
+                                    
+                                    <div class="flex flex-col gap-2">
+                                        <button onclick="applyBeatMarkers('${clip.id}')" class="w-full px-3 py-2 rounded-lg text-xs font-semibold border border-surface-200 dark:border-surface-700 hover:bg-surface-50 dark:hover:bg-surface-750 transition-colors flex items-center justify-between">
+                                            <span class="flex items-center gap-2">
+                                                <i data-lucide="activity" class="w-3.5 h-3.5 text-brand-500"></i>
+                                                <span>Apply Beat Guide Markers</span>
+                                            </span>
+                                            <span class="text-[10px] font-mono text-surface-400 dark:text-surface-500">${clip.beatTimes.length} beats</span>
+                                        </button>
+                                        
+                                        <button onclick="sliceAudioAtBeats('${clip.id}')" class="w-full px-3 py-2 rounded-lg text-xs font-semibold border border-surface-200 dark:border-surface-700 hover:bg-surface-50 dark:hover:bg-surface-750 transition-colors flex items-center gap-2">
+                                            <i data-lucide="scissors" class="w-3.5 h-3.5 text-brand-500"></i>
+                                            <span>Slice audio at beat grid intervals</span>
+                                        </button>
+                                        
+                                        <button onclick="clearBeatAnalysis('${clip.id}')" class="w-full px-3 py-2 rounded-lg text-xs font-semibold text-red-500 dark:text-red-400 border border-red-200/50 dark:border-red-900/30 hover:bg-red-50 dark:hover:bg-red-900/10 transition-colors flex items-center gap-2">
+                                            <i data-lucide="trash-2" class="w-3.5 h-3.5"></i>
+                                            <span>Clear Beat Data</span>
+                                        </button>
+                                    </div>
+                                </div>
+                            </div>
+                        `}
+                    </div>
+                </div>
+            `;
+        }
+
+        function runBeatAnalysis(clipId) {
+            const clip = State.clips.find(c => c.id === clipId);
+            if (!clip || !clip.buffer) {
+                alert('Audio data buffer not loaded yet. Play the clip or wait for it to load completely.');
+                return;
+            }
+            
+            const loader = document.getElementById('beatLoader');
+            if (loader) loader.classList.remove('hidden');
+            
+            setTimeout(() => {
+                try {
+                    const result = analyzeBeats(clip.buffer);
+                    clip.bpm = result.bpm;
+                    clip.beatTimes = result.beatTimes.map(localTime => clip.start + localTime);
+                    
+                    const optMarkers = document.getElementById('beatOptMarkers')?.checked;
+                    const optSnap = document.getElementById('beatOptSnap')?.checked;
+                    
+                    if (optMarkers) {
+                        State.beatMarkers = clip.beatTimes.map(t => ({ id: 'bm_' + Math.random(), time: t }));
+                    }
+                    if (optSnap) {
+                        State.snapToBeats = true;
+                    }
+                    
+                    const modal = document.getElementById('beatDetectionModal');
+                    if (modal) {
+                        updateBeatDetectionModalContent(modal, clip);
+                        lucide.createIcons();
+                    }
+                    
+                    calcOverlaps();
+                    renderClips();
+                    drawCanvas();
+                } catch (err) {
+                    console.error(err);
+                    alert('Error performing beat detection: ' + err.message);
+                } finally {
+                    if (loader) loader.classList.add('hidden');
+                }
+            }, 100);
+        }
+
+        function applyBeatMarkers(clipId) {
+            const clip = State.clips.find(c => c.id === clipId);
+            if (!clip || !clip.beatTimes) return;
+            
+            State.beatMarkers = clip.beatTimes.map(t => ({ id: 'bm_' + Math.random(), time: t }));
+            renderClips();
+            closeBeatDetectionModal();
+        }
+
+        function clearBeatAnalysis(clipId) {
+            const clip = State.clips.find(c => c.id === clipId);
+            if (!clip) return;
+            
+            delete clip.bpm;
+            delete clip.beatTimes;
+            State.beatMarkers = [];
+            
+            const modal = document.getElementById('beatDetectionModal');
+            if (modal) {
+                updateBeatDetectionModalContent(modal, clip);
+                lucide.createIcons();
+            }
+            renderClips();
+        }
+
+        function sliceAudioAtBeats(clipId) {
+            const clip = State.clips.find(c => c.id === clipId);
+            if (!clip || !clip.beatTimes || clip.beatTimes.length === 0) return;
+            
+            if (!confirm(`This will split the audio clip into ${clip.beatTimes.length + 1} separate clips at every beat location. Proceed?`)) return;
+            
+            const sliceTimes = [...clip.beatTimes].sort((a, b) => a - b);
+            
+            let currentClip = clip;
+            for (const time of sliceTimes) {
+                if (time > currentClip.start + 0.05 && time < currentClip.start + currentClip.duration - 0.05) {
+                    const nextClip = duplicateClip(currentClip);
+                    const splitPoint = time;
+                    
+                    const leftDuration = splitPoint - currentClip.start;
+                    const rightDuration = (currentClip.start + currentClip.duration) - splitPoint;
+                    
+                    currentClip.duration = leftDuration;
+                    
+                    nextClip.start = splitPoint;
+                    nextClip.duration = rightDuration;
+                    nextClip.sourceOffset = currentClip.sourceOffset + leftDuration;
+                    
+                    State.clips.push(nextClip);
+                    currentClip = nextClip;
+                }
+            }
+            
+            calcOverlaps();
+            renderClips();
+            updatePropertiesPanel();
+            drawCanvas();
+            closeBeatDetectionModal();
+        }
+
         function splitClipAtPlayhead() {
             const time = State.currentTime;
             let targetClip = null;
@@ -6567,6 +6881,16 @@ const isVis = !clip.hidden;
 
         function renderClips() {
             document.querySelectorAll('.clip').forEach(e => e.remove());
+            document.querySelectorAll('.beat-marker').forEach(e => e.remove());
+
+            if (State.beatMarkers && State.beatMarkers.length > 0) {
+                State.beatMarkers.forEach(bm => {
+                    const markerEl = document.createElement('div');
+                    markerEl.className = 'beat-marker absolute top-0 bottom-0 pointer-events-none z-0 border-l border-dashed border-brand-500/40 w-0';
+                    markerEl.style.left = `${bm.time * State.pixelsPerSecond}px`;
+                    tracksContentContainer.appendChild(markerEl);
+                });
+            }
 
             State.clips.filter(c => c.sceneId === State.activeSceneId || (!c.sceneId && !State.activeSceneId)).forEach(clip => {
                 const track = State.tracks.find(t => t.id === clip.trackId);
@@ -6655,13 +6979,32 @@ const isVis = !clip.hidden;
                     headerTitle = `Shape: ${shapeName}`;
                 }
 
+                let headerContent = '';
+                if (showHeader) {
+                    if (clip.type === 'audio') {
+                        headerContent = `
+                        <div class="absolute inset-x-0 top-0 h-4 sm:h-5 flex items-center justify-between px-1.5 sm:px-2 z-20 ${headerBlurClass}" ${headerBgStyle}>
+                            <div class="flex items-center gap-1.5 truncate pointer-events-none">
+                                <i data-lucide="${icon}" class="w-3.5 h-3.5 shrink-0" style="color: ${palette.text}"></i>
+                                <span class="text-[10px] font-semibold truncate" style="color: ${palette.text}">${headerTitle}</span>
+                            </div>
+                            <button onclick="openBeatDetection('${clip.id}'); event.stopPropagation();" class="p-0.5 rounded hover:bg-black/20 dark:hover:bg-white/20 transition-all pointer-events-auto flex items-center justify-center shrink-0 cursor-pointer" title="Beat Detection">
+                                <i data-lucide="sparkles" class="w-3.5 h-3.5 shrink-0" style="color: ${palette.text}"></i>
+                            </button>
+                        </div>
+                        `;
+                    } else {
+                        headerContent = `
+                        <div class="absolute inset-x-0 top-0 h-4 sm:h-5 flex items-center px-1.5 sm:px-2 gap-1.5 z-20 pointer-events-none ${headerBlurClass}" ${headerBgStyle}>
+                            <i data-lucide="${icon}" class="w-3.5 h-3.5 shrink-0" style="color: ${palette.text}"></i>
+                            <span class="text-[10px] font-semibold truncate" style="color: ${palette.text}">${headerTitle}</span>
+                        </div>
+                        `;
+                    }
+                }
+
                 el.innerHTML = `
-                    ${showHeader ? `
-                    <div class="absolute inset-x-0 top-0 h-4 sm:h-5 flex items-center px-1.5 sm:px-2 gap-1.5 z-20 pointer-events-none ${headerBlurClass}" ${headerBgStyle}>
-                        <i data-lucide="${icon}" class="w-3 h-3 shrink-0" style="color: ${palette.text}"></i>
-                        <span class="text-[10px] font-semibold truncate" style="color: ${palette.text}">${headerTitle}</span>
-                    </div>
-                    ` : ''}
+                    ${headerContent}
                     <div class="trim-handle left" data-action="trimLeft"></div>
                     <div class="trim-handle right" data-action="trimRight"></div>
                     ${textPreviewHtml}
@@ -7340,7 +7683,21 @@ const isVis = !clip.hidden;
                     const rect = rulerCanvas.getBoundingClientRect();
                     const xInVisibleRuler = ev.clientX - rect.left;
                     const absoluteX = timelineScrollArea.scrollLeft + xInVisibleRuler;
-                    State.currentTime = Math.max(0, Math.min(absoluteX / State.pixelsPerSecond, State.duration));
+                    let targetTime = Math.max(0, Math.min(absoluteX / State.pixelsPerSecond, State.duration));
+                    if (State.snapToBeats && State.beatMarkers && State.beatMarkers.length > 0) {
+                        const snapThreshold = 0.15;
+                        let minDiff = Infinity;
+                        let closestBeat = null;
+                        State.beatMarkers.forEach(bm => {
+                            const diff = Math.abs(targetTime - bm.time);
+                            if (diff < minDiff) {
+                                minDiff = diff;
+                                closestBeat = bm.time;
+                            }
+                        });
+                        if (minDiff < snapThreshold) targetTime = closestBeat;
+                    }
+                    State.currentTime = targetTime;
                     updatePlayhead();
                     syncMediaElements();
                     drawCanvas();
@@ -7380,7 +7737,21 @@ const isVis = !clip.hidden;
                     const updateTimeFromMouse = (ev) => {
                         const xInVisibleContainer = ev.clientX - rect.left;
                         const absoluteX = timelineScrollArea.scrollLeft + xInVisibleContainer;
-                        State.currentTime = Math.max(0, Math.min(absoluteX / State.pixelsPerSecond, State.duration));
+                        let targetTime = Math.max(0, Math.min(absoluteX / State.pixelsPerSecond, State.duration));
+                        if (State.snapToBeats && State.beatMarkers && State.beatMarkers.length > 0) {
+                            const snapThreshold = 0.15;
+                            let minDiff = Infinity;
+                            let closestBeat = null;
+                            State.beatMarkers.forEach(bm => {
+                                const diff = Math.abs(targetTime - bm.time);
+                                if (diff < minDiff) {
+                                    minDiff = diff;
+                                    closestBeat = bm.time;
+                                }
+                            });
+                            if (minDiff < snapThreshold) targetTime = closestBeat;
+                        }
+                        State.currentTime = targetTime;
                         updatePlayhead();
                         syncMediaElements();
                         drawCanvas();
@@ -7691,7 +8062,21 @@ const isVis = !clip.hidden;
                         const mcClip = State.clips.find(c => c.id === mc.id);
                         const mcEl = document.querySelector(`.clip[data-clip-id="${mc.id}"]`);
                         if (mcClip && mcEl) {
-                            mcClip.start = Math.max(0, mc.start + deltaTime);
+                            let startPos = Math.max(0, mc.start + deltaTime);
+                            if (State.snapToBeats && State.beatMarkers && State.beatMarkers.length > 0) {
+                                const snapThreshold = 0.15;
+                                let minDiff = Infinity;
+                                let closestBeat = null;
+                                State.beatMarkers.forEach(bm => {
+                                    const diff = Math.abs(startPos - bm.time);
+                                    if (diff < minDiff) {
+                                        minDiff = diff;
+                                        closestBeat = bm.time;
+                                    }
+                                });
+                                if (minDiff < snapThreshold) startPos = closestBeat;
+                            }
+                            mcClip.start = startPos;
                             mcEl.style.left = `${mcClip.start * State.pixelsPerSecond}px`;
                             mcEl.style.transform = `translateY(${deltaY}px)`;
                             mcEl.style.transition = 'none'; // Ensure instant visual feedback
@@ -7718,7 +8103,21 @@ const isVis = !clip.hidden;
                         }
                     });
                 } else {
-                    clip.start = Math.max(0, State.drag.initialStart + deltaTime);
+                    let startPos = Math.max(0, State.drag.initialStart + deltaTime);
+                    if (State.snapToBeats && State.beatMarkers && State.beatMarkers.length > 0) {
+                        const snapThreshold = 0.15;
+                        let minDiff = Infinity;
+                        let closestBeat = null;
+                        State.beatMarkers.forEach(bm => {
+                            const diff = Math.abs(startPos - bm.time);
+                            if (diff < minDiff) {
+                                minDiff = diff;
+                                closestBeat = bm.time;
+                            }
+                        });
+                        if (minDiff < snapThreshold) startPos = closestBeat;
+                    }
+                    clip.start = startPos;
                     clipEl.style.left = `${clip.start * State.pixelsPerSecond}px`;
                     clipEl.style.transform = `translateY(${deltaY}px)`;
                     clipEl.style.transition = 'none';
