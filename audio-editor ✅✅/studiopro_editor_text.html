@@ -6572,7 +6572,7 @@ const isVis = !clip.hidden;
                     const optSnap = document.getElementById('beatOptSnap')?.checked;
                     
                     if (optMarkers) {
-                        State.beatMarkers = clip.beatTimes.map(t => ({ id: 'bm_' + Math.random(), time: t }));
+                        clip.showBeatMarkers = true;
                     }
                     if (optSnap) {
                         State.snapToBeats = true;
@@ -6600,7 +6600,7 @@ const isVis = !clip.hidden;
             const clip = State.clips.find(c => c.id === clipId);
             if (!clip || !clip.beatTimes) return;
             
-            State.beatMarkers = clip.beatTimes.map(t => ({ id: 'bm_' + Math.random(), time: t }));
+            clip.showBeatMarkers = true;
             renderClips();
             closeBeatDetectionModal();
         }
@@ -6611,7 +6611,7 @@ const isVis = !clip.hidden;
             
             delete clip.bpm;
             delete clip.beatTimes;
-            State.beatMarkers = [];
+            clip.showBeatMarkers = false;
             
             const modal = document.getElementById('beatDetectionModal');
             if (modal) {
@@ -6947,15 +6947,6 @@ const isVis = !clip.hidden;
             document.querySelectorAll('.clip').forEach(e => e.remove());
             document.querySelectorAll('.beat-marker').forEach(e => e.remove());
 
-            if (State.beatMarkers && State.beatMarkers.length > 0) {
-                State.beatMarkers.forEach(bm => {
-                    const markerEl = document.createElement('div');
-                    markerEl.className = 'beat-marker absolute top-0 bottom-0 pointer-events-none z-0 border-l border-dashed border-brand-500/40 w-0';
-                    markerEl.style.left = `${bm.time * State.pixelsPerSecond}px`;
-                    tracksContentContainer.appendChild(markerEl);
-                });
-            }
-
             State.clips.filter(c => c.sceneId === State.activeSceneId || (!c.sceneId && !State.activeSceneId)).forEach(clip => {
                 const track = State.tracks.find(t => t.id === clip.trackId);
                 if (!track) return;
@@ -7077,6 +7068,18 @@ const isVis = !clip.hidden;
                 `;
 
                 lane.appendChild(el);
+
+                if (clip.type === 'audio' && clip.showBeatMarkers && clip.beatTimes) {
+                    clip.beatTimes.forEach(t => {
+                        const localTime = t - clip.start;
+                        if (localTime >= 0 && localTime <= clip.duration) {
+                            const markerEl = document.createElement('div');
+                            markerEl.className = 'beat-marker absolute top-0 bottom-0 pointer-events-none z-20 border-l border-dashed border-brand-500/60 w-0';
+                            markerEl.style.left = `${localTime * State.pixelsPerSecond}px`;
+                            el.appendChild(markerEl);
+                        }
+                    });
+                }
 
                 if(hasWaveform) {
                     const cvs = el.querySelector('.waveform-canvas');
@@ -7752,7 +7755,19 @@ const isVis = !clip.hidden;
             });
 
 
-            // Timeline Ruler
+            function getActiveBeatMarkers() {
+            const markers = [];
+            State.clips.forEach(c => {
+                if (c.type === 'audio' && c.showBeatMarkers && c.beatTimes) {
+                    c.beatTimes.forEach(t => {
+                        markers.push(t);
+                    });
+                }
+            });
+            return markers;
+        }
+
+        // Timeline Ruler
             rulerCanvas.addEventListener('mousedown', (e) => {
                 ensureAudioContext();
                 
@@ -7761,18 +7776,21 @@ const isVis = !clip.hidden;
                     const xInVisibleRuler = ev.clientX - rect.left;
                     const absoluteX = timelineScrollArea.scrollLeft + xInVisibleRuler;
                     let targetTime = Math.max(0, Math.min(absoluteX / State.pixelsPerSecond, State.duration));
-                    if (State.snapToBeats && State.beatMarkers && State.beatMarkers.length > 0) {
-                        const snapThreshold = 0.15;
-                        let minDiff = Infinity;
-                        let closestBeat = null;
-                        State.beatMarkers.forEach(bm => {
-                            const diff = Math.abs(targetTime - bm.time);
-                            if (diff < minDiff) {
-                                minDiff = diff;
-                                closestBeat = bm.time;
-                            }
-                        });
-                        if (minDiff < snapThreshold) targetTime = closestBeat;
+                    if (State.snapToBeats) {
+                        const activeBeats = getActiveBeatMarkers();
+                        if (activeBeats.length > 0) {
+                            const snapThreshold = 0.15;
+                            let minDiff = Infinity;
+                            let closestBeat = null;
+                            activeBeats.forEach(bt => {
+                                const diff = Math.abs(targetTime - bt);
+                                if (diff < minDiff) {
+                                    minDiff = diff;
+                                    closestBeat = bt;
+                                }
+                            });
+                            if (minDiff < snapThreshold) targetTime = closestBeat;
+                        }
                     }
                     State.currentTime = targetTime;
                     updatePlayhead();
@@ -7815,18 +7833,21 @@ const isVis = !clip.hidden;
                         const xInVisibleContainer = ev.clientX - rect.left;
                         const absoluteX = timelineScrollArea.scrollLeft + xInVisibleContainer;
                         let targetTime = Math.max(0, Math.min(absoluteX / State.pixelsPerSecond, State.duration));
-                        if (State.snapToBeats && State.beatMarkers && State.beatMarkers.length > 0) {
-                            const snapThreshold = 0.15;
-                            let minDiff = Infinity;
-                            let closestBeat = null;
-                            State.beatMarkers.forEach(bm => {
-                                const diff = Math.abs(targetTime - bm.time);
-                                if (diff < minDiff) {
-                                    minDiff = diff;
-                                    closestBeat = bm.time;
-                                }
-                            });
-                            if (minDiff < snapThreshold) targetTime = closestBeat;
+                        if (State.snapToBeats) {
+                            const activeBeats = getActiveBeatMarkers();
+                            if (activeBeats.length > 0) {
+                                const snapThreshold = 0.15;
+                                let minDiff = Infinity;
+                                let closestBeat = null;
+                                activeBeats.forEach(bt => {
+                                    const diff = Math.abs(targetTime - bt);
+                                    if (diff < minDiff) {
+                                        minDiff = diff;
+                                        closestBeat = bt;
+                                    }
+                                });
+                                if (minDiff < snapThreshold) targetTime = closestBeat;
+                            }
                         }
                         State.currentTime = targetTime;
                         updatePlayhead();
@@ -8141,18 +8162,21 @@ const isVis = !clip.hidden;
                         const mcEl = document.querySelector(`.clip[data-clip-id="${mc.id}"]`);
                         if (mcClip && mcEl) {
                             let startPos = Math.max(0, mc.start + deltaTime);
-                            if (State.snapToBeats && State.beatMarkers && State.beatMarkers.length > 0) {
-                                const snapThreshold = 0.15;
-                                let minDiff = Infinity;
-                                let closestBeat = null;
-                                State.beatMarkers.forEach(bm => {
-                                    const diff = Math.abs(startPos - bm.time);
-                                    if (diff < minDiff) {
-                                        minDiff = diff;
-                                        closestBeat = bm.time;
-                                    }
-                                });
-                                if (minDiff < snapThreshold) startPos = closestBeat;
+                            if (State.snapToBeats) {
+                                const activeBeats = getActiveBeatMarkers();
+                                if (activeBeats.length > 0) {
+                                    const snapThreshold = 0.15;
+                                    let minDiff = Infinity;
+                                    let closestBeat = null;
+                                    activeBeats.forEach(bt => {
+                                        const diff = Math.abs(startPos - bt);
+                                        if (diff < minDiff) {
+                                            minDiff = diff;
+                                            closestBeat = bt;
+                                        }
+                                    });
+                                    if (minDiff < snapThreshold) startPos = closestBeat;
+                                }
                             }
                             mcClip.start = startPos;
                             mcEl.style.left = `${mcClip.start * State.pixelsPerSecond}px`;
@@ -8182,18 +8206,21 @@ const isVis = !clip.hidden;
                     });
                 } else {
                     let startPos = Math.max(0, State.drag.initialStart + deltaTime);
-                    if (State.snapToBeats && State.beatMarkers && State.beatMarkers.length > 0) {
-                        const snapThreshold = 0.15;
-                        let minDiff = Infinity;
-                        let closestBeat = null;
-                        State.beatMarkers.forEach(bm => {
-                            const diff = Math.abs(startPos - bm.time);
-                            if (diff < minDiff) {
-                                minDiff = diff;
-                                closestBeat = bm.time;
-                            }
-                        });
-                        if (minDiff < snapThreshold) startPos = closestBeat;
+                    if (State.snapToBeats) {
+                        const activeBeats = getActiveBeatMarkers();
+                        if (activeBeats.length > 0) {
+                            const snapThreshold = 0.15;
+                            let minDiff = Infinity;
+                            let closestBeat = null;
+                            activeBeats.forEach(bt => {
+                                const diff = Math.abs(startPos - bt);
+                                if (diff < minDiff) {
+                                    minDiff = diff;
+                                    closestBeat = bt;
+                                }
+                            });
+                            if (minDiff < snapThreshold) startPos = closestBeat;
+                        }
                     }
                     clip.start = startPos;
                     clipEl.style.left = `${clip.start * State.pixelsPerSecond}px`;
