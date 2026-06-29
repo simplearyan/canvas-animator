@@ -150,6 +150,18 @@
                 linear-gradient(45deg, #1e293b 25%, transparent 25%, transparent 75%, #1e293b 75%, #1e293b);
         }
 
+        #canvasWorkspace:fullscreen {
+            background-color: #0f172a !important;
+            padding: 2.5rem;
+            display: flex;
+            flex-direction: column;
+            justify-content: center;
+            align-items: center;
+        }
+        #canvasWorkspace:fullscreen #artboardTabs {
+            margin-top: 1.5rem;
+        }
+
         /* Hide details summary marker */
         details > summary { list-style: none; }
         details > summary::-webkit-details-marker { display: none; }
@@ -1429,14 +1441,31 @@
             </div>
 
             <!-- Canvas Container -->
-            <div class="w-full flex-1 flex flex-col justify-center items-center overflow-hidden px-2 md:px-4 min-h-0 pt-2 md:pt-0">
-                <div id="canvasContainer" class="relative bg-grid rounded-lg shadow-2xl ring-1 ring-pro-900/10 dark:ring-white/10 shrink min-h-0" style="max-height: 100%; max-width: 100%; width: auto; aspect-ratio: 16/9;">
+            <div id="canvasWorkspace" class="w-full flex-1 flex flex-col justify-center items-center overflow-hidden px-2 md:px-4 min-h-0 pt-2 md:pt-0 bg-pro-50 dark:bg-pro-900/40 relative">
+                <div id="canvasContainer" class="relative bg-grid rounded-lg shadow-2xl ring-1 ring-pro-900/10 dark:ring-white/10 shrink min-h-0" style="max-height: 100%; max-width: 100%; width: auto; aspect-ratio: 16/9; transform-origin: center center; transition: transform 0.15s cubic-bezier(0.4, 0, 0.2, 1);">
                     <canvas id="thumbCanvas" class="w-full h-full cursor-grab active:cursor-grabbing object-contain"></canvas>
                     <div id="domBoundingBoxContainer" class="absolute inset-0 pointer-events-none"></div>
                 </div>
                 <!-- Artboard Tabs -->
                 <div id="artboardTabs" class="flex gap-2 mt-6 md:mt-8 max-w-full overflow-x-auto pb-1 shrink-0 w-full justify-start custom-scrollbar" style="max-width: 1280px;">
                     <!-- Tabs injected via JS -->
+                </div>
+
+                <!-- Floating Zoom & Fullscreen Controls -->
+                <div class="absolute bottom-4 right-4 bg-white/95 dark:bg-pro-800/95 backdrop-blur-md border border-pro-200 dark:border-pro-700 px-3 py-1.5 rounded-full shadow-lg flex items-center gap-2.5 z-30 select-none transition-all duration-200 hover:shadow-xl">
+                    <button id="btnZoomOut" class="p-1 text-pro-600 dark:text-pro-400 hover:text-pro-900 dark:hover:text-white rounded-full hover:bg-pro-100 dark:hover:bg-pro-700 transition-colors flex items-center justify-center cursor-pointer" title="Zoom Out">
+                        <i class="ph-bold ph-minus text-xs"></i>
+                    </button>
+                    <span id="zoomValue" class="text-xs font-bold text-pro-700 dark:text-pro-300 min-w-[36px] text-center font-mono">100%</span>
+                    <button id="btnZoomIn" class="p-1 text-pro-600 dark:text-pro-400 hover:text-pro-900 dark:hover:text-white rounded-full hover:bg-pro-100 dark:hover:bg-pro-700 transition-colors flex items-center justify-center cursor-pointer" title="Zoom In">
+                        <i class="ph-bold ph-plus text-xs"></i>
+                    </button>
+                    <button id="btnZoomReset" class="p-1 text-pro-600 dark:text-pro-400 hover:text-pro-900 dark:hover:text-white rounded-full hover:bg-pro-100 dark:hover:bg-pro-700 transition-colors flex items-center justify-center cursor-pointer border-r border-pro-200 dark:border-pro-700 pr-2 rounded-r-none" title="Reset Zoom">
+                        <i class="ph-bold ph-arrows-counter-clockwise text-xs"></i>
+                    </button>
+                    <button id="btnFullscreen" class="p-1 text-pro-600 dark:text-pro-400 hover:text-pro-900 dark:hover:text-white rounded-full hover:bg-pro-100 dark:hover:bg-pro-700 transition-colors flex items-center justify-center cursor-pointer" title="Toggle Fullscreen">
+                        <i id="iconFullscreen" class="ph-bold ph-corners-out text-sm"></i>
+                    </button>
                 </div>
             </div>
             
@@ -1936,7 +1965,8 @@
             dragStartX: 0,
             dragStartY: 0,
             elemStartX: 0,
-            elemStartY: 0
+            elemStartY: 0,
+            zoom: 1.0
         };
 
         const loadAndDownscaleImage = (imgSrc, callback) => {
@@ -2658,9 +2688,9 @@
                     // --- DOM BOUNDING BOX ---
                     const domBoxContainer = document.getElementById('domBoundingBoxContainer');
                     if (domBoxContainer) {
-                        const containerRect = document.getElementById('canvasContainer').getBoundingClientRect();
-                        const scaleX = containerRect.width / CANVAS_WIDTH;
-                        const scaleY = containerRect.height / CANVAS_HEIGHT;
+                        const container = document.getElementById('canvasContainer');
+                        const scaleX = container.clientWidth / CANVAS_WIDTH;
+                        const scaleY = container.clientHeight / CANVAS_HEIGHT;
                         
                         const elScale = el.scale || 1;
                         const wScaled = w * elScale;
@@ -3793,6 +3823,85 @@ function updateUI() {
                     updateLayerList();
                 }
             });
+        }
+
+        // Zoom and Fullscreen controls
+        const btnZoomIn = document.getElementById('btnZoomIn');
+        const btnZoomOut = document.getElementById('btnZoomOut');
+        const btnZoomReset = document.getElementById('btnZoomReset');
+        const btnFullscreen = document.getElementById('btnFullscreen');
+        const canvasWorkspace = document.getElementById('canvasWorkspace');
+        const iconFullscreen = document.getElementById('iconFullscreen');
+
+        function updateZoomVisuals() {
+            const container = document.getElementById('canvasContainer');
+            if (container) {
+                container.style.transform = `scale(${state.zoom})`;
+            }
+            const valLabel = document.getElementById('zoomValue');
+            if (valLabel) {
+                valLabel.textContent = `${Math.round(state.zoom * 100)}%`;
+            }
+            render();
+        }
+
+        if (btnZoomIn) {
+            btnZoomIn.addEventListener('click', () => {
+                state.zoom = Math.min(2.5, state.zoom + 0.1);
+                updateZoomVisuals();
+            });
+        }
+
+        if (btnZoomOut) {
+            btnZoomOut.addEventListener('click', () => {
+                state.zoom = Math.max(0.4, state.zoom - 0.1);
+                updateZoomVisuals();
+            });
+        }
+
+        if (btnZoomReset) {
+            btnZoomReset.addEventListener('click', () => {
+                state.zoom = 1.0;
+                updateZoomVisuals();
+            });
+        }
+
+        if (btnFullscreen && canvasWorkspace) {
+            btnFullscreen.addEventListener('click', () => {
+                if (!document.fullscreenElement) {
+                    canvasWorkspace.requestFullscreen().catch(err => {
+                        console.error(`Error attempting to enable full-screen mode: ${err.message}`);
+                    });
+                } else {
+                    document.exitFullscreen();
+                }
+            });
+        }
+
+        document.addEventListener('fullscreenchange', () => {
+            if (document.fullscreenElement === canvasWorkspace) {
+                if (iconFullscreen) {
+                    iconFullscreen.className = 'ph-bold ph-corners-in text-sm';
+                }
+            } else {
+                if (iconFullscreen) {
+                    iconFullscreen.className = 'ph-bold ph-corners-out text-sm';
+                }
+            }
+        });
+
+        if (canvasWorkspace) {
+            canvasWorkspace.addEventListener('wheel', (e) => {
+                if (e.ctrlKey) {
+                    e.preventDefault();
+                    if (e.deltaY < 0) {
+                        state.zoom = Math.min(2.5, state.zoom + 0.05);
+                    } else {
+                        state.zoom = Math.max(0.4, state.zoom - 0.05);
+                    }
+                    updateZoomVisuals();
+                }
+            }, { passive: false });
         }
 
         // Element Creation
