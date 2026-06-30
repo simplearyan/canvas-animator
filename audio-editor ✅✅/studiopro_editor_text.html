@@ -5582,17 +5582,84 @@
         };
 
         window.deleteCustomPreset = function(presetId) {
-            let presets = loadCustomPresets();
-            presets = presets.filter(p => p.id !== presetId);
-            saveCustomPresets(presets);
-            updateSidebarPanel();
+            if (confirm("Are you sure you want to delete this preset template?")) {
+                let deleted = [];
+                try {
+                    deleted = JSON.parse(localStorage.getItem('deleted_presets') || '[]');
+                } catch(e) {}
+                if (!deleted.includes(presetId)) {
+                    deleted.push(presetId);
+                }
+                localStorage.setItem('deleted_presets', JSON.stringify(deleted));
+
+                let presets = loadCustomPresets();
+                presets = presets.filter(p => p.id !== presetId);
+                saveCustomPresets(presets);
+
+                updateSidebarPanel();
+            }
+        };
+
+        window.restoreDefaultPresets = function() {
+            if (confirm("Are you sure you want to restore all deleted preset templates?")) {
+                localStorage.removeItem('deleted_presets');
+                updateSidebarPanel();
+            }
+        };
+
+        window.exportPresets = function() {
+            const custom = localStorage.getItem('custom_presets') || '[]';
+            const blob = new Blob([custom], { type: 'application/json' });
+            const url = URL.createObjectURL(blob);
+            const a = document.createElement('a');
+            a.href = url;
+            a.download = `canvas_presets_${Date.now()}.json`;
+            a.click();
+            URL.revokeObjectURL(url);
+        };
+
+        window.importPresets = function(event) {
+            const file = event.target.files[0];
+            if (!file) return;
+            const reader = new FileReader();
+            reader.onload = function(e) {
+                try {
+                    const imported = JSON.parse(e.target.result);
+                    if (!Array.isArray(imported)) {
+                        alert("Invalid presets file format.");
+                        return;
+                    }
+                    const current = loadCustomPresets();
+                    let importedCount = 0;
+                    imported.forEach(p => {
+                        if (p.name && p.type && p.effects) {
+                            p.id = 'preset_custom_' + Date.now() + '_' + Math.random().toString(36).substr(2, 5);
+                            current.push(p);
+                            importedCount++;
+                        }
+                    });
+                    saveCustomPresets(current);
+                    updateSidebarPanel();
+                    alert(`Successfully imported ${importedCount} presets!`);
+                } catch (err) {
+                    alert("Error parsing presets file.");
+                }
+            };
+            reader.readAsText(file);
         };
 
         window.renderPresetsLibrary = function() {
-            sidebarContent.className = "flex flex-col gap-4 p-4 w-full flex-1 min-h-0 overflow-y-auto";
+            sidebarContent.className = "flex flex-col gap-3 p-4 w-full flex-1 min-h-0 overflow-y-auto";
             
             const customPresets = loadCustomPresets();
             const allPresets = [...DEFAULT_PRESETS, ...customPresets];
+            
+            let deletedIds = [];
+            try {
+                deletedIds = JSON.parse(localStorage.getItem('deleted_presets') || '[]');
+            } catch(e) {}
+            
+            const activePresets = allPresets.filter(p => !deletedIds.includes(p.id));
             
             if (!State.activePresetFilter) {
                 State.activePresetFilter = 'all';
@@ -5606,16 +5673,32 @@
                 { id: 'scene', name: 'Comps' }
             ];
             
-            const filtered = allPresets.filter(p => {
+            const filtered = activePresets.filter(p => {
                 if (State.activePresetFilter === 'all') return true;
                 if (State.activePresetFilter === 'media') return p.type === 'image' || p.type === 'video';
                 return p.type === State.activePresetFilter;
             });
             
             let html = `
-                <div class="flex items-center justify-between shrink-0">
-                    <h3 class="text-sm font-bold text-surface-900 dark:text-white">Presets Library</h3>
-                </div>
+                <style>
+                    .presets-flex-container {
+                        display: flex;
+                        flex-wrap: wrap;
+                        gap: 8px;
+                        width: 100%;
+                    }
+                    .presets-card {
+                        flex: 1 1 calc(33.333% - 8px);
+                        min-width: 105px;
+                        max-width: 100%;
+                        box-sizing: border-box;
+                    }
+                    @media (max-width: 240px) {
+                        .presets-card {
+                            flex: 1 1 100%;
+                        }
+                    }
+                </style>
                 
                 <div class="flex items-center gap-1 bg-surface-100 dark:bg-surface-800/50 p-1 rounded-md shrink-0">
                     ${categories.map(cat => {
@@ -5627,50 +5710,63 @@
                         `;
                     }).join('')}
                 </div>
+
+                <div class="flex items-center justify-between shrink-0 gap-2 mt-1">
+                    <span class="text-[9px] font-bold text-surface-400 dark:text-surface-500 uppercase tracking-wider">Storage Actions</span>
+                    <div class="flex items-center gap-1">
+                        <label class="cursor-pointer bg-surface-100 hover:bg-surface-200 dark:bg-surface-800 dark:hover:bg-surface-700 text-surface-700 dark:text-surface-300 px-1.5 py-0.5 rounded text-[8.5px] font-bold transition-all flex items-center gap-0.5 border border-surface-200 dark:border-surface-700 shadow-sm">
+                            <i data-lucide="download" class="w-2.5 h-2.5"></i> Import
+                            <input type="file" accept=".json" class="hidden" onchange="importPresets(event)">
+                        </label>
+                        <button onclick="exportPresets()" class="bg-surface-100 hover:bg-surface-200 dark:bg-surface-800 dark:hover:bg-surface-700 text-surface-700 dark:text-surface-300 px-1.5 py-0.5 rounded text-[8.5px] font-bold transition-all flex items-center gap-0.5 border border-surface-200 dark:border-surface-700 shadow-sm">
+                            <i data-lucide="upload" class="w-2.5 h-2.5"></i> Export
+                        </button>
+                        <button onclick="restoreDefaultPresets()" class="bg-surface-100 hover:bg-surface-200 dark:bg-surface-800 dark:hover:bg-surface-700 text-surface-700 dark:text-surface-300 px-1.5 py-0.5 rounded text-[8.5px] font-bold transition-all flex items-center gap-0.5 border border-surface-200 dark:border-surface-700 shadow-sm" title="Restore default presets">
+                            <i data-lucide="rotate-ccw" class="w-2.5 h-2.5"></i> Restore
+                        </button>
+                    </div>
+                </div>
                 
-                <div class="flex flex-col gap-3 overflow-y-auto pr-1 flex-1">
+                <div class="presets-flex-container overflow-y-auto pr-1 flex-1">
             `;
             
             if (filtered.length === 0) {
                 html += `
-                    <div class="flex flex-col items-center justify-center text-surface-500 py-12 border-2 border-dashed border-surface-300 dark:border-surface-700 rounded-lg">
+                    <div class="col-span-full flex flex-col items-center justify-center text-surface-500 py-12 border-2 border-dashed border-surface-300 dark:border-surface-700 rounded-lg w-full">
                         <i data-lucide="folder-open" class="w-8 h-8 mb-2 opacity-50"></i>
                         <p class="text-xs text-center px-4">No presets found in this category.</p>
                     </div>
                 `;
             } else {
                 filtered.forEach(p => {
-                    const isCustom = p.id.startsWith('preset_custom_');
                     const iconName = p.type === 'text' ? 'type' : (p.type === 'shape' ? 'shapes' : (p.type === 'image' ? 'image' : (p.type === 'video' ? 'video' : 'film')));
                     
                     const selectedClip = State.clips.find(c => c.id === State.selectedClipId);
                     const canApply = selectedClip && selectedClip.type === p.type;
                     
                     html += `
-                        <div class="group relative flex flex-col gap-2.5 p-3 rounded-lg border border-surface-200 dark:border-surface-700 bg-white dark:bg-surface-800 shadow-sm hover:shadow-md transition-all">
-                            <div class="flex items-start justify-between min-w-0">
-                                <div class="flex items-center gap-2.5 min-w-0">
-                                    <div class="w-8 h-8 rounded-md bg-surface-100 dark:bg-surface-900 flex items-center justify-center text-surface-500 shrink-0">
-                                        <i data-lucide="${iconName}" class="w-4 h-4"></i>
+                        <div class="presets-card group relative flex flex-col justify-between p-2.5 rounded-lg border border-surface-200 dark:border-surface-700 bg-white dark:bg-surface-800 shadow-sm hover:shadow-md transition-all h-[92px] min-w-0">
+                            <div class="flex items-start justify-between gap-1.5 min-w-0 flex-1">
+                                <div class="flex items-center gap-1.5 min-w-0 flex-1">
+                                    <div class="w-6 h-6 rounded bg-brand-50 dark:bg-brand-950/40 text-brand-500 flex items-center justify-center shrink-0">
+                                        <i data-lucide="${iconName}" class="w-3.5 h-3.5"></i>
                                     </div>
-                                    <div class="min-w-0">
-                                        <h4 class="text-xs font-bold text-surface-800 dark:text-surface-200 truncate leading-tight">${p.name}</h4>
-                                        <span class="text-[9px] text-surface-400 font-bold uppercase tracking-wider block mt-0.5">${p.category || 'Preset'}</span>
+                                    <div class="min-w-0 flex-1">
+                                        <h4 class="text-xs font-bold text-surface-800 dark:text-surface-250 truncate leading-snug" title="${p.name}">${p.name}</h4>
+                                        <span class="text-[8.5px] text-surface-400 font-bold uppercase tracking-wider block leading-none mt-0.5">${p.category || 'Preset'}</span>
                                     </div>
                                 </div>
-                                ${isCustom ? `
-                                    <button onclick="deleteCustomPreset('${p.id}'); event.stopPropagation();" class="p-1 rounded text-surface-400 hover:text-red-500 hover:bg-red-50 dark:hover:bg-red-950/20 transition-all opacity-0 group-hover:opacity-100" title="Delete custom preset">
-                                        <i data-lucide="trash-2" class="w-3.5 h-3.5"></i>
-                                    </button>
-                                ` : ''}
+                                <button onclick="deleteCustomPreset('${p.id}'); event.stopPropagation();" class="p-0.5 rounded text-surface-400 hover:text-red-500 hover:bg-red-50 dark:hover:bg-red-950/20 transition-all shrink-0" title="Delete preset">
+                                    <i data-lucide="trash-2" class="w-2.5 h-2.5"></i>
+                                </button>
                             </div>
                             
-                            <div class="flex gap-2 w-full mt-1">
-                                <button onclick="addPresetToTimeline('${p.id}')" class="flex-1 bg-brand-500 hover:bg-brand-600 text-white text-[10px] font-bold py-1.5 px-2 rounded-md transition-colors flex items-center justify-center gap-1 shadow-sm">
-                                    <i data-lucide="plus" class="w-3 h-3"></i> Add to Timeline
+                            <div class="flex gap-1.5 w-full mt-1.5 shrink-0">
+                                <button onclick="addPresetToTimeline('${p.id}')" class="flex-1 bg-brand-500 hover:bg-brand-600 text-white py-1 rounded transition-colors flex items-center justify-center shadow-sm" title="Add to Timeline">
+                                    <i data-lucide="plus" class="w-3.5 h-3.5"></i>
                                 </button>
-                                <button onclick="applyPresetToSelected('${p.id}')" class="flex-1 text-[10px] font-bold py-1.5 px-2 rounded-md transition-colors border flex items-center justify-center gap-1 shadow-sm ${canApply ? 'bg-surface-50 dark:bg-surface-900 border-surface-200 dark:border-surface-700 text-surface-800 dark:text-surface-200 hover:bg-surface-100 dark:hover:bg-surface-800' : 'bg-surface-100 dark:bg-surface-800/40 border-transparent text-surface-400 cursor-not-allowed'}" ${canApply ? '' : 'disabled'}>
-                                    <i data-lucide="check" class="w-3 h-3"></i> Apply Style
+                                <button onclick="applyPresetToSelected('${p.id}')" class="flex-1 py-1 rounded transition-colors border flex items-center justify-center shadow-sm ${canApply ? 'bg-surface-50 dark:bg-surface-900 border-surface-200 dark:border-surface-700 text-surface-800 dark:text-surface-200 hover:bg-surface-100 dark:hover:bg-surface-800' : 'bg-surface-100 dark:bg-surface-800/40 border-transparent text-surface-400 cursor-not-allowed'}" ${canApply ? '' : 'disabled'} title="Apply Style">
+                                    <i data-lucide="check" class="w-3.5 h-3.5"></i>
                                 </button>
                             </div>
                         </div>
