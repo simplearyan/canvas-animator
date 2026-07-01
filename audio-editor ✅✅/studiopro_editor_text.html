@@ -851,6 +851,9 @@
                     <button onclick="setSidebarTab('presets')" id="tabPresets" class="text-[10px] font-bold uppercase tracking-wider px-2 py-1 rounded transition-colors text-surface-500 dark:text-surface-400 hover:text-surface-900 dark:hover:text-surface-100">Presets</button>
                 </div>
                 <div class="flex items-center gap-1">
+                    <button onclick="rebuildAudioSystem()" class="p-1.5 rounded text-surface-400 hover:text-brand-500 dark:hover:text-brand-400 hover:bg-surface-100 dark:hover:bg-surface-700 transition-colors shrink-0" title="Sync Audio Output (Headphones / Speakers)">
+                        <i data-lucide="headphones" class="w-4 h-4"></i>
+                    </button>
                     <button id="btnToggleWidth" class="p-1.5 rounded text-surface-400 hover:text-surface-900 dark:hover:text-white hover:bg-surface-100 dark:hover:bg-surface-700 transition-colors" title="Toggle Width">
                         <i data-lucide="minimize-2" id="iconWidth" class="w-4 h-4"></i>
                     </button>
@@ -1351,10 +1354,18 @@
             try {
                 const stored = localStorage.getItem('studiopro_custom_fonts');
                 if (stored) {
-                    State.customFonts = JSON.parse(stored);
-                    State.customFonts.forEach(font => {
-                        registerCustomFont(font.name, font.dataUri);
-                    });
+                    let fonts = JSON.parse(stored);
+                    if (Array.isArray(fonts)) {
+                        // Filter out metadata files starting with ._
+                        fonts = fonts.filter(f => f && f.name && !f.name.startsWith('._'));
+                        localStorage.setItem('studiopro_custom_fonts', JSON.stringify(fonts));
+                        State.customFonts = fonts;
+                        State.customFonts.forEach(font => {
+                            registerCustomFont(font.name, font.dataUri);
+                        });
+                    } else {
+                        State.customFonts = [];
+                    }
                 } else {
                     State.customFonts = [];
                 }
@@ -1655,9 +1666,123 @@
                 State.speakerNode = audioCtx.createGain();
                 State.speakerNode.connect(audioCtx.destination);
                 State.audioCtxInitialzed = true;
+
+                // Listen to audio device changes (headphones plugged/unplugged)
+                if (navigator.mediaDevices && navigator.mediaDevices.addEventListener) {
+                    let deviceChangeTimeout = null;
+                    navigator.mediaDevices.addEventListener('devicechange', () => {
+                        console.log("Audio output device change detected. Queueing audio switch...");
+                        if (deviceChangeTimeout) clearTimeout(deviceChangeTimeout);
+                        
+                        deviceChangeTimeout = setTimeout(async () => {
+                            if (audioCtx) {
+                                if (audioCtx.state === 'suspended') {
+                                    try { await audioCtx.resume(); } catch(e){}
+                                }
+                                if (typeof audioCtx.setSinkId === 'function') {
+                                    try {
+                                        await audioCtx.setSinkId("");
+                                        console.log("AudioContext sink successfully migrated to system default.");
+                                        return;
+                                    } catch (err) {
+                                        console.error("Sink ID migration failed, trying system rebuild:", err);
+                                    }
+                                }
+                            }
+                            if (typeof window.rebuildAudioSystem === 'function') {
+                                window.rebuildAudioSystem();
+                            }
+                        }, 1000); // 1-second delay to wait for OS device transition
+                    });
+                }
             }
             if (audioCtx.state === 'suspended') audioCtx.resume();
         }
+
+        window.rebuildAudioSystem = async function() {
+            if (!audioCtx) return;
+            console.log("Rebuilding audio context and media elements...");
+            
+            const isPlaying = State.isPlaying;
+            
+            // Pause playback to prevent overlap/noise during transition
+            if (isPlaying) {
+                togglePlay();
+            }
+            
+            // Disconnect and clean up existing audio nodes and recreate HTMLMediaElements
+            for (const clip of State.clips) {
+                if (clip.audioNodes) {
+                    try {
+                        Object.values(clip.audioNodes).forEach(node => {
+                            if (node && typeof node.disconnect === 'function') {
+                                node.disconnect();
+                            }
+                        });
+                    } catch (e) {}
+                    clip.audioNodes = null;
+                }
+                
+                if (clip.audioEl && clip.fileUrl) {
+                    const currentTime = clip.audioEl.currentTime;
+                    const wasMuted = clip.audioEl.muted;
+                    const volume = clip.audioEl.volume;
+                    
+                    const newAudio = new Audio(clip.fileUrl);
+                    newAudio.crossOrigin = "anonymous";
+                    newAudio.currentTime = currentTime;
+                    newAudio.muted = wasMuted;
+                    newAudio.volume = volume;
+                    newAudio.load();
+                    
+                    clip.audioEl = newAudio;
+                }
+                
+                if (clip.videoEl && clip.fileUrl) {
+                    const currentTime = clip.videoEl.currentTime;
+                    const wasMuted = clip.videoEl.muted;
+                    const volume = clip.videoEl.volume;
+                    
+                    const newVideo = document.createElement('video');
+                    newVideo.src = clip.fileUrl;
+                    newVideo.crossOrigin = "anonymous";
+                    newVideo.currentTime = currentTime;
+                    newVideo.muted = wasMuted;
+                    newVideo.volume = volume;
+                    newVideo.load();
+                    
+                    clip.videoEl = newVideo;
+                }
+            }
+            
+            // Close existing AudioContext
+            try {
+                await audioCtx.close();
+            } catch (e) {}
+            
+            audioCtx = null;
+            State.audioCtxInitialzed = false;
+            
+            // Re-ensure AudioContext (which binds to the new headphones default output)
+            ensureAudioContext();
+            
+            // Rebuild audio nodes for active clips
+            State.clips.forEach(clip => {
+                if (clip.type === 'audio' || clip.type === 'video') {
+                    try {
+                        buildAudioGraph(clip);
+                    } catch(e) {
+                        console.error("Error rebuilding audio graph for clip:", clip.id, e);
+                    }
+                }
+            });
+            
+            // Restore playback state
+            if (isPlaying) {
+                togglePlay();
+            }
+            console.log("Audio system successfully rebuilt!");
+        };
 
         // --- Inspector Layout Logic ---
         function applyInspectorLayout() {
@@ -6890,6 +7015,13 @@ const isVis = !clip.hidden;
             lucide.createIcons();
 
             const file = files[0];
+            if (file.name.startsWith('._')) {
+                alert("This file appears to be a macOS system metadata file, not a valid font file.");
+                btnImportFont.innerHTML = `<i data-lucide="file-type" class="w-4 h-4"></i>`;
+                lucide.createIcons();
+                fontInput.value = '';
+                return;
+            }
             if (file.size > 2.5 * 1024 * 1024) {
                 alert("Font file is too large (max 2.5MB). Please upload a smaller font file (Woff/Woff2 are highly recommended) to ensure it fits in browser storage.");
                 btnImportFont.innerHTML = `<i data-lucide="file-type" class="w-4 h-4"></i>`;
