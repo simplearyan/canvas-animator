@@ -1,0 +1,748 @@
+<!DOCTYPE html>
+<html lang="en" class="light">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Data Thesis | Explaining the world with data</title>
+    
+    <!-- Google Fonts -->
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800;900&family=Lora:ital,wght@0,400;0,500;0,600;1,400;1,500&family=Playfair+Display:ital,wght@0,700;0,800;0,900;1,700;1,800;1,900&display=swap" rel="stylesheet">
+    
+    <!-- Tailwind CSS -->
+    <script src="https://cdn.tailwindcss.com"></script>
+    <script>
+        tailwind.config = {
+            darkMode: 'class',
+            theme: {
+                extend: {
+                    fontFamily: {
+                        sans: ['Inter', 'sans-serif'], 
+                        serif: ['Lora', 'serif'], 
+                        headline: ['"Playfair Display"', 'serif'], 
+                    },
+                    colors: {
+                        brand: {
+                            yellow: '#FFDE00', 
+                            dark: '#0a0a0a', 
+                            card: '#141414', 
+                            light: '#ffffff',
+                            gray: '#f9fafb',
+                            border: '#e5e7eb',
+                            borderDark: '#262626'
+                        }
+                    }
+                }
+            }
+        }
+    </script>
+    <style>
+        body {
+            transition: background-color 0.3s ease, color 0.3s ease;
+            -webkit-font-smoothing: antialiased;
+        }
+
+        /* --- Header Transitions --- */
+        .context-layer {
+            transition: opacity 0.3s ease, visibility 0.3s ease;
+        }
+        
+        /* Reading Title Animation */
+        #header-article-title {
+            transition: opacity 0.3s ease, transform 0.3s cubic-bezier(0.2, 0.8, 0.2, 1);
+        }
+        .title-hidden {
+            opacity: 0;
+            transform: translateY(10px);
+            pointer-events: none;
+        }
+        .title-visible {
+            opacity: 1;
+            transform: translateY(0);
+            pointer-events: auto;
+        }
+
+        /* --- Expanding Search Bar --- */
+        .search-active {
+            width: 200px !important;
+            opacity: 1 !important;
+            padding-left: 1rem !important;
+            padding-right: 2.5rem !important;
+            pointer-events: auto !important;
+        }
+        @media (min-width: 640px) {
+            .search-active { width: 260px !important; }
+        }
+
+        /* --- Editorial Thumbnails --- */
+        .thumb-container {
+            position: relative;
+            width: 100%;
+            background-color: #e5e5e5;
+            overflow: hidden;
+        }
+        .dark .thumb-container { background-color: #1a1a1a; }
+        
+        .thumb-img {
+            width: 100%;
+            height: 100%;
+            object-fit: cover;
+            transition: transform 0.6s cubic-bezier(0.2, 0.8, 0.2, 1);
+        }
+        .group:hover .thumb-img { transform: scale(1.03); }
+
+        .text-shadow-strong {
+            text-shadow: 2px 2px 4px rgba(0,0,0,0.8), 0px 0px 10px rgba(0,0,0,0.5);
+        }
+
+        /* --- View Switching --- */
+        .view-section {
+            transition: opacity 0.4s ease;
+        }
+        .hidden-view {
+            display: none !important;
+            opacity: 0;
+        }
+
+        /* --- Article Prose Styling --- */
+        .prose p {
+            margin-bottom: 1.75rem;
+            line-height: 1.85;
+            font-size: 1.125rem;
+            color: #374151;
+        }
+        .dark .prose p { color: #d1d5db; }
+        
+        .drop-cap::first-letter {
+            float: left;
+            font-size: 5rem;
+            line-height: 0.8;
+            padding-right: 0.75rem;
+            padding-top: 0.25rem;
+            font-family: "Playfair Display", serif;
+            font-weight: 900;
+            color: #FFDE00;
+            text-shadow: 2px 2px 0px rgba(0,0,0,0.9);
+        }
+        .dark .drop-cap::first-letter {
+            text-shadow: none;
+            color: #FFDE00;
+        }
+
+        /* --- Custom Text Highlight Color --- */
+        ::selection {
+            background-color: #B7C9E2; /* Soft chart blue */
+            color: #0a0a0a;
+        }
+        .dark ::selection {
+            background-color: #3B82F6; /* Vibrant chart blue */
+            color: #ffffff;
+        }
+
+        /* Custom Scrollbar */
+        ::-webkit-scrollbar { width: 6px; }
+        ::-webkit-scrollbar-track { background: transparent; }
+        ::-webkit-scrollbar-thumb { background: #cbd5e1; border-radius: 4px; }
+        .dark ::-webkit-scrollbar-thumb { background: #475569; }
+        .no-scrollbar::-webkit-scrollbar { display: none; }
+        .no-scrollbar { -ms-overflow-style: none; scrollbar-width: none; }
+    </style>
+</head>
+<body class="bg-brand-gray dark:bg-brand-dark text-gray-900 dark:text-gray-100 min-h-screen flex flex-col font-sans">
+
+    <!-- Top Accent Bar -->
+    <div class="h-1.5 w-full bg-brand-yellow z-50 fixed top-0"></div>
+
+    <!-- ==================== COMPACT CONTEXT-AWARE HEADER ==================== -->
+    <header id="main-header" class="fixed top-1.5 w-full z-40 bg-white/95 dark:bg-brand-card/95 backdrop-blur-md border-b border-brand-border dark:border-brand-borderDark h-[60px] shadow-sm">
+        
+        <!-- Reading Progress Bar -->
+        <div id="reading-progress" class="absolute bottom-0 left-0 h-[2px] bg-brand-yellow w-0 z-50 transition-all duration-150 ease-out"></div>
+
+        <div class="relative max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 h-full">
+            
+            <!-- Context 1: Home/Feed Navigation -->
+            <div id="header-nav-home" class="context-layer absolute inset-0 px-4 sm:px-6 lg:px-8 flex items-center justify-between">
+                <!-- Logo -->
+                <div class="flex items-center cursor-pointer group" onclick="goHome()">
+                    <div class="bg-brand-yellow text-brand-dark font-headline font-black text-xl tracking-tighter px-2 py-0.5 mr-1.5 leading-none transition-transform group-hover:-rotate-2">DATA</div>
+                    <div class="font-headline font-black text-xl tracking-tighter leading-none dark:text-white">THESIS</div>
+                </div>
+                
+                <!-- Nav Links, Search & Theme Toggle -->
+                <div class="flex items-center gap-2 sm:gap-6">
+                    <nav class="hidden md:flex space-x-6 text-[13px] font-bold uppercase tracking-widest text-gray-500 dark:text-gray-400 mr-2">
+                        <a href="#" class="hover:text-black dark:hover:text-brand-yellow transition-colors">Economics</a>
+                        <a href="#" class="hover:text-black dark:hover:text-brand-yellow transition-colors">Geopolitics</a>
+                        <a href="#" class="hover:text-black dark:hover:text-brand-yellow transition-colors">Tech</a>
+                    </nav>
+                    
+                    <!-- Search Component -->
+                    <div class="relative flex items-center justify-end h-9">
+                        <input type="text" id="search-input" class="absolute right-0 w-0 opacity-0 px-0 pointer-events-none h-full bg-gray-100 dark:bg-[#262626] rounded-full text-[13px] text-gray-900 dark:text-white border border-transparent focus:border-brand-yellow outline-none transition-all duration-300 ease-out shadow-sm z-10" placeholder="Search research...">
+                        <button id="search-toggle" class="relative z-20 p-2 rounded-full hover:bg-gray-100 dark:hover:bg-[#262626] transition-colors focus:outline-none flex items-center justify-center text-gray-800 dark:text-gray-200">
+                            <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z"></path></svg>
+                        </button>
+                    </div>
+
+                    <!-- Theme Toggle -->
+                    <button id="theme-toggle-home" class="p-2 rounded-full hover:bg-gray-100 dark:hover:bg-[#262626] transition-colors focus:outline-none flex items-center justify-center" aria-label="Toggle Dark Mode">
+                        <svg class="light-icon hidden w-5 h-5 text-gray-800" fill="currentColor" viewBox="0 0 20 20"><path fill-rule="evenodd" d="M10 2a1 1 0 011 1v1a1 1 0 11-2 0V3a1 1 0 011-1zm4.22 3.22a1 1 0 011.415 0l.708.708a1 1 0 11-1.414 1.414l-.708-.708a1 1 0 010-1.414zM18 10a1 1 0 01-1 1h-1a1 1 0 110-2h1a1 1 0 011 1zm-3.22 4.22a1 1 0 010 1.415l-.708.708a1 1 0 11-1.414-1.414l.708-.708a1 1 0 011.415 0zM10 16a1 1 0 011 1v1a1 1 0 11-2 0v-1a1 1 0 011-1zm-4.22-3.22a1 1 0 01-1.415 0l-.708-.708a1 1 0 111.414-1.414l.708.708a1 1 0 010 1.415zM2 10a1 1 0 011-1h1a1 1 0 110 2H3a1 1 0 01-1-1zm3.22-4.22a1 1 0 010-1.415l.708-.708a1 1 0 111.414 1.414l-.708.708a1 1 0 01-1.415 0zM10 5a5 5 0 100 10 5 5 0 000-10z" clip-rule="evenodd"></path></svg>
+                        <svg class="dark-icon hidden w-5 h-5 text-gray-200" fill="currentColor" viewBox="0 0 20 20"><path d="M17.293 13.293A8 8 0 016.707 2.707a8.001 8.001 0 1010.586 10.586z"></path></svg>
+                    </button>
+                </div>
+            </div>
+
+            <!-- Context 2: Article Reading Mode -->
+            <div id="header-nav-reading" class="context-layer absolute inset-0 px-4 sm:px-6 lg:px-8 flex items-center justify-between opacity-0 invisible">
+                
+                <!-- Left: Back Button -->
+                <div class="flex-1 flex justify-start">
+                    <button onclick="goHome()" class="flex items-center gap-2 text-sm font-bold text-gray-600 dark:text-gray-300 hover:text-black dark:hover:text-brand-yellow transition-colors group">
+                        <svg class="w-4 h-4 transform group-hover:-translate-x-1 transition-transform" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M10 19l-7-7m0 0l7-7m-7 7h18"></path></svg>
+                        <span class="hidden sm:inline">Back to Feed</span>
+                        <span class="sm:hidden">Back</span>
+                    </button>
+                </div>
+
+                <!-- Center: Article Title -->
+                <div class="flex-[2] flex justify-center overflow-hidden px-2">
+                    <div id="header-article-title" class="title-hidden font-headline font-bold text-[15px] sm:text-lg text-gray-900 dark:text-white truncate text-center max-w-full">
+                        Why China is building islands in the South China Sea
+                    </div>
+                </div>
+
+                <!-- Right: Actions -->
+                <div class="flex-1 flex justify-end items-center gap-1 sm:gap-3">
+                    <button class="p-2 text-gray-600 dark:text-gray-300 hover:text-black dark:hover:text-brand-yellow transition-colors" aria-label="Share">
+                        <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M8.684 13.342C8.886 12.938 9 12.482 9 12c0-.482-.114-.938-.316-1.342m0 2.684a3 3 0 110-2.684m0 2.684l6.632 3.316m-6.632-6l6.632-3.316m0 0a3 3 0 105.367-2.684 3 3 0 00-5.367 2.684zm0 9.316a3 3 0 105.368 2.684 3 3 0 00-5.368-2.684z"></path></svg>
+                    </button>
+                    <button id="theme-toggle-reading" class="p-2 rounded-full hover:bg-gray-100 dark:hover:bg-[#262626] transition-colors focus:outline-none">
+                        <svg class="light-icon hidden w-5 h-5 text-gray-800" fill="currentColor" viewBox="0 0 20 20"><path fill-rule="evenodd" d="M10 2a1 1 0 011 1v1a1 1 0 11-2 0V3a1 1 0 011-1zm4.22 3.22a1 1 0 011.415 0l.708.708a1 1 0 11-1.414 1.414l-.708-.708a1 1 0 010-1.414zM18 10a1 1 0 01-1 1h-1a1 1 0 110-2h1a1 1 0 011 1zm-3.22 4.22a1 1 0 010 1.415l-.708.708a1 1 0 11-1.414-1.414l.708-.708a1 1 0 011.415 0zM10 16a1 1 0 011 1v1a1 1 0 11-2 0v-1a1 1 0 011-1zm-4.22-3.22a1 1 0 01-1.415 0l-.708-.708a1 1 0 111.414-1.414l.708.708a1 1 0 010 1.415zM2 10a1 1 0 011-1h1a1 1 0 110 2H3a1 1 0 01-1-1zm3.22-4.22a1 1 0 010-1.415l.708-.708a1 1 0 111.414 1.414l-.708.708a1 1 0 01-1.415 0zM10 5a5 5 0 100 10 5 5 0 000-10z" clip-rule="evenodd"></path></svg>
+                        <svg class="dark-icon hidden w-5 h-5 text-gray-200" fill="currentColor" viewBox="0 0 20 20"><path d="M17.293 13.293A8 8 0 016.707 2.707a8.001 8.001 0 1010.586 10.586z"></path></svg>
+                    </button>
+                </div>
+            </div>
+
+        </div>
+    </header>
+
+    <!-- Content Spacer -->
+    <div class="h-[66px]"></div>
+
+    <!-- ==================== HOME FEED ==================== -->
+    <main id="home-view" class="view-section flex-grow max-w-[1600px] mx-auto px-4 sm:px-6 lg:px-8 py-8 w-full">
+        
+        <!-- Category Filter Pills -->
+        <div class="flex items-center gap-3 overflow-x-auto pb-4 mb-6 no-scrollbar">
+            <button class="bg-black text-white dark:bg-white dark:text-black px-4 py-1.5 rounded-full text-sm font-semibold whitespace-nowrap shadow-sm border border-black dark:border-white">All Research</button>
+            <button class="bg-white text-gray-700 border border-gray-300 dark:bg-[#1a1a1a] dark:text-gray-300 dark:border-[#333] hover:bg-gray-50 dark:hover:bg-[#262626] px-4 py-1.5 rounded-full text-sm font-semibold whitespace-nowrap transition-colors shadow-sm">Geopolitics</button>
+            <button class="bg-white text-gray-700 border border-gray-300 dark:bg-[#1a1a1a] dark:text-gray-300 dark:border-[#333] hover:bg-gray-50 dark:hover:bg-[#262626] px-4 py-1.5 rounded-full text-sm font-semibold whitespace-nowrap transition-colors shadow-sm">Economics</button>
+            <button class="bg-white text-gray-700 border border-gray-300 dark:bg-[#1a1a1a] dark:text-gray-300 dark:border-[#333] hover:bg-gray-50 dark:hover:bg-[#262626] px-4 py-1.5 rounded-full text-sm font-semibold whitespace-nowrap transition-colors shadow-sm">Demographics</button>
+            <button class="bg-white text-gray-700 border border-gray-300 dark:bg-[#1a1a1a] dark:text-gray-300 dark:border-[#333] hover:bg-gray-50 dark:hover:bg-[#262626] px-4 py-1.5 rounded-full text-sm font-semibold whitespace-nowrap transition-colors shadow-sm">Technology</button>
+            <button class="bg-white text-gray-700 border border-gray-300 dark:bg-[#1a1a1a] dark:text-gray-300 dark:border-[#333] hover:bg-gray-50 dark:hover:bg-[#262626] px-4 py-1.5 rounded-full text-sm font-semibold whitespace-nowrap transition-colors shadow-sm">Climate</button>
+        </div>
+
+        <!-- Hero Cover Story (Spans full width of container) -->
+        <article class="mb-12 flex flex-col lg:flex-row cursor-pointer group rounded-2xl overflow-hidden bg-white dark:bg-[#1a1a1a] shadow-sm border border-brand-border dark:border-[#333]" onclick="openPost()">
+            <div class="thumb-container lg:w-[65%] aspect-video lg:aspect-auto lg:h-[450px]">
+                <img src="https://images.unsplash.com/photo-1524661135-423995f22d0b?auto=format&fit=crop&w=1200&q=80" alt="Map" class="thumb-img absolute inset-0 mix-blend-overlay opacity-50 dark:opacity-40">
+                <div class="absolute inset-0 flex">
+                    <div class="w-[55%] h-full bg-cover bg-center border-r-[6px] border-brand-yellow" style="background-image: url('https://images.unsplash.com/photo-1582540705400-3687be69dcb5?auto=format&fit=crop&w=800&q=80');"></div>
+                    <div class="w-[45%] h-full relative overflow-hidden bg-[#0a192f] flex flex-col justify-center items-center">
+                        <div class="absolute inset-0 opacity-20" style="background-image: radial-gradient(#FFDE00 1px, transparent 1px); background-size: 15px 15px;"></div>
+                        <div class="relative z-10 w-4 h-4 bg-red-500 rounded-full animate-ping"></div>
+                        <h2 class="relative z-10 mt-4 font-black text-white text-3xl sm:text-5xl uppercase tracking-tighter text-shadow-strong px-4 text-center">BORDERS</h2>
+                    </div>
+                </div>
+            </div>
+            
+            <div class="lg:w-[35%] p-8 lg:p-12 flex flex-col justify-center">
+                <div class="flex items-center gap-3 mb-4">
+                    <span class="text-[11px] font-black uppercase tracking-widest text-brand-dark bg-brand-yellow px-2.5 py-1 rounded-sm shadow-sm">Cover Story</span>
+                    <span class="text-xs font-bold text-gray-500 dark:text-gray-400">14 min read</span>
+                </div>
+                <h3 class="font-headline font-black text-3xl sm:text-4xl lg:text-[2.5rem] leading-tight text-gray-900 dark:text-white group-hover:underline decoration-brand-yellow decoration-[3px] underline-offset-4 dark:group-hover:text-brand-yellow dark:group-hover:no-underline transition-colors">Why China is building islands in the South China Sea</h3>
+                <p class="text-[16px] text-gray-600 dark:text-gray-300 mt-4 font-serif line-clamp-3">A deep dive into the maritime data, dredging logs, and military strategy reshaping the borders of the Pacific Ocean.</p>
+                
+                <!-- Avatar kept ONLY for cover story -->
+                <div class="mt-8 flex items-center gap-3">
+                    <div class="w-10 h-10 rounded-full bg-gray-100 dark:bg-[#262626] border border-brand-border dark:border-[#333] flex items-center justify-center text-gray-800 dark:text-gray-200 font-headline font-bold text-sm">EB</div>
+                    <div class="flex flex-col">
+                        <p class="text-[14px] font-bold text-gray-900 dark:text-white">Editorial Board</p>
+                        <p class="text-[13px] text-gray-500 dark:text-gray-400">Geopolitics &bull; 2 days ago</p>
+                    </div>
+                </div>
+            </div>
+        </article>
+
+        <!-- Section Divider -->
+        <div class="flex items-center gap-4 mb-8">
+            <h2 class="font-headline font-black text-2xl text-gray-900 dark:text-white">Latest Analysis</h2>
+            <div class="h-px bg-brand-border dark:bg-[#333] flex-grow"></div>
+        </div>
+
+        <!-- YT-Style Grid (Cleaned up, No Avatars, Single Meta Line) -->
+        <div class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-x-5 gap-y-10">
+            
+            <!-- Grid Card 1 -->
+            <article class="flex flex-col cursor-pointer group" onclick="openPost()">
+                <div class="thumb-container aspect-video rounded-xl border border-brand-border dark:border-[#333]">
+                    <img src="https://images.unsplash.com/photo-1519074069444-1ba4fff66d16?auto=format&fit=crop&w=600&q=80" alt="Cityscape" class="thumb-img opacity-90 dark:opacity-70">
+                    <div class="absolute inset-0 bg-black/30"></div>
+                    <div class="absolute inset-0 flex flex-col justify-center items-center gap-3">
+                        <div class="bg-brand-yellow text-black font-black px-3 py-1.5 text-xl sm:text-2xl shadow-xl transform -rotate-2">83% WEALTH</div>
+                        <div class="bg-brand-yellow text-black font-black px-3 py-1.5 text-xl sm:text-2xl shadow-xl transform rotate-2">92% POVERTY</div>
+                    </div>
+                    <div class="absolute bottom-2 right-2 bg-black/90 text-white text-[11px] font-bold px-2 py-1 rounded-md tracking-wide">10 MIN READ</div>
+                </div>
+                <div class="flex flex-col px-1 mt-3">
+                    <h3 class="font-headline font-bold text-[18px] leading-snug text-gray-900 dark:text-white group-hover:underline decoration-brand-yellow decoration-[3px] underline-offset-2 dark:group-hover:text-brand-yellow dark:group-hover:no-underline transition-colors line-clamp-2">Why South Africa is still so segregated by design</h3>
+                    <p class="text-[13px] text-gray-600 dark:text-gray-400 mt-2 font-medium">
+                        Julian Cross <span class="mx-1">&bull;</span> Demographics <span class="mx-1">&bull;</span> 5 months ago
+                    </p>
+                </div>
+            </article>
+
+            <!-- Grid Card 2 -->
+            <article class="flex flex-col cursor-pointer group" onclick="openPost()">
+                <div class="thumb-container aspect-video rounded-xl border border-brand-border dark:border-[#333] bg-[#EAE0D5]">
+                    <div class="absolute inset-0 flex">
+                        <div class="w-1/2 bg-[#B7C9E2] flex flex-col items-center justify-center border-r-2 border-gray-800 gap-2">
+                            <span class="font-pixel font-bold text-sm px-2 py-1 bg-white border-2 border-black">700 CAL</span>
+                            <span class="text-5xl drop-shadow-md">🏃</span>
+                        </div>
+                        <div class="w-1/2 bg-[#F6D365] flex flex-col items-center justify-center gap-2">
+                            <span class="font-pixel font-bold text-sm px-2 py-1 bg-white border-2 border-black">700 CAL</span>
+                            <span class="text-5xl drop-shadow-md">🍔</span>
+                        </div>
+                    </div>
+                    <div class="absolute bottom-2 right-2 bg-black/90 text-white text-[11px] font-bold px-2 py-1 rounded-md tracking-wide">6 MIN READ</div>
+                </div>
+                <div class="flex flex-col px-1 mt-3">
+                    <h3 class="font-headline font-bold text-[18px] leading-snug text-gray-900 dark:text-white group-hover:underline decoration-brand-yellow decoration-[3px] underline-offset-2 dark:group-hover:text-brand-yellow dark:group-hover:no-underline transition-colors line-clamp-2">The science is in: Exercise isn't the best way to lose weight</h3>
+                    <p class="text-[13px] text-gray-600 dark:text-gray-400 mt-2 font-medium">
+                        Sarah Jenkins <span class="mx-1">&bull;</span> Health Data <span class="mx-1">&bull;</span> 1 year ago
+                    </p>
+                </div>
+            </article>
+
+            <!-- Grid Card 3 -->
+            <article class="flex flex-col cursor-pointer group" onclick="openPost()">
+                <div class="thumb-container aspect-video rounded-xl border border-brand-border dark:border-[#333]">
+                    <img src="https://images.unsplash.com/photo-1550745165-9bc0b252726f?auto=format&fit=crop&w=600&q=80" alt="Tech" class="thumb-img">
+                    <div class="absolute inset-0 bg-gradient-to-t from-black/90 via-black/20 to-transparent flex flex-col justify-end p-4">
+                        <span class="bg-white text-black font-black text-[10px] px-2 py-1 uppercase tracking-widest rounded-sm mb-1 w-max">Exclusive Data</span>
+                        <h4 class="font-bold text-white text-xl leading-tight text-shadow-strong">Global Microchip War</h4>
+                    </div>
+                    <div class="absolute bottom-2 right-2 bg-black/90 text-white text-[11px] font-bold px-2 py-1 rounded-md tracking-wide z-10">22 MIN READ</div>
+                </div>
+                <div class="flex flex-col px-1 mt-3">
+                    <h3 class="font-headline font-bold text-[18px] leading-snug text-gray-900 dark:text-white group-hover:underline decoration-brand-yellow decoration-[3px] underline-offset-2 dark:group-hover:text-brand-yellow dark:group-hover:no-underline transition-colors line-clamp-2">TSMC, China, and the battle for the 2nm semiconductor</h3>
+                    <p class="text-[13px] text-gray-600 dark:text-gray-400 mt-2 font-medium">
+                        Alex Torres <span class="mx-1">&bull;</span> Technology <span class="mx-1">&bull;</span> 3 weeks ago
+                    </p>
+                </div>
+            </article>
+
+            <!-- Grid Card 4 -->
+            <article class="flex flex-col cursor-pointer group" onclick="openPost()">
+                <div class="thumb-container aspect-video rounded-xl border border-brand-border dark:border-[#333]">
+                    <img src="https://images.unsplash.com/photo-1611095973763-414019e72400?auto=format&fit=crop&w=600&q=80" alt="Economy" class="thumb-img">
+                    <div class="absolute bottom-0 left-0 w-full bg-brand-yellow py-2 px-3 border-t-4 border-black">
+                        <h4 class="font-black text-black text-lg uppercase tracking-tight leading-none">MARKET COLLAPSE?</h4>
+                    </div>
+                    <div class="absolute bottom-10 right-2 bg-black/90 text-white text-[11px] font-bold px-2 py-1 rounded-md tracking-wide">8 MIN READ</div>
+                </div>
+                <div class="flex flex-col px-1 mt-3">
+                    <h3 class="font-headline font-bold text-[18px] leading-snug text-gray-900 dark:text-white group-hover:underline decoration-brand-yellow decoration-[3px] underline-offset-2 dark:group-hover:text-brand-yellow dark:group-hover:no-underline transition-colors line-clamp-2">Wall Street's hidden leverage is reaching 2008 levels again</h3>
+                    <p class="text-[13px] text-gray-600 dark:text-gray-400 mt-2 font-medium">
+                        Marcus Chen <span class="mx-1">&bull;</span> Economics <span class="mx-1">&bull;</span> 12 hours ago
+                    </p>
+                </div>
+            </article>
+
+            <!-- NEW Grid Card 5 (AI Data Centers) -->
+            <article class="flex flex-col cursor-pointer group" onclick="openPost()">
+                <div class="thumb-container aspect-video rounded-xl border border-brand-border dark:border-[#333]">
+                    <img src="https://images.unsplash.com/photo-1558494949-ef010cbdcc31?auto=format&fit=crop&w=600&q=80" alt="Servers" class="thumb-img opacity-80">
+                    <div class="absolute inset-0 bg-black/40"></div>
+                    <div class="absolute inset-0 flex flex-col justify-center items-center">
+                        <div class="bg-black border-2 border-brand-yellow text-white font-pixel px-4 py-2 text-xl shadow-2xl">
+                            <span class="text-brand-yellow">85 TWh</span> / YEAR
+                        </div>
+                    </div>
+                    <div class="absolute bottom-2 right-2 bg-black/90 text-white text-[11px] font-bold px-2 py-1 rounded-md tracking-wide">12 MIN READ</div>
+                </div>
+                <div class="flex flex-col px-1 mt-3">
+                    <h3 class="font-headline font-bold text-[18px] leading-snug text-gray-900 dark:text-white group-hover:underline decoration-brand-yellow decoration-[3px] underline-offset-2 dark:group-hover:text-brand-yellow dark:group-hover:no-underline transition-colors line-clamp-2">AI's insatiable hunger for electricity is breaking the grid</h3>
+                    <p class="text-[13px] text-gray-600 dark:text-gray-400 mt-2 font-medium">
+                        David Chen <span class="mx-1">&bull;</span> Climate <span class="mx-1">&bull;</span> 2 days ago
+                    </p>
+                </div>
+            </article>
+
+            <!-- NEW Grid Card 6 (Fast Fashion) -->
+            <article class="flex flex-col cursor-pointer group" onclick="openPost()">
+                <div class="thumb-container aspect-video rounded-xl border border-brand-border dark:border-[#333]">
+                    <img src="https://images.unsplash.com/photo-1528301721190-186c3bd85418?auto=format&fit=crop&w=600&q=80" alt="Clothes Waste" class="thumb-img opacity-80 mix-blend-luminosity">
+                    <div class="absolute inset-0 bg-gradient-to-t from-red-900/80 to-transparent"></div>
+                    <div class="absolute bottom-6 left-0 bg-white text-black font-black px-4 py-1.5 text-2xl border-y-4 border-r-4 border-black">
+                        92M TONS WASTE
+                    </div>
+                    <div class="absolute bottom-2 right-2 bg-black/90 text-white text-[11px] font-bold px-2 py-1 rounded-md tracking-wide">9 MIN READ</div>
+                </div>
+                <div class="flex flex-col px-1 mt-3">
+                    <h3 class="font-headline font-bold text-[18px] leading-snug text-gray-900 dark:text-white group-hover:underline decoration-brand-yellow decoration-[3px] underline-offset-2 dark:group-hover:text-brand-yellow dark:group-hover:no-underline transition-colors line-clamp-2">The invisible environmental toll of your $5 t-shirt</h3>
+                    <p class="text-[13px] text-gray-600 dark:text-gray-400 mt-2 font-medium">
+                        Elena Rostova <span class="mx-1">&bull;</span> Economics <span class="mx-1">&bull;</span> 1 week ago
+                    </p>
+                </div>
+            </article>
+
+            <!-- NEW Grid Card 7 (Demographics Timebomb) -->
+            <article class="flex flex-col cursor-pointer group" onclick="openPost()">
+                <div class="thumb-container aspect-video rounded-xl border border-brand-border dark:border-[#333] bg-gray-900">
+                    <img src="https://images.unsplash.com/photo-1542051812871-75f11818bd2f?auto=format&fit=crop&w=600&q=80" alt="Crowd" class="thumb-img opacity-30 grayscale">
+                    
+                    <!-- Abstract Population Pyramid -->
+                    <div class="absolute inset-0 flex flex-col items-center justify-end pb-6 gap-1 opacity-90">
+                        <div class="w-[80%] h-3 bg-brand-yellow"></div>
+                        <div class="w-[70%] h-3 bg-brand-yellow"></div>
+                        <div class="w-[55%] h-3 bg-brand-yellow"></div>
+                        <div class="w-[40%] h-3 bg-red-500"></div>
+                        <div class="w-[25%] h-3 bg-red-500"></div>
+                        <div class="w-[10%] h-3 bg-red-500 animate-pulse"></div>
+                    </div>
+                    <div class="absolute bottom-2 right-2 bg-black/90 text-white text-[11px] font-bold px-2 py-1 rounded-md tracking-wide">15 MIN READ</div>
+                </div>
+                <div class="flex flex-col px-1 mt-3">
+                    <h3 class="font-headline font-bold text-[18px] leading-snug text-gray-900 dark:text-white group-hover:underline decoration-brand-yellow decoration-[3px] underline-offset-2 dark:group-hover:text-brand-yellow dark:group-hover:no-underline transition-colors line-clamp-2">The demographic timebomb rewriting East Asia's future</h3>
+                    <p class="text-[13px] text-gray-600 dark:text-gray-400 mt-2 font-medium">
+                        Marcus Chen <span class="mx-1">&bull;</span> Demographics <span class="mx-1">&bull;</span> 2 weeks ago
+                    </p>
+                </div>
+            </article>
+
+            <!-- Grid Card 8 (Text Data Drop / Passkeys) -->
+            <article class="flex flex-col cursor-pointer group" onclick="openPost()">
+                <div class="thumb-container aspect-video rounded-xl border border-brand-border dark:border-[#333] bg-[#fdfdfd] dark:bg-[#111]">
+                    <div class="absolute inset-0 p-6 flex flex-col justify-center">
+                        <span class="text-xs font-bold uppercase tracking-widest text-brand-yellow mb-3">Data Drop</span>
+                        <h4 class="font-headline font-bold text-3xl leading-tight text-gray-900 dark:text-white">Passwords are dead.<br>Good riddance.</h4>
+                    </div>
+                    <div class="absolute bottom-2 right-2 bg-black/90 text-white text-[11px] font-bold px-2 py-1 rounded-md tracking-wide">5 MIN READ</div>
+                </div>
+                <div class="flex flex-col px-1 mt-3">
+                    <h3 class="font-headline font-bold text-[18px] leading-snug text-gray-900 dark:text-white group-hover:underline decoration-brand-yellow decoration-[3px] underline-offset-2 dark:group-hover:text-brand-yellow dark:group-hover:no-underline transition-colors line-clamp-2">Why the tech industry is finally killing the password for good</h3>
+                    <p class="text-[13px] text-gray-600 dark:text-gray-400 mt-2 font-medium">
+                        Editorial Board <span class="mx-1">&bull;</span> Technology <span class="mx-1">&bull;</span> 1 month ago
+                    </p>
+                </div>
+            </article>
+
+            <!-- NEW Grid Card 9 (Space/Satellites) -->
+            <article class="flex flex-col cursor-pointer group" onclick="openPost()">
+                <div class="thumb-container aspect-video rounded-xl border border-brand-border dark:border-[#333] bg-[#0a192f]">
+                    <div class="absolute inset-0 opacity-30" style="background-image: radial-gradient(white 1px, transparent 1px); background-size: 20px 20px;"></div>
+                    <div class="absolute inset-0 flex flex-col justify-center items-center">
+                        <div class="w-[80%] h-[80%] border border-brand-yellow rounded-full absolute border-dashed animate-[spin_30s_linear_infinite]"></div>
+                        <div class="w-[60%] h-[60%] border-2 border-red-500 rounded-full absolute border-dotted animate-[spin_20s_linear_infinite_reverse]"></div>
+                        <span class="text-5xl drop-shadow-lg">🌍</span>
+                    </div>
+                    <div class="absolute bottom-2 right-2 bg-black/90 text-white text-[11px] font-bold px-2 py-1 rounded-md tracking-wide">11 MIN READ</div>
+                </div>
+                <div class="flex flex-col px-1 mt-3">
+                    <h3 class="font-headline font-bold text-[18px] leading-snug text-gray-900 dark:text-white group-hover:underline decoration-brand-yellow decoration-[3px] underline-offset-2 dark:group-hover:text-brand-yellow dark:group-hover:no-underline transition-colors line-clamp-2">The orbital real estate crisis: Low Earth Orbit is running out of space</h3>
+                    <p class="text-[13px] text-gray-600 dark:text-gray-400 mt-2 font-medium">
+                        Alex Torres <span class="mx-1">&bull;</span> Technology <span class="mx-1">&bull;</span> 3 days ago
+                    </p>
+                </div>
+            </article>
+
+            <!-- NEW Grid Card 10 (Water Scarcity) -->
+            <article class="flex flex-col cursor-pointer group" onclick="openPost()">
+                <div class="thumb-container aspect-video rounded-xl border border-brand-border dark:border-[#333]">
+                    <img src="https://images.unsplash.com/photo-1541427468627-a89a96e5ca1d?auto=format&fit=crop&w=600&q=80" alt="Cracked Earth" class="thumb-img opacity-80 mix-blend-multiply dark:mix-blend-luminosity">
+                    <div class="absolute inset-0 bg-blue-900/20"></div>
+                    <div class="absolute inset-0 flex flex-col justify-center items-center gap-1">
+                        <div class="bg-white text-blue-600 font-black px-3 py-1 text-lg sm:text-xl shadow-lg transform -rotate-1 border-2 border-blue-600">WATER FUTURES</div>
+                        <div class="bg-brand-yellow text-black font-black px-3 py-1 text-xl sm:text-2xl shadow-lg transform rotate-2 border-2 border-black">+412% YTD</div>
+                    </div>
+                    <div class="absolute bottom-2 right-2 bg-black/90 text-white text-[11px] font-bold px-2 py-1 rounded-md tracking-wide">14 MIN READ</div>
+                </div>
+                <div class="flex flex-col px-1 mt-3">
+                    <h3 class="font-headline font-bold text-[18px] leading-snug text-gray-900 dark:text-white group-hover:underline decoration-brand-yellow decoration-[3px] underline-offset-2 dark:group-hover:text-brand-yellow dark:group-hover:no-underline transition-colors line-clamp-2">The new gold: Why Wall Street hedge funds are buying up global water rights</h3>
+                    <p class="text-[13px] text-gray-600 dark:text-gray-400 mt-2 font-medium">
+                        Marcus Chen <span class="mx-1">&bull;</span> Economics <span class="mx-1">&bull;</span> 4 days ago
+                    </p>
+                </div>
+            </article>
+
+            <!-- NEW Grid Card 11 (Music Streaming) -->
+            <article class="flex flex-col cursor-pointer group" onclick="openPost()">
+                <div class="thumb-container aspect-video rounded-xl border border-brand-border dark:border-[#333] bg-[#EAE0D5] dark:bg-[#1a1a1a]">
+                    <!-- Simple SVG Line Chart crossover -->
+                    <svg class="absolute inset-0 w-full h-full z-10" preserveAspectRatio="none" viewBox="0 0 100 100">
+                        <polyline points="0,80 40,70 70,40 100,20" fill="none" stroke="#F43F5E" stroke-width="3" stroke-linecap="round"/>
+                        <polyline points="0,20 40,30 70,60 100,80" fill="none" stroke="#3B82F6" stroke-width="3" stroke-linecap="round"/>
+                        <text x="70" y="15" fill="#F43F5E" font-size="7" font-weight="bold" font-family="sans-serif">OLD CATALOG</text>
+                        <text x="70" y="85" fill="#3B82F6" font-size="7" font-weight="bold" font-family="sans-serif">NEW RELEASES</text>
+                    </svg>
+                    <div class="absolute bottom-2 right-2 bg-black/90 text-white text-[11px] font-bold px-2 py-1 rounded-md tracking-wide">7 MIN READ</div>
+                </div>
+                <div class="flex flex-col px-1 mt-3">
+                    <h3 class="font-headline font-bold text-[18px] leading-snug text-gray-900 dark:text-white group-hover:underline decoration-brand-yellow decoration-[3px] underline-offset-2 dark:group-hover:text-brand-yellow dark:group-hover:no-underline transition-colors line-clamp-2">The Spotify asymptote: Why new music is losing the war to 80s nostalgia</h3>
+                    <p class="text-[13px] text-gray-600 dark:text-gray-400 mt-2 font-medium">
+                        Sarah Jenkins <span class="mx-1">&bull;</span> Culture <span class="mx-1">&bull;</span> 5 days ago
+                    </p>
+                </div>
+            </article>
+
+            <!-- NEW Grid Card 12 (EV Copper) -->
+            <article class="flex flex-col cursor-pointer group" onclick="openPost()">
+                <div class="thumb-container aspect-video rounded-xl border border-brand-border dark:border-[#333]">
+                    <img src="https://images.unsplash.com/photo-1601004838615-520e50f38b29?auto=format&fit=crop&w=600&q=80" alt="Mine" class="thumb-img opacity-90 sepia-[.5]">
+                    <div class="absolute inset-0 bg-gradient-to-tr from-[#b45309]/80 to-transparent"></div>
+                    <div class="absolute bottom-0 left-0 w-full bg-[#b45309] py-1.5 px-3 border-t-2 border-[#78350f]">
+                        <h4 class="font-black text-white text-[11px] uppercase tracking-widest">CRITICAL MINERALS</h4>
+                    </div>
+                    <div class="absolute bottom-10 right-2 bg-black/90 text-white text-[11px] font-bold px-2 py-1 rounded-md tracking-wide">13 MIN READ</div>
+                </div>
+                <div class="flex flex-col px-1 mt-3">
+                    <h3 class="font-headline font-bold text-[18px] leading-snug text-gray-900 dark:text-white group-hover:underline decoration-brand-yellow decoration-[3px] underline-offset-2 dark:group-hover:text-brand-yellow dark:group-hover:no-underline transition-colors line-clamp-2">The hidden bottleneck in the EV revolution: We don't have enough Copper</h3>
+                    <p class="text-[13px] text-gray-600 dark:text-gray-400 mt-2 font-medium">
+                        Editorial Board <span class="mx-1">&bull;</span> Geopolitics <span class="mx-1">&bull;</span> 1 week ago
+                    </p>
+                </div>
+            </article>
+
+        </div>
+    </main>
+
+    <!-- ==================== ARTICLE READING VIEW ==================== -->
+    <main id="post-view" class="view-section hidden-view flex-grow w-full bg-white dark:bg-brand-dark pb-24">
+        
+        <article class="w-full relative z-20 pt-8 sm:pt-14">
+            
+            <!-- Title & Meta Header -->
+            <div class="max-w-3xl mx-auto px-4 sm:px-6 lg:px-8 mb-10 text-center">
+                <span class="text-brand-dark bg-brand-yellow font-bold uppercase tracking-widest text-[11px] px-3 py-1 rounded-sm inline-block mb-6 shadow-sm">Geopolitics</span>
+                
+                <h1 id="article-main-title-ref" class="text-4xl sm:text-5xl md:text-[3.5rem] font-headline font-black leading-[1.05] text-gray-900 dark:text-white mb-6">
+                    Why China is building islands in the South China Sea
+                </h1>
+                
+                <p class="font-serif text-xl sm:text-2xl text-gray-500 dark:text-gray-400 italic leading-snug mb-8 max-w-2xl mx-auto">
+                    A deep dive into the maritime data, dredging logs, and military strategy reshaping the borders of the Pacific Ocean.
+                </p>
+                
+                <div class="flex items-center justify-center gap-2 sm:gap-3 text-[13px] text-gray-500 dark:text-gray-400 font-medium uppercase tracking-wide">
+                    <span class="font-bold text-gray-900 dark:text-white">Editorial Board</span>
+                    <span>|</span>
+                    <span>Oct 24, 2026</span>
+                    <span>|</span>
+                    <span>14 min read</span>
+                </div>
+            </div>
+
+            <!-- Massive Hero Image -->
+            <div class="w-full max-w-[1200px] mx-auto h-[40vh] sm:h-[60vh] relative mb-12 lg:mb-16 bg-gray-100 dark:bg-[#1a1a1a] shadow-inner">
+                <div class="absolute inset-0 flex">
+                    <div class="w-1/2 h-full bg-cover bg-center border-r-4 border-brand-yellow" style="background-image: url('https://images.unsplash.com/photo-1582540705400-3687be69dcb5?auto=format&fit=crop&w=1200&q=80');"></div>
+                    <div class="w-1/2 h-full relative overflow-hidden bg-[#0a192f]">
+                        <div class="absolute inset-0 opacity-30" style="background-image: radial-gradient(#FFDE00 1px, transparent 1px); background-size: 30px 30px;"></div>
+                        <!-- Abstract Data points -->
+                        <div class="absolute top-1/3 left-1/3 w-8 h-8 border-2 border-red-500 rounded-full animate-ping"></div>
+                        <div class="absolute top-1/2 right-1/4 w-3 h-3 bg-red-500 rounded-full"></div>
+                        <div class="absolute bottom-1/4 left-1/2 w-4 h-4 bg-red-500 rounded-full"></div>
+                    </div>
+                </div>
+                <div class="absolute bottom-0 right-0 bg-white dark:bg-brand-card text-gray-600 dark:text-gray-400 text-xs px-3 py-2 font-sans font-medium border-l border-t border-gray-200 dark:border-brand-borderDark shadow-sm">
+                    Satellite imagery matched with AIS tracking data.
+                </div>
+            </div>
+
+            <!-- Prose Container -->
+            <div class="max-w-[680px] mx-auto px-4 sm:px-6 prose">
+                <p class="drop-cap">
+                    Looking at a standard political map of the world, borders seem fixed. Thick black lines separate nations, grounded in treaties and physical geography. But look at the South China Sea, and those lines begin to blur, overlap, and disappear entirely into the water.
+                </p>
+                <p>
+                    Over the last decade, a massive engineering project has been underway. Using specialized dredging ships, millions of tons of sand and coral have been sucked from the ocean floor and piled onto submerged reefs. The result? New land where there was none before.
+                </p>
+
+                <!-- Data Callout Box -->
+                <div class="my-12 bg-gray-50 dark:bg-[#1a1a1a] border-l-4 border-brand-yellow p-8 rounded-r-lg shadow-sm border border-transparent dark:border-[#333]">
+                    <h3 class="font-sans font-bold text-[13px] mb-3 uppercase tracking-widest text-gray-500 dark:text-gray-400">The Scale of Expansion</h3>
+                    <p class="font-sans text-4xl sm:text-5xl font-black text-gray-900 dark:text-white mb-3">3,200+ Acres</p>
+                    <p class="font-sans text-base text-gray-700 dark:text-gray-300 leading-relaxed">Total new land created in the Spratly Islands since 2013, supporting military-grade runways, deep-water ports, and radar installations.</p>
+                </div>
+
+                <p>
+                    The motivation isn't merely to create new real estate. It's about establishing sovereign territory. According to the United Nations Convention on the Law of the Sea (UNCLOS), a country's territorial waters and exclusive economic zones (EEZs) are determined by their land borders.
+                </p>
+                
+                <h2 class="font-headline font-bold text-3xl sm:text-4xl text-gray-900 dark:text-white mt-14 mb-6">The Nine-Dash Line</h2>
+                
+                <p>
+                    If you project a 200-nautical-mile EEZ from these newly constructed islands, you effectively draw a circle of control over one of the most vital shipping lanes on the planet. Over $3 trillion in global trade passes through these waters annually.
+                </p>
+                <p>
+                    This is where the data tells the real story. By tracking the AIS (Automatic Identification System) signals of dredging vessels over a five-year period, we can see a coordinated, systematic approach to building a geographic fortress.
+                </p>
+            </div>
+            
+        </article>
+    </main>
+
+    <!-- ==================== FOOTER ==================== -->
+    <footer class="bg-gray-50 dark:bg-brand-card border-t border-brand-border dark:border-brand-borderDark py-10 mt-auto">
+        <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 flex flex-col md:flex-row items-center justify-between gap-6">
+            <div class="flex items-center">
+                <div class="bg-brand-yellow text-brand-dark font-headline font-black text-xl tracking-tighter px-1.5 mr-1 leading-none">DATA</div>
+                <div class="font-headline font-black text-xl tracking-tighter leading-none dark:text-white">THESIS</div>
+            </div>
+            <div class="flex gap-6 text-[13px] font-bold uppercase tracking-widest text-gray-500">
+                <a href="#" class="hover:text-black dark:hover:text-white transition-colors">About</a>
+                <a href="#" class="hover:text-black dark:hover:text-white transition-colors">Methodology</a>
+                <a href="#" class="hover:text-black dark:hover:text-white transition-colors">Newsletter</a>
+            </div>
+            <p class="text-gray-400 dark:text-gray-600 text-[13px] font-sans font-medium">&copy; 2026 Data Thesis Media.</p>
+        </div>
+    </footer>
+
+    <!-- Interactive Logic -->
+    <script>
+        // --- Search Bar Toggle ---
+        const searchToggleBtn = document.getElementById('search-toggle');
+        const searchInput = document.getElementById('search-input');
+
+        searchToggleBtn.addEventListener('click', (e) => {
+            e.preventDefault();
+            searchInput.classList.toggle('search-active');
+            if (searchInput.classList.contains('search-active')) {
+                searchInput.focus();
+            }
+        });
+
+        // Close search when clicking outside
+        document.addEventListener('click', (e) => {
+            if (!searchInput.contains(e.target) && !searchToggleBtn.contains(e.target)) {
+                searchInput.classList.remove('search-active');
+            }
+        });
+
+        // --- Theme Toggling ---
+        const setupThemeToggles = () => {
+            const toggleBtns = document.querySelectorAll('#theme-toggle-home, #theme-toggle-reading');
+            
+            const updateIcons = (isDark) => {
+                document.querySelectorAll('.dark-icon').forEach(el => el.classList.toggle('hidden', isDark));
+                document.querySelectorAll('.light-icon').forEach(el => el.classList.toggle('hidden', !isDark));
+            };
+
+            const isDark = localStorage.getItem('color-theme') === 'dark' || (!('color-theme' in localStorage) && window.matchMedia('(prefers-color-scheme: dark)').matches);
+            if (isDark) { document.documentElement.classList.add('dark'); }
+            updateIcons(isDark);
+
+            toggleBtns.forEach(btn => {
+                btn.addEventListener('click', () => {
+                    const willBeDark = !document.documentElement.classList.contains('dark');
+                    if (willBeDark) {
+                        document.documentElement.classList.add('dark');
+                        localStorage.setItem('color-theme', 'dark');
+                    } else {
+                        document.documentElement.classList.remove('dark');
+                        localStorage.setItem('color-theme', 'light');
+                    }
+                    updateIcons(willBeDark);
+                });
+            });
+        };
+        setupThemeToggles();
+
+        // --- View Navigation & Context Header ---
+        const homeView = document.getElementById('home-view');
+        const postView = document.getElementById('post-view');
+        
+        const navHome = document.getElementById('header-nav-home');
+        const navReading = document.getElementById('header-nav-reading');
+        const progressBar = document.getElementById('reading-progress');
+        const articleTitleHeader = document.getElementById('header-article-title');
+        const articleMainTitleRef = document.getElementById('article-main-title-ref');
+
+        let isReadingMode = false;
+
+        function openPost() {
+            isReadingMode = true;
+            
+            // Hide Home, Show Post
+            homeView.classList.add('hidden-view');
+            setTimeout(() => {
+                postView.classList.remove('hidden-view');
+                window.scrollTo({ top: 0, behavior: 'instant' });
+                
+                // Swap Header Logic: Hide Home Nav, Show Reading Nav Frame
+                navHome.classList.add('opacity-0', 'invisible');
+                navReading.classList.remove('opacity-0', 'invisible');
+                
+                // Reset progress and title fade
+                progressBar.style.width = '0%';
+                articleTitleHeader.classList.add('title-hidden');
+                articleTitleHeader.classList.remove('title-visible');
+
+            }, 400); 
+        }
+
+        function goHome() {
+            isReadingMode = false;
+            
+            // Hide Post, Show Home
+            postView.classList.add('hidden-view');
+            setTimeout(() => {
+                homeView.classList.remove('hidden-view');
+                window.scrollTo({ top: 0, behavior: 'instant' });
+                
+                // Swap Header Logic back
+                navReading.classList.add('opacity-0', 'invisible');
+                navHome.classList.remove('opacity-0', 'invisible');
+                
+                // Reset states
+                progressBar.style.width = '0%';
+                articleTitleHeader.classList.add('title-hidden');
+                articleTitleHeader.classList.remove('title-visible');
+                
+            }, 400);
+        }
+
+        // --- Scroll Logic for Reading Mode ---
+        window.addEventListener('scroll', () => {
+            if (!isReadingMode) return;
+
+            // 1. Progress Bar
+            const scrollTotal = document.documentElement.scrollHeight - window.innerHeight;
+            const scrollCurrent = window.scrollY;
+            
+            if (scrollTotal > 0) {
+                const progress = (scrollCurrent / scrollTotal) * 100;
+                progressBar.style.width = `${progress}%`;
+            }
+
+            // 2. Title Fade-in
+            if (articleMainTitleRef) {
+                const rect = articleMainTitleRef.getBoundingClientRect();
+                
+                if (rect.bottom < 60) {
+                    articleTitleHeader.classList.remove('title-hidden');
+                    articleTitleHeader.classList.add('title-visible');
+                } else {
+                    articleTitleHeader.classList.add('title-hidden');
+                    articleTitleHeader.classList.remove('title-visible');
+                }
+            }
+        });
+    </script>
+</body>
+</html>

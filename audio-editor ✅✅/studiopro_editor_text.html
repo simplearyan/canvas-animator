@@ -2540,6 +2540,56 @@
             return { animAlpha, animScale, animX, animY, animRot, mosaicLevel };
         }
 
+        window.getInterpolatedValue = function(clip, propertyName, defaultValue) {
+            if (!clip.keyframes || !clip.keyframes[propertyName] || clip.keyframes[propertyName].length === 0) {
+                if (clip.effects && clip.effects[propertyName] !== undefined) {
+                    return parseFloat(clip.effects[propertyName]);
+                }
+                return defaultValue;
+            }
+            
+            const keyframes = [...clip.keyframes[propertyName]];
+            keyframes.sort((a, b) => a.time - b.time);
+            
+            const localTime = State.currentTime - clip.start;
+            
+            if (localTime <= keyframes[0].time) {
+                return keyframes[0].value;
+            }
+            if (localTime >= keyframes[keyframes.length - 1].time) {
+                return keyframes[keyframes.length - 1].value;
+            }
+            
+            let prev = keyframes[0];
+            let next = keyframes[keyframes.length - 1];
+            for (let i = 0; i < keyframes.length - 1; i++) {
+                if (localTime >= keyframes[i].time && localTime <= keyframes[i+1].time) {
+                    prev = keyframes[i];
+                    next = keyframes[i+1];
+                    break;
+                }
+            }
+            
+            if (next.time === prev.time) {
+                return prev.value;
+            }
+            
+            let t = (localTime - prev.time) / (next.time - prev.time);
+            const ease = prev.ease || 'linear';
+            if (ease === 'static') {
+                return prev.value;
+            }
+            if (ease === 'easeIn') {
+                t = t * t;
+            } else if (ease === 'easeOut') {
+                t = t * (2 - t);
+            } else if (ease === 'easeInOut') {
+                t = t < 0.5 ? 2 * t * t : -1 + (4 - 2 * t) * t;
+            }
+            
+            return prev.value + t * (next.value - prev.value);
+        };
+
         function drawCanvas(targetCtx, targetW, targetH) {
             const domBoxContainer = document.getElementById('domBoundingBoxContainer');
             if (domBoxContainer && !State.isExporting && !targetCtx) domBoxContainer.innerHTML = '';
@@ -2585,6 +2635,12 @@
                 });
 
                 activeVisualClips.forEach(clip => {
+                    const baseScale = window.getInterpolatedValue(clip, 'scale', clip.effects.scale !== undefined ? clip.effects.scale : 1);
+                    const rotate = window.getInterpolatedValue(clip, 'rotate', clip.effects.rotate !== undefined ? clip.effects.rotate : 0);
+                    const offsetX = window.getInterpolatedValue(clip, 'offsetX', clip.effects.offsetX || 0);
+                    const offsetY = window.getInterpolatedValue(clip, 'offsetY', clip.effects.offsetY || 0);
+                    const opacity = window.getInterpolatedValue(clip, 'opacity', clip.effects.opacity !== undefined ? clip.effects.opacity : 100);
+
                     if (clip.type === 'text') {
                         // Drawing text clip
                         const fontSize = clip.effects.fontSize || 100;
@@ -2606,11 +2662,6 @@
                         const lh = (clip.effects.lineHeight || 1.1) * fontSize;
                         const startY = -((lines.length - 1) * lh) / 2;
 
-                        const baseScale = clip.effects.scale !== undefined ? clip.effects.scale : 1;
-                        const rotate = clip.effects.rotate !== undefined ? clip.effects.rotate : 0;
-                        const offsetX = clip.effects.offsetX || 0;
-                        const offsetY = clip.effects.offsetY || 0;
-
                         // Animation Math
                         const clipTime = State.currentTime - clip.start;
                         const timeLeft = clip.duration - clipTime;
@@ -2622,7 +2673,7 @@
                         const cx = w/2 + (offsetX * w) / 100 + aState.animX;
                         const cy = h/2 + (offsetY * h) / 100 + aState.animY;
 
-                        ctx.globalAlpha = aState.animAlpha * (clip.effects.opacity !== undefined ? clip.effects.opacity/100 : 1);
+                        ctx.globalAlpha = aState.animAlpha * (opacity / 100);
                         ctx.globalCompositeOperation = clip.effects.blendMode || 'source-over';
                         ctx.translate(cx, cy);
                         ctx.rotate((rotate * Math.PI / 180) + aState.animRot);
@@ -3042,10 +3093,7 @@
                         const sw = clip.effects.shapeWidth || 200;
                         const sh = clip.effects.shapeHeight || 200;
 
-                        const baseScale = clip.effects.scale !== undefined ? clip.effects.scale : 1;
-                        const rotate = clip.effects.rotate !== undefined ? clip.effects.rotate : 0;
-                        const offsetX = clip.effects.offsetX || 0;
-                        const offsetY = clip.effects.offsetY || 0;
+
                         const borderRadius = clip.effects.borderRadius || 0;
 
                         // Animation Math
@@ -3058,7 +3106,7 @@
                         const cx = w/2 + (offsetX * w) / 100 + aState.animX;
                         const cy = h/2 + (offsetY * h) / 100 + aState.animY;
 
-                        ctx.globalAlpha = aState.animAlpha * (clip.effects.opacity !== undefined ? clip.effects.opacity/100 : 1);
+                        ctx.globalAlpha = aState.animAlpha * (opacity / 100);
                         ctx.globalCompositeOperation = clip.effects.blendMode || 'source-over';
                         ctx.translate(cx, cy);
                         ctx.rotate((rotate * Math.PI / 180) + aState.animRot);
@@ -3238,10 +3286,7 @@
                         State.currentTime = prevTime;
                         State.activeSceneId = prevSceneId;
 
-                        const baseScale = clip.effects.scale !== undefined ? clip.effects.scale : 1;
-                        const rotate = clip.effects.rotate !== undefined ? clip.effects.rotate : 0;
-                        const offsetX = clip.effects.offsetX || 0;
-                        const offsetY = clip.effects.offsetY || 0;
+
 
                         const clipTime = State.currentTime - clip.start;
                         const timeLeft = clip.duration - clipTime;
@@ -3252,7 +3297,7 @@
                         const cx = w/2 + (offsetX * w) / 100 + aState.animX;
                         const cy = h/2 + (offsetY * h) / 100 + aState.animY;
 
-                        ctx.globalAlpha = aState.animAlpha * (clip.effects.opacity !== undefined ? clip.effects.opacity/100 : 1);
+                        ctx.globalAlpha = aState.animAlpha * (opacity / 100);
                         ctx.globalCompositeOperation = clip.effects.blendMode || 'source-over';
                         ctx.translate(cx, cy);
                         ctx.rotate((rotate * Math.PI / 180) + aState.animRot);
@@ -3300,10 +3345,6 @@
                         ctx.restore();
                     } else {
                     if (clip.isPlaceholder || (clip.type === 'image' && !clip.imageEl) || (clip.type === 'video' && !clip.videoEl)) {
-                        const baseScale = clip.effects.scale !== undefined ? clip.effects.scale : 1;
-                        const rotate = clip.effects.rotate !== undefined ? clip.effects.rotate : 0;
-                        const offsetX = clip.effects.offsetX || 0;
-                        const offsetY = clip.effects.offsetY || 0;
                         const borderRadius = clip.effects.borderRadius !== undefined ? clip.effects.borderRadius : 0;
 
                         const clipTime = State.currentTime - clip.start;
@@ -3315,7 +3356,7 @@
                         const cx = w/2 + (offsetX * w) / 100 + aState.animX;
                         const cy = h/2 + (offsetY * h) / 100 + aState.animY;
 
-                        ctx.globalAlpha = aState.animAlpha * (clip.effects.opacity !== undefined ? clip.effects.opacity/100 : 1);
+                        ctx.globalAlpha = aState.animAlpha * (opacity / 100);
                         ctx.globalCompositeOperation = clip.effects.blendMode || 'source-over';
                         ctx.translate(cx, cy);
                         ctx.rotate((rotate * Math.PI / 180) + aState.animRot);
@@ -3463,11 +3504,7 @@
                         dw = dw * zFrame;
                         dh = dh * zFrame;
 
-                        const baseScale = clip.effects.scale !== undefined ? clip.effects.scale : 1;
-                        const rotate = clip.effects.rotate !== undefined ? clip.effects.rotate : 0;
                         const borderRadius = clip.effects.borderRadius !== undefined ? clip.effects.borderRadius : 0;
-                        const offsetX = clip.effects.offsetX || 0;
-                        const offsetY = clip.effects.offsetY || 0;
 
                         // Animation Math
                         const clipTime = State.currentTime - clip.start;
@@ -3480,7 +3517,7 @@
                         const cx = w/2 + (offsetX * w) / 100 + aState.animX;
                         const cy = h/2 + (offsetY * h) / 100 + aState.animY;
 
-                        ctx.globalAlpha = aState.animAlpha * (clip.effects.opacity !== undefined ? clip.effects.opacity/100 : 1);
+                        ctx.globalAlpha = aState.animAlpha * (opacity / 100);
                         ctx.globalCompositeOperation = clip.effects.blendMode || 'source-over';
                         ctx.translate(cx, cy);
                         ctx.rotate((rotate * Math.PI / 180) + aState.animRot);
@@ -3738,20 +3775,27 @@
             if (!clip.audioNodes) return;
             const fx = clip.effects;
             
+            const volumeVal = window.getInterpolatedValue(clip, 'volume', fx.volume !== undefined ? fx.volume : 1);
+            const echoVal = window.getInterpolatedValue(clip, 'echo', fx.echo !== undefined ? fx.echo : 0);
+            const robotVal = window.getInterpolatedValue(clip, 'robot', fx.robot !== undefined ? fx.robot : 0);
+            const cinematicVal = window.getInterpolatedValue(clip, 'cinematic', fx.cinematic !== undefined ? fx.cinematic : 0);
+            const cartoonVal = window.getInterpolatedValue(clip, 'cartoon', fx.cartoon !== undefined ? fx.cartoon : 0);
+            const noiseRedVal = window.getInterpolatedValue(clip, 'noiseRed', fx.noiseRed !== undefined ? fx.noiseRed : 0);
+            
             const track = State.tracks.find(t => t.id === clip.trackId);
             if (track && track.muted) {
                 clip.audioNodes.volume.gain.value = 0;
                 clip.audioNodes.echoVolume.gain.value = 0;
                 clip.audioNodes.roboVolume.gain.value = 0;
             } else {
-                clip.audioNodes.volume.gain.value = fx.volume;
-                clip.audioNodes.echoVolume.gain.value = fx.echoEnable ? fx.echo : 0;
-                clip.audioNodes.roboVolume.gain.value = fx.robotEnable ? fx.robot : 0;
+                clip.audioNodes.volume.gain.value = volumeVal;
+                clip.audioNodes.echoVolume.gain.value = fx.echoEnable ? echoVal : 0;
+                clip.audioNodes.roboVolume.gain.value = fx.robotEnable ? robotVal : 0;
             }
 
-            clip.audioNodes.eq.gain.value = fx.cinematicEnable ? (fx.cinematic * 15) : 0;
-            clip.audioNodes.tinny.frequency.value = fx.cartoonEnable ? Math.max(1, fx.cartoon * 1500) : 0;
-            clip.audioNodes.noiseRed.frequency.value = fx.noiseRedEnable ? (20000 - (fx.noiseRed * 17000)) : 20000;
+            clip.audioNodes.eq.gain.value = fx.cinematicEnable ? (cinematicVal * 15) : 0;
+            clip.audioNodes.tinny.frequency.value = fx.cartoonEnable ? Math.max(1, cartoonVal * 1500) : 0;
+            clip.audioNodes.noiseRed.frequency.value = fx.noiseRedEnable ? (20000 - (noiseRedVal * 17000)) : 20000;
         }
 
         window.alignSelectedClips = (alignment) => {
@@ -5057,15 +5101,17 @@
             const tabInActive = State.activeAnimTab === 'in';
             const tabOutActive = State.activeAnimTab === 'out';
             const tabLoopActive = State.activeAnimTab === 'loop';
+            const tabCustomActive = State.activeAnimTab === 'custom';
 
-            const activeTabClass = "flex-1 py-1.5 px-3 rounded-md text-[10px] font-extrabold text-center bg-white dark:bg-surface-700 text-surface-900 dark:text-white shadow-sm border border-surface-200/50 dark:border-surface-600/50";
-            const inactiveTabClass = "flex-1 py-1.5 px-3 rounded-md text-[10px] font-bold text-center text-surface-500 hover:text-surface-800 dark:hover:text-surface-200 transition-colors";
+            const activeTabClass = "flex-1 py-1.5 px-2 rounded-md text-[9px] font-extrabold text-center bg-white dark:bg-surface-700 text-surface-900 dark:text-white shadow-sm border border-surface-200/50 dark:border-surface-600/50";
+            const inactiveTabClass = "flex-1 py-1.5 px-2 rounded-md text-[9px] font-bold text-center text-surface-500 hover:text-surface-800 dark:hover:text-surface-200 transition-colors";
 
             const animTabsHtml = `
                 <div class="flex items-center gap-1 bg-surface-100 dark:bg-surface-900/60 p-1 rounded-lg border border-surface-200 dark:border-surface-700/80 shadow-inner w-full shrink-0">
-                    <button onclick="setAnimTab('in')" class="${tabInActive ? activeTabClass : inactiveTabClass}">Entrance (In)</button>
-                    <button onclick="setAnimTab('out')" class="${tabOutActive ? activeTabClass : inactiveTabClass}">Exit (Out)</button>
+                    <button onclick="setAnimTab('in')" class="${tabInActive ? activeTabClass : inactiveTabClass}">In</button>
+                    <button onclick="setAnimTab('out')" class="${tabOutActive ? activeTabClass : inactiveTabClass}">Out</button>
                     <button onclick="setAnimTab('loop')" class="${tabLoopActive ? activeTabClass : inactiveTabClass}">Loop</button>
+                    <button onclick="setAnimTab('custom')" class="${tabCustomActive ? activeTabClass : inactiveTabClass}">Custom</button>
                 </div>
             `;
 
@@ -5339,6 +5385,10 @@
                         <i data-lucide="refresh-cw" class="w-3.5 h-3.5 shrink-0 opacity-70"></i>
                         <span class="truncate">Loop</span>
                     </button>
+                    <button onclick="setAnimTab('custom')" class="text-left text-[10px] font-bold border border-transparent ${tabCustomActive ? 'bg-white dark:bg-surface-700 text-surface-900 dark:text-white shadow-sm font-extrabold border-surface-200/50 dark:border-surface-600/50' : 'text-surface-500 hover:text-surface-900 dark:hover:text-surface-100'} px-2.5 py-1.5 rounded transition-colors flex items-center gap-1.5 w-full" title="Custom Keyframes">
+                        <i data-lucide="key" class="w-3.5 h-3.5 shrink-0 opacity-70"></i>
+                        <span class="truncate">Custom</span>
+                    </button>
                 </div>
             `;
 
@@ -5357,6 +5407,9 @@
                         ${clipLoopCard}
                         ${isText ? textLoopCard : ''}
                     ` : ''}
+                    ${tabCustomActive ? `
+                        ${renderCustomKeyframeEditor(clip)}
+                    ` : ''}
                 </div>
             ` : `
                 ${animTabsHtml}
@@ -5372,6 +5425,9 @@
                     ${tabLoopActive ? `
                         ${clipLoopCard}
                         ${isText ? textLoopCard : ''}
+                    ` : ''}
+                    ${tabCustomActive ? `
+                        ${renderCustomKeyframeEditor(clip)}
                     ` : ''}
                 </div>
             `;
@@ -5814,11 +5870,12 @@
                 { id: 'text', name: 'Text' },
                 { id: 'shape', name: 'Shapes' },
                 { id: 'media', name: 'Media' },
-                { id: 'scene', name: 'Comps' }
+                { id: 'keyframes', name: 'Keyframes' }
             ];
             
             const filtered = activePresets.filter(p => {
                 if (State.activePresetFilter === 'all') return true;
+                if (State.activePresetFilter === 'keyframes') return p.category === 'Keyframe Path';
                 if (State.activePresetFilter === 'media') return p.type === 'image' || p.type === 'video';
                 return p.type === State.activePresetFilter;
             });
@@ -5886,7 +5943,12 @@
                     const iconName = p.type === 'text' ? 'type' : (p.type === 'shape' ? 'shapes' : (p.type === 'image' ? 'image' : (p.type === 'video' ? 'video' : 'film')));
                     
                     const selectedClip = State.clips.find(c => c.id === State.selectedClipId);
-                    const canApply = selectedClip && selectedClip.type === p.type;
+                    let canApply = selectedClip && selectedClip.type === p.type;
+                    if (p.category === 'Keyframe Path') {
+                        const isPresetVisual = ['image', 'video', 'text', 'shape', 'scene'].includes(p.type);
+                        const isClipVisual = selectedClip && ['image', 'video', 'text', 'shape', 'scene'].includes(selectedClip.type);
+                        canApply = selectedClip && ((isPresetVisual && isClipVisual) || (!isPresetVisual && !isClipVisual));
+                    }
                     
                     html += `
                         <div class="presets-card group relative flex flex-col justify-between p-2.5 rounded-lg border border-surface-200 dark:border-surface-700 bg-white dark:bg-surface-800 shadow-sm hover:shadow-md transition-all h-[92px] min-w-0">
@@ -5958,6 +6020,10 @@
                 effects: JSON.parse(JSON.stringify(preset.effects))
             };
 
+            if (preset.keyframes) {
+                newClip.keyframes = JSON.parse(JSON.stringify(preset.keyframes));
+            }
+
             if (preset.type === 'text') {
                 newClip.text = preset.text || "PRESET TEXT";
             }
@@ -5990,12 +6056,38 @@
             const preset = DEFAULT_PRESETS.find(p => p.id === presetId) || loadCustomPresets().find(p => p.id === presetId);
             if (!preset) return;
 
+            if (preset.category === 'Keyframe Path') {
+                const isPresetVisual = ['image', 'video', 'text', 'shape', 'scene'].includes(preset.type);
+                const isClipVisual = ['image', 'video', 'text', 'shape', 'scene'].includes(clip.type);
+                if (isPresetVisual && !isClipVisual) {
+                    alert("Cannot apply a visual keyframe path to an audio track.");
+                    return;
+                }
+                if (!isPresetVisual && isClipVisual) {
+                    alert("Cannot apply an audio keyframe path to a visual element.");
+                    return;
+                }
+                
+                clip.keyframes = JSON.parse(JSON.stringify(preset.keyframes));
+                drawCanvas();
+                if (clip.audioNodes) applyAudioEffects(clip);
+                renderClips();
+                updateSidebarPanel();
+                return;
+            }
+
             if (clip.type !== preset.type) {
                 alert(`Cannot apply preset: Selected clip is of type "${clip.type}", but preset is for "${preset.type}".`);
                 return;
             }
 
             clip.effects = JSON.parse(JSON.stringify(preset.effects));
+            if (preset.keyframes) {
+                clip.keyframes = JSON.parse(JSON.stringify(preset.keyframes));
+            } else {
+                delete clip.keyframes;
+            }
+
             if (preset.type === 'text' && preset.text) {
                 clip.text = preset.text;
             }
@@ -6032,6 +6124,10 @@
                 effects: JSON.parse(JSON.stringify(clip.effects))
             };
 
+            if (clip.keyframes) {
+                custom.keyframes = JSON.parse(JSON.stringify(clip.keyframes));
+            }
+
             if (clip.type === 'text') {
                 custom.text = clip.text;
             }
@@ -6047,6 +6143,273 @@
             saveCustomPresets(presets);
             
             alert(`Preset "${name}" saved successfully! You can find it in the Presets tab.`);
+            updateSidebarPanel();
+        };
+
+        window.renderCustomKeyframeEditor = function(clip) {
+            const isHorizontal = State.inspector.isHorizontal;
+            
+            let props = [];
+            if (clip.type === 'audio') {
+                props = [
+                    { key: 'volume', name: 'Volume', min: 0, max: 2, step: 0.05, def: 1 },
+                    { key: 'echo', name: 'Echo / Delay', min: 0, max: 1, step: 0.05, def: 0 },
+                    { key: 'robot', name: 'Robot Pitch', min: 0, max: 1, step: 0.05, def: 0 },
+                    { key: 'cinematic', name: 'EQ (Cinematic)', min: 0, max: 1, step: 0.05, def: 0 },
+                    { key: 'cartoon', name: 'Lowpass (Cartoon)', min: 0, max: 1, step: 0.05, def: 0 },
+                    { key: 'noiseRed', name: 'Noise Red.', min: 0, max: 1, step: 0.05, def: 0 }
+                ];
+            } else if (clip.type === 'video') {
+                props = [
+                    { key: 'offsetX', name: 'X Offset', min: -200, max: 200, step: 1, def: 0 },
+                    { key: 'offsetY', name: 'Y Offset', min: -200, max: 200, step: 1, def: 0 },
+                    { key: 'scale', name: 'Scale', min: 0.05, max: 5, step: 0.05, def: 1 },
+                    { key: 'rotate', name: 'Rotation', min: -360, max: 360, step: 5, def: 0 },
+                    { key: 'opacity', name: 'Opacity', min: 0, max: 100, step: 1, def: 100 },
+                    { key: 'volume', name: 'Volume', min: 0, max: 2, step: 0.05, def: 1 }
+                ];
+            } else {
+                props = [
+                    { key: 'offsetX', name: 'X Offset', min: -200, max: 200, step: 1, def: 0 },
+                    { key: 'offsetY', name: 'Y Offset', min: -200, max: 200, step: 1, def: 0 },
+                    { key: 'scale', name: 'Scale', min: 0.05, max: 5, step: 0.05, def: 1 },
+                    { key: 'rotate', name: 'Rotation', min: -360, max: 360, step: 5, def: 0 },
+                    { key: 'opacity', name: 'Opacity', min: 0, max: 100, step: 1, def: 100 }
+                ];
+            }
+            
+            const localTime = Math.max(0, Math.min(clip.duration, State.currentTime - clip.start));
+            const sliderFill = State.darkMode ? '#6366f1' : '#4f46e5';
+            const sliderBg = State.darkMode ? '#374151' : '#e5e7eb';
+            
+            let html = `
+                <div class="flex flex-col gap-3 bg-white dark:bg-surface-800 border border-surface-200 dark:border-surface-700 shadow-sm rounded-lg p-3 w-full shrink-0">
+                    <div class="flex items-center justify-between border-b border-surface-150 dark:border-surface-750 pb-2 shrink-0">
+                        <div class="flex items-center gap-1.5">
+                            <i data-lucide="key" class="w-4 h-4 text-brand-500"></i>
+                            <span class="text-xs font-bold text-surface-800 dark:text-surface-200">Custom Keyframe Animation</span>
+                        </div>
+                        <div class="flex items-center gap-1">
+                            <button onclick="saveKeyframePreset('${clip.id}')" class="bg-brand-500 hover:bg-brand-600 text-white px-2 py-0.5 rounded text-[9px] font-bold transition-all shadow-sm" title="Save keyframes as reusable preset">
+                                Save Preset
+                            </button>
+                        </div>
+                    </div>
+                    
+                    <div class="flex flex-col gap-2.5 max-h-[350px] overflow-y-auto pr-1">
+            `;
+            
+            props.forEach(p => {
+                const hasKeyframes = clip.keyframes && clip.keyframes[p.key] && clip.keyframes[p.key].length > 0;
+                let activeKf = null;
+                if (hasKeyframes) {
+                    activeKf = clip.keyframes[p.key].find(kf => Math.abs(kf.time - localTime) < 0.05);
+                }
+                
+                const activeVal = window.getInterpolatedValue(clip, p.key, p.def);
+                const percent = ((activeVal - p.min) / (p.max - p.min)) * 100;
+                
+                html += `
+                    <div class="flex flex-col gap-1 p-2 rounded-md border border-surface-100 dark:border-surface-700/60 bg-surface-50/50 dark:bg-surface-900/10">
+                        <div class="flex items-center justify-between">
+                            <div class="flex items-center gap-1.5 min-w-0">
+                                <button onclick="togglePropertyKeyframing('${clip.id}', '${p.key}', ${p.def})" 
+                                        class="p-0.5 rounded transition-all shrink-0 ${hasKeyframes ? 'text-brand-500 bg-brand-50 dark:bg-brand-950/20' : 'text-surface-400 hover:text-surface-600 dark:hover:text-surface-300'}" 
+                                        title="${hasKeyframes ? 'Disable keyframing (clears all keyframes)' : 'Enable keyframing for this property'}">
+                                    <i data-lucide="${hasKeyframes ? 'stopwatch' : 'circle-dot'}" class="w-3.5 h-3.5"></i>
+                                </button>
+                                <span class="text-[11px] font-bold text-surface-700 dark:text-surface-300 truncate">${p.name}</span>
+                            </div>
+                            <span class="text-[10px] font-mono font-semibold text-surface-500 dark:text-surface-400 bg-surface-100 dark:bg-surface-800 px-1.5 py-0.5 rounded shadow-sm">
+                                ${activeVal.toFixed(p.step < 0.1 ? 2 : 0)}
+                            </span>
+                        </div>
+                        
+                        ${hasKeyframes ? `
+                            <div class="flex items-center gap-2 mt-1">
+                                <button onclick="toggleKeyframeAtPlayhead('${clip.id}', '${p.key}', ${activeVal})" 
+                                        class="p-1 rounded shrink-0 transition-colors ${activeKf ? 'text-brand-500' : 'text-surface-300 hover:text-surface-500 dark:text-surface-600'}" 
+                                        title="${activeKf ? 'Delete Keyframe' : 'Add Keyframe'}">
+                                    <i data-lucide="diamond" class="w-3.5 h-3.5 ${activeKf ? 'fill-brand-500' : ''}"></i>
+                                </button>
+                                
+                                <input type="range" 
+                                       min="${p.min}" 
+                                       max="${p.max}" 
+                                       step="${p.step}" 
+                                       value="${activeVal}" 
+                                       class="flex-1 custom-slider"
+                                       style="background: linear-gradient(to right, ${sliderFill} ${percent}%, ${sliderBg} ${percent}%)"
+                                       oninput="adjustKeyframeValue('${clip.id}', '${p.key}', this.value)"
+                                />
+                                
+                                ${activeKf ? `
+                                    <select onchange="adjustKeyframeEasing('${clip.id}', '${p.key}', ${clip.keyframes[p.key].indexOf(activeKf)}, this.value)" 
+                                            class="text-[9px] font-bold py-0.5 px-1 border border-surface-200 dark:border-surface-700 rounded bg-white dark:bg-surface-800 text-surface-700 dark:text-surface-300 focus:outline-none cursor-pointer">
+                                        <option value="linear" ${activeKf.ease === 'linear' ? 'selected' : ''}>Linear</option>
+                                        <option value="easeIn" ${activeKf.ease === 'easeIn' ? 'selected' : ''}>Ease In</option>
+                                        <option value="easeOut" ${activeKf.ease === 'easeOut' ? 'selected' : ''}>Ease Out</option>
+                                        <option value="easeInOut" ${activeKf.ease === 'easeInOut' ? 'selected' : ''}>Ease I/O</option>
+                                        <option value="static" ${activeKf.ease === 'static' ? 'selected' : ''}>Static (Hold)</option>
+                                    </select>
+                                ` : `
+                                    <span class="text-[8px] font-bold text-surface-400 dark:text-surface-500 uppercase tracking-widest shrink-0 w-[55px] text-center">Interpolated</span>
+                                `}
+                            </div>
+                        ` : `
+                            <div class="flex items-center gap-2 mt-1">
+                                <div class="w-5.5 h-5.5 shrink-0"></div>
+                                <input type="range" 
+                                       min="${p.min}" 
+                                       max="${p.max}" 
+                                       step="${p.step}" 
+                                       value="${activeVal}" 
+                                       class="flex-1 custom-slider"
+                                       style="background: linear-gradient(to right, ${sliderFill} ${percent}%, ${sliderBg} ${percent}%)"
+                                       oninput="setClipEffect('${clip.id}', '${p.key}', this.value); updateSidebarPanel(); drawCanvas();"
+                                />
+                                <div class="w-[55px] shrink-0"></div>
+                            </div>
+                        `}
+                    </div>
+                `;
+            });
+            
+            html += `
+                    </div>
+                </div>
+            `;
+            return html;
+        };
+
+        window.togglePropertyKeyframing = function(clipId, propertyKey, defaultValue) {
+            const clip = State.clips.find(c => c.id === clipId);
+            if (!clip) return;
+            
+            if (!clip.keyframes) clip.keyframes = {};
+            
+            const hasKeyframes = clip.keyframes[propertyKey] && clip.keyframes[propertyKey].length > 0;
+            if (hasKeyframes) {
+                if (confirm(`Disable keyframing for "${propertyKey}"? This will delete all existing keyframes.`)) {
+                    delete clip.keyframes[propertyKey];
+                }
+            } else {
+                clip.keyframes[propertyKey] = [];
+                const currentVal = clip.effects && clip.effects[propertyKey] !== undefined ? parseFloat(clip.effects[propertyKey]) : defaultValue;
+                clip.keyframes[propertyKey].push({
+                    time: 0,
+                    value: currentVal,
+                    ease: 'linear'
+                });
+            }
+            updateSidebarPanel();
+            renderClips();
+            drawCanvas();
+        };
+
+        window.toggleKeyframeAtPlayhead = function(clipId, propertyKey, currentValue) {
+            const clip = State.clips.find(c => c.id === clipId);
+            if (!clip || !clip.keyframes || !clip.keyframes[propertyKey]) return;
+            
+            const localTime = Math.max(0, Math.min(clip.duration, State.currentTime - clip.start));
+            const existingIdx = clip.keyframes[propertyKey].findIndex(kf => Math.abs(kf.time - localTime) < 0.05);
+            if (existingIdx !== -1) {
+                clip.keyframes[propertyKey].splice(existingIdx, 1);
+            } else {
+                clip.keyframes[propertyKey].push({
+                    time: localTime,
+                    value: currentValue,
+                    ease: 'linear'
+                });
+            }
+            updateSidebarPanel();
+            renderClips();
+            drawCanvas();
+        };
+
+        window.adjustKeyframeValue = function(clipId, propertyKey, newValue) {
+            const clip = State.clips.find(c => c.id === clipId);
+            if (!clip || !clip.keyframes || !clip.keyframes[propertyKey]) return;
+            
+            const localTime = Math.max(0, Math.min(clip.duration, State.currentTime - clip.start));
+            const val = parseFloat(newValue);
+            
+            const existing = clip.keyframes[propertyKey].find(kf => Math.abs(kf.time - localTime) < 0.05);
+            if (existing) {
+                existing.value = val;
+            } else {
+                clip.keyframes[propertyKey].push({
+                    time: localTime,
+                    value: val,
+                    ease: 'linear'
+                });
+            }
+            
+            if (!clip.effects) clip.effects = {};
+            clip.effects[propertyKey] = val;
+            
+            drawCanvas();
+            if (clip.audioNodes) applyAudioEffects(clip);
+            
+            const labelBtn = document.querySelector(`[onclick*="togglePropertyKeyframing('${clipId}', '${propertyKey}'"]`);
+            if (labelBtn) {
+                const label = labelBtn.closest('div').nextElementSibling;
+                if (label) {
+                    label.textContent = val.toFixed(newValue.includes('.') ? 2 : 0);
+                }
+            }
+            
+            // Adjust linear-gradient progress color of the range input dynamically
+            const input = event.target;
+            const min = parseFloat(input.min || 0);
+            const max = parseFloat(input.max || 100);
+            const pct = ((val - min) / (max - min)) * 100;
+            const sliderFill = State.darkMode ? '#6366f1' : '#4f46e5';
+            const sliderBg = State.darkMode ? '#374151' : '#e5e7eb';
+            input.style.background = `linear-gradient(to right, ${sliderFill} ${pct}%, ${sliderBg} ${pct}%)`;
+            
+            renderClips();
+        };
+
+        window.adjustKeyframeEasing = function(clipId, propertyKey, index, newEase) {
+            const clip = State.clips.find(c => c.id === clipId);
+            if (!clip || !clip.keyframes || !clip.keyframes[propertyKey] || !clip.keyframes[propertyKey][index]) return;
+            
+            clip.keyframes[propertyKey][index].ease = newEase;
+            drawCanvas();
+            if (clip.audioNodes) applyAudioEffects(clip);
+        };
+
+        window.saveKeyframePreset = function(clipId) {
+            const clip = State.clips.find(c => c.id === clipId);
+            if (!clip || !clip.keyframes) {
+                alert("No keyframes found to save!");
+                return;
+            }
+            
+            const lanes = Object.keys(clip.keyframes).filter(k => clip.keyframes[k] && clip.keyframes[k].length > 0);
+            if (lanes.length === 0) {
+                alert("No keyframes found to save!");
+                return;
+            }
+            
+            const name = prompt("Enter a name for this Custom Keyframe Preset:", "Smooth Spin Intro");
+            if (!name) return;
+            
+            const preset = {
+                id: 'preset_kf_' + Date.now() + Math.random().toString(36).substr(2, 5),
+                name: name,
+                type: clip.type,
+                category: 'Keyframe Path',
+                keyframes: JSON.parse(JSON.stringify(clip.keyframes)),
+                effects: {}
+            };
+            
+            const presets = loadCustomPresets();
+            presets.push(preset);
+            saveCustomPresets(presets);
+            
+            alert(`Keyframe preset "${name}" saved successfully! You can find it in the Presets tab.`);
             updateSidebarPanel();
         };
 
@@ -7936,6 +8299,36 @@ const isVis = !clip.hidden;
                     }
                 }
 
+                let keyframeDiamondsHtml = '';
+                if (clip.keyframes) {
+                    const uniqueTimes = new Set();
+                    Object.keys(clip.keyframes).forEach(prop => {
+                        if (clip.keyframes[prop]) {
+                            clip.keyframes[prop].forEach(kf => {
+                                uniqueTimes.add(kf.time);
+                            });
+                        }
+                    });
+                    
+                    if (uniqueTimes.size > 0) {
+                        keyframeDiamondsHtml = `
+                            <div class="clip-keyframes-lane absolute bottom-1.5 left-0 right-0 h-2 z-30 pointer-events-auto overflow-visible flex items-center">
+                                ${Array.from(uniqueTimes).map(time => {
+                                    const pct = (time / clip.duration) * 100;
+                                    if (pct < 0 || pct > 100) return '';
+                                    return `
+                                        <div class="keyframe-diamond absolute w-2.5 h-2.5 bg-amber-400 dark:bg-amber-500 border border-amber-600 dark:border-amber-300 hover:scale-125 transition-transform cursor-pointer rotate-45 select-none z-30 shadow-sm"
+                                             style="left: calc(${pct}% - 5px);"
+                                             data-time="${time}"
+                                             data-clip-id="${clip.id}"
+                                             title="Keyframe at ${time.toFixed(2)}s (Drag to move, Right-click to delete)"></div>
+                                    `;
+                                }).join('')}
+                            </div>
+                        `;
+                    }
+                }
+
                 el.innerHTML = `
                     ${headerContent}
                     <div class="trim-handle left" data-action="trimLeft"></div>
@@ -7943,6 +8336,7 @@ const isVis = !clip.hidden;
                     ${textPreviewHtml}
                     ${shapePreviewHtml}
                     ${hasWaveform ? `<canvas class="waveform-canvas absolute top-0 bottom-0 z-10 opacity-90"></canvas>` : ''}
+                    ${keyframeDiamondsHtml}
                 `;
 
                 lane.appendChild(el);
@@ -8605,6 +8999,40 @@ const isVis = !clip.hidden;
             });
 
             window.addEventListener('mousemove', (e) => {
+                if (State.dragKeyframe) {
+                    const clip = State.clips.find(c => c.id === State.dragKeyframe.clipId);
+                    if (clip && clip.keyframes) {
+                        const dx = e.clientX - State.dragKeyframe.startX;
+                        const dt = dx / State.pixelsPerSecond;
+                        let targetTime = State.dragKeyframe.originalTime + dt;
+                        targetTime = Math.max(0, Math.min(clip.duration, targetTime));
+                        
+                        const prevTime = State.dragKeyframe.lastTime;
+                        if (Math.abs(prevTime - targetTime) > 0.001) {
+                            Object.keys(clip.keyframes).forEach(prop => {
+                                if (clip.keyframes[prop]) {
+                                    clip.keyframes[prop].forEach(kf => {
+                                        if (Math.abs(kf.time - prevTime) < 0.02) {
+                                            kf.time = targetTime;
+                                        }
+                                    });
+                                }
+                            });
+                            State.dragKeyframe.lastTime = targetTime;
+                            
+                            State.currentTime = clip.start + targetTime;
+                            updatePlayhead();
+                            syncMediaElements();
+                            drawCanvas();
+                            
+                            const diamond = document.querySelector(`.keyframe-diamond[data-clip-id="${clip.id}"][data-time="${State.dragKeyframe.originalTime}"]`);
+                            if (diamond) {
+                                diamond.style.left = `calc(${(targetTime / clip.duration) * 100}% - 4px)`;
+                            }
+                        }
+                    }
+                }
+
                 if (canvasDrag.active) {
                     const pos = getCanvasMousePos(e);
                     const renderCanvas = document.getElementById('renderCanvas');
@@ -8628,6 +9056,20 @@ const isVis = !clip.hidden;
             });
 
             window.addEventListener('mouseup', () => {
+                if (State.dragKeyframe) {
+                    const clip = State.clips.find(c => c.id === State.dragKeyframe.clipId);
+                    if (clip && clip.keyframes) {
+                        Object.keys(clip.keyframes).forEach(prop => {
+                            if (clip.keyframes[prop]) {
+                                clip.keyframes[prop].sort((a, b) => a.time - b.time);
+                            }
+                        });
+                    }
+                    State.dragKeyframe = null;
+                    renderClips();
+                    updateSidebarPanel();
+                }
+
                 canvasDrag.active = false;
                 document.getElementById('renderCanvas').classList.remove('dragging');
             });
@@ -8699,6 +9141,32 @@ const isVis = !clip.hidden;
             });
 
             tracksContentContainer.addEventListener('mousedown', (e) => {
+                const diamondEl = e.target.closest('.keyframe-diamond');
+                if (diamondEl) {
+                    e.stopPropagation();
+                    e.preventDefault();
+                    
+                    const clipId = diamondEl.dataset.clipId;
+                    const time = parseFloat(diamondEl.dataset.time);
+                    const clip = State.clips.find(c => c.id === clipId);
+                    if (!clip) return;
+                    
+                    State.currentTime = clip.start + time;
+                    State.selectedClipId = clipId;
+                    updatePlayhead();
+                    syncMediaElements();
+                    drawCanvas();
+                    updateSidebarPanel();
+                    
+                    State.dragKeyframe = {
+                        clipId: clipId,
+                        originalTime: time,
+                        lastTime: time,
+                        startX: e.clientX
+                    };
+                    return;
+                }
+
                 if (State.timelineSeekAnywhere) {
                     if (e.target.closest('.clip')) {
                         handleMouseDown(e);
@@ -8807,6 +9275,41 @@ const isVis = !clip.hidden;
                         marquee.style.display = 'block';
                     } else {
                         handleMouseDown(e);
+                    }
+                }
+            });
+
+            tracksContentContainer.addEventListener('contextmenu', (e) => {
+                const diamondEl = e.target.closest('.keyframe-diamond');
+                if (diamondEl) {
+                    e.preventDefault();
+                    e.stopPropagation();
+                    
+                    const clipId = diamondEl.dataset.clipId;
+                    const time = parseFloat(diamondEl.dataset.time);
+                    const clip = State.clips.find(c => c.id === clipId);
+                    if (!clip || !clip.keyframes) return;
+                    
+                    if (confirm("Delete this keyframe?")) {
+                        Object.keys(clip.keyframes).forEach(prop => {
+                            if (clip.keyframes[prop]) {
+                                const idx = clip.keyframes[prop].findIndex(kf => Math.abs(kf.time - time) < 0.05);
+                                if (idx !== -1) {
+                                    clip.keyframes[prop].splice(idx, 1);
+                                }
+                            }
+                        });
+                        
+                        Object.keys(clip.keyframes).forEach(prop => {
+                            if (clip.keyframes[prop] && clip.keyframes[prop].length === 0) {
+                                delete clip.keyframes[prop];
+                            }
+                        });
+                        
+                        renderClips();
+                        updateSidebarPanel();
+                        drawCanvas();
+                        if (clip.audioNodes) applyAudioEffects(clip);
                     }
                 }
             });
@@ -9304,6 +9807,9 @@ const isVis = !clip.hidden;
                             clip.sourceNode.start(0, targetTime);
                             clip.isPlaying = true;
                             if (clip.audioNodes) applyAudioEffects(clip);
+                        }
+                        if (clip.isPlaying && clip.audioNodes) {
+                            applyAudioEffects(clip);
                         }
                     } else {
                         if (clip.isPlaying && clip.sourceNode) {
