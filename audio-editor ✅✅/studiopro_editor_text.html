@@ -5732,9 +5732,28 @@
             }
         };
 
+        window.exportSinglePreset = function(presetId) {
+            const presets = [...DEFAULT_PRESETS, ...loadCustomPresets()];
+            const preset = presets.find(p => p.id === presetId);
+            if (!preset) return;
+            
+            const exportData = [preset];
+            const blob = new Blob([JSON.stringify(exportData, null, 2)], { type: 'application/json' });
+            const url = URL.createObjectURL(blob);
+            const a = document.createElement('a');
+            a.href = url;
+            a.download = `preset_${preset.name.toLowerCase().replace(/[^a-z0-9]/g, '_')}.json`;
+            a.click();
+            URL.revokeObjectURL(url);
+        };
+
         window.exportPresets = function() {
             const custom = localStorage.getItem('custom_presets') || '[]';
-            const blob = new Blob([custom], { type: 'application/json' });
+            let formatted = custom;
+            try {
+                formatted = JSON.stringify(JSON.parse(custom), null, 2);
+            } catch(e) {}
+            const blob = new Blob([formatted], { type: 'application/json' });
             const url = URL.createObjectURL(blob);
             const a = document.createElement('a');
             a.href = url;
@@ -5881,9 +5900,14 @@
                                         <span class="text-[8.5px] text-surface-400 font-bold uppercase tracking-wider block leading-none mt-0.5">${p.category || 'Preset'}</span>
                                     </div>
                                 </div>
-                                <button onclick="deleteCustomPreset('${p.id}'); event.stopPropagation();" class="p-0.5 rounded text-surface-400 hover:text-red-500 hover:bg-red-50 dark:hover:bg-red-950/20 transition-all shrink-0" title="Delete preset">
-                                    <i data-lucide="trash-2" class="w-2.5 h-2.5"></i>
-                                </button>
+                                <div class="flex items-center gap-0.5 shrink-0">
+                                    <button onclick="exportSinglePreset('${p.id}'); event.stopPropagation();" class="p-0.5 rounded text-surface-400 hover:text-brand-500 hover:bg-brand-50 dark:hover:bg-brand-950/20 transition-all shrink-0" title="Export preset card">
+                                        <i data-lucide="download" class="w-2.5 h-2.5"></i>
+                                    </button>
+                                    <button onclick="deleteCustomPreset('${p.id}'); event.stopPropagation();" class="p-0.5 rounded text-surface-400 hover:text-red-500 hover:bg-red-50 dark:hover:bg-red-950/20 transition-all shrink-0" title="Delete preset">
+                                        <i data-lucide="trash-2" class="w-2.5 h-2.5"></i>
+                                    </button>
+                                </div>
                             </div>
                             
                             <div class="flex gap-1.5 w-full mt-1.5 shrink-0">
