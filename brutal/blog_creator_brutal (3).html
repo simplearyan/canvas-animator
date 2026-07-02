@@ -1,0 +1,717 @@
+<!DOCTYPE html>
+<html lang="en" class="light">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>BlogCreator Pro | Neo-Brutalist Edition</title>
+    
+    <!-- Google Fonts: Bebas Neue (Headings), Outfit (Body), JetBrains Mono (Code/Math) -->
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Bebas+Neue&family=JetBrains+Mono:wght@400;700&family=Outfit:wght@400;500;600;700;800&display=swap" rel="stylesheet">
+    
+    <!-- Phosphor Icons -->
+    <script src="https://unpkg.com/@phosphor-icons/web"></script>
+    
+    <!-- Markdown Parser & Sanitizer -->
+    <script src="https://cdn.jsdelivr.net/npm/marked/marked.min.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/dompurify@3.0.6/dist/purify.min.js"></script>
+    
+    <!-- Fallback export library if HTML-in-Canvas API is missing -->
+    <script src="https://cdn.jsdelivr.net/npm/html2canvas@1.4.1/dist/html2canvas.min.js"></script>
+
+    <!-- Tailwind CSS -->
+    <script src="https://cdn.tailwindcss.com"></script>
+    <script>
+        tailwind.config = {
+            darkMode: 'class',
+            theme: {
+                extend: {
+                    fontFamily: {
+                        display: ['"Bebas Neue"', 'sans-serif'],
+                        sans: ['Outfit', 'sans-serif'],
+                        mono: ['"JetBrains Mono"', 'monospace'],
+                    },
+                    colors: {
+                        brand: {
+                            coal: '#0F0D0E',
+                            gray: '#231F20',
+                            pink: '#F38BA3',
+                            green: '#0BA95B',
+                            yellow: '#F6AE2D',
+                            cyan: '#00C2D1',
+                            purple: '#8B5CF6',
+                            orange: '#FF5722',
+                            white: '#F9F4DA' // Slightly off-white for retro feel
+                        }
+                    },
+                    boxShadow: {
+                        // Neo-brutalist hard shadows
+                        'brutal-sm': '4px 4px 0px 0px rgba(0,0,0,1)',
+                        'brutal': '8px 8px 0px 0px rgba(0,0,0,1)',
+                        'brutal-lg': '12px 12px 0px 0px rgba(0,0,0,1)',
+                        'brutal-cyan': '8px 8px 0px 0px #00C2D1',
+                        'brutal-yellow': '8px 8px 0px 0px #F6AE2D',
+                        'brutal-purple': '8px 8px 0px 0px #8B5CF6',
+                        'brutal-green': '8px 8px 0px 0px #0BA95B',
+                        'brutal-pink': '8px 8px 0px 0px #F38BA3',
+                    }
+                }
+            }
+        }
+    </script>
+
+    <style type="text/tailwindcss">
+        body {
+            transition: background-color 0.2s, background-image 0.2s;
+        }
+        
+        /* 1. Dot Matrix Theme */
+        body.theme-bg-dots {
+            background-color: #ffffff;
+            background-image: radial-gradient(circle, rgba(203, 213, 225, 0.8) 2px, transparent 2px);
+            background-size: 32px 32px;
+        }
+        .dark body.theme-bg-dots {
+            background-color: theme('colors.brand.coal');
+            background-image: radial-gradient(circle, rgba(255, 255, 255, 0.15) 2px, transparent 2px);
+        }
+        
+        /* 2. Blueprint Grid Theme */
+        body.theme-bg-blueprint {
+            background-color: #f5fafb;
+            background-image: 
+                linear-gradient(to right, rgba(0, 194, 209, 0.15) 1px, transparent 1px),
+                linear-gradient(to bottom, rgba(0, 194, 209, 0.15) 1px, transparent 1px),
+                linear-gradient(to right, rgba(0, 194, 209, 0.05) 1px, transparent 1px),
+                linear-gradient(to bottom, rgba(0, 194, 209, 0.05) 1px, transparent 1px);
+            background-size: 80px 80px, 80px 80px, 20px 20px, 20px 20px;
+        }
+        .dark body.theme-bg-blueprint {
+            background-color: #0c0f12;
+            background-image: 
+                linear-gradient(to right, rgba(0, 194, 209, 0.15) 1px, transparent 1px),
+                linear-gradient(to bottom, rgba(0, 194, 209, 0.15) 1px, transparent 1px),
+                linear-gradient(to right, rgba(0, 194, 209, 0.05) 1px, transparent 1px),
+                linear-gradient(to bottom, rgba(0, 194, 209, 0.05) 1px, transparent 1px);
+            background-size: 80px 80px, 80px 80px, 20px 20px, 20px 20px;
+        }
+        
+        /* 3. Isometric Grid Theme */
+        body.theme-bg-isometric {
+            background-color: #faf9fb;
+            background-image: 
+                linear-gradient(30deg, rgba(139, 92, 246, 0.1) 1px, transparent 1px),
+                linear-gradient(150deg, rgba(139, 92, 246, 0.1) 1px, transparent 1px),
+                linear-gradient(270deg, rgba(139, 92, 246, 0.1) 1px, transparent 1px);
+            background-size: 52px 90px;
+        }
+        .dark body.theme-bg-isometric {
+            background-color: #0f0d11;
+            background-image: 
+                linear-gradient(30deg, rgba(139, 92, 246, 0.1) 1px, transparent 1px),
+                linear-gradient(150deg, rgba(139, 92, 246, 0.1) 1px, transparent 1px),
+                linear-gradient(270deg, rgba(139, 92, 246, 0.1) 1px, transparent 1px);
+            background-size: 52px 90px;
+        }
+
+        /* Custom Scrollbar */
+        ::-webkit-scrollbar { width: 12px; }
+        ::-webkit-scrollbar-track { background: transparent; border-left: 2px solid black; }
+        ::-webkit-scrollbar-thumb { background: #F6AE2D; border: 2px solid black; }
+        .dark ::-webkit-scrollbar-track { border-left: 2px solid #F9F4DA; }
+        .dark ::-webkit-scrollbar-thumb { background: #0BA95B; border: 2px solid theme('colors.brand.coal'); }
+
+        .no-scrollbar::-webkit-scrollbar { display: none; }
+        .no-scrollbar { -ms-overflow-style: none; scrollbar-width: none; }
+
+        /* Interactive Card Hover */
+        .brutal-hover {
+            transition: transform 0.1s ease, box-shadow 0.1s ease;
+        }
+        .brutal-hover:active {
+            transform: translate(4px, 4px);
+            box-shadow: 0px 0px 0px 0px rgba(0,0,0,1) !important;
+        }
+
+        /* Brutalist Prose (Markdown Overrides) */
+        .brutal-prose h1 { @apply font-display text-4xl sm:text-6xl uppercase tracking-wide mt-8 mb-4 border-b-[3px] border-black/20 dark:border-white/20 pb-2 text-black dark:text-white leading-[0.9]; }
+        .brutal-prose h2 { @apply font-display text-3xl sm:text-4xl uppercase tracking-wide mt-8 mb-4 text-black dark:text-white; }
+        .brutal-prose h3 { @apply font-display text-2xl uppercase tracking-wide mt-6 mb-3 text-brand-pink dark:text-brand-yellow; }
+        .brutal-prose p { @apply font-sans text-base sm:text-lg font-medium leading-relaxed mb-6 text-black dark:text-brand-white; }
+        .brutal-prose ul { @apply list-disc list-inside mb-6 space-y-2 font-mono text-sm sm:text-base text-black dark:text-brand-white; }
+        .brutal-prose ol { @apply list-decimal list-inside mb-6 space-y-2 font-mono text-sm sm:text-base text-black dark:text-brand-white; }
+        .brutal-prose a { @apply text-brand-cyan hover:bg-brand-cyan hover:text-black transition-colors px-1 border-b-[3px] border-brand-cyan font-bold; }
+        .brutal-prose strong { @apply font-bold bg-brand-yellow/30 px-1 text-black dark:text-brand-white; }
+        .brutal-prose blockquote { @apply border-l-[6px] border-black dark:border-brand-pink bg-white/50 dark:bg-black/30 p-4 sm:p-6 italic my-8 shadow-brutal-sm text-black dark:text-brand-white; }
+        .brutal-prose code { @apply font-mono bg-black text-white dark:bg-brand-white dark:text-black px-1.5 py-0.5 text-sm; }
+        .brutal-prose pre { @apply bg-brand-gray text-white p-4 sm:p-6 border-[3px] border-black shadow-brutal my-8 overflow-x-auto rounded-none; }
+        .brutal-prose pre code { @apply bg-transparent text-inherit p-0; }
+        .brutal-prose img { @apply border-[3px] border-black shadow-brutal my-8 max-w-full block; }
+        
+        /* Hidden Native Capture Canvas */
+        #native-capture-canvas {
+            position: absolute;
+            pointer-events: none;
+            opacity: 0;
+            z-index: -100;
+        }
+    </style>
+</head>
+<body class="text-brand-gray dark:text-brand-white antialiased h-screen flex flex-col overflow-hidden selection:bg-brand-pink selection:text-black">
+    
+    <script>
+        // Init Grid & Theme immediately to avoid flash
+        (function() {
+            const bgGrids = ['theme-bg-dots', 'theme-bg-blueprint', 'theme-bg-isometric'];
+            let activeBg = bgGrids[Math.floor(Math.random() * bgGrids.length)];
+            if (localStorage.bgGridClass !== undefined && bgGrids.includes(localStorage.bgGridClass)) {
+                activeBg = localStorage.bgGridClass;
+            }
+            document.body.classList.add(activeBg);
+
+            if (localStorage.theme === 'dark' || (!('theme' in localStorage) && window.matchMedia('(prefers-color-scheme: dark)').matches)) {
+                document.documentElement.classList.add('dark');
+            }
+        })();
+    </script>
+
+    <!-- Top Navigation -->
+    <header class="bg-brand-white dark:bg-brand-coal border-b-[3px] border-black dark:border-white px-4 sm:px-6 py-3 flex items-center justify-between shrink-0 z-20 relative">
+        <div class="flex items-center gap-3">
+            <div class="w-10 h-10 sm:w-12 sm:h-12 bg-brand-cyan border-[3px] border-black shadow-brutal-sm flex items-center justify-center text-xl sm:text-2xl font-bold brutal-hover text-black flex-shrink-0">
+                <i class="ph-bold ph-pen-nib"></i>
+            </div>
+            <div>
+                <h1 class="font-display text-2xl sm:text-3xl leading-none tracking-wide text-black dark:text-white mt-1">BlogCreator</h1>
+                <p class="font-mono text-[10px] font-bold text-brand-purple dark:text-brand-pink uppercase tracking-widest hidden sm:block">Neo-Brutalist Edition</p>
+            </div>
+        </div>
+
+        <div class="flex items-center gap-2 sm:gap-4">
+            <button onclick="loadPreset()" class="hidden md:flex font-display text-lg tracking-wide bg-brand-pink border-[3px] border-black px-4 py-1.5 shadow-brutal-sm brutal-hover text-black uppercase items-center gap-2">
+                <i class="ph-bold ph-magic-wand"></i> Preset
+            </button>
+            
+            <button onclick="cycleBgGrid()" class="w-10 h-10 rounded-full bg-brand-yellow dark:bg-brand-gray border-[3px] border-black dark:border-brand-yellow shadow-brutal-sm flex items-center justify-center text-black dark:text-brand-yellow brutal-hover transition-colors" title="Change Background Grid">
+                <i class="ph-bold ph-grid-four text-xl"></i>
+            </button>
+            
+            <button onclick="toggleTheme()" class="w-10 h-10 rounded-full bg-brand-gray dark:bg-brand-white border-[3px] border-black dark:border-black shadow-brutal-sm flex items-center justify-center text-white dark:text-black brutal-hover transition-colors">
+                <i id="theme-icon" class="ph-bold ph-moon text-xl"></i>
+            </button>
+
+            <!-- Export Dropdown -->
+            <div class="relative group ml-2">
+                <button class="bg-brand-green border-[3px] border-black text-black font-display text-lg tracking-wide px-4 sm:px-6 py-1.5 shadow-brutal-sm brutal-hover uppercase flex items-center gap-2">
+                    <i class="ph-bold ph-camera"></i> <span class="hidden sm:inline">Snapshot</span>
+                    <i class="ph-bold ph-caret-down text-sm"></i>
+                </button>
+                <div class="absolute right-0 top-full mt-2 w-48 bg-white dark:bg-brand-gray border-[3px] border-black dark:border-white shadow-brutal opacity-0 invisible group-hover:opacity-100 group-hover:visible transition-all transform origin-top-right z-50">
+                    <div class="font-mono text-xs font-bold text-black dark:text-white px-3 py-2 uppercase tracking-wider border-b-[3px] border-black dark:border-white bg-brand-yellow dark:bg-brand-purple dark:text-black">
+                        Resolution
+                    </div>
+                    <button onclick="exportSnapshot('HD')" class="w-full text-left px-4 py-3 text-sm text-black dark:text-white hover:bg-brand-cyan hover:text-black font-sans font-bold flex justify-between items-center transition-colors border-b-[3px] border-black dark:border-white last:border-0">
+                        <span>HD (1080p)</span>
+                        <span class="text-[10px] opacity-70">1920w</span>
+                    </button>
+                    <button onclick="exportSnapshot('2K')" class="w-full text-left px-4 py-3 text-sm text-black dark:text-white hover:bg-brand-cyan hover:text-black font-sans font-bold flex justify-between items-center transition-colors border-b-[3px] border-black dark:border-white last:border-0">
+                        <span>2K (1440p)</span>
+                        <span class="text-[10px] opacity-70">2560w</span>
+                    </button>
+                    <button onclick="exportSnapshot('4K')" class="w-full text-left px-4 py-3 text-sm text-black dark:text-white hover:bg-brand-cyan hover:text-black font-sans font-bold flex justify-between items-center transition-colors border-b-[3px] border-black dark:border-white last:border-0">
+                        <span>4K (2160p)</span>
+                        <span class="text-[10px] opacity-70">3840w</span>
+                    </button>
+                </div>
+            </div>
+            
+            <!-- API Status Indicator (Now Clickable for Testing) -->
+            <button id="api-status-btn" onclick="toggleApiTest()" class="hidden md:flex absolute -bottom-6 right-6 font-mono text-[10px] items-center gap-1 transition-transform hover:scale-105 bg-brand-white dark:bg-brand-gray px-3 py-1 border-[2px] border-black dark:border-white shadow-brutal-sm cursor-pointer z-50 active:translate-y-1 active:translate-x-1 active:shadow-none">
+                <div id="api-dot" class="w-2 h-2 rounded-full bg-brand-orange border border-black transition-colors"></div>
+                <span id="api-label" class="dark:text-white text-black font-bold uppercase tracking-wider">Fallback Engine</span>
+                <i class="ph-bold ph-arrows-left-right ml-1 dark:text-white text-black"></i>
+            </button>
+        </div>
+    </header>
+
+    <main class="flex-1 flex flex-col md:flex-row overflow-hidden relative z-10">
+        
+        <!-- Left Pane: Editor -->
+        <section class="w-full md:w-1/2 lg:w-5/12 bg-white dark:bg-[#151314] border-r-[3px] border-black dark:border-white flex flex-col h-full z-0 overflow-y-auto overflow-x-hidden relative">
+            <div class="p-6 space-y-6">
+                
+                <!-- Metadata Inputs -->
+                <div class="space-y-4">
+                    <div class="inline-block bg-black text-white dark:bg-white dark:text-black font-display tracking-widest text-lg px-3 py-1 border-2 border-black dark:border-white mb-2 shadow-brutal-sm">
+                        METADATA
+                    </div>
+                    
+                    <div>
+                        <label class="block text-sm font-mono font-bold text-black dark:text-white mb-1 uppercase">Post Title</label>
+                        <input type="text" id="input-title" placeholder="ENTER TITLE..." class="w-full bg-brand-white dark:bg-brand-gray border-[3px] border-black dark:border-white shadow-brutal-sm px-4 py-2 font-sans text-black dark:text-white focus:outline-none focus:-translate-y-1 focus:-translate-x-1 focus:shadow-brutal transition-all" oninput="updatePreviews()">
+                    </div>
+
+                    <div>
+                        <label class="block text-sm font-mono font-bold text-black dark:text-white mb-1 uppercase">Excerpt / Subtitle</label>
+                        <input type="text" id="input-excerpt" placeholder="Summary..." class="w-full bg-brand-white dark:bg-brand-gray border-[3px] border-black dark:border-white shadow-brutal-sm px-4 py-2 font-sans text-black dark:text-white focus:outline-none focus:-translate-y-1 focus:-translate-x-1 focus:shadow-brutal transition-all" oninput="updatePreviews()">
+                    </div>
+
+                    <div class="flex flex-col sm:flex-row gap-4">
+                        <div class="flex-1">
+                            <label class="block text-sm font-mono font-bold text-black dark:text-white mb-1 uppercase">Author</label>
+                            <div class="relative">
+                                <i class="ph-bold ph-user absolute left-3 top-1/2 -translate-y-1/2 text-black dark:text-white"></i>
+                                <input type="text" id="input-author" placeholder="Name" class="w-full bg-brand-white dark:bg-brand-gray border-[3px] border-black dark:border-white shadow-brutal-sm pl-9 pr-4 py-2 font-sans text-black dark:text-white focus:outline-none focus:-translate-y-1 focus:-translate-x-1 focus:shadow-brutal transition-all" oninput="updatePreviews()">
+                            </div>
+                        </div>
+                        <div class="flex-1">
+                            <label class="block text-sm font-mono font-bold text-black dark:text-white mb-1 uppercase">Date</label>
+                            <div class="relative">
+                                <i class="ph-bold ph-calendar-blank absolute left-3 top-1/2 -translate-y-1/2 text-black dark:text-white"></i>
+                                <input type="date" id="input-date" class="w-full bg-brand-white dark:bg-brand-gray border-[3px] border-black dark:border-white shadow-brutal-sm pl-9 pr-4 py-2 font-sans text-black dark:text-white focus:outline-none focus:-translate-y-1 focus:-translate-x-1 focus:shadow-brutal transition-all" oninput="updatePreviews()">
+                            </div>
+                        </div>
+                    </div>
+
+                    <div class="flex flex-col sm:flex-row gap-4">
+                        <div class="flex-1">
+                            <label class="block text-sm font-mono font-bold text-black dark:text-white mb-1 uppercase">Cover Image URL</label>
+                            <div class="relative">
+                                <i class="ph-bold ph-image absolute left-3 top-1/2 -translate-y-1/2 text-black dark:text-white"></i>
+                                <input type="url" id="input-image" placeholder="https://..." class="w-full bg-brand-white dark:bg-brand-gray border-[3px] border-black dark:border-white shadow-brutal-sm pl-9 pr-4 py-2 font-sans text-black dark:text-white focus:outline-none focus:-translate-y-1 focus:-translate-x-1 focus:shadow-brutal transition-all" oninput="updatePreviews()">
+                            </div>
+                        </div>
+                        <div class="w-full sm:w-1/3">
+                            <label class="block text-sm font-mono font-bold text-black dark:text-white mb-1 uppercase">Category</label>
+                            <div class="relative">
+                                <i class="ph-bold ph-tag absolute left-3 top-1/2 -translate-y-1/2 text-black dark:text-white"></i>
+                                <input type="text" id="input-tag" placeholder="Tag" class="w-full bg-brand-white dark:bg-brand-gray border-[3px] border-black dark:border-white shadow-brutal-sm pl-9 pr-4 py-2 font-sans text-black dark:text-white focus:outline-none focus:-translate-y-1 focus:-translate-x-1 focus:shadow-brutal transition-all" oninput="updatePreviews()">
+                            </div>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Markdown Content -->
+                <div class="flex flex-col flex-1 pb-8 mt-8">
+                    <div class="flex justify-between items-end mb-2">
+                        <div class="inline-block bg-black text-white dark:bg-white dark:text-black font-display tracking-widest text-lg px-3 py-1 border-2 border-black dark:border-white shadow-brutal-sm">
+                            CONTENT (MD)
+                        </div>
+                        <a href="https://www.markdownguide.org/cheat-sheet/" target="_blank" class="text-brand-cyan hover:bg-brand-cyan hover:text-black font-mono text-xs font-bold border-b-2 border-brand-cyan transition-colors px-1 uppercase">Help</a>
+                    </div>
+                    
+                    <textarea id="input-content" class="w-full flex-1 min-h-[400px] bg-brand-white dark:bg-brand-gray border-[3px] border-black dark:border-white shadow-brutal-sm p-4 font-mono text-sm text-black dark:text-white focus:outline-none focus:-translate-y-1 focus:-translate-x-1 focus:shadow-brutal transition-all resize-y leading-relaxed" placeholder="# WRITE HERE...&#10;&#10;Use markdown syntax." oninput="updatePreviews()"></textarea>
+                </div>
+                
+            </div>
+        </section>
+
+        <!-- Right Pane: Preview -->
+        <section class="w-full md:w-1/2 lg:w-7/12 flex flex-col h-full relative">
+            
+            <!-- Tabs -->
+            <div class="flex p-4 gap-4 bg-white/80 dark:bg-brand-coal/80 backdrop-blur-md border-b-[3px] border-black dark:border-white z-10 absolute top-0 w-full">
+                <button onclick="switchTab('post')" id="tab-post" class="flex-1 py-2 px-4 text-lg font-display tracking-wide uppercase transition-all bg-brand-purple text-black border-[3px] border-black shadow-brutal-sm transform -translate-y-1 -translate-x-1">
+                    Full Post Preview
+                </button>
+                <button onclick="switchTab('card')" id="tab-card" class="flex-1 py-2 px-4 text-lg font-display tracking-wide uppercase transition-all bg-brand-white dark:bg-brand-gray text-black dark:text-white border-[3px] border-black dark:border-white hover:bg-brand-yellow hover:text-black dark:hover:bg-brand-yellow">
+                    Blog Card Preview
+                </button>
+            </div>
+
+            <!-- Preview Canvas Area -->
+            <div class="flex-1 overflow-y-auto pt-24 pb-12 px-4 sm:px-8 flex justify-center w-full relative" id="preview-scroll-container">
+                
+                <!-- NOTE: For native HTML-in-Canvas, the elements being captured MUST be inside the layout subtree of the native canvas. 
+                     We structure the DOM such that IF the API exists, we dynamically inject a canvas here and append the active target to it. -->
+                
+                <!-- FULL POST PREVIEW -->
+                <div id="preview-post-container" class="w-full max-w-4xl block relative">
+                    <article id="export-target-post" class="bg-white dark:bg-[#1A1A1A] border-[3px] border-black shadow-brutal relative p-6 sm:p-12 mb-12">
+                        
+                        <!-- Top Tag Sticker -->
+                        <div class="absolute -top-6 -left-2 sm:-left-6 bg-brand-yellow text-black font-display text-lg sm:text-2xl px-4 py-1 border-[3px] border-black shadow-brutal-sm -rotate-3 z-10" id="preview-post-tag">
+                            TAG
+                        </div>
+                        
+                        <!-- Hero Image Frame -->
+                        <div class="w-full h-[250px] sm:h-[400px] border-[3px] border-black bg-brand-cyan mb-8 rotate-1">
+                            <!-- We set crossOrigin to anonymous so screenshots don't fail, but the new API handles this better natively -->
+                            <img id="preview-post-img" src="" alt="Cover Image" class="w-full h-full object-cover filter grayscale hover:grayscale-0 transition-all duration-300" crossOrigin="anonymous" onerror="this.src='data:image/svg+xml;charset=UTF-8,%3Csvg xmlns=%22http://www.w3.org/2000/svg%22 width=%22100%25%22 height=%22100%25%22 viewBox=%220 0 800 400%22%3E%3Crect fill=%22%2300C2D1%22 width=%22800%22 height=%22400%22/%3E%3Ctext fill=%22%23000%22 font-family=%22monospace%22 font-size=%2230%22 dy=%2210.5%22 font-weight=%22bold%22 x=%2250%25%22 y=%2250%25%22 text-anchor=%22middle%22%3E[ NO IMAGE ]%3C/text%3E%3C/svg%3E'">
+                        </div>
+                        
+                        <h1 id="preview-post-title" class="font-display text-5xl sm:text-7xl md:text-8xl text-black dark:text-white uppercase tracking-tight leading-[0.9] mb-6 -mt-2">
+                            POST TITLE<span class="text-brand-pink">.</span>
+                        </h1>
+                        
+                        <!-- Meta info -->
+                        <div class="flex items-center gap-2 sm:gap-4 font-mono font-bold text-xs sm:text-sm bg-brand-gray text-white dark:bg-white dark:text-black inline-flex px-3 sm:px-4 py-2 border-[3px] border-black dark:border-white shadow-brutal-sm flex-wrap mb-10">
+                            <span class="flex items-center gap-2"><div class="w-4 h-4 rounded-full bg-brand-pink border border-black dark:border-white flex items-center justify-center text-[8px] text-black" id="preview-post-avatar">A</div> <span id="preview-post-author">AUTHOR</span></span>
+                            <span class="text-brand-cyan dark:text-brand-purple">///</span>
+                            <span id="preview-post-date">DATE</span>
+                            <span class="text-brand-cyan dark:text-brand-purple">///</span>
+                            <span>READING</span>
+                        </div>
+
+                        <!-- Markdown Content Container -->
+                        <div id="preview-post-content" class="brutal-prose">
+                            <!-- Rendered Markdown -->
+                        </div>
+                    </article>
+                </div>
+
+                <!-- CARD PREVIEW -->
+                <div id="preview-card-container" class="w-full max-w-md hidden relative">
+                    <div id="export-target-card" class="flex flex-col border-[3px] border-black rounded-2xl overflow-hidden shadow-brutal bg-white dark:bg-[#1A1A1A] text-black dark:text-white h-[500px]">
+                        
+                        <!-- Card Image -->
+                        <div class="w-full h-48 bg-brand-orange border-b-[3px] border-black relative shrink-0">
+                            <img id="preview-card-img" src="" alt="Cover" class="w-full h-full object-cover filter grayscale transition-all duration-300" crossOrigin="anonymous" onerror="this.src='data:image/svg+xml;charset=UTF-8,%3Csvg xmlns=%22http://www.w3.org/2000/svg%22 width=%22100%25%22 height=%22100%25%22 viewBox=%220 0 400 250%22%3E%3Crect fill=%22%23FF5722%22 width=%22400%22 height=%22250%22/%3E%3Ctext fill=%22%23000%22 font-family=%22monospace%22 font-size=%2220%22 dy=%2210.5%22 font-weight=%22bold%22 x=%2250%25%22 y=%2250%25%22 text-anchor=%22middle%22%3E[ IMG ]%3C/text%3E%3C/svg%3E'">
+                            <div class="absolute top-4 left-4 bg-white text-black border-[2px] border-black font-display text-lg px-2 py-0.5 tracking-wider uppercase shadow-brutal-sm" id="preview-card-tag">TAG</div>
+                        </div>
+                        
+                        <!-- Card Content -->
+                        <div class="p-6 flex flex-col flex-1 bg-[url('data:image/svg+xml;base64,PHN2ZyB4bWxucz0iaHR0cDovL3d3dy53My5vcmcvMjAwMC9zdmciIHdpZHRoPSI4IiBoZWlnaHQ9IjgiPgo8cmVjdCB3aWR0aD0iOCIgaGVpZ2h0PSI4IiBmaWxsPSIjZmZmIj48L3JlY3Q+CTxwYXRoIGQ9Ik0wIDBMOCA4Wk04IDBMMCA4WiIgc3Ryb2tlPSIjMDAwIiBzdHJva2Utd2lkdGg9IjEiIHN0cm9rZS1vcGFjaXR5PSIwLjA1Ij48L3BhdGg+Cjwvc3ZnPg==')] dark:bg-[url('data:image/svg+xml;base64,PHN2ZyB4bWxucz0iaHR0cDovL3d3dy53My5vcmcvMjAwMC9zdmciIHdpZHRoPSI4IiBoZWlnaHQ9IjgiPgo8cmVjdCB3aWR0aD0iOCIgaGVpZ2h0PSI4IiBmaWxsPSIjMUExQTFBIj48L3JlY3Q+CTxwYXRoIGQ9Ik0wIDBMOCA4Wk04IDBMMCA4WiIgc3Ryb2tlPSIjZmZmIiBzdHJva2Utd2lkdGg9IjEiIHN0cm9rZS1vcGFjaXR5PSIwLjA1Ij48L3BhdGg+Cjwvc3ZnPg==')]">
+                            <h3 id="preview-card-title" class="font-display text-4xl uppercase tracking-wide leading-[0.9] mb-3 line-clamp-2">Post Title</h3>
+                            <p id="preview-card-excerpt" class="font-sans text-sm font-medium opacity-80 leading-relaxed mb-4 line-clamp-3 flex-1">
+                                Excerpt will go here...
+                            </p>
+                            
+                            <div class="flex items-center justify-between pt-4 border-t-[3px] border-black/20 dark:border-white/20 shrink-0">
+                                <div class="flex items-center gap-2">
+                                    <div class="w-8 h-8 bg-brand-cyan border-2 border-black flex items-center justify-center text-black font-bold font-mono text-xs shadow-brutal-sm" id="preview-card-avatar">A</div>
+                                    <span id="preview-card-author" class="font-mono font-bold text-xs uppercase tracking-wide">Author</span>
+                                </div>
+                                <span id="preview-card-date" class="font-mono font-bold text-xs uppercase text-brand-pink dark:text-brand-yellow">Date</span>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+            
+            <!-- Snapshot Loading Overlay -->
+            <div id="loading-overlay" class="absolute inset-0 bg-white/90 dark:bg-brand-coal/90 backdrop-blur-sm z-50 flex-col items-center justify-center hidden">
+                <i class="ph-bold ph-aperture text-6xl text-brand-pink animate-spin mb-4"></i>
+                <p class="font-display text-3xl tracking-wide text-black dark:text-white uppercase" id="loading-text">GENERATING...</p>
+            </div>
+        </section>
+    </main>
+
+    <script>
+        // --- State & Initialization ---
+        let activeTab = 'post';
+        
+        // 2026 Feature Detect: HTML-in-Canvas API (drawElementImage)
+        // This checks if the experimental API is supported by the context
+        const tempCanvas = document.createElement('canvas');
+        const tempCtx = tempCanvas.getContext('2d');
+        const HAS_REAL_NATIVE_API = typeof tempCtx.drawElementImage === 'function';
+        let forceFallback = false;
+
+        function updateApiStatusUI() {
+            const statusLabel = document.getElementById('api-label');
+            const statusDot = document.getElementById('api-dot');
+            
+            // Reset previous colors
+            statusDot.className = 'w-2 h-2 rounded-full border border-black transition-colors ' + 
+                                  (HAS_REAL_NATIVE_API && !forceFallback ? 'bg-brand-green' : 
+                                  (HAS_REAL_NATIVE_API && forceFallback ? 'bg-brand-pink' : 'bg-brand-orange'));
+
+            if (HAS_REAL_NATIVE_API && !forceFallback) {
+                statusLabel.textContent = "Native API Active";
+                console.log("🚀 High-performance HTML-in-Canvas API is active!");
+            } else if (HAS_REAL_NATIVE_API && forceFallback) {
+                statusLabel.textContent = "Forced Fallback";
+                console.log("⚠️ Native API is available but FORCED OFF for testing.");
+            } else {
+                statusLabel.textContent = "Fallback Active";
+                console.log("⚠️ HTML-in-Canvas API not detected natively. Using fallback.");
+            }
+        }
+
+        function toggleApiTest() {
+            if (!HAS_REAL_NATIVE_API) {
+                alert("The HTML-in-Canvas API is not currently supported in your browser natively (you are using the Fallback Engine). \n\nTo test the Native API, you must enable 'Experimental Web Platform Features' in chrome://flags or edge://flags.");
+                return;
+            }
+            forceFallback = !forceFallback;
+            updateApiStatusUI();
+        }
+
+        document.addEventListener('DOMContentLoaded', () => {
+            updateApiStatusUI();
+            updatePreviews();
+            setTimeout(loadPreset, 100);
+        });
+
+        const domElements = {
+            inputs: {
+                title: document.getElementById('input-title'),
+                excerpt: document.getElementById('input-excerpt'),
+                author: document.getElementById('input-author'),
+                date: document.getElementById('input-date'),
+                image: document.getElementById('input-image'),
+                tag: document.getElementById('input-tag'),
+                content: document.getElementById('input-content')
+            },
+            previews: {
+                post: {
+                    title: document.getElementById('preview-post-title'),
+                    author: document.getElementById('preview-post-author'),
+                    date: document.getElementById('preview-post-date'),
+                    image: document.getElementById('preview-post-img'),
+                    tag: document.getElementById('preview-post-tag'),
+                    content: document.getElementById('preview-post-content'),
+                    avatar: document.getElementById('preview-post-avatar')
+                },
+                card: {
+                    title: document.getElementById('preview-card-title'),
+                    excerpt: document.getElementById('preview-card-excerpt'),
+                    author: document.getElementById('preview-card-author'),
+                    date: document.getElementById('preview-card-date'),
+                    image: document.getElementById('preview-card-img'),
+                    tag: document.getElementById('preview-card-tag'),
+                    avatar: document.getElementById('preview-card-avatar')
+                }
+            }
+        };
+
+        const html = document.documentElement;
+        const themeIcon = document.getElementById('theme-icon');
+        
+        if (html.classList.contains('dark')) {
+            themeIcon.classList.replace('ph-moon', 'ph-sun');
+        }
+
+        function toggleTheme() {
+            if (html.classList.contains('dark')) {
+                html.classList.remove('dark');
+                localStorage.theme = 'light';
+                themeIcon.classList.replace('ph-sun', 'ph-moon');
+            } else {
+                html.classList.add('dark');
+                localStorage.theme = 'dark';
+                themeIcon.classList.replace('ph-moon', 'ph-sun');
+            }
+        }
+
+        const bgGrids = [
+            { class: 'theme-bg-dots' },
+            { class: 'theme-bg-blueprint' },
+            { class: 'theme-bg-isometric' }
+        ];
+
+        function cycleBgGrid() {
+            const currentClass = localStorage.bgGridClass || 'theme-bg-dots';
+            const currentIndex = bgGrids.findIndex(g => g.class === currentClass);
+            const nextIndex = (currentIndex + 1) % bgGrids.length;
+            const nextGrid = bgGrids[nextIndex];
+            
+            bgGrids.forEach(g => document.body.classList.remove(g.class));
+            document.body.classList.add(nextGrid.class);
+            localStorage.bgGridClass = nextGrid.class;
+        }
+
+        // --- Core Functions ---
+        
+        function updatePreviews() {
+            const data = {
+                title: domElements.inputs.title.value || 'UNTITLED POST',
+                excerpt: domElements.inputs.excerpt.value || 'Add a subtitle or excerpt to give readers a hint of what is inside.',
+                author: domElements.inputs.author.value || 'ANONYMOUS',
+                date: domElements.inputs.date.value ? new Date(domElements.inputs.date.value).toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' }) : 'UNKNOWN DATE',
+                image: domElements.inputs.image.value,
+                tag: domElements.inputs.tag.value || 'GENERAL',
+                content: domElements.inputs.content.value
+            };
+
+            const avatarInitial = data.author.charAt(0).toUpperCase();
+
+            // Format Title for Post
+            domElements.previews.post.title.innerHTML = `${data.title}<span class="text-brand-pink">.</span>`;
+            domElements.previews.post.author.textContent = data.author;
+            domElements.previews.post.date.textContent = data.date;
+            domElements.previews.post.tag.textContent = data.tag;
+            domElements.previews.post.avatar.textContent = avatarInitial;
+            if(data.image) domElements.previews.post.image.src = data.image;
+            
+            // Render Markdown
+            const rawHtml = marked.parse(data.content || '### START WRITING\n\nBuild real intuition.');
+            domElements.previews.post.content.innerHTML = DOMPurify.sanitize(rawHtml);
+
+            // Update Card
+            domElements.previews.card.title.textContent = data.title;
+            domElements.previews.card.excerpt.textContent = data.excerpt;
+            domElements.previews.card.author.textContent = data.author;
+            domElements.previews.card.date.textContent = data.date;
+            domElements.previews.card.tag.textContent = data.tag;
+            domElements.previews.card.avatar.textContent = avatarInitial;
+            if(data.image) domElements.previews.card.image.src = data.image;
+        }
+
+        function switchTab(tab) {
+            activeTab = tab;
+            
+            const btnPost = document.getElementById('tab-post');
+            const btnCard = document.getElementById('tab-card');
+            const conPost = document.getElementById('preview-post-container');
+            const conCard = document.getElementById('preview-card-container');
+
+            const activeClass = 'flex-1 py-2 px-4 text-lg font-display tracking-wide uppercase transition-all bg-brand-purple text-black border-[3px] border-black shadow-brutal-sm transform -translate-y-1 -translate-x-1';
+            const inactiveClass = 'flex-1 py-2 px-4 text-lg font-display tracking-wide uppercase transition-all bg-brand-white dark:bg-brand-gray text-black dark:text-white border-[3px] border-black dark:border-white hover:bg-brand-yellow hover:text-black dark:hover:bg-brand-yellow';
+
+            if (tab === 'post') {
+                btnPost.className = activeClass;
+                btnCard.className = inactiveClass;
+                conPost.classList.remove('hidden');
+                conCard.classList.add('hidden');
+            } else {
+                btnCard.className = activeClass;
+                btnPost.className = inactiveClass;
+                conCard.classList.remove('hidden');
+                conPost.classList.add('hidden');
+            }
+        }
+
+        async function exportSnapshot(resolution) {
+            const overlay = document.getElementById('loading-overlay');
+            const loadingText = document.getElementById('loading-text');
+            
+            const targetId = activeTab === 'post' ? 'export-target-post' : 'export-target-card';
+            const element = document.getElementById(targetId);
+            if (!element) return;
+
+            overlay.classList.remove('hidden');
+            overlay.classList.add('flex');
+            loadingText.textContent = `GENERATING ${resolution}...`;
+
+            // Define Target Width based on Resolution
+            let targetWidth;
+            switch(resolution) {
+                case 'HD': targetWidth = 1920; break;
+                case '2K': targetWidth = 2560; break;
+                case '4K': targetWidth = 3840; break;
+                default: targetWidth = 1920;
+            }
+
+            const originalWidth = element.offsetWidth;
+            const originalHeight = element.offsetHeight;
+            const scale = targetWidth / originalWidth;
+            const targetHeight = Math.round(originalHeight * scale);
+            const bgColor = document.documentElement.classList.contains('dark') ? '#0F0D0E' : '#ffffff';
+
+            try {
+                await new Promise(r => setTimeout(r, 100)); // Allow UI to update
+                
+                let imgData;
+                const useNativeApi = HAS_REAL_NATIVE_API && !forceFallback;
+
+                if (useNativeApi) {
+                    // --- 2026 EXPERIMENTAL PATH: HTML-in-Canvas API ---
+                    console.log("Using Native DOM Capture (HTML-in-Canvas)");
+                    
+                    // Create a hidden canvas tailored for the export
+                    const offscreenCanvas = document.createElement('canvas');
+                    offscreenCanvas.width = targetWidth;
+                    offscreenCanvas.height = targetHeight;
+                    
+                    // The core requirement: the canvas must declare `layoutsubtree`
+                    // In real usage, the DOM elements need to be children of the canvas.
+                    // For export, we temporarily clone the node, append it to canvas, capture, and remove.
+                    offscreenCanvas.setAttribute('layoutsubtree', '');
+                    document.body.appendChild(offscreenCanvas); // Must be in DOM to compute layout
+                    offscreenCanvas.style.position = 'absolute';
+                    offscreenCanvas.style.opacity = '0';
+                    offscreenCanvas.style.pointerEvents = 'none';
+
+                    const clone = element.cloneNode(true);
+                    // Force the clone to scale up to match our desired high-res output
+                    clone.style.transform = `scale(${scale})`;
+                    clone.style.transformOrigin = 'top left';
+                    clone.style.width = `${originalWidth}px`; 
+                    
+                    offscreenCanvas.appendChild(clone);
+                    
+                    // Wait a tick for the browser to lay out the newly appended child
+                    await new Promise(r => requestAnimationFrame(r));
+                    
+                    const ctx = offscreenCanvas.getContext('2d');
+                    ctx.fillStyle = bgColor;
+                    ctx.fillRect(0, 0, targetWidth, targetHeight);
+                    
+                    // THE MAGIC CALL: Draw the child element into the canvas
+                    ctx.drawElementImage(clone, 0, 0);
+                    
+                    imgData = offscreenCanvas.toDataURL('image/png');
+                    
+                    // Cleanup
+                    document.body.removeChild(offscreenCanvas);
+
+                } else {
+                    // --- FALLBACK PATH: html2canvas ---
+                    console.log("Using Fallback Engine (html2canvas)");
+                    const canvas = await html2canvas(element, {
+                        scale: scale,
+                        useCORS: true,
+                        allowTaint: false,
+                        backgroundColor: bgColor,
+                        logging: false
+                    });
+                    imgData = canvas.toDataURL('image/png');
+                }
+
+                // Trigger Download
+                const link = document.createElement('a');
+                link.download = `brutal_blog_${activeTab}_${resolution}_${new Date().getTime()}.png`;
+                link.href = imgData;
+                document.body.appendChild(link);
+                link.click();
+                document.body.removeChild(link);
+                
+            } catch (error) {
+                console.error("Export failed:", error);
+                alert("Failed to generate snapshot. External images may be blocking cross-origin requests. Try downloading without an image URL.");
+            } finally {
+                overlay.classList.add('hidden');
+                overlay.classList.remove('flex');
+            }
+        }
+
+        function loadPreset() {
+            domElements.inputs.title.value = "Web APIs in 2026: HTML-in-Canvas";
+            domElements.inputs.excerpt.value = "Why hacking together DOM screenshots is finally a thing of the past thanks to the new experimental Origin Trial.";
+            domElements.inputs.author.value = "Walt Guevara";
+            domElements.inputs.date.value = new Date().toISOString().split('T')[0];
+            // Safe cross-origin image
+            domElements.inputs.image.value = "https://images.unsplash.com/photo-1550751827-4bd374c3f58b?auto=format&fit=crop&q=80&w=1200";
+            domElements.inputs.tag.value = "Engineering";
+            
+            domElements.inputs.content.value = `## The End of \`html2canvas\`
+For years, converting DOM elements to images required complex polyfills that read CSS styles and manually recreated them on an HTML5 canvas. It was error-prone, missed newer CSS features, and failed entirely on cross-origin elements.
+
+Enter the **HTML-in-Canvas API**.
+
+> "This API lets you draw DOM content directly into a 2D canvas or a WebGL texture while keeping the UI interactable and accessible."
+
+### How it works
+You add the \`layoutsubtree\` attribute to your canvas. This tells the browser to keep the children hidden but fully processed in the accessibility tree.
+
+\`\`\`javascript
+const ctx = document.getElementById('canvas').getContext('2d');
+const form_element = document.getElementById('form_element');
+
+canvas.onpaint = () => {
+  ctx.reset();
+  // Native draw call!
+  let transform = ctx.drawElementImage(form_element, 0, 0); 
+};
+\`\`\`
+
+The days of duplicating UI layers are over. If your browser supports it, this blog creator will use it automatically when generating High-Res exports.`;
+
+            updatePreviews();
+        }
+    </script>
+</body>
+</html>
