@@ -25,7 +25,21 @@
     
         // Global Paste Listener for Images
         window.addEventListener('paste', (e) => {
-            const items = (e.clipboardData || e.originalEvent.clipboardData).items;
+            const clipboardData = e.clipboardData || e.originalEvent.clipboardData;
+            let pastedUrl = null;
+            try {
+                const htmlData = clipboardData.getData('text/html');
+                if (htmlData) {
+                    const parser = new DOMParser();
+                    const doc = parser.parseFromString(htmlData, 'text/html');
+                    const imgElement = doc.querySelector('img');
+                    if (imgElement && imgElement.src && (imgElement.src.startsWith('http://') || imgElement.src.startsWith('https://'))) {
+                        pastedUrl = imgElement.src;
+                    }
+                }
+            } catch (err) {}
+
+            const items = clipboardData.items;
             for (const item of items) {
                 if (item.type.indexOf('image') === 0) {
                     const blob = item.getAsFile();
@@ -50,6 +64,8 @@
                             scale: scale,
                             rotation: 0
                         };
+                        if (pastedUrl) newImg._originalSrc = pastedUrl;
+                        
                         state.elements.push(newImg);
                         selectElement(newImg.id);
                         document.querySelector('[data-target="panel-edit"]').click();
@@ -296,7 +312,7 @@
                             <h3 class="text-[10px] font-bold text-pro-500 dark:text-pro-400 uppercase tracking-widest">My Designs (Local)</h3>
                             <button id="btnSavePreset" class="text-[10px] bg-brand-50 dark:bg-brand-500/20 text-brand-600 dark:text-brand-300 px-2 py-1 rounded font-bold hover:bg-brand-100 dark:hover:bg-brand-500/30 ">Save Current</button>
                         </div>
-                        <div id="customPresetsList" class="space-y-2 mb-3">
+                        <div id="customPresetsList" class="mb-3">
                             <!-- Populated by JS -->
                         </div>
                         <div class="flex gap-2 pt-3 border-t border-pro-200 dark:border-pro-700">
@@ -1201,6 +1217,13 @@
                             </summary>
                             <div class="p-3 bg-pro-50 dark:bg-pro-900 space-y-3">
                                 <div class="bg-white dark:bg-pro-800 border border-pro-200 dark:border-pro-700 p-3 rounded-md shadow-sm space-y-4">
+                                    <div class="mb-4">
+                                        <button id="btnReplaceImage" class="w-full bg-brand-50 hover:bg-brand-100 dark:bg-brand-900/30 dark:hover:bg-brand-900/50 text-brand-600 dark:text-brand-300 text-xs font-bold py-2 px-3 rounded flex items-center justify-center gap-2 transition-colors border border-brand-200 dark:border-brand-700">
+                                            <i class="ph-bold ph-image"></i> Replace Image
+                                        </button>
+                                        <input type="file" id="replaceImageUpload" accept="image/*" class="hidden">
+                                    </div>
+                                    <hr class="border-pro-100 dark:border-pro-700 mb-4">
                                     <div>
                                         <div class="flex justify-between items-center mb-2">
                                             <label class="text-[10px] font-bold text-pro-500 dark:text-pro-400 uppercase tracking-widest">Blend Mode</label>
@@ -1942,6 +1965,9 @@
         const editInnerXVal = document.getElementById('editInnerXVal');
         const editInnerY = document.getElementById('editInnerY');
         const editInnerYVal = document.getElementById('editInnerYVal');
+        const btnReplaceImage = document.getElementById('btnReplaceImage');
+        const replaceImageUpload = document.getElementById('replaceImageUpload');
+        
         const editImageBlend = document.getElementById('editImageBlend');
         const editImageOpacity = document.getElementById('editImageOpacity');
         const editImageOpacityVal = document.getElementById('editImageOpacityVal');
@@ -3743,6 +3769,27 @@ function updateUI() {
         editInnerScale.addEventListener('input', (e) => { editInnerScaleVal.textContent = `${e.target.value}%`; updateProp('innerScale', parseInt(e.target.value) / 100); });
         editInnerX.addEventListener('input', (e) => { editInnerXVal.textContent = `${e.target.value}%`; updateProp('innerX', parseInt(e.target.value)); });
         editInnerY.addEventListener('input', (e) => { editInnerYVal.textContent = `${e.target.value}%`; updateProp('innerY', parseInt(e.target.value)); });
+        if (btnReplaceImage && replaceImageUpload) {
+            btnReplaceImage.addEventListener('click', () => replaceImageUpload.click());
+            replaceImageUpload.addEventListener('change', (e) => {
+                const file = e.target.files[0];
+                if (!file || !state.selectedId) return;
+                const url = URL.createObjectURL(file);
+                loadAndDownscaleImage(url, (newImg) => {
+                    const el = state.elements.find(x => x.id === state.selectedId);
+                    if (el && el.type === 'image') {
+                        el.img = newImg;
+                        delete el._isMockImage;
+                        delete el._originalSrc;
+                        render();
+                        debouncedSave();
+                        showToast("Image replaced");
+                    }
+                });
+                replaceImageUpload.value = ''; // Reset
+            });
+        }
+
         editImageBlend.addEventListener('change', (e) => { updateProp('blendMode', e.target.value); });
         editImageOpacity.addEventListener('input', (e) => { editImageOpacityVal.textContent = `${e.target.value}%`; updateProp('opacity', parseInt(e.target.value)); });
 
@@ -4257,27 +4304,55 @@ function updateUI() {
         }
 
         function saveToLibrary() {
-            // Can't save HTMLImageElements easily to JSON without base64 bloat.
-            // For now, only save text elements to presets, or strip images.
+            // Prompt user for a name
+            const defaultName = `Design ${new Date().toLocaleDateString()} ${new Date().toLocaleTimeString()}`;
+            const customName = prompt("Enter a name for this preset:", defaultName);
+            if (!customName) return; // Cancelled
+
+            // Generate a lightweight thumbnail
+            const thumbCanvas = document.createElement('canvas');
+            const thumbWidth = 200;
+            const thumbHeight = (canvas.height / canvas.width) * thumbWidth;
+            thumbCanvas.width = thumbWidth;
+            thumbCanvas.height = thumbHeight;
+            const tCtx = thumbCanvas.getContext('2d');
+            tCtx.drawImage(canvas, 0, 0, thumbWidth, thumbHeight);
+            const thumbnail = thumbCanvas.toDataURL('image/jpeg', 0.3); // Low quality
+
             const storableElements = state.elements.map(el => {
                 if(el.type !== 'image') return el;
-                // Simple image fallback, just omit the img object
                 const {img, ...rest} = el; 
-                return {...rest, _isStorableImg: true}; 
+                if (img && img.src && (img.src.startsWith('http://') || img.src.startsWith('https://'))) {
+                    return {...rest, _originalSrc: img.src, _isStorableImg: true}; 
+                }
+                if (el._originalSrc && (el._originalSrc.startsWith('http://') || el._originalSrc.startsWith('https://'))) {
+                    return {...rest, _isStorableImg: true}; 
+                }
+                return {...rest, _isMockImage: true, _isStorableImg: true}; 
             });
 
             const newPreset = {
                 id: generateId(),
-                name: `Design ${new Date().toLocaleDateString()} ${new Date().toLocaleTimeString()}`,
+                name: customName,
+                thumbnail: thumbnail,
                 bgColor: state.bgColor,
                 elements: storableElements
             };
 
             const presets = getSavedPresets();
             presets.unshift(newPreset);
-            localStorage.setItem('firethumb_presets', JSON.stringify(presets));
-            renderLibrary();
-            showToast("Design saved to Library!");
+            
+            try {
+                localStorage.setItem('firethumb_presets', JSON.stringify(presets));
+                renderLibrary();
+                showToast("Design saved to Library!");
+            } catch (e) {
+                if (e.name === 'QuotaExceededError' || e.code === 22) {
+                    alert("Storage limit reached! Please delete some older presets before saving new ones.");
+                } else {
+                    console.error("Error saving preset:", e);
+                }
+            }
         }
 
         function loadFromLibrary(preset) {
@@ -4286,8 +4361,28 @@ function updateUI() {
             // Reconstruct elements. Images will just be placeholder squares since we didn't save base64.
             state.elements = preset.elements.map(el => {
                 if(el.type !== 'image') return el;
-                // Placeholder for restored images
                 const placeholder = new Image();
+                if (el._originalSrc) {
+                    placeholder.crossOrigin = 'anonymous';
+                    placeholder.src = el._originalSrc;
+                    placeholder.onload = () => render();
+                } else {
+                    const tCan = document.createElement('canvas');
+                    tCan.width = 400; tCan.height = 400;
+                    const tc = tCan.getContext('2d');
+                    const grad = tc.createLinearGradient(0,0,400,400);
+                    grad.addColorStop(0, '#f43f5e');
+                    grad.addColorStop(1, '#3b82f6');
+                    tc.fillStyle = grad;
+                    tc.fillRect(0,0,400,400);
+                    tc.fillStyle = 'rgba(255,255,255,0.9)';
+                    tc.font = 'bold 36px sans-serif';
+                    tc.textAlign = 'center';
+                    tc.textBaseline = 'middle';
+                    tc.fillText('REPLACE ME', 200, 200);
+                    placeholder.src = tCan.toDataURL();
+                    placeholder.onload = () => render();
+                }
                 return {...el, img: placeholder};
             });
             
@@ -4313,25 +4408,52 @@ function updateUI() {
             
             if(presets.length === 0) {
                 customPresetsList.innerHTML = '<p class="text-xs text-pro-500 dark:text-pro-400 italic">No saved designs yet.</p>';
+                customPresetsList.className = "mb-3";
                 return;
             }
 
+            customPresetsList.className = "grid grid-cols-2 gap-3 mb-3";
+
             presets.forEach(p => {
                 const div = document.createElement('div');
-                div.className = "flex items-center justify-between bg-pro-50 dark:bg-pro-900 border border-pro-200 dark:border-pro-700 p-2 rounded group";
+                div.className = "relative group rounded-lg overflow-hidden border border-pro-200 dark:border-pro-700 bg-white dark:bg-pro-800 shadow-sm cursor-pointer hover:border-brand-400 dark:hover:border-brand-500 transition-colors flex flex-col";
                 
-                const btnLoad = document.createElement('button');
-                btnLoad.className = "flex-1 text-left font-bold text-[11px] text-pro-700 dark:text-pro-300 group-hover:text-brand-600 dark:group-hover:text-brand-400 truncate pr-2";
-                btnLoad.textContent = p.name;
-                btnLoad.onclick = () => loadFromLibrary(p);
+                div.onclick = () => loadFromLibrary(p);
+
+                const thumbContainer = document.createElement('div');
+                thumbContainer.className = "aspect-video bg-pro-100 dark:bg-pro-900 flex items-center justify-center overflow-hidden";
+                
+                if (p.thumbnail) {
+                    const img = document.createElement('img');
+                    img.src = p.thumbnail;
+                    img.className = "w-full h-full object-cover";
+                    thumbContainer.appendChild(img);
+                } else {
+                    const fallback = document.createElement('div');
+                    fallback.className = "w-full h-full flex flex-col items-center justify-center bg-gradient-to-br from-brand-50 to-brand-100 dark:from-brand-900/40 dark:to-pro-800 text-brand-500 dark:text-brand-300";
+                    fallback.innerHTML = '<i class="ph-bold ph-image text-2xl mb-1 opacity-50"></i><span class="text-[9px] font-bold opacity-70">LEGACY</span>';
+                    thumbContainer.appendChild(fallback);
+                }
 
                 const btnDel = document.createElement('button');
-                btnDel.className = "text-pro-400 hover:text-red-500  p-1";
-                btnDel.innerHTML = '<i class="ph-bold ph-trash"></i>';
-                btnDel.onclick = () => deleteFromLibrary(p.id);
+                btnDel.className = "absolute top-1 right-1 bg-red-500 hover:bg-red-600 text-white p-1 rounded opacity-0 group-hover:opacity-100 transition-opacity shadow-sm z-10";
+                btnDel.innerHTML = '<i class="ph-bold ph-trash text-xs"></i>';
+                btnDel.onclick = (e) => {
+                    e.stopPropagation();
+                    if(confirm("Delete this preset?")) deleteFromLibrary(p.id);
+                };
 
-                div.appendChild(btnLoad);
+                const titleDiv = document.createElement('div');
+                titleDiv.className = "p-2 bg-white dark:bg-pro-800 border-t border-pro-100 dark:border-pro-700";
+                const titleText = document.createElement('div');
+                titleText.className = "text-[10px] font-bold text-pro-700 dark:text-pro-300 truncate";
+                titleText.textContent = p.name;
+                titleDiv.appendChild(titleText);
+
                 div.appendChild(btnDel);
+                div.appendChild(thumbContainer);
+                div.appendChild(titleDiv);
+                
                 customPresetsList.appendChild(div);
             });
         }
