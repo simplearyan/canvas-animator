@@ -420,6 +420,18 @@
         .group:hover .preview-jiggle { animation: preview-jiggle 0.4s infinite alternate ease-in-out; }
         .group:hover .preview-wave { animation: preview-wave 1s infinite ease-in-out; }
     </style>
+    <!-- MathJax 3 configuration and CDN loading -->
+    <script>
+        window.MathJax = {
+            tex: {
+                inlineMath: [['$', '$'], ['\\(', '\\)']]
+            },
+            svg: {
+                fontCache: 'none'
+            }
+        };
+    </script>
+    <script id="MathJax-script" async src="https://cdn.jsdelivr.net/npm/mathjax@3/es5/tex-svg.js"></script>
 </head>
 <body class="bg-surface-50 dark:bg-surface-900 text-surface-900 dark:text-surface-100 font-sans h-screen flex flex-col overflow-hidden select-none">
 
@@ -2590,6 +2602,67 @@
             return prev.value + t * (next.value - prev.value);
         };
 
+        function getOrRenderMathImage(clip) {
+            const text = clip.text || '';
+            const color = clip.effects.fillColor || '#ffffff';
+            const cacheKey = `${clip.id}_${text}_${color}`;
+            
+            if (window.mathImageCache && window.mathImageCache[cacheKey]) {
+                return window.mathImageCache[cacheKey];
+            }
+            
+            const record = {
+                image: new Image(),
+                loaded: false,
+                width: 0,
+                height: 0
+            };
+            if (window.mathImageCache) {
+                window.mathImageCache[cacheKey] = record;
+            }
+            
+            if (window.MathJax && window.MathJax.tex2svg) {
+                try {
+                    const container = window.MathJax.tex2svg(text);
+                    const svgNode = container.querySelector('svg');
+                    if (svgNode) {
+                        svgNode.style.color = color;
+                        svgNode.querySelectorAll('path').forEach(p => {
+                            p.setAttribute('fill', color);
+                        });
+                        
+                        const svgWidth = svgNode.getAttribute('width');
+                        const svgHeight = svgNode.getAttribute('height');
+                        
+                        const valW = parseFloat(svgWidth) || 0;
+                        const valH = parseFloat(svgHeight) || 0;
+                        const scaleFactor = (clip.effects.fontSize || 100) * 0.55;
+                        
+                        record.width = valW * scaleFactor;
+                        record.height = valH * scaleFactor;
+                        
+                        svgNode.setAttribute('width', record.width);
+                        svgNode.setAttribute('height', record.height);
+                        
+                        const svgData = new XMLSerializer().serializeToString(svgNode);
+                        const svgBlob = new Blob([svgData], { type: 'image/svg+xml;charset=utf-8' });
+                        const url = URL.createObjectURL(svgBlob);
+                        
+                        record.image.onload = () => {
+                            record.loaded = true;
+                            URL.revokeObjectURL(url);
+                            drawCanvas();
+                        };
+                        record.image.src = url;
+                    }
+                } catch (err) {
+                    console.error("MathJax conversion failed:", err);
+                }
+            }
+            
+            return record;
+        }
+
         function drawCanvas(targetCtx, targetW, targetH) {
             const domBoxContainer = document.getElementById('domBoundingBoxContainer');
             if (domBoxContainer && !State.isExporting && !targetCtx) domBoxContainer.innerHTML = '';
@@ -2657,6 +2730,16 @@
                         let dw = metrics.width;
                         let dh = fontSize * lines.length; 
                         
+                        let isMath = clip.effects && clip.effects.renderAsMath;
+                        let mathRecord = null;
+                        if (isMath) {
+                            mathRecord = getOrRenderMathImage(clip);
+                            if (mathRecord && mathRecord.loaded) {
+                                dw = mathRecord.width;
+                                dh = mathRecord.height;
+                            }
+                        } 
+                        
                         // New Text Properties
                         ctx.letterSpacing = (clip.effects.letterSpacing || 0) + "px";
                         const lh = (clip.effects.lineHeight || 1.1) * fontSize;
@@ -2701,6 +2784,15 @@
                         };
 
                         let drawText = () => {
+                            if (isMath) {
+                                if (mathRecord && mathRecord.loaded) {
+                                    ctx.drawImage(mathRecord.image, -mathRecord.width / 2, -mathRecord.height / 2);
+                                } else {
+                                    ctx.fillStyle = clip.effects.fillColor || '#ffffff';
+                                    ctx.fillText(renderText, 0, 0);
+                                }
+                                return;
+                            }
                             if (animTextIn === 'none' && animTextOut === 'none' && animTextLoop === 'none') {
                                 // Original line-based rendering for performance and proper stroke
                                 // Extrude
@@ -4300,16 +4392,39 @@
                             <textarea class="w-full h-20 bg-surface-50 dark:bg-surface-900/80 shadow-inner border border-surface-200 dark:border-surface-700 rounded-lg p-2 text-sm text-surface-900 dark:text-white outline-none focus:border-brand-500 focus:ring-1 focus:ring-brand-500" oninput="State.clips.find(c=>c.id==='${clip.id}').text=this.value; drawCanvas(); renderClips();">${clip.text}</textarea>
                             
                             <div class="flex flex-col gap-2 mt-1">
+                                <div class="flex items-center justify-between py-1 bg-surface-100 dark:bg-surface-800/50 px-2 rounded border border-surface-200 dark:border-surface-700">
+                                    <label class="text-[10px] font-bold text-surface-500 dark:text-surface-400 uppercase tracking-widest cursor-pointer select-none" for="mathModeToggle">Math Mode (LaTeX)</label>
+                                    <label class="relative inline-flex items-center cursor-pointer">
+                                        <input type="checkbox" id="mathModeToggle" class="sr-only peer" ${fx.renderAsMath ? 'checked' : ''} onchange="setClipEffect('${clip.id}', 'renderAsMath', this.checked); updatePropertiesPanel(); drawCanvas();">
+                                        <div class="w-7 h-4 bg-surface-200 dark:bg-surface-700 peer-focus:outline-none rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border-surface-300 after:border after:rounded-full after:h-3 after:w-3 after:transition-all dark:border-surface-600 peer-checked:bg-brand-500"></div>
+                                    </label>
+                                </div>
+                                
+                                ${fx.renderAsMath ? `
+                                <div class="flex flex-wrap gap-1 mt-1 bg-surface-100 dark:bg-surface-850 p-1.5 rounded border border-surface-200 dark:border-surface-750">
+                                    <span class="text-[8.5px] font-bold text-surface-400 w-full uppercase tracking-wider">TeX Templates</span>
+                                    <button onclick="insertTexTemplate('${clip.id}', '\\\\frac{a}{b}')" class="px-1.5 py-0.5 text-[9px] bg-white dark:bg-surface-800 hover:bg-brand-50 dark:hover:bg-brand-950/20 text-surface-700 dark:text-surface-300 rounded border border-surface-200 dark:border-surface-700 font-mono shadow-sm" title="Fraction">\\frac{a}{b}</button>
+                                    <button onclick="insertTexTemplate('${clip.id}', '\\\\sqrt{x}')" class="px-1.5 py-0.5 text-[9px] bg-white dark:bg-surface-800 hover:bg-brand-50 dark:hover:bg-brand-950/20 text-surface-700 dark:text-surface-300 rounded border border-surface-200 dark:border-surface-700 font-mono shadow-sm" title="Square Root">\\sqrt{x}</button>
+                                    <button onclick="insertTexTemplate('${clip.id}', '\\\\int_{a}^{b} f(x)dx')" class="px-1.5 py-0.5 text-[9px] bg-white dark:bg-surface-800 hover:bg-brand-50 dark:hover:bg-brand-950/20 text-surface-700 dark:text-surface-300 rounded border border-surface-200 dark:border-surface-700 font-mono shadow-sm" title="Integral">\\int</button>
+                                    <button onclick="insertTexTemplate('${clip.id}', '\\\\sum_{i=1}^{n}')" class="px-1.5 py-0.5 text-[9px] bg-white dark:bg-surface-800 hover:bg-brand-50 dark:hover:bg-brand-950/20 text-surface-700 dark:text-surface-300 rounded border border-surface-200 dark:border-surface-700 font-mono shadow-sm" title="Summation">\\sum</button>
+                                    <button onclick="insertTexTemplate('${clip.id}', 'x^{2}')" class="px-1.5 py-0.5 text-[9px] bg-white dark:bg-surface-800 hover:bg-brand-50 dark:hover:bg-brand-950/20 text-surface-700 dark:text-surface-300 rounded border border-surface-200 dark:border-surface-700 font-mono shadow-sm" title="Power">x^{2}</button>
+                                    <button onclick="insertTexTemplate('${clip.id}', 'x_{i}')" class="px-1.5 py-0.5 text-[9px] bg-white dark:bg-surface-800 hover:bg-brand-50 dark:hover:bg-brand-950/20 text-surface-700 dark:text-surface-300 rounded border border-surface-200 dark:border-surface-700 font-mono shadow-sm" title="Subscript">x_{i}</button>
+                                    <button onclick="insertTexTemplate('${clip.id}', '\\\\pi')" class="px-1.5 py-0.5 text-[9px] bg-white dark:bg-surface-800 hover:bg-brand-50 dark:hover:bg-brand-950/20 text-surface-700 dark:text-surface-300 rounded border border-surface-200 dark:border-surface-700 font-mono shadow-sm" title="Pi">\\pi</button>
+                                    <button onclick="insertTexTemplate('${clip.id}', '\\\\theta')" class="px-1.5 py-0.5 text-[9px] bg-white dark:bg-surface-800 hover:bg-brand-50 dark:hover:bg-brand-950/20 text-surface-700 dark:text-surface-300 rounded border border-surface-200 dark:border-surface-700 font-mono shadow-sm" title="Theta">\\theta</button>
+                                    <button onclick="insertTexTemplate('${clip.id}', '\\\\Delta')" class="px-1.5 py-0.5 text-[9px] bg-white dark:bg-surface-800 hover:bg-brand-50 dark:hover:bg-brand-950/20 text-surface-700 dark:text-surface-300 rounded border border-surface-200 dark:border-surface-700 font-mono shadow-sm" title="Delta">\\Delta</button>
+                                </div>
+                                ` : ''}
+
                                 <div>
                                     <label class="block text-[10px] font-bold text-surface-500 dark:text-surface-400 uppercase tracking-widest mb-1.5">Casing</label>
-                                    <select class="w-full text-xs p-2 border border-surface-200 dark:border-surface-700 rounded bg-surface-50 dark:bg-surface-900/80 shadow-inner appearance-none font-bold text-surface-800 dark:text-surface-200" onchange="setClipEffect('${clip.id}', 'textTransform', this.value)">
+                                    <select class="w-full text-xs p-2 border border-surface-200 dark:border-surface-700 rounded bg-surface-50 dark:bg-surface-900/80 shadow-inner appearance-none font-bold text-surface-800 dark:text-surface-200 ${fx.renderAsMath ? 'opacity-50 cursor-not-allowed' : ''}" ${fx.renderAsMath ? 'disabled' : ''} onchange="setClipEffect('${clip.id}', 'textTransform', this.value)">
                                         <option value="none" ${(fx.textTransform || 'none') === 'none' ? 'selected' : ''}>As Typed</option>
                                         <option value="uppercase" ${fx.textTransform === 'uppercase' ? 'selected' : ''}>UPPERCASE</option>
                                         <option value="lowercase" ${fx.textTransform === 'lowercase' ? 'selected' : ''}>lowercase</option>
                                     </select>
                                 </div>
                                 <div class="mt-2">
-                                    <label class="block text-[10px] font-bold text-surface-500 dark:text-surface-400 uppercase tracking-widest mb-1.5">Fill Color</label>
+                                    <label class="block text-[10px] font-bold text-surface-500 dark:text-surface-400 uppercase tracking-widest mb-1.5">Color</label>
                                     <div class="relative flex items-center bg-surface-50 dark:bg-surface-900 border border-surface-200 dark:border-surface-700 rounded p-1.5 cursor-pointer shadow-inner w-full">
                                         <div class="w-6 h-6 rounded shadow-sm" style="background-color: ${fx.fillColor || '#ffffff'}"></div>
                                         <span class="ml-3 font-mono font-bold text-xs text-surface-700 dark:text-surface-200 uppercase">${fx.fillColor || '#ffffff'}</span>
@@ -4398,9 +4513,30 @@
                         </div>
                     </details>
                 `;
+
+                if (fx.renderAsMath) {
+                    typographyHTML = '';
+                    spacingHTML = `
+                        <details id="cardSpacing" class="group bg-white dark:bg-surface-800 border border-surface-300 dark:border-surface-700 shadow-sm rounded-lg shrink-0 ${isHorizontal ? 'w-[280px]' : 'w-full'} overflow-hidden flex flex-col" open>
+                            <summary class="flex items-center justify-between p-3 ${isHorizontal ? '' : 'cursor-pointer'} list-none appearance-none select-none bg-surface-100 dark:bg-surface-800/80 border-b border-surface-200 dark:border-surface-700 " onclick="${isHorizontal ? 'event.preventDefault();' : ''}">
+                                <div class="text-sm font-bold text-surface-800 dark:text-surface-200 flex items-center gap-2"><i data-lucide="sliders" class="w-4 h-4 text-surface-500 dark:text-surface-400"></i> Math Sizing</div>
+                                ${isHorizontal ? '' : '<i data-lucide="chevron-down" class="w-4 h-4 text-surface-500 transition-transform group-open:rotate-180"></i>'}
+                            </summary>
+                            <div class="p-3 flex flex-col gap-3 bg-surface-50 dark:bg-surface-900/50 flex-1">
+                                <div>
+                                    <div class="flex justify-between items-center mb-1.5">
+                                        <label class="text-[10px] font-bold text-surface-500 dark:text-surface-400 uppercase tracking-widest">Formula Size</label>
+                                        <span class="text-[10px] font-bold text-surface-900 dark:text-surface-100 bg-surface-100 dark:bg-surface-800 px-1.5 py-0.5 rounded">${fx.fontSize || 100}px</span>
+                                    </div>
+                                    <input type="range" min="10" max="400" value="${fx.fontSize || 100}" class="w-full custom-slider" oninput="setClipEffect('${clip.id}', 'fontSize', this.value); this.previousElementSibling.querySelector('span').textContent = this.value + 'px'; drawCanvas();">
+                                </div>
+                            </div>
+                        </details>
+                    `;
+                }
             }
 
-            const extrudeHTML = (clip.type === 'text' || clip.type === 'shape') ? `
+            const extrudeHTML = ((clip.type === 'text' && !fx.renderAsMath) || clip.type === 'shape') ? `
                 <details id="cardExtrude" class="group bg-white dark:bg-surface-800 border border-surface-300 dark:border-surface-700 shadow-sm rounded-lg shrink-0 ${isHorizontal ? 'w-[280px]' : 'w-full'} overflow-hidden flex flex-col" open>
                     <summary class="flex items-center justify-between p-3 ${isHorizontal ? '' : 'cursor-pointer'} list-none appearance-none select-none bg-surface-100 dark:bg-surface-800/80 border-b border-surface-200 dark:border-surface-700 " onclick="${isHorizontal ? 'event.preventDefault();' : ''}">
                         <div class="text-sm font-bold text-surface-800 dark:text-surface-200 flex items-center gap-2"><i data-lucide="box" class="w-4 h-4 text-surface-500 dark:text-surface-400"></i> Extrude 3D</div>
@@ -4506,7 +4642,7 @@
                 </details>
             ` : '';
 
-            const strokeHTML = (clip.type === 'text' || clip.type === 'shape' || clip.type === 'image' || clip.type === 'video') ? `
+            const strokeHTML = ((clip.type === 'text' && !fx.renderAsMath) || clip.type === 'shape' || clip.type === 'image' || clip.type === 'video') ? `
                 <details id="cardStroke" class="group bg-white dark:bg-surface-800 border border-surface-300 dark:border-surface-700 shadow-sm rounded-lg shrink-0 ${isHorizontal ? 'w-[280px]' : 'w-full'} overflow-hidden flex flex-col" open>
                     <summary class="flex items-center justify-between p-3 ${isHorizontal ? '' : 'cursor-pointer'} list-none appearance-none select-none bg-surface-100 dark:bg-surface-800/80 border-b border-surface-200 dark:border-surface-700 " onclick="${isHorizontal ? 'event.preventDefault();' : ''}">
                         <div class="text-sm font-bold text-surface-800 dark:text-surface-200 flex items-center gap-2"><i data-lucide="edit-3" class="w-4 h-4 text-surface-500 dark:text-surface-400"></i> Stroke & Outline</div>
@@ -6583,6 +6719,33 @@
             if (menu) menu.style.display = 'none';
         };
 
+        window.mathImageCache = {};
+
+        window.insertTexTemplate = function(clipId, templateStr) {
+            const clip = State.clips.find(c => c.id === clipId);
+            if (!clip) return;
+            
+            const textarea = document.querySelector(`textarea[oninput*="${clipId}"]`);
+            if (textarea) {
+                const start = textarea.selectionStart;
+                const end = textarea.selectionEnd;
+                const text = textarea.value;
+                const before = text.substring(0, start);
+                const after = text.substring(end);
+                
+                textarea.value = before + templateStr + after;
+                clip.text = textarea.value;
+                
+                // Keep cursor focus and update selection position
+                textarea.focus();
+                textarea.selectionStart = textarea.selectionEnd = start + templateStr.length;
+            } else {
+                clip.text = (clip.text || '') + templateStr;
+            }
+            drawCanvas();
+            renderClips();
+        };
+
         window.replaceClipSource = async function(clipId, files) {
             if (!files || !files.length) return;
             const clip = State.clips.find(c => c.id === clipId);
@@ -8391,6 +8554,7 @@ const isVis = !clip.hidden;
                 else if (clip.type === 'image') icon = 'image';
                 else if (clip.type === 'shape') icon = 'shapes';
                 else if (clip.type === 'scene') icon = 'layers';
+                else if (clip.type === 'text') icon = (clip.effects && clip.effects.renderAsMath) ? 'variable' : 'type';
 
                 const hasWaveform = clip.peaks && clip.peaks.length > 0;
                 
@@ -8403,11 +8567,13 @@ const isVis = !clip.hidden;
                 let textPreviewHtml = '';
                 if (isTextClip && clip.text) {
                     const fontWeight = (clip.effects && clip.effects.fontWeight) ? clip.effects.fontWeight : 'bold';
+                    const isMath = clip.effects && clip.effects.renderAsMath;
+                    const displayVal = isMath ? (clip.text.length > 20 ? clip.text.substring(0, 18) + '...' : clip.text) : clip.text;
                     
                     textPreviewHtml = `
                         <div class="absolute inset-0 flex items-center justify-center overflow-hidden pointer-events-none opacity-90 z-10 px-2">
-                            <span class="truncate w-full text-center" style="font-family: 'Rubik', sans-serif; font-weight: ${fontWeight}; font-size: 14px; color: ${palette.text}; line-height: 1.2;">
-                                ${clip.text}
+                            <span class="truncate w-full text-center ${isMath ? 'font-mono text-[11px]' : ''}" style="font-family: ${isMath ? 'monospace' : "'Rubik', sans-serif"}; font-weight: ${fontWeight}; font-size: ${isMath ? '11px' : '14px'}; color: ${isMath ? '#f59e0b' : palette.text}; line-height: 1.2;">
+                                ${displayVal}
                             </span>
                         </div>
                     `;
@@ -8445,6 +8611,8 @@ const isVis = !clip.hidden;
                     const shapeType = (clip.effects && clip.effects.shapeType) ? clip.effects.shapeType : 'rect';
                     const shapeName = shapeType === 'rect' ? 'Rectangle' : shapeType === 'semicircle' ? 'Semicircle' : shapeType.charAt(0).toUpperCase() + shapeType.slice(1);
                     headerTitle = `Shape: ${shapeName}`;
+                } else if (isTextClip && clip.effects && clip.effects.renderAsMath) {
+                    headerTitle = `Math: ${clip.text || 'Formula'}`;
                 }
 
                 const isLinked = clip.linkedClipIds && clip.linkedClipIds.length > 0;
