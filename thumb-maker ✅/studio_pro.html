@@ -1467,6 +1467,9 @@
                     <button id="ctxVisibility" class="p-2 hover:bg-pro-700 dark:hover:bg-pro-600 rounded-lg text-pro-300 hover:text-white flex items-center justify-center" title="Toggle Visibility (V)">
                         <i class="ph-bold ph-eye text-base"></i>
                     </button>
+                    <button id="ctxDuplicate" class="p-2 hover:bg-pro-700 dark:hover:bg-pro-600 rounded-lg text-pro-300 hover:text-white flex items-center justify-center" title="Duplicate Element (Ctrl+D)">
+                        <i class="ph-bold ph-copy text-base"></i>
+                    </button>
                 </div>
                 <div class="pl-2 pr-1">
                     <button id="ctxDelete" class="p-2 hover:bg-red-500/20 hover:text-red-400 rounded-lg text-red-500  flex items-center justify-center" title="Delete Element (Del)">
@@ -1844,6 +1847,7 @@
         const ctxLayerUp = document.getElementById('ctxLayerUp');
         const ctxLayerDown = document.getElementById('ctxLayerDown');
         const ctxDelete = document.getElementById('ctxDelete');
+        const ctxDuplicate = document.getElementById('ctxDuplicate');
         const ctxLock = document.getElementById('ctxLock');
         const ctxVisibility = document.getElementById('ctxVisibility');
         const dragHint = document.getElementById('dragHint');
@@ -2383,6 +2387,12 @@
                 ctx.scale(flipScaleX, flipScaleY);
 
                 if (el.type === 'image') {
+                    const imgToDraw = el.processedImg || el.img;
+                    if (!imgToDraw || imgToDraw.width === 0 || imgToDraw.height === 0) {
+                        ctx.restore();
+                        return;
+                    }
+
                     if (el.blendMode) ctx.globalCompositeOperation = el.blendMode;
                     if (el.opacity !== undefined) ctx.globalAlpha = el.opacity / 100;
 
@@ -2429,7 +2439,7 @@
                     const baseImgX = sw - (cropL/100 * el.img.width) * iScale;
                     const baseImgY = sw - (cropT/100 * el.img.height) * iScale;
                     
-                    tctx.drawImage(el.processedImg || el.img, baseImgX + iX, baseImgY + iY, imgDrawW, imgDrawH);
+                    tctx.drawImage(imgToDraw, baseImgX + iX, baseImgY + iY, imgDrawW, imgDrawH);
                     
                     if(el.dropShadowEnabled && el.dropShadowColor && el.dropShadowColor !== '#00000000') {
                         ctx.shadowColor = el.dropShadowColor;
@@ -2944,6 +2954,25 @@
             }
         };
 
+        window.duplicateElement = function(id) {
+            const el = state.elements.find(e => e.id === id);
+            if (!el) return;
+            
+            const newEl = JSON.parse(JSON.stringify(el));
+            if (el.type === 'image') {
+                newEl.img = el.img;
+            }
+            newEl.id = generateId();
+            newEl.x += 20;
+            newEl.y += 20;
+            
+            state.elements.push(newEl);
+            selectElement(newEl.id);
+            updateLayerList();
+            render();
+            debouncedSave();
+        };
+
         function selectElement(id, toggleMulti = false) {
             if (!state.selectedIds) state.selectedIds = [];
             
@@ -3015,6 +3044,9 @@
                         </button>
                         <button onclick="event.stopPropagation(); window.toggleVisibility('${el.id}')" class="p-1 transition-colors ${el.hidden ? 'text-pro-300 dark:text-pro-600' : 'text-pro-400 hover:text-pro-600 dark:text-pro-500 dark:hover:text-white'}" title="Toggle Visibility">
                             <i class="${el.hidden ? 'ph-bold ph-eye-slash' : 'ph-bold ph-eye'} text-lg"></i>
+                        </button>
+                        <button onclick="event.stopPropagation(); window.duplicateElement('${el.id}')" class="p-1 transition-colors text-pro-400 hover:text-pro-600 dark:text-pro-500 dark:hover:text-white" title="Duplicate Layer">
+                            <i class="ph-bold ph-copy text-lg"></i>
                         </button>
                         <button onclick="event.stopPropagation(); window.deleteElement('${el.id}')" class="p-1 text-pro-400 hover:text-red-500 dark:text-pro-500 dark:hover:text-red-400 transition-colors" title="Delete Layer">
                             <i class="ph-bold ph-trash text-lg"></i>
@@ -3982,6 +4014,33 @@ function updateUI() {
         });
 
         ctxDelete.addEventListener('click', () => btnDeleteSelected.click());
+
+        function duplicateSelectedElements() {
+            if (!state.selectedIds || state.selectedIds.length === 0) return;
+            const newIds = [];
+            state.selectedIds.forEach(id => {
+                const el = state.elements.find(e => e.id === id);
+                if (!el) return;
+                const newEl = JSON.parse(JSON.stringify(el));
+                if (el.type === 'image') {
+                    newEl.img = el.img;
+                }
+                newEl.id = generateId();
+                newEl.x += 20;
+                newEl.y += 20;
+                state.elements.push(newEl);
+                newIds.push(newEl.id);
+            });
+            state.selectedIds = newIds;
+            updateLayerList();
+            render();
+            updateUI();
+            debouncedSave();
+        }
+
+        if (ctxDuplicate) {
+            ctxDuplicate.addEventListener('click', duplicateSelectedElements);
+        }
         if(ctxLock) {
             ctxLock.addEventListener('click', () => {
                 if(state.selectedIds && state.selectedIds.length > 0) {
@@ -4359,14 +4418,18 @@ function updateUI() {
             state.bgColor = preset.bgColor || '#231F20';
             state.bgImage = null;
             // Reconstruct elements. Images will just be placeholder squares since we didn't save base64.
-            state.elements = preset.elements.map(el => {
+            state.elements = preset.elements.filter(el => {
+                if (el.type !== 'image') return true;
+                if (!el._originalSrc && !el._isMockImage) return false; // Ignore legacy images
+                return true;
+            }).map(el => {
                 if(el.type !== 'image') return el;
                 const placeholder = new Image();
                 if (el._originalSrc) {
                     placeholder.crossOrigin = 'anonymous';
                     placeholder.src = el._originalSrc;
                     placeholder.onload = () => render();
-                } else {
+                } else if (el._isMockImage) {
                     const tCan = document.createElement('canvas');
                     tCan.width = 400; tCan.height = 400;
                     const tc = tCan.getContext('2d');
@@ -4664,7 +4727,14 @@ function updateUI() {
             const isInput = ['INPUT', 'TEXTAREA'].includes(e.target.tagName);
             if (isInput) return;
             
-            if (e.ctrlKey || e.metaKey) return;
+            if (e.ctrlKey || e.metaKey) {
+                if (e.key.toLowerCase() === 'd') {
+                    e.preventDefault();
+                    const btn = document.getElementById('ctxDuplicate');
+                    if (btn) btn.click();
+                }
+                return; // Prevent single-key shortcuts from firing on Ctrl/Cmd commands
+            }
 
             if (e.key === 'Delete' || e.key === 'Backspace') {
                 const btn = document.getElementById('ctxDelete');
