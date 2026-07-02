@@ -1209,6 +1209,23 @@
                             </div>
                         </details>
 
+                        <!-- Accordion: Media Source (Image Only) -->
+                        <details id="acc-media-source" class="bg-white dark:bg-pro-800 border border-pro-300 dark:border-pro-700 rounded-lg shadow-sm overflow-hidden hidden" open>
+                            <summary class="flex justify-between items-center font-bold cursor-pointer p-3 bg-pro-100 dark:bg-pro-800/80 text-sm text-pro-800 dark:text-pro-200 select-none border-b border-pro-300 dark:border-pro-700">
+                                <div class="flex items-center gap-2"><i class="ph-bold ph-image text-pro-500 dark:text-pro-400"></i> Media Source</div>
+                                <i class="ph-bold ph-caret-down text-pro-500 dark:text-pro-400"></i>
+                            </summary>
+                            <div class="p-3 bg-pro-50 dark:bg-pro-900">
+                                <div class="bg-white dark:bg-pro-800 border border-pro-200 dark:border-pro-700 p-3 rounded-md shadow-sm">
+                                    <button id="btnReplaceImage" class="w-full bg-brand-50 hover:bg-brand-100 dark:bg-brand-900/30 dark:hover:bg-brand-900/50 text-brand-600 dark:text-brand-300 text-xs font-bold py-2 px-3 rounded flex items-center justify-center gap-2 transition-colors border border-brand-200 dark:border-brand-700">
+                                        <i class="ph-bold ph-arrows-clockwise"></i> Replace Image
+                                    </button>
+                                    <input type="file" id="replaceImageUpload" accept="image/*" class="hidden">
+                                    <p class="text-[10px] text-pro-500 text-center mt-3">Replaces image while preserving all effects (stroke, filters, drop shadow).</p>
+                                </div>
+                            </div>
+                        </details>
+
                         <!-- Accordion: Image Filters (Image Only) -->
                         <details id="acc-image-filters" class="bg-white dark:bg-pro-800 border border-pro-300 dark:border-pro-700 rounded-lg shadow-sm overflow-hidden hidden" open>
                             <summary class="flex justify-between items-center font-bold cursor-pointer p-3 bg-pro-100 dark:bg-pro-800/80 text-sm text-pro-800 dark:text-pro-200 select-none border-b border-pro-300 dark:border-pro-700">
@@ -1217,13 +1234,6 @@
                             </summary>
                             <div class="p-3 bg-pro-50 dark:bg-pro-900 space-y-3">
                                 <div class="bg-white dark:bg-pro-800 border border-pro-200 dark:border-pro-700 p-3 rounded-md shadow-sm space-y-4">
-                                    <div class="mb-4">
-                                        <button id="btnReplaceImage" class="w-full bg-brand-50 hover:bg-brand-100 dark:bg-brand-900/30 dark:hover:bg-brand-900/50 text-brand-600 dark:text-brand-300 text-xs font-bold py-2 px-3 rounded flex items-center justify-center gap-2 transition-colors border border-brand-200 dark:border-brand-700">
-                                            <i class="ph-bold ph-image"></i> Replace Image
-                                        </button>
-                                        <input type="file" id="replaceImageUpload" accept="image/*" class="hidden">
-                                    </div>
-                                    <hr class="border-pro-100 dark:border-pro-700 mb-4">
                                     <div>
                                         <div class="flex justify-between items-center mb-2">
                                             <label class="text-[10px] font-bold text-pro-500 dark:text-pro-400 uppercase tracking-widest">Blend Mode</label>
@@ -1820,6 +1830,7 @@
         const accColorGrading = document.getElementById('acc-color-grading');
         const accColorCorrection = document.getElementById('acc-color-correction');
         const accImageFilters = document.getElementById('acc-image-filters');
+        const accMediaSource = document.getElementById('acc-media-source');
         const accShape = document.getElementById('acc-shape');
 
         // Toggles & Settings Containers
@@ -3389,6 +3400,7 @@ function updateUI() {
                     accImageFilters.style.display = 'none';
                     accShape.style.display = 'none';
                     if(accImageMask) accImageMask.style.display = 'none';
+                    if(accMediaSource) accMediaSource.style.display = 'none';
                     if(accColorGrading) accColorGrading.style.display = 'none';
                     if(accColorCorrection) accColorCorrection.style.display = 'none';
                     
@@ -3433,6 +3445,7 @@ function updateUI() {
                     accImageFilters.style.display = 'none';
                     accShape.style.display = 'block';
                     if(accImageMask) accImageMask.style.display = 'none';
+                    if(accMediaSource) accMediaSource.style.display = 'none';
                     if(accColorGrading) accColorGrading.style.display = 'none';
                     if(accColorCorrection) accColorCorrection.style.display = 'none';
 
@@ -3478,6 +3491,7 @@ function updateUI() {
                     const cc = document.getElementById('acc-color-correction');
                     if(cg) cg.style.display = 'block';
                     if(cc) cc.style.display = 'block';
+                    if(accMediaSource) accMediaSource.style.display = 'block';
                     accShape.style.display = 'none';
 
                     editRadius.value = el.radius || 0;
@@ -3813,6 +3827,7 @@ function updateUI() {
                         el.img = newImg;
                         delete el._isMockImage;
                         delete el._originalSrc;
+                        processImage(el);
                         render();
                         debouncedSave();
                         showToast("Image replaced");
@@ -4380,7 +4395,7 @@ function updateUI() {
 
             const storableElements = state.elements.map(el => {
                 if(el.type !== 'image') return el;
-                const {img, ...rest} = el; 
+                const {img, processedImg, ...rest} = el; 
                 if (img && img.src && (img.src.startsWith('http://') || img.src.startsWith('https://'))) {
                     return {...rest, _originalSrc: img.src, _isStorableImg: true}; 
                 }
@@ -4424,11 +4439,20 @@ function updateUI() {
                 return true;
             }).map(el => {
                 if(el.type !== 'image') return el;
+                
+                // Cleanup any corrupted processedImg objects from old presets
+                if (el.processedImg) delete el.processedImg;
+
                 const placeholder = new Image();
                 if (el._originalSrc) {
                     placeholder.crossOrigin = 'anonymous';
                     placeholder.src = el._originalSrc;
-                    placeholder.onload = () => render();
+                    placeholder.onload = () => {
+                        if(el.filterBright !== undefined || el.filterTemp !== undefined || el.filterSelColor !== undefined) {
+                            processImage(el);
+                        }
+                        render();
+                    };
                 } else if (el._isMockImage) {
                     const tCan = document.createElement('canvas');
                     tCan.width = 400; tCan.height = 400;
@@ -4444,7 +4468,12 @@ function updateUI() {
                     tc.textBaseline = 'middle';
                     tc.fillText('REPLACE ME', 200, 200);
                     placeholder.src = tCan.toDataURL();
-                    placeholder.onload = () => render();
+                    placeholder.onload = () => {
+                        if(el.filterBright !== undefined || el.filterTemp !== undefined || el.filterSelColor !== undefined) {
+                            processImage(el);
+                        }
+                        render();
+                    };
                 }
                 return {...el, img: placeholder};
             });
