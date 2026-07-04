@@ -1338,6 +1338,7 @@
                             <button class="canvas-sub-tab flex-1 py-1.5 text-[10px] uppercase font-bold rounded-md bg-white dark:bg-pro-700 text-pro-800 dark:text-white shadow-sm transition-colors" data-target="canvas-sub-settings">Settings</button>
                             <button class="canvas-sub-tab flex-1 py-1.5 text-[10px] uppercase font-bold rounded-md text-pro-500 hover:text-pro-700 dark:text-pro-400 transition-colors" data-target="canvas-sub-slides">Slides</button>
                             <button class="canvas-sub-tab flex-1 py-1.5 text-[10px] uppercase font-bold rounded-md text-pro-500 hover:text-pro-700 dark:text-pro-400 transition-colors" data-target="canvas-sub-media">Media</button>
+                            <button class="canvas-sub-tab flex-1 py-1.5 text-[10px] uppercase font-bold rounded-md text-pro-500 hover:text-pro-700 dark:text-pro-400 transition-colors" data-target="canvas-sub-fonts">Fonts</button>
                         </div>
                     </div>
                     
@@ -1435,6 +1436,35 @@
                                 </label>
                                 <div id="mediaGallery" class="grid grid-cols-2 gap-2 max-h-48 overflow-y-auto custom-scrollbar pr-1">
                                     <div class="text-xs text-pro-500 dark:text-pro-400 italic col-span-2 text-center py-4" id="mediaEmptyMsg">No media imported yet.</div>
+                                </div>
+                            </div>
+                        </div>
+
+                        <!-- Fonts Sub-tab -->
+                        <div id="canvas-sub-fonts" class="canvas-sub-content hidden space-y-4">
+                            <!-- Search Fonts -->
+                            <div class="bg-white dark:bg-pro-800 border border-pro-300 dark:border-pro-700 p-4 rounded-lg shadow-sm">
+                                <label class="block text-[10px] font-bold text-pro-500 dark:text-pro-400 uppercase tracking-widest mb-3">Google Fonts Search</label>
+                                <div class="relative mb-3">
+                                    <input type="text" id="fontSearchInput" placeholder="Search Google Fonts..." class="w-full text-xs bg-pro-100 dark:bg-pro-900 border border-pro-200 dark:border-pro-700 rounded-md py-2 pl-3 pr-8 text-pro-800 dark:text-pro-200 outline-none focus:border-brand-500 placeholder-pro-400">
+                                    <i class="ph-bold ph-magnifying-glass absolute right-2.5 top-1/2 -translate-y-1/2 text-pro-400"></i>
+                                </div>
+                                <div id="fontSearchResults" class="max-h-40 overflow-y-auto custom-scrollbar pr-1 space-y-1">
+                                    <div class="text-xs text-pro-500 dark:text-pro-400 italic text-center py-2">Start typing to search...</div>
+                                </div>
+                            </div>
+
+                            <!-- My Font Library -->
+                            <div class="bg-white dark:bg-pro-800 border border-pro-300 dark:border-pro-700 p-3 rounded-lg shadow-sm flex flex-col h-[200px]">
+                                <div class="flex items-center justify-between mb-2 shrink-0">
+                                    <label class="block text-[10px] font-bold text-pro-500 dark:text-pro-400 uppercase tracking-widest">My Font Library</label>
+                                    <label class="text-[9px] font-bold text-brand-500 cursor-pointer hover:text-brand-600 dark:text-brand-400 dark:hover:text-brand-300 flex items-center gap-1 uppercase transition-colors" title="Upload Custom Font (.ttf, .otf, .woff)">
+                                        <i class="ph-bold ph-upload-simple"></i> Upload PC Font
+                                        <input type="file" id="fontUploadLocalGlobal" class="hidden" accept=".ttf,.otf,.woff,.woff2" multiple>
+                                    </label>
+                                </div>
+                                <div id="myFontLibraryList" class="flex-1 overflow-y-auto custom-scrollbar pr-1 space-y-1">
+                                    <div class="text-xs text-pro-500 dark:text-pro-400 italic text-center py-4" id="fontLibraryEmptyMsg">No fonts imported yet.</div>
                                 </div>
                             </div>
                         </div>
@@ -5067,6 +5097,7 @@ function updateUI() {
 
         // Font Management Logic
         const fontUploadLocal = document.getElementById('fontUploadLocal');
+        const fontUploadLocalGlobal = document.getElementById('fontUploadLocalGlobal');
         const customFontFamilyNames = [];
         let customFontOptgroup = null;
 
@@ -5091,27 +5122,27 @@ function updateUI() {
                     optgroup.appendChild(opt);
                 }
             });
+            renderMyFontLibrary();
         }
 
-        if (fontUploadLocal) {
-            fontUploadLocal.addEventListener('change', async (e) => {
-                const files = e.target.files;
-                if(!files || files.length === 0) return;
-                
-                for(let i = 0; i < files.length; i++) {
-                    const file = files[i];
-                    try {
-                        const fontName = file.name.split('.')[0].replace(/[-_]/g, ' ');
-                        const url = URL.createObjectURL(file);
-                        
-                        const fontFace = new FontFace(fontName, `url(${url})`);
-                        const loadedFont = await fontFace.load();
-                        document.fonts.add(loadedFont);
-                        
+        async function handleFontUploadFiles(files, isGlobal = false) {
+            if(!files || files.length === 0) return;
+            for(let i = 0; i < files.length; i++) {
+                const file = files[i];
+                try {
+                    const fontName = file.name.split('.')[0].replace(/[-_]/g, ' ');
+                    const url = URL.createObjectURL(file);
+                    
+                    const fontFace = new FontFace(fontName, `url(${url})`);
+                    const loadedFont = await fontFace.load();
+                    document.fonts.add(loadedFont);
+                    
+                    if(!customFontFamilyNames.includes(fontName)) {
                         customFontFamilyNames.push(fontName);
                         addCustomFontToSelects(fontName);
-                        
-                        // Select the newly uploaded font for the current element if it's text
+                    }
+                    
+                    if (!isGlobal) {
                         const selectEl = document.getElementById('editFontFamily');
                         if (selectEl && state.selectedId) {
                             const el = state.elements.find(x => x.id === state.selectedId);
@@ -5120,12 +5151,140 @@ function updateUI() {
                                 selectEl.dispatchEvent(new Event('change'));
                             }
                         }
-                    } catch(err) {
-                        showToast(`Failed to load font: ${file.name}`);
                     }
+                } catch(err) {
+                    showToast(`Failed to load font: ${file.name}`);
                 }
+            }
+            showToast("Custom fonts added successfully");
+        }
+
+        if (fontUploadLocal) {
+            fontUploadLocal.addEventListener('change', async (e) => {
+                await handleFontUploadFiles(e.target.files, false);
                 fontUploadLocal.value = '';
-                showToast("Custom fonts added successfully");
+            });
+        }
+        if (fontUploadLocalGlobal) {
+            fontUploadLocalGlobal.addEventListener('change', async (e) => {
+                await handleFontUploadFiles(e.target.files, true);
+                fontUploadLocalGlobal.value = '';
+            });
+        }
+
+        function renderMyFontLibrary() {
+            const list = document.getElementById('myFontLibraryList');
+            if(!list) return;
+            list.innerHTML = '';
+            if(customFontFamilyNames.length === 0) {
+                list.innerHTML = '<div class="text-xs text-pro-500 dark:text-pro-400 italic text-center py-4">No fonts imported yet.</div>';
+                return;
+            }
+            customFontFamilyNames.forEach(fontName => {
+                const div = document.createElement('div');
+                div.className = 'flex items-center justify-between p-2 rounded border border-pro-200 dark:border-pro-700 bg-white dark:bg-pro-900 group cursor-pointer hover:border-brand-500 transition-colors';
+                
+                const span = document.createElement('span');
+                span.className = 'text-xs text-pro-800 dark:text-pro-200 truncate pr-2';
+                span.textContent = fontName;
+                span.style.fontFamily = fontName;
+                
+                const badge = document.createElement('span');
+                badge.className = 'text-[9px] uppercase tracking-wider font-bold bg-brand-100 text-brand-700 dark:bg-brand-900 dark:text-brand-300 px-1.5 py-0.5 rounded';
+                badge.textContent = 'Imported';
+                
+                div.appendChild(span);
+                div.appendChild(badge);
+                
+                div.onclick = () => {
+                    const selectEl = document.getElementById('editFontFamily');
+                    if (selectEl && state.selectedId) {
+                        const el = state.elements.find(x => x.id === state.selectedId);
+                        if (el && el.type === 'text') {
+                            selectEl.value = fontName;
+                            selectEl.dispatchEvent(new Event('change'));
+                            document.querySelector('[data-target="panel-edit"]').click();
+                            showToast(`Applied ${fontName}`);
+                        } else {
+                            showToast("Select a text element first");
+                        }
+                    } else {
+                        showToast("Select a text element first");
+                    }
+                };
+                list.appendChild(div);
+            });
+        }
+
+        // Google Fonts Search Logic
+        const popularGoogleFonts = [
+            "Roboto", "Open Sans", "Lato", "Montserrat", "Oswald", "Source Sans Pro", "Slabo 27px", "Raleway", 
+            "PT Sans", "Merriweather", "Noto Sans", "Ubuntu", "Playfair Display", "Lora", "Poppins", "Titillium Web",
+            "Muli", "PT Serif", "Arimo", "Inconsolata", "Nunito", "Bitter", "Fira Sans", "Josefin Sans", "Cabin",
+            "Oxygen", "Anton", "Signika", "Libre Baskerville", "Indie Flower", "Varela Round", "Karla", "Fjalla One",
+            "Rubik", "Bebas Neue", "DM Sans", "Inter", "Outfit", "Plus Jakarta Sans", "Syne", "Manrope", "Zilla Slab"
+        ];
+        
+        const fontSearchInput = document.getElementById('fontSearchInput');
+        const fontSearchResults = document.getElementById('fontSearchResults');
+
+        function importGoogleFont(fontName) {
+            const fontUrl = `https://fonts.googleapis.com/css2?family=${fontName.replace(/ /g, '+')}:wght@400;700&display=swap`;
+            const existingLink = document.querySelector(`link[href="${fontUrl}"]`);
+            if(!existingLink) {
+                const link = document.createElement('link');
+                link.rel = 'stylesheet';
+                link.href = fontUrl;
+                document.head.appendChild(link);
+            }
+            if(!customFontFamilyNames.includes(fontName)) {
+                customFontFamilyNames.push(fontName);
+                addCustomFontToSelects(fontName);
+            }
+            showToast(`${fontName} imported!`);
+        }
+
+        if(fontSearchInput && fontSearchResults) {
+            fontSearchInput.addEventListener('input', (e) => {
+                const query = e.target.value.toLowerCase().trim();
+                fontSearchResults.innerHTML = '';
+                if(!query) {
+                    fontSearchResults.innerHTML = '<div class="text-xs text-pro-500 dark:text-pro-400 italic text-center py-2">Start typing to search...</div>';
+                    return;
+                }
+                
+                const matches = popularGoogleFonts.filter(f => f.toLowerCase().includes(query)).slice(0, 10);
+                if(matches.length === 0) {
+                    fontSearchResults.innerHTML = '<div class="text-xs text-pro-500 dark:text-pro-400 italic text-center py-2">No fonts found.</div>';
+                    return;
+                }
+                
+                matches.forEach(fontName => {
+                    const div = document.createElement('div');
+                    div.className = 'flex items-center justify-between p-2 rounded hover:bg-pro-200 dark:hover:bg-pro-700 cursor-pointer transition-colors';
+                    
+                    const span = document.createElement('span');
+                    span.className = 'text-xs font-bold text-pro-700 dark:text-pro-300';
+                    span.textContent = fontName;
+                    
+                    const btn = document.createElement('button');
+                    btn.className = 'text-[9px] uppercase tracking-wider font-bold bg-brand-500 hover:bg-brand-600 text-white px-2 py-1 rounded transition-colors';
+                    btn.textContent = 'Add';
+                    
+                    div.appendChild(span);
+                    div.appendChild(btn);
+                    
+                    btn.onclick = (ev) => {
+                        ev.stopPropagation();
+                        importGoogleFont(fontName);
+                        btn.textContent = 'Added';
+                        btn.classList.add('bg-green-600');
+                        btn.classList.remove('bg-brand-500', 'hover:bg-brand-600');
+                        btn.disabled = true;
+                    };
+                    
+                    fontSearchResults.appendChild(div);
+                });
             });
         }
 
