@@ -4910,6 +4910,72 @@ function updateUI() {
             } catch { return []; }
         }
 
+        function generateTextPresetPreview(el) {
+            const previewCanvas = document.createElement('canvas');
+            const previewWidth = 300;
+            const previewHeight = 150;
+            previewCanvas.width = previewWidth;
+            previewCanvas.height = previewHeight;
+            const pctx = previewCanvas.getContext('2d', { willReadFrequently: true });
+            
+            // Save globals
+            const originalCtx = ctx; 
+            const originalCanvasWidth = CANVAS_WIDTH;
+            const originalCanvasHeight = CANVAS_HEIGHT;
+            const originalElements = state.elements;
+            const originalBgImage = state.bgImage;
+            const originalBgColor = state.bgColor;
+            const originalSelectedIds = state.selectedIds;
+            const originalSelectedId = state.selectedId;
+
+            // Swap globals to trick render()
+            ctx = pctx;
+            CANVAS_WIDTH = previewWidth;
+            CANVAS_HEIGHT = previewHeight;
+
+            const clone = JSON.parse(JSON.stringify(el));
+            clone.x = previewWidth / 2;
+            clone.y = previewHeight / 2;
+            clone.rotation = 0;
+            clone.hidden = false;
+            
+            // Auto scale down if text size is too big to fit inside the preview
+            const maxAllowedSize = 80;
+            if (clone.size > maxAllowedSize) {
+                clone.scale = (clone.scale || 1) * (maxAllowedSize / clone.size);
+            } else {
+                clone.scale = clone.scale || 1;
+            }
+
+            // Set state for isolated preview
+            state.elements = [clone];
+            state.bgImage = null;
+            state.bgColor = "transparent";
+            state.selectedIds = [];
+            state.selectedId = null;
+
+            // Render to offscreen canvas
+            render();
+
+            // Extract Base64 Image (WebP is lightweight and fast)
+            const dataUrl = previewCanvas.toDataURL('image/webp', 0.8);
+
+            // Restore all globals
+            ctx = originalCtx;
+            CANVAS_WIDTH = originalCanvasWidth;
+            CANVAS_HEIGHT = originalCanvasHeight;
+            state.elements = originalElements;
+            state.bgImage = originalBgImage;
+            state.bgColor = originalBgColor;
+            state.selectedIds = originalSelectedIds;
+            state.selectedId = originalSelectedId;
+
+            // Clean re-render of original canvas to fix any state issues
+            render();
+
+            return dataUrl;
+        }
+
         function saveTextPreset() {
             if (!state.selectedId) return;
             const el = state.elements.find(e => e.id === state.selectedId);
@@ -4921,6 +4987,7 @@ function updateUI() {
             const presetData = {
                 id: generateId(),
                 name: name,
+                previewDataUrl: generateTextPresetPreview(el),
                 text: el.text || "Custom Text",
                 fontFamily: el.fontFamily || 'Rubik',
                 fontWeight: el.fontWeight || '900',
@@ -5003,31 +5070,39 @@ function updateUI() {
 
             presets.forEach(p => {
                 const div = document.createElement('div');
-                div.className = "relative group rounded-md border border-pro-200 dark:border-pro-700 bg-pro-50 dark:bg-pro-900 shadow-sm cursor-pointer hover:border-brand-400 dark:hover:border-brand-500 transition-colors h-16 flex items-center justify-center overflow-hidden p-2 text-center";
+                div.className = "relative group rounded-lg border border-pro-200 dark:border-pro-700 bg-white dark:bg-pro-800 shadow-sm cursor-pointer hover:border-pro-300 dark:hover:border-pro-600 hover:shadow transition-all h-24 flex items-center justify-center overflow-hidden p-3";
                 
                 div.onclick = () => loadTextPreset(p);
 
-                const previewText = document.createElement('div');
-                previewText.textContent = "Aa";
-                previewText.style.fontFamily = p.fontFamily || 'Rubik';
-                previewText.style.fontWeight = p.fontWeight || '900';
-                previewText.style.fontStyle = p.fontStyle || 'normal';
-                previewText.style.textDecoration = p.fontDecoration || 'none';
-                previewText.style.textTransform = p.fontCasing === 'uppercase' ? 'uppercase' : p.fontCasing === 'lowercase' ? 'lowercase' : 'none';
-                previewText.style.letterSpacing = ((p.letterSpacing || 0) / 10) + 'px';
-                previewText.style.color = p.color || '#ffffff';
-                
-                if (p.strokeEnabled && p.strokeWidth) {
-                    previewText.style.webkitTextStroke = `${Math.min(p.strokeWidth/4, 2)}px ${p.strokeColor || '#fff'}`;
-                }
+                if (p.previewDataUrl) {
+                    const img = document.createElement('img');
+                    img.src = p.previewDataUrl;
+                    img.className = "w-full h-full object-contain pointer-events-none drop-shadow-sm";
+                    div.appendChild(img);
+                } else {
+                    const previewText = document.createElement('div');
+                    previewText.textContent = "Aa";
+                    previewText.style.fontFamily = p.fontFamily || 'Rubik';
+                    previewText.style.fontWeight = p.fontWeight || '900';
+                    previewText.style.fontStyle = p.fontStyle || 'normal';
+                    previewText.style.textDecoration = p.fontDecoration || 'none';
+                    previewText.style.textTransform = p.fontCasing === 'uppercase' ? 'uppercase' : p.fontCasing === 'lowercase' ? 'lowercase' : 'none';
+                    previewText.style.letterSpacing = ((p.letterSpacing || 0) / 10) + 'px';
+                    previewText.style.color = p.color || '#ffffff';
+                    
+                    if (p.strokeEnabled && p.strokeWidth) {
+                        previewText.style.webkitTextStroke = `${Math.min(p.strokeWidth/4, 2)}px ${p.strokeColor || '#fff'}`;
+                    }
 
-                if (p.dropShadowEnabled) {
-                    previewText.style.textShadow = `${p.dropShadowX/5}px ${p.dropShadowY/5}px ${p.dropShadowBlur/5}px ${p.dropShadowColor}`;
-                } else if (p.extrusionEnabled) {
-                    previewText.style.textShadow = `1px 1px 0px ${p.shadowColor || '#000'}, 2px 2px 0px ${p.shadowColor || '#000'}`;
-                }
+                    if (p.dropShadowEnabled) {
+                        previewText.style.textShadow = `${p.dropShadowX/5}px ${p.dropShadowY/5}px ${p.dropShadowBlur/5}px ${p.dropShadowColor}`;
+                    } else if (p.extrusionEnabled) {
+                        previewText.style.textShadow = `1px 1px 0px ${p.shadowColor || '#000'}, 2px 2px 0px ${p.shadowColor || '#000'}`;
+                    }
 
-                previewText.className = "text-3xl leading-none font-bold drop-shadow-sm select-none pointer-events-none";
+                    previewText.className = "text-3xl leading-none font-bold drop-shadow-sm select-none pointer-events-none";
+                    div.appendChild(previewText);
+                }
 
                 const btnDel = document.createElement('button');
                 btnDel.className = "absolute top-1 right-1 bg-red-500 hover:bg-red-600 text-white p-1 rounded opacity-0 group-hover:opacity-100 transition-opacity shadow-sm z-10 text-[10px] w-5 h-5 flex items-center justify-center";
@@ -5037,12 +5112,7 @@ function updateUI() {
                     if(confirm("Delete this text preset?")) deleteTextPreset(p.id);
                 };
 
-                const titleHover = document.createElement('div');
-                titleHover.className = "absolute bottom-0 left-0 right-0 bg-pro-900/80 text-[9px] text-white font-bold p-0.5 text-center truncate opacity-0 group-hover:opacity-100 transition-opacity";
-                titleHover.textContent = p.name;
-
-                div.appendChild(previewText);
-                div.appendChild(titleHover);
+                div.title = p.name; // Use native tooltip for a cleaner UI
                 div.appendChild(btnDel);
                 
                 textPresetsList.appendChild(div);
