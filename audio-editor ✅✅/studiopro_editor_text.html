@@ -769,6 +769,9 @@
                             <button id="btnSplit" class="w-8 h-8 flex items-center justify-center rounded-md hover:bg-surface-100 dark:hover:bg-surface-700 hover:text-brand-600 dark:hover:text-brand-400 text-surface-600 dark:text-surface-400" title="Split Clip at Playhead (S)">
                                 <i data-lucide="scissors" class="w-4 h-4"></i>
                             </button>
+                            <button id="btnRemoveSilence" class="w-8 h-8 flex items-center justify-center rounded-md hover:bg-surface-100 dark:hover:bg-surface-700 hover:text-brand-600 dark:hover:text-brand-400 text-surface-600 dark:text-surface-400" title="Remove Silence">
+                                <i data-lucide="activity" class="w-4 h-4"></i>
+                            </button>
                             <button onclick="groupIntoScene()" id="btnGroupScene" class="w-8 h-8 flex items-center justify-center rounded-md hover:bg-brand-50 dark:hover:bg-brand-500/10 hover:text-brand-600 dark:hover:text-brand-400 text-surface-600 dark:text-surface-400" title="Group into Scene (Ctrl+G)">
                                 <i data-lucide="layers" class="w-4 h-4"></i>
                             </button>
@@ -1193,6 +1196,7 @@
         const wrapperPause = document.getElementById('wrapperPause');
         const btnStop = document.getElementById('btnStop');
         const btnSplit = document.getElementById('btnSplit');
+        const btnRemoveSilence = document.getElementById('btnRemoveSilence');
         const btnDuplicate = document.getElementById('btnDuplicate');
         const btnDelete = document.getElementById('btnDelete');
         const btnImport = document.getElementById('btnImport');
@@ -8294,6 +8298,152 @@ const isVis = !clip.hidden;
             drawCanvas();
         }
 
+        function createSplitClipData(originalClip, startTimeline, startSource, duration) {
+            const newAudioEl = originalClip.audioEl ? new Audio(originalClip.fileUrl) : null;
+            if (newAudioEl) newAudioEl.crossOrigin = "anonymous";
+            const newVideoEl = originalClip.videoEl ? document.createElement('video') : null;
+            if (newVideoEl) {
+                newVideoEl.src = originalClip.fileUrl;
+                newVideoEl.crossOrigin = "anonymous";
+                newVideoEl.muted = true;
+                newVideoEl.load();
+            }
+            const newClip = {
+                ...originalClip,
+                id: 'c_' + Date.now() + Math.random().toString(36).substr(2, 5),
+                start: startTimeline,
+                sourceOffset: startSource,
+                duration: duration,
+                audioEl: newAudioEl,
+                videoEl: newVideoEl,
+                effects: JSON.parse(JSON.stringify(originalClip.effects || [])),
+                audioNodes: null
+            };
+            if (newClip.audioEl) buildAudioGraph(newClip);
+            return newClip;
+        }
+
+        async function removeSilenceFromSelectedClip() {
+            if (!State.selectedClipId) return;
+            const clipIndex = State.clips.findIndex(c => c.id === State.selectedClipId);
+            if (clipIndex === -1) return;
+            const clip = State.clips[clipIndex];
+            
+            if (clip.type !== 'audio' && clip.type !== 'video') {
+                if(typeof showToast === 'function') showToast("Only Audio/Video clips are supported.");
+                return;
+            }
+
+            // Ensure we have decoded buffer
+            if (!clip.buffer) {
+                 try {
+                     if(typeof showToast === 'function') showToast("Analyzing audio buffer...");
+                     ensureAudioContext();
+                     const response = await fetch(clip.fileUrl);
+                     const arrayBuffer = await response.arrayBuffer();
+                     clip.buffer = await audioCtx.decodeAudioData(arrayBuffer);
+                 } catch(e) {
+                     console.error("Could not decode audio buffer", e);
+                     if(typeof showToast === 'function') showToast("Error decoding audio.");
+                     return;
+                 }
+            }
+            
+            const thresholdDb = -40; // DB threshold for silence
+            const thresholdAmp = Math.pow(10, thresholdDb / 20); 
+            const minSilenceDuration = 0.3; // seconds
+            const padding = 0.05; // 50ms padding
+            
+            const sampleRate = clip.buffer.sampleRate;
+            const data = clip.buffer.getChannelData(0);
+            
+            const minSilenceSamples = minSilenceDuration * sampleRate;
+            
+            let isSilent = false;
+            let silenceStartSample = 0;
+            const silentRegions = [];
+            
+            const startSample = Math.floor(clip.sourceOffset * sampleRate);
+            const endSample = Math.floor((clip.sourceOffset + clip.duration) * sampleRate);
+            const blockSize = Math.floor(sampleRate * 0.01);
+            
+            for (let i = startSample; i < endSample; i += blockSize) {
+                let maxAmp = 0;
+                for (let j = 0; j < blockSize && i + j < endSample; j++) {
+                    const amp = Math.abs(data[i+j]);
+                    if (amp > maxAmp) maxAmp = amp;
+                }
+                
+                if (maxAmp < thresholdAmp) {
+                    if (!isSilent) {
+                        isSilent = true;
+                        silenceStartSample = i;
+                    }
+                } else {
+                    if (isSilent) {
+                        isSilent = false;
+                        const durationSamples = i - silenceStartSample;
+                        if (durationSamples >= minSilenceSamples) {
+                            silentRegions.push({
+                                startSec: silenceStartSample / sampleRate,
+                                endSec: i / sampleRate
+                            });
+                        }
+                    }
+                }
+            }
+            if (isSilent) {
+                const durationSamples = endSample - silenceStartSample;
+                if (durationSamples >= minSilenceSamples) {
+                    silentRegions.push({
+                        startSec: silenceStartSample / sampleRate,
+                        endSec: endSample / sampleRate
+                    });
+                }
+            }
+            
+            if (silentRegions.length === 0) {
+                if(typeof showToast === 'function') showToast("No silence found.");
+                return;
+            }
+            
+            let currentSrcTime = clip.sourceOffset;
+            let currentTimelineTime = clip.start;
+            const newClips = [];
+            
+            silentRegions.forEach(silence => {
+                const validStartSec = currentSrcTime;
+                const validEndSec = silence.startSec - padding;
+                
+                if (validEndSec > validStartSec) {
+                    const duration = validEndSec - validStartSec;
+                    const newClip = createSplitClipData(clip, currentTimelineTime, validStartSec, duration);
+                    newClips.push(newClip);
+                    currentTimelineTime += duration;
+                }
+                currentSrcTime = silence.endSec + padding;
+            });
+            
+            const finalValidStart = currentSrcTime;
+            const finalValidEnd = clip.sourceOffset + clip.duration;
+            if (finalValidEnd > finalValidStart) {
+                const duration = finalValidEnd - finalValidStart;
+                const newClip = createSplitClipData(clip, currentTimelineTime, finalValidStart, duration);
+                newClips.push(newClip);
+            }
+            
+            if (newClips.length === 0) return; // Entire clip was silence
+            
+            State.clips.splice(clipIndex, 1, ...newClips);
+            State.selectedClipId = newClips[0].id;
+            
+            calcOverlaps();
+            renderClips();
+            updatePropertiesPanel();
+            drawCanvas();
+            if(typeof showToast === 'function') showToast(`Removed ${silentRegions.length} silent gaps.`);
+        }
+
         function seekTimelinePlayhead(delta) {
             State.currentTime = Math.max(0, Math.min(State.currentTime + delta, State.duration));
             updatePlayhead();
@@ -8962,6 +9112,7 @@ const isVis = !clip.hidden;
             });
             btnStop.addEventListener('click', stopMedia);
             btnSplit.addEventListener('click', splitClipAtPlayhead);
+            if (btnRemoveSilence) btnRemoveSilence.addEventListener('click', removeSilenceFromSelectedClip);
             if (btnDuplicate) btnDuplicate.addEventListener('click', duplicateSelectedClip);
             btnDelete.addEventListener('click', deleteSelectedClip);
 
