@@ -3885,7 +3885,11 @@
                 const dialogueSend = audioCtx.createGain();
                 tinny.connect(volume);
                 
-                volume.connect(vocalPocket);
+                const duckingVolume = audioCtx.createGain();
+                duckingVolume.gain.value = 1;
+
+                volume.connect(duckingVolume);
+                duckingVolume.connect(vocalPocket);
                 vocalPocket.connect(State.speakerNode);
                 vocalPocket.connect(State.masterStreamNode);
                 
@@ -3908,7 +3912,7 @@
                 roboVolume.connect(State.speakerNode);
                 roboVolume.connect(State.masterStreamNode);
 
-                clip.audioNodes = { source, noiseRed, eqLow, eqMid, eqHigh, tinny, volume, delay, echoFeedback, echoVolume, roboDelay, roboFeedback, roboVolume, vocalPocket, dialogueSend, reverb, reverbGain };
+                clip.audioNodes = { source, noiseRed, eqLow, eqMid, eqHigh, tinny, volume, duckingVolume, delay, echoFeedback, echoVolume, roboDelay, roboFeedback, roboVolume, vocalPocket, dialogueSend, reverb, reverbGain };
                 
                 if (!clip.effects) clip.effects = {};
                 if (clip.effects.volume === undefined) clip.effects.volume = 1;
@@ -3951,11 +3955,11 @@
                 clip.audioNodes.roboVolume.gain.value = fx.robotEnable ? robotVal : 0;
                 
                 if (clip.audioNodes.dialogueSend && clip.audioNodes.vocalPocket) {
+                    clip.audioNodes.dialogueSend.gain.value = (fx.autoDuck || fx.volumeDuck) ? 0 : 1; 
+                    
                     if (fx.autoDuck) {
-                        clip.audioNodes.dialogueSend.gain.value = 0; 
                         clip.audioNodes.vocalPocket.frequency.value = fx.autoDuckFreq || 2000;
                     } else {
-                        clip.audioNodes.dialogueSend.gain.value = 1; 
                         clip.audioNodes.vocalPocket.gain.value = 0; 
                     }
                 }
@@ -5182,6 +5186,12 @@
             const autoDuckFreq = clip.effects.autoDuckFreq || 2000;
             const autoDuckGain = clip.effects.autoDuckGain || -18;
             
+            const volumeDuck = clip.effects.volumeDuck || false;
+            const volumeDuckGain = clip.effects.volumeDuckGain !== undefined ? clip.effects.volumeDuckGain : 0.2;
+            const volumeDuckRelease = clip.effects.volumeDuckRelease !== undefined ? clip.effects.volumeDuckRelease : 1000;
+            const duckThreshold = clip.effects.duckThreshold !== undefined ? clip.effects.duckThreshold : 10;
+            const volumeDuckRecovery = clip.effects.volumeDuckRecovery !== undefined ? clip.effects.volumeDuckRecovery : 1.0;
+            
             const eqLow = clip.effects.eqLow || 0;
             const eqMid = clip.effects.eqMid || 0;
             const eqHigh = clip.effects.eqHigh || 0;
@@ -5210,10 +5220,56 @@
                             <input type="range" min="100" max="10000" step="100" value="${autoDuckFreq}" class="w-full custom-slider" oninput="setClipEffect('${clip.id}', 'autoDuckFreq', this.value); this.previousElementSibling.querySelector('span:last-child').textContent = this.value + ' Hz';">
                             
                             <div class="flex justify-between items-center text-[9px] font-bold text-surface-500 dark:text-surface-400 uppercase mt-2">
+                                <span>Detection Threshold</span>
+                                <span>${Math.round((duckThreshold / 255) * 100)}%</span>
+                            </div>
+                            <input type="range" min="1" max="255" step="1" value="${duckThreshold}" class="w-full custom-slider" oninput="setClipEffect('${clip.id}', 'duckThreshold', this.value); this.previousElementSibling.querySelector('span:last-child').textContent = Math.round((this.value / 255) * 100) + '%';">
+                            
+                            <div class="flex justify-between items-center text-[9px] font-bold text-surface-500 dark:text-surface-400 uppercase mt-2">
                                 <span>Cut Volume</span>
                                 <span>${autoDuckGain} dB</span>
                             </div>
                             <input type="range" min="-48" max="-3" step="1" value="${autoDuckGain}" class="w-full custom-slider" oninput="setClipEffect('${clip.id}', 'autoDuckGain', this.value); this.previousElementSibling.querySelector('span:last-child').textContent = this.value + ' dB';">
+                        </div>
+                    </div>
+                </details>` +
+                `<details id="cardAudioVolumeDuck" class="group bg-white dark:bg-surface-800 border border-surface-300 dark:border-surface-700 shadow-sm rounded-lg shrink-0 ${isHorizontal ? 'w-[280px]' : 'w-full'} overflow-hidden flex flex-col" open>
+                    <summary class="flex justify-between items-center font-bold cursor-pointer p-2.5 bg-surface-50/50 dark:bg-surface-800 text-sm text-surface-800 dark:text-surface-200 select-none">
+                        <div class="flex items-center gap-2"><i data-lucide="volume-1" class="w-4 h-4 text-brand-500"></i> Smart Volume Duck</div>
+                        <div class="flex items-center gap-3">
+                            <button onclick="setClipEffect('${clip.id}', 'volumeDuck', ${!volumeDuck}); updateSidebarPanel(); event.stopPropagation();" class="w-8 h-4 rounded-full relative border ${volumeDuck ? 'border-brand-500 bg-brand-500' : 'border-surface-300 dark:border-surface-600 bg-surface-200 dark:bg-surface-700'} transition-colors duration-200">
+                                <div class="w-3 h-3 bg-white rounded-full absolute ${volumeDuck ? 'left-[18px]' : 'left-0.5'} top-[1px] shadow-sm transition-all duration-200"></div>
+                            </button>
+                        </div>
+                    </summary>
+                    <div class="p-3 bg-white dark:bg-surface-800 flex flex-col gap-3">
+                        <div class="text-xs text-surface-500 dark:text-surface-400">
+                            Dips the entire track volume when dialogue is detected.
+                        </div>
+                        <div class="flex flex-col gap-1.5 ${volumeDuck ? '' : 'opacity-50 pointer-events-none'}">
+                            <div class="flex justify-between items-center text-[9px] font-bold text-surface-500 dark:text-surface-400 uppercase">
+                                <span>Detection Threshold</span>
+                                <span>${Math.round((duckThreshold / 255) * 100)}%</span>
+                            </div>
+                            <input type="range" min="1" max="255" step="1" value="${duckThreshold}" class="w-full custom-slider" oninput="setClipEffect('${clip.id}', 'duckThreshold', this.value); this.previousElementSibling.querySelector('span:last-child').textContent = Math.round((this.value / 255) * 100) + '%';">
+
+                            <div class="flex justify-between items-center text-[9px] font-bold text-surface-500 dark:text-surface-400 uppercase mt-2">
+                                <span>Duck Volume</span>
+                                <span>${Math.round(volumeDuckGain * 100)}%</span>
+                            </div>
+                            <input type="range" min="0" max="1" step="0.05" value="${volumeDuckGain}" class="w-full custom-slider" oninput="setClipEffect('${clip.id}', 'volumeDuckGain', this.value); this.previousElementSibling.querySelector('span:last-child').textContent = Math.round(this.value * 100) + '%';">
+                            
+                            <div class="flex justify-between items-center text-[9px] font-bold text-surface-500 dark:text-surface-400 uppercase mt-2">
+                                <span>Recovery Volume</span>
+                                <span>${Math.round(volumeDuckRecovery * 100)}%</span>
+                            </div>
+                            <input type="range" min="0" max="2" step="0.05" value="${volumeDuckRecovery}" class="w-full custom-slider" oninput="setClipEffect('${clip.id}', 'volumeDuckRecovery', this.value); this.previousElementSibling.querySelector('span:last-child').textContent = Math.round(this.value * 100) + '%';">
+
+                            <div class="flex justify-between items-center text-[9px] font-bold text-surface-500 dark:text-surface-400 uppercase mt-2">
+                                <span>Release Delay</span>
+                                <span>${(volumeDuckRelease / 1000).toFixed(1)}s</span>
+                            </div>
+                            <input type="range" min="0" max="5000" step="100" value="${volumeDuckRelease}" class="w-full custom-slider" oninput="setClipEffect('${clip.id}', 'volumeDuckRelease', this.value); this.previousElementSibling.querySelector('span:last-child').textContent = (this.value / 1000).toFixed(1) + 's';">
                         </div>
                     </div>
                 </details>` +
@@ -5743,6 +5799,7 @@
                 if (isHorizontal) {
                     const navItems = [
                         { id: 'cardAudioAutoDuck', name: 'Auto-Duck', icon: 'mic' },
+                        { id: 'cardAudioVolumeDuck', name: 'Volume Duck', icon: 'volume-1' },
                         { id: 'cardAudioVolume', name: 'Volume', icon: 'volume-2' },
                         { id: 'cardAudioEQ', name: 'EQ (Freq)', icon: 'sliders' },
                         { id: 'cardAudioPitch', name: 'Pitch', icon: 'music' },
@@ -7600,7 +7657,11 @@ const isVis = !clip.hidden;
                 
                 const clipsToDelete = State.clips.filter(c => c.trackId === trackId && (c.sceneId || null) === currentSceneId);
                 clipsToDelete.forEach(c => {
-                    if (c.audioEl) { c.audioEl.pause(); c.audioEl.removeAttribute('src'); }
+                    if (c.audioEl) { 
+                        if (c.playPromise) { c.playPromise.then(() => c.audioEl.pause()).catch(()=>{}); }
+                        else { c.audioEl.pause(); }
+                        c.audioEl.removeAttribute('src'); 
+                    }
                     if (c.audioNodes) c.audioNodes.source.disconnect();
                 });
                 
@@ -7985,7 +8046,8 @@ const isVis = !clip.hidden;
                 window.unlinkClip(id);
                 const clipToDelete = State.clips.find(c => c.id === id);
                 if (clipToDelete && clipToDelete.audioEl) {
-                    clipToDelete.audioEl.pause();
+                    if (clipToDelete.playPromise) { clipToDelete.playPromise.then(() => clipToDelete.audioEl.pause()).catch(()=>{}); }
+                    else { clipToDelete.audioEl.pause(); }
                     clipToDelete.audioEl.removeAttribute('src');
                     if(clipToDelete.audioNodes) clipToDelete.audioNodes.source.disconnect();
                 }
@@ -10483,7 +10545,10 @@ const isVis = !clip.hidden;
                 const el = clip.audioEl || clip.videoEl;
                 
                 if (track && track.hidden) {
-                    if (el && !el.paused) el.pause();
+                    if (el && !el.paused) {
+                        if (clip.playPromise) { clip.playPromise.then(() => el.pause()).catch(()=>{}); }
+                        else { el.pause(); }
+                    }
                     if (clip.sourceNode) {
                         clip.sourceNode.stop();
                         clip.sourceNode.disconnect();
@@ -10543,11 +10608,16 @@ const isVis = !clip.hidden;
                         }
                         
                         if (el.paused) {
-                            el.play().catch(e => console.warn("Auto-play prevented:", e));
+                            const p = el.play();
+                            if (p !== undefined) {
+                                clip.playPromise = p;
+                                p.catch(e => { clip.playPromise = null; console.warn("Auto-play prevented:", e); });
+                            }
                         }
                     } else {
                         if (!el.paused) {
-                            el.pause();
+                            if (clip.playPromise) { clip.playPromise.then(() => { el.pause(); clip.playPromise = null; }).catch(()=>{}); }
+                            else { el.pause(); }
                         }
                         if (isUpcoming) {
                             if (!el.seeking && Math.abs(el.currentTime - clip.sourceOffset) > 0.1) {
@@ -10568,7 +10638,8 @@ const isVis = !clip.hidden;
             State.clips.forEach(clip => {
                 const el = clip.audioEl || clip.videoEl;
                 if (el && !el.paused) {
-                    el.pause();
+                    if (clip.playPromise) { clip.playPromise.then(() => el.pause()).catch(()=>{}); }
+                    else { el.pause(); }
                 }
                 if (clip.isPlaying && clip.sourceNode) {
                     try {
@@ -10690,16 +10761,44 @@ const isVis = !clip.hidden;
                         }
                     }
                     
-                    // If maxVolume is above 10, there's likely dialogue. Cut -18dB.
                     State.clips.forEach(clip => {
-                        if (clip.effects && clip.effects.autoDuck && clip.audioNodes && clip.audioNodes.vocalPocket) {
-                            const duckGainTarget = clip.effects.autoDuckGain !== undefined ? clip.effects.autoDuckGain : -18;
-                            const targetGain = maxVolume > 10 ? duckGainTarget : 0;
+                        const isAutoDuck = clip.effects && clip.effects.autoDuck && clip.audioNodes && clip.audioNodes.vocalPocket;
+                        const isVolumeDuck = clip.effects && clip.effects.volumeDuck && clip.audioNodes && clip.audioNodes.duckingVolume;
+                        
+                        if (isAutoDuck || isVolumeDuck) {
+                            const duckThreshold = clip.effects.duckThreshold !== undefined ? parseFloat(clip.effects.duckThreshold) : 10;
+                            const isCurrentlySpeaking = maxVolume > duckThreshold;
                             
-                            const currentGain = clip.audioNodes.vocalPocket.gain.value;
-                            const diff = targetGain - currentGain;
-                            const smoothing = targetGain < currentGain ? 0.2 : 0.05;
-                            clip.audioNodes.vocalPocket.gain.value = currentGain + (diff * smoothing);
+                            if (isCurrentlySpeaking) {
+                                clip.duckingLastDetected = performance.now();
+                            }
+                            const timeSinceDialogue = performance.now() - (clip.duckingLastDetected || 0);
+                            const releaseTime = clip.effects.volumeDuckRelease !== undefined ? parseFloat(clip.effects.volumeDuckRelease) : 1000;
+                            const isDucking = isCurrentlySpeaking || (timeSinceDialogue < releaseTime);
+                            
+                            // Auto-Duck (Frequency Pocket)
+                            if (isAutoDuck) {
+                                const duckGainTarget = clip.effects.autoDuckGain !== undefined ? parseFloat(clip.effects.autoDuckGain) : -18;
+                                const targetGain = isDucking ? duckGainTarget : 0;
+                                
+                                const currentGain = clip.audioNodes.vocalPocket.gain.value;
+                                const diff = targetGain - currentGain;
+                                const smoothing = targetGain < currentGain ? 0.2 : 0.05;
+                                clip.audioNodes.vocalPocket.gain.value = currentGain + (diff * smoothing);
+                            }
+                            
+                            // Smart Volume Duck (Sidechain)
+                            if (isVolumeDuck) {
+                                const duckGainTarget = clip.effects.volumeDuckGain !== undefined ? parseFloat(clip.effects.volumeDuckGain) : 0.2; 
+                                const recoveryVolume = clip.effects.volumeDuckRecovery !== undefined ? parseFloat(clip.effects.volumeDuckRecovery) : 1.0;
+                                
+                                const targetGain = isDucking ? duckGainTarget : recoveryVolume;
+                                
+                                const currentGain = clip.audioNodes.duckingVolume.gain.value;
+                                const diff = targetGain - currentGain;
+                                const smoothing = targetGain < currentGain ? 0.2 : 0.02; // Fast attack, smooth release
+                                clip.audioNodes.duckingVolume.gain.value = currentGain + (diff * smoothing);
+                            }
                         }
                     });
                 }
@@ -10863,7 +10962,8 @@ const isVis = !clip.hidden;
                     el.currentTime = clip.sourceOffset + offset;
                     
                     if (startTime >= clip.start) {
-                        el.play().catch(e=>{});
+                        const p = el.play();
+                        if (p !== undefined) { clip.playPromise = p; p.catch(e=>{}); }
                     }
                 }
             });
@@ -10888,11 +10988,15 @@ const isVis = !clip.hidden;
                         // Start media if playhead reaches its start
                         if (State.currentTime >= clip.start && (State.currentTime - dt) < clip.start) {
                             el.currentTime = clip.sourceOffset;
-                            el.play().catch(e=>{});
+                            const p = el.play();
+                            if (p !== undefined) { clip.playPromise = p; p.catch(e=>{}); }
                         }
                         // Stop media if playhead passes it
                         if (State.currentTime > clip.start + clip.duration) {
-                            if (!el.paused) el.pause();
+                            if (!el.paused) {
+                                if (clip.playPromise) { clip.playPromise.then(() => el.pause()).catch(()=>{}); }
+                                else { el.pause(); }
+                            }
                         }
                     }
                 });
