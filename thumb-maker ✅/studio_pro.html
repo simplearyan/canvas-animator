@@ -4912,8 +4912,8 @@ function updateUI() {
 
         function generateTextPresetPreview(el) {
             const previewCanvas = document.createElement('canvas');
-            const previewWidth = 300;
-            const previewHeight = 150;
+            const previewWidth = 400;
+            const previewHeight = 200;
             previewCanvas.width = previewWidth;
             previewCanvas.height = previewHeight;
             const pctx = previewCanvas.getContext('2d', { willReadFrequently: true });
@@ -4939,13 +4939,28 @@ function updateUI() {
             clone.rotation = 0;
             clone.hidden = false;
             
-            // Auto scale down if text size is too big to fit inside the preview
-            const maxAllowedSize = 80;
-            if (clone.size > maxAllowedSize) {
-                clone.scale = (clone.scale || 1) * (maxAllowedSize / clone.size);
-            } else {
-                clone.scale = clone.scale || 1;
+            // Accurately measure and scale down to fit without cropping
+            pctx.font = `${clone.fontStyle || 'normal'} ${clone.fontWeight || '900'} ${clone.size}px "${clone.fontFamily || 'Rubik'}", sans-serif`;
+            const lines = (clone.text || "Custom Text").split('\n');
+            let maxLineWidth = 0;
+            lines.forEach(line => {
+                maxLineWidth = Math.max(maxLineWidth, pctx.measureText(line).width + (clone.letterSpacing || 0) * line.length);
+            });
+            
+            // Accommodate heavy styles like 3D depth, strokes, and blur padding
+            maxLineWidth += 60 + (clone.depth || 0) * 1.5 + (clone.dropShadowBlur || 0) * 2 + (clone.strokeWidth || 0) * 2;
+            const totalHeight = (clone.size * (clone.lineHeight || 1.1) * lines.length) + 60 + (clone.depth || 0) * 1.5 + (clone.dropShadowBlur || 0) * 2 + (clone.strokeWidth || 0) * 2;
+
+            let targetScale = clone.scale || 1;
+            
+            if (maxLineWidth > previewWidth) {
+                targetScale = Math.min(targetScale, previewWidth / maxLineWidth);
             }
+            if (totalHeight > previewHeight) {
+                targetScale = Math.min(targetScale, previewHeight / totalHeight);
+            }
+            
+            clone.scale = targetScale;
 
             // Set state for isolated preview
             state.elements = [clone];
@@ -5070,7 +5085,7 @@ function updateUI() {
 
             presets.forEach(p => {
                 const div = document.createElement('div');
-                div.className = "relative group rounded-lg border border-pro-200 dark:border-pro-700 bg-white dark:bg-pro-800 shadow-sm cursor-pointer hover:border-pro-300 dark:hover:border-pro-600 hover:shadow transition-all h-24 flex items-center justify-center overflow-hidden p-3";
+                div.className = "relative group rounded-lg bg-pro-100 dark:bg-[#231f20] shadow-sm cursor-pointer h-24 flex items-center justify-center overflow-hidden";
                 
                 div.onclick = () => loadTextPreset(p);
 
