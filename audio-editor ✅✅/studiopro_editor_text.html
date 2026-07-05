@@ -1675,6 +1675,19 @@
             applyInspectorLayout();
         }
 
+        function createReverbImpulse(context, duration, decay) {
+            const length = context.sampleRate * duration;
+            const impulse = context.createBuffer(2, length, context.sampleRate);
+            const left = impulse.getChannelData(0);
+            const right = impulse.getChannelData(1);
+            for (let i = 0; i < length; i++) {
+                const n = 1 - (i / length) ** decay;
+                left[i] = (Math.random() * 2 - 1) * n;
+                right[i] = (Math.random() * 2 - 1) * n;
+            }
+            return impulse;
+        }
+
         function ensureAudioContext() {
             if (!State.audioCtxInitialzed) {
                 audioCtx = new AudioContext();
@@ -1691,6 +1704,8 @@
                 silentNode.gain.value = 0;
                 State.dialogueAnalyser.connect(silentNode);
                 silentNode.connect(audioCtx.destination);
+                
+                State.reverbImpulse = createReverbImpulse(audioCtx, 2.5, 2.0);
                 
                 State.audioCtxInitialzed = true;
 
@@ -3813,9 +3828,23 @@
                 noiseRed.type = 'lowpass';
                 noiseRed.frequency.value = 20000;
 
-                const eq = audioCtx.createBiquadFilter();
-                eq.type = 'lowshelf';
-                eq.frequency.value = 120;
+                const eqLow = audioCtx.createBiquadFilter();
+                eqLow.type = 'lowshelf';
+                eqLow.frequency.value = 200;
+
+                const eqMid = audioCtx.createBiquadFilter();
+                eqMid.type = 'peaking';
+                eqMid.frequency.value = 1000;
+                eqMid.Q.value = 1.0;
+
+                const eqHigh = audioCtx.createBiquadFilter();
+                eqHigh.type = 'highshelf';
+                eqHigh.frequency.value = 3000;
+                
+                const reverb = audioCtx.createConvolver();
+                if (State.reverbImpulse) reverb.buffer = State.reverbImpulse;
+                const reverbGain = audioCtx.createGain();
+                reverbGain.gain.value = 0;
 
                 const tinny = audioCtx.createBiquadFilter();
                 tinny.type = 'highpass';
@@ -3842,8 +3871,16 @@
                 const roboVolume = audioCtx.createGain();
 
                 source.connect(noiseRed);
-                noiseRed.connect(eq);
-                eq.connect(tinny);
+                noiseRed.connect(eqLow);
+                eqLow.connect(eqMid);
+                eqMid.connect(eqHigh);
+                eqHigh.connect(tinny);
+                
+                // Reverb parallel routing
+                eqHigh.connect(reverb);
+                reverb.connect(reverbGain);
+                reverbGain.connect(State.speakerNode);
+                reverbGain.connect(State.masterStreamNode);
                 
                 const dialogueSend = audioCtx.createGain();
                 tinny.connect(volume);
@@ -3871,7 +3908,7 @@
                 roboVolume.connect(State.speakerNode);
                 roboVolume.connect(State.masterStreamNode);
 
-                clip.audioNodes = { source, noiseRed, eq, tinny, volume, delay, echoFeedback, echoVolume, roboDelay, roboFeedback, roboVolume, vocalPocket, dialogueSend };
+                clip.audioNodes = { source, noiseRed, eqLow, eqMid, eqHigh, tinny, volume, delay, echoFeedback, echoVolume, roboDelay, roboFeedback, roboVolume, vocalPocket, dialogueSend, reverb, reverbGain };
                 
                 if (!clip.effects) clip.effects = {};
                 if (clip.effects.volume === undefined) clip.effects.volume = 1;
@@ -3916,6 +3953,7 @@
                 if (clip.audioNodes.dialogueSend && clip.audioNodes.vocalPocket) {
                     if (fx.autoDuck) {
                         clip.audioNodes.dialogueSend.gain.value = 0; 
+                        clip.audioNodes.vocalPocket.frequency.value = fx.autoDuckFreq || 2000;
                     } else {
                         clip.audioNodes.dialogueSend.gain.value = 1; 
                         clip.audioNodes.vocalPocket.gain.value = 0; 
@@ -3923,7 +3961,22 @@
                 }
             }
 
-            clip.audioNodes.eq.gain.value = fx.cinematicEnable ? (cinematicVal * 15) : 0;
+            if (clip.audioNodes.eqLow) clip.audioNodes.eqLow.gain.value = fx.eqLow !== undefined ? fx.eqLow : (fx.cinematicEnable ? (cinematicVal * 15) : 0);
+            if (clip.audioNodes.eqMid) clip.audioNodes.eqMid.gain.value = fx.eqMid !== undefined ? fx.eqMid : 0;
+            if (clip.audioNodes.eqHigh) clip.audioNodes.eqHigh.gain.value = fx.eqHigh !== undefined ? fx.eqHigh : 0;
+            
+            if (clip.audioNodes.reverbGain) clip.audioNodes.reverbGain.gain.value = fx.reverb !== undefined ? fx.reverb : 0;
+            
+            // Pitch via playbackRate
+            const pitch = fx.pitch !== undefined ? fx.pitch : 1;
+            if (clip.audioEl) {
+                clip.audioEl.preservesPitch = false;
+                clip.audioEl.playbackRate = pitch;
+            } else if (clip.videoEl) {
+                clip.videoEl.preservesPitch = false;
+                clip.videoEl.playbackRate = pitch;
+            }
+
             clip.audioNodes.tinny.frequency.value = fx.cartoonEnable ? Math.max(1, cartoonVal * 1500) : 0;
             clip.audioNodes.noiseRed.frequency.value = fx.noiseRedEnable ? (20000 - (noiseRedVal * 17000)) : 20000;
         }
@@ -5126,6 +5179,14 @@
             `;
 
             const autoDuck = clip.effects.autoDuck || false;
+            const autoDuckFreq = clip.effects.autoDuckFreq || 2000;
+            const autoDuckGain = clip.effects.autoDuckGain || -18;
+            
+            const eqLow = clip.effects.eqLow || 0;
+            const eqMid = clip.effects.eqMid || 0;
+            const eqHigh = clip.effects.eqHigh || 0;
+            const pitch = clip.effects.pitch !== undefined ? clip.effects.pitch : 1;
+            const reverbVal = clip.effects.reverb || 0;
 
             const audioHTML = 
                 `<details id="cardAudioAutoDuck" class="group bg-white dark:bg-surface-800 border border-surface-300 dark:border-surface-700 shadow-sm rounded-lg shrink-0 ${isHorizontal ? 'w-[280px]' : 'w-full'} overflow-hidden flex flex-col" open>
@@ -5137,12 +5198,68 @@
                             </button>
                         </div>
                     </summary>
-                    <div class="p-3 bg-white dark:bg-surface-800 text-xs text-surface-500 dark:text-surface-400">
-                        Automatically dips vocal frequencies (2000Hz) when dialogue is detected on other tracks.
+                    <div class="p-3 bg-white dark:bg-surface-800 flex flex-col gap-3">
+                        <div class="text-xs text-surface-500 dark:text-surface-400">
+                            Automatically dips vocal frequencies when dialogue is detected on other tracks.
+                        </div>
+                        <div class="flex flex-col gap-1.5 ${autoDuck ? '' : 'opacity-50 pointer-events-none'}">
+                            <div class="flex justify-between items-center text-[9px] font-bold text-surface-500 dark:text-surface-400 uppercase">
+                                <span>Frequency</span>
+                                <span>${autoDuckFreq} Hz</span>
+                            </div>
+                            <input type="range" min="100" max="10000" step="100" value="${autoDuckFreq}" class="w-full custom-slider" oninput="setClipEffect('${clip.id}', 'autoDuckFreq', this.value); this.previousElementSibling.querySelector('span:last-child').textContent = this.value + ' Hz';">
+                            
+                            <div class="flex justify-between items-center text-[9px] font-bold text-surface-500 dark:text-surface-400 uppercase mt-2">
+                                <span>Cut Volume</span>
+                                <span>${autoDuckGain} dB</span>
+                            </div>
+                            <input type="range" min="-48" max="-3" step="1" value="${autoDuckGain}" class="w-full custom-slider" oninput="setClipEffect('${clip.id}', 'autoDuckGain', this.value); this.previousElementSibling.querySelector('span:last-child').textContent = this.value + ' dB';">
+                        </div>
                     </div>
                 </details>` +
                 createAudioAccordion('volume', 'volume-2', 'Volume', null, 'volume', vol, true, 'cardAudioVolume') +
                 createAudioAccordion('noiseRed', 'mic-off', 'Denoise', 'noiseRedEnable', 'noiseRed', noiseRed, noiseRedEnable, 'cardAudioDenoise') +
+                `<details id="cardAudioEQ" class="group bg-white dark:bg-surface-800 border border-surface-300 dark:border-surface-700 shadow-sm rounded-lg shrink-0 ${isHorizontal ? 'w-[280px]' : 'w-full'} overflow-hidden flex flex-col" open>
+                    <summary class="flex justify-between items-center font-bold cursor-pointer p-2.5 bg-surface-50/50 dark:bg-surface-800 text-sm text-surface-800 dark:text-surface-200 select-none">
+                        <div class="flex items-center gap-2"><i data-lucide="sliders" class="w-4 h-4 text-brand-500"></i> EQ (Frequency)</div>
+                    </summary>
+                    <div class="p-3 bg-white dark:bg-surface-800 flex flex-col gap-3">
+                        <div class="flex flex-col gap-1.5">
+                            <div class="flex justify-between items-center text-[9px] font-bold text-surface-500 dark:text-surface-400 uppercase">
+                                <span>Highs (Treble)</span>
+                                <span>${eqHigh} dB</span>
+                            </div>
+                            <input type="range" min="-24" max="24" step="1" value="${eqHigh}" class="w-full custom-slider" oninput="setClipEffect('${clip.id}', 'eqHigh', this.value); this.previousElementSibling.querySelector('span:last-child').textContent = this.value + ' dB';">
+                            
+                            <div class="flex justify-between items-center text-[9px] font-bold text-surface-500 dark:text-surface-400 uppercase mt-2">
+                                <span>Mids</span>
+                                <span>${eqMid} dB</span>
+                            </div>
+                            <input type="range" min="-24" max="24" step="1" value="${eqMid}" class="w-full custom-slider" oninput="setClipEffect('${clip.id}', 'eqMid', this.value); this.previousElementSibling.querySelector('span:last-child').textContent = this.value + ' dB';">
+                            
+                            <div class="flex justify-between items-center text-[9px] font-bold text-surface-500 dark:text-surface-400 uppercase mt-2">
+                                <span>Lows (Bass)</span>
+                                <span>${eqLow} dB</span>
+                            </div>
+                            <input type="range" min="-24" max="24" step="1" value="${eqLow}" class="w-full custom-slider" oninput="setClipEffect('${clip.id}', 'eqLow', this.value); this.previousElementSibling.querySelector('span:last-child').textContent = this.value + ' dB';">
+                        </div>
+                    </div>
+                </details>` +
+                `<details id="cardAudioPitch" class="group bg-white dark:bg-surface-800 border border-surface-300 dark:border-surface-700 shadow-sm rounded-lg shrink-0 ${isHorizontal ? 'w-[280px]' : 'w-full'} overflow-hidden flex flex-col" open>
+                    <summary class="flex justify-between items-center font-bold cursor-pointer p-2.5 bg-surface-50/50 dark:bg-surface-800 text-sm text-surface-800 dark:text-surface-200 select-none">
+                        <div class="flex items-center gap-2"><i data-lucide="music" class="w-4 h-4 text-brand-500"></i> Pitch</div>
+                    </summary>
+                    <div class="p-3 bg-white dark:bg-surface-800 flex flex-col gap-3">
+                        <div class="flex flex-col gap-1.5">
+                            <div class="flex justify-between items-center text-[9px] font-bold text-surface-500 dark:text-surface-400 uppercase">
+                                <span>Multiplier</span>
+                                <span>${pitch.toFixed(2)}x</span>
+                            </div>
+                            <input type="range" min="0.5" max="2.0" step="0.05" value="${pitch}" class="w-full custom-slider" oninput="setClipEffect('${clip.id}', 'pitch', this.value); this.previousElementSibling.querySelector('span:last-child').textContent = parseFloat(this.value).toFixed(2) + 'x';">
+                        </div>
+                    </div>
+                </details>` +
+                createAudioAccordion('reverb', 'mic', 'Studio Reverb', null, 'reverb', reverbVal, true, 'cardAudioReverb') +
                 createAudioAccordion('echo', 'waves', 'Echo', 'echoEnable', 'echo', echo, echoEnable, 'cardAudioEcho') +
                 createAudioAccordion('cinematic', 'speaker', 'Bass (Cinematic)', 'cinematicEnable', 'cinematic', cinematic, cinematicEnable, 'cardAudioBass') +
                 createAudioAccordion('robot', 'bot', 'Robot Voice', 'robotEnable', 'robot', robot, robotEnable, 'cardAudioRobot') +
@@ -5627,6 +5744,9 @@
                     const navItems = [
                         { id: 'cardAudioAutoDuck', name: 'Auto-Duck', icon: 'mic' },
                         { id: 'cardAudioVolume', name: 'Volume', icon: 'volume-2' },
+                        { id: 'cardAudioEQ', name: 'EQ (Freq)', icon: 'sliders' },
+                        { id: 'cardAudioPitch', name: 'Pitch', icon: 'music' },
+                        { id: 'cardAudioReverb', name: 'Reverb', icon: 'mic' },
                         { id: 'cardAudioDenoise', name: 'Denoise', icon: 'mic-off' },
                         { id: 'cardAudioEcho', name: 'Echo', icon: 'waves' },
                         { id: 'cardAudioBass', name: 'Bass', icon: 'speaker' },
@@ -10571,10 +10691,11 @@ const isVis = !clip.hidden;
                     }
                     
                     // If maxVolume is above 10, there's likely dialogue. Cut -18dB.
-                    const targetGain = maxVolume > 10 ? -18 : 0;
-                    
                     State.clips.forEach(clip => {
                         if (clip.effects && clip.effects.autoDuck && clip.audioNodes && clip.audioNodes.vocalPocket) {
+                            const duckGainTarget = clip.effects.autoDuckGain !== undefined ? clip.effects.autoDuckGain : -18;
+                            const targetGain = maxVolume > 10 ? duckGainTarget : 0;
+                            
                             const currentGain = clip.audioNodes.vocalPocket.gain.value;
                             const diff = targetGain - currentGain;
                             const smoothing = targetGain < currentGain ? 0.2 : 0.05;
