@@ -1597,6 +1597,12 @@
                     </button>
                 </div>
                 <div class="px-2 border-r border-pro-700 dark:border-pro-600 flex gap-1">
+                    <button id="ctxGroup" class="p-2 hover:bg-pro-700 dark:hover:bg-pro-600 rounded-lg text-pro-300 hover:text-white flex items-center justify-center hidden" title="Group Elements (Ctrl+G)">
+                        <i class="ph-bold ph-object-group text-base"></i>
+                    </button>
+                    <button id="ctxUngroup" class="p-2 hover:bg-pro-700 dark:hover:bg-pro-600 rounded-lg text-pro-300 hover:text-white flex items-center justify-center hidden" title="Ungroup Elements (Ctrl+Shift+G)">
+                        <i class="ph-bold ph-intersect text-base"></i>
+                    </button>
                     <button id="ctxLock" class="p-2 hover:bg-pro-700 dark:hover:bg-pro-600 rounded-lg text-pro-300 hover:text-white flex items-center justify-center" title="Lock Element (L)">
                         <i class="ph-bold ph-lock-key text-base"></i>
                     </button>
@@ -1985,6 +1991,8 @@
         const ctxLayerDown = document.getElementById('ctxLayerDown');
         const ctxDelete = document.getElementById('ctxDelete');
         const ctxDuplicate = document.getElementById('ctxDuplicate');
+        const ctxGroup = document.getElementById('ctxGroup');
+        const ctxUngroup = document.getElementById('ctxUngroup');
         const ctxLock = document.getElementById('ctxLock');
         const ctxVisibility = document.getElementById('ctxVisibility');
         const dragHint = document.getElementById('dragHint');
@@ -3111,12 +3119,13 @@
             const pos = getMousePos(e);
             const hitId = checkHit(pos);
             
-            const isMulti = e.ctrlKey || e.metaKey;
+            const isMulti = e.shiftKey;
+            const deepSelect = e.ctrlKey || e.metaKey || e.altKey;
             
-            if (hitId && state.selectedIds && state.selectedIds.includes(hitId) && !isMulti) {
+            if (hitId && state.selectedIds && state.selectedIds.includes(hitId) && !isMulti && !deepSelect) {
                 // Keep current selection for dragging
             } else {
-                selectElement(hitId, isMulti);
+                selectElement(hitId, isMulti, deepSelect);
             }
 
             if (state.selectedIds && state.selectedIds.length > 0 && hitId) {
@@ -3219,18 +3228,29 @@
             debouncedSave();
         };
 
-        function selectElement(id, toggleMulti = false) {
+        function selectElement(id, toggleMulti = false, bypassGroup = false) {
             if (!state.selectedIds) state.selectedIds = [];
             
             if (id) {
+                const el = state.elements.find(e => e.id === id);
+                let idsToSelect = [id];
+                
+                if (el && el.groupId && !bypassGroup) {
+                    const groupElements = state.elements.filter(e => e.groupId === el.groupId).map(e => e.id);
+                    idsToSelect = groupElements; // Select group
+                }
+                
                 if (toggleMulti) {
-                    if (state.selectedIds.includes(id)) {
-                        state.selectedIds = state.selectedIds.filter(x => x !== id);
+                    const allPresent = idsToSelect.every(gid => state.selectedIds.includes(gid));
+                    if (allPresent) {
+                        state.selectedIds = state.selectedIds.filter(x => !idsToSelect.includes(x));
                     } else {
-                        state.selectedIds.push(id);
+                        idsToSelect.forEach(gid => {
+                            if (!state.selectedIds.includes(gid)) state.selectedIds.push(gid);
+                        });
                     }
                 } else {
-                    state.selectedIds = [id];
+                    state.selectedIds = idsToSelect;
                 }
             } else {
                 state.selectedIds = [];
@@ -3265,7 +3285,7 @@
                 const li = document.createElement('li');
                 const isSelected = state.selectedIds && state.selectedIds.includes(el.id);
                 li.className = `flex items-center justify-between p-2.5 rounded-lg border cursor-pointer  ${isSelected ? 'bg-brand-50 dark:bg-brand-500/20 border-brand-500 text-brand-700 dark:text-brand-300' : 'bg-white dark:bg-pro-800 border-pro-200 dark:border-pro-700 hover:border-brand-300 dark:hover:border-pro-500 text-pro-600 dark:text-pro-300'}`;
-                li.onclick = (e) => selectElement(el.id, e.ctrlKey || e.metaKey);
+                li.onclick = (e) => selectElement(el.id, e.shiftKey, true);
                 
                 const isShape = el.type === 'shape';
                 const icon = el.type === 'emoji' ? 'ph-smiley' : (el.type === 'text' ? 'ph-text-t' : (isShape ? 'ph-star' : 'ph-image'));
@@ -3796,6 +3816,31 @@ function updateUI() {
             if (state.selectedIds && state.selectedIds.length > 0) {
                 contextToolbar.classList.remove('opacity-0', 'pointer-events-none', 'scale-95');
                 contextToolbar.classList.add('opacity-100', 'scale-100');
+                
+                const ctxGroupBtn = document.getElementById('ctxGroup');
+                const ctxUngroupBtn = document.getElementById('ctxUngroup');
+                if (ctxGroupBtn && ctxUngroupBtn) {
+                    if (state.selectedIds.length > 1) {
+                        const firstGroupId = state.elements.find(e => e.id === state.selectedIds[0])?.groupId;
+                        const allSameGroup = firstGroupId && state.selectedIds.every(id => state.elements.find(e => e.id === id)?.groupId === firstGroupId);
+                        
+                        if (allSameGroup) {
+                            ctxGroupBtn.classList.add('hidden');
+                            ctxUngroupBtn.classList.remove('hidden');
+                        } else {
+                            ctxGroupBtn.classList.remove('hidden');
+                            ctxUngroupBtn.classList.add('hidden');
+                        }
+                    } else {
+                        ctxGroupBtn.classList.add('hidden');
+                        const el = state.elements.find(e => e.id === state.selectedIds[0] || e.id === state.selectedId);
+                        if (el && el.groupId) {
+                            ctxUngroupBtn.classList.remove('hidden');
+                        } else {
+                            ctxUngroupBtn.classList.add('hidden');
+                        }
+                    }
+                }
             } else {
                 contextToolbar.classList.add('opacity-0', 'pointer-events-none', 'scale-95');
                 contextToolbar.classList.remove('opacity-100', 'scale-100');
@@ -4406,6 +4451,32 @@ function updateUI() {
             updateUI();
             debouncedSave();
         }
+
+        function groupSelectedElements() {
+            if (!state.selectedIds || state.selectedIds.length <= 1) return;
+            const groupId = 'grp-' + generateId();
+            state.selectedIds.forEach(id => {
+                const el = state.elements.find(e => e.id === id);
+                if (el) el.groupId = groupId;
+            });
+            updateUI();
+            debouncedSave();
+            showToast("Elements Grouped");
+        }
+        
+        function ungroupSelectedElements() {
+            if (!state.selectedIds || state.selectedIds.length === 0) return;
+            state.selectedIds.forEach(id => {
+                const el = state.elements.find(e => e.id === id);
+                if (el) delete el.groupId;
+            });
+            updateUI();
+            debouncedSave();
+            showToast("Elements Ungrouped");
+        }
+
+        if (ctxGroup) ctxGroup.addEventListener('click', groupSelectedElements);
+        if (ctxUngroup) ctxUngroup.addEventListener('click', ungroupSelectedElements);
 
         if (ctxDuplicate) {
             ctxDuplicate.addEventListener('click', duplicateSelectedElements);
@@ -5342,6 +5413,17 @@ function updateUI() {
             if (isInput) return;
             
             if (e.ctrlKey || e.metaKey) {
+                if (e.key.toLowerCase() === 'g') {
+                    e.preventDefault();
+                    if (e.shiftKey) {
+                        const btn = document.getElementById('ctxUngroup');
+                        if (btn) btn.click();
+                    } else {
+                        const btn = document.getElementById('ctxGroup');
+                        if (btn) btn.click();
+                    }
+                    return;
+                }
                 if (e.key.toLowerCase() === 'd') {
                     e.preventDefault();
                     const btn = document.getElementById('ctxDuplicate');
