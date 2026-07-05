@@ -472,7 +472,12 @@
                                         </div>
                                     </div>
                                     <div class="bg-white dark:bg-pro-800 border border-pro-200 dark:border-pro-700 p-3 rounded-md shadow-sm">
-                                        <label class="block text-[10px] font-bold text-pro-500 dark:text-pro-400 uppercase tracking-widest mb-2">Fill Color</label>
+                                        <div class="flex items-center justify-between mb-2">
+                                            <label class="block text-[10px] font-bold text-pro-500 dark:text-pro-400 uppercase tracking-widest">Fill Color</label>
+                                            <button id="toggleShapeFillBtn" class="w-8 h-4 rounded-full relative border border-brand-500 bg-brand-500 transition-colors duration-200">
+                                                <div class="w-3 h-3 bg-white rounded-full absolute left-[18px] top-[1px] shadow-sm transition-transform duration-200"></div>
+                                            </button>
+                                        </div>
                                         <div class="flex items-center gap-2 p-1 border border-pro-300 dark:border-pro-600 rounded bg-pro-50 dark:bg-pro-900">
                                             <div class="relative w-6 h-6 rounded border border-pro-300 dark:border-pro-600 overflow-hidden shrink-0 shadow-sm">
                                                 <input type="color" id="editShapeColor" class="absolute -top-2 -left-2 w-10 h-10 cursor-pointer">
@@ -1964,6 +1969,7 @@
         const accImageFilters = document.getElementById('acc-image-filters');
         const accMediaSource = document.getElementById('acc-media-source');
         const accShape = document.getElementById('acc-shape');
+        const toggleShapeFillBtn = document.getElementById('toggleShapeFillBtn');
 
         // Toggles & Settings Containers
         const toggleExtrusionBtn = document.getElementById('toggleExtrusionBtn');
@@ -2745,10 +2751,21 @@
 
                     // Draw Main Shape
                     ctx.globalAlpha = layerAlpha * fillAlpha;
-                    ctx.fillStyle = el.color;
+                    
                     if(el.feather) ctx.filter = `blur(${el.feather}px)`;
                     drawShapePath(ctx, el, 0, 0);
-                    ctx.fill();
+                    
+                    if (el.fillEnabled !== false) {
+                        ctx.fillStyle = el.color;
+                        ctx.fill();
+                    }
+                    
+                    if (el.strokeEnabled) {
+                        ctx.strokeStyle = el.strokeColor || '#ffffff';
+                        ctx.lineWidth = el.strokeWidth || 5;
+                        ctx.stroke();
+                    }
+                    
                     if(el.feather) ctx.filter = 'none';
                 }
                 else if (el.type === 'text' || el.type === 'emoji') {
@@ -3714,6 +3731,15 @@ function updateUI() {
                     if(accColorCorrection) accColorCorrection.style.display = 'none';
 
                     editShapeType.value = el.shapeType || 'rect';
+                    
+                    const fillEnabled = el.fillEnabled !== false;
+                    toggleShapeFillBtn.className = fillEnabled 
+                        ? 'w-8 h-4 rounded-full relative border border-brand-500 bg-brand-500 transition-colors duration-200' 
+                        : 'w-8 h-4 rounded-full relative border border-pro-400 dark:border-pro-600 bg-pro-300 dark:bg-pro-600 transition-colors duration-200';
+                    toggleShapeFillBtn.children[0].className = fillEnabled 
+                        ? 'w-3 h-3 bg-white rounded-full absolute left-[18px] top-[1px] shadow-sm transition-transform duration-200' 
+                        : 'w-3 h-3 bg-white rounded-full absolute left-0.5 top-[1px] shadow-sm transition-transform duration-200';
+
                     editShapeColor.value = (el.color || '#ff0000').substring(0, 7);
                     editShapeColorHex.value = (el.color || '#ff0000').toUpperCase();
                     editShapeWidth.value = el.width !== undefined ? el.width : (el.size || 150);
@@ -4618,7 +4644,7 @@ function updateUI() {
 
         btnAddShape.addEventListener('click', () => {
             const newShape = {
-                id: generateId(), type: 'shape', shapeType: 'star', color: '#f59e0b', width: 150, height: 150, sides: 5, radius: 0,
+                id: generateId(), type: 'shape', shapeType: 'star', fillEnabled: true, color: '#f59e0b', width: 150, height: 150, sides: 5, radius: 0,
                 extrusionEnabled: true, shadowColor: '#b45309', depth: 15, extrusionDir: 'br',
                 dropShadowEnabled: false, dropShadowColor: '#000000', dropShadowBlur: 20, dropShadowX: 0, dropShadowY: 10,
                 x: CANVAS_WIDTH / 2, y: CANVAS_HEIGHT / 2, rotation: 0, scale: 1
@@ -4629,6 +4655,18 @@ function updateUI() {
         });
 
         editShapeType.addEventListener('change', (e) => { updateProp('shapeType', e.target.value); updateUI(); });
+        
+        toggleShapeFillBtn.addEventListener('click', (e) => {
+            e.stopPropagation();
+            if(!state.selectedId) return;
+            const el = state.elements.find(x => x.id === state.selectedId);
+            if(el) {
+                el.fillEnabled = el.fillEnabled === false ? true : false;
+                updateUI();
+                render();
+                debouncedSave();
+            }
+        });
         editShapeColor.addEventListener('input', (e) => { syncHex(e.target, editShapeColorHex); updateProp('color', e.target.value); });
         editShapeWidth.addEventListener('input', (e) => { editShapeWidthVal.textContent = `${e.target.value}px`; updateProp('width', parseInt(e.target.value)); });
         editShapeHeight.addEventListener('input', (e) => { editShapeHeightVal.textContent = `${e.target.value}px`; updateProp('height', parseInt(e.target.value)); });
