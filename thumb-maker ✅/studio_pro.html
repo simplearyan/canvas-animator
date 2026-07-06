@@ -2488,6 +2488,7 @@
             bgColorHex.value = state.bgColor.toUpperCase();
             selectElement(null);
             document.querySelector('[data-target="panel-layers"]').click(); // Switch to layers to see them
+            ensurePresetFontsLoaded(state.elements);
             render();
             showToast("Preset loaded successfully!");
         }
@@ -3058,6 +3059,21 @@
                     }
                 }
             });
+
+            if (state.isMarqueeSelecting) {
+                const left = Math.min(state.marqueeStartX, state.marqueeEndX);
+                const right = Math.max(state.marqueeStartX, state.marqueeEndX);
+                const top = Math.min(state.marqueeStartY, state.marqueeEndY);
+                const bottom = Math.max(state.marqueeStartY, state.marqueeEndY);
+                
+                ctx.save();
+                ctx.fillStyle = 'rgba(99, 102, 241, 0.15)';
+                ctx.strokeStyle = '#6366f1';
+                ctx.lineWidth = 1;
+                ctx.fillRect(left, top, right - left, bottom - top);
+                ctx.strokeRect(left, top, right - left, bottom - top);
+                ctx.restore();
+            }
         }
 
         // --- Interaction Logic ---
@@ -3137,7 +3153,7 @@
             const hitId = checkHit(pos);
             
             const isMulti = e.shiftKey;
-            const deepSelect = e.ctrlKey || e.metaKey || e.altKey;
+            const deepSelect = e.ctrlKey || e.metaKey;
             
             if (hitId && state.selectedIds && state.selectedIds.includes(hitId) && !isMulti && !deepSelect) {
                 // Keep current selection for dragging
@@ -3155,16 +3171,38 @@
                     const el = state.elements.find(e => e.id === id);
                     if(el) state.dragStartPositions[id] = { x: el.x, y: el.y };
                 });
+            } else if (!hitId) {
+                state.isMarqueeSelecting = true;
+                state.marqueeStartX = pos.x;
+                state.marqueeStartY = pos.y;
+                state.marqueeEndX = pos.x;
+                state.marqueeEndY = pos.y;
+                state.marqueeShiftHeld = isMulti;
             }
         });
 
         canvas.addEventListener('mousemove', (e) => {
+            if (state.isMarqueeSelecting) {
+                const pos = getMousePos(e);
+                state.marqueeEndX = pos.x;
+                state.marqueeEndY = pos.y;
+                render();
+                return;
+            }
             if (state.isDragging && state.selectedIds && state.selectedIds.length > 0) {
                 // Hide drag hint permanently upon first drag
                 if (!state.hasDragged) {
                     state.hasDragged = true;
                     if (dragHint) {
                         dragHint.classList.add('opacity-0');
+                    }
+                    if (e.altKey) {
+                        duplicateSelectedElements(0, 0);
+                        state.dragStartPositions = {};
+                        state.selectedIds.forEach(id => {
+                            const el = state.elements.find(x => x.id === id);
+                            if(el) state.dragStartPositions[id] = { x: el.x, y: el.y };
+                        });
                     }
                 }
 
@@ -3184,11 +3222,69 @@
         });
 
         window.addEventListener('mouseup', (e) => {
+            if (state.isMarqueeSelecting) {
+                state.isMarqueeSelecting = false;
+                
+                const left = Math.min(state.marqueeStartX, state.marqueeEndX);
+                const right = Math.max(state.marqueeStartX, state.marqueeEndX);
+                const top = Math.min(state.marqueeStartY, state.marqueeEndY);
+                const bottom = Math.max(state.marqueeStartY, state.marqueeEndY);
+                
+                // If the box is too small, treat it as a simple click
+                if (right - left < 5 && bottom - top < 5) {
+                    render();
+                    return;
+                }
+                
+                const newSelection = [];
+                state.elements.forEach(el => {
+                    if (el.locked || el.hidden) return;
+                    
+                    let w = 150, h = 150;
+                    if (el.type === 'image' && el.img) {
+                        w = el.img.width;
+                        h = el.img.height;
+                    } else if (el.type === 'shape') {
+                        w = el.width || 150;
+                        h = el.height || 150;
+                    } else if (el.type === 'text') {
+                        w = (el.size || 60) * (el.text ? el.text.length * 0.6 : 5);
+                        h = el.size || 60;
+                    }
+                    
+                    w *= (el.scale || 1);
+                    h *= (el.scale || 1);
+                    
+                    const elLeft = el.x - w/2;
+                    const elRight = el.x + w/2;
+                    const elTop = el.y - h/2;
+                    const elBottom = el.y + h/2;
+                    
+                    if (elRight > left && elLeft < right && elBottom > top && elTop < bottom) {
+                        newSelection.push(el.id);
+                    }
+                });
+                
+                if (newSelection.length > 0) {
+                    if (state.marqueeShiftHeld) {
+                        newSelection.forEach(id => {
+                            if (!state.selectedIds.includes(id)) state.selectedIds.push(id);
+                        });
+                    } else {
+                        state.selectedIds = newSelection;
+                    }
+                    state.selectedId = state.selectedIds[0];
+                }
+                
+                updateUI();
+                render();
+            }
+
             if(state.isDragging) {
                 state.isDragging = false;
                 
                 // If user just clicked an already selected element without dragging, select ONLY it
-                if (!e.ctrlKey && !e.metaKey && state.selectedIds && state.selectedIds.length > 1) {
+                if (!e.ctrlKey && !e.metaKey && !e.shiftKey && state.selectedIds && state.selectedIds.length > 1) {
                     const pos = getMousePos(e);
                     if (Math.abs(pos.x - state.dragStartX) < 2 && Math.abs(pos.y - state.dragStartY) < 2) {
                         const hitId = checkHit(pos);
@@ -3200,7 +3296,7 @@
             }
         });
 
-        window.addEventListener('mouseup', () => state.isDragging = false);
+        window.addEventListener('mouseup', () => { state.isDragging = false; state.isMarqueeSelecting = false; });
 
         // --- UI Updates & Bindings ---
         
@@ -3235,8 +3331,8 @@
                 newEl.img = el.img;
             }
             newEl.id = generateId();
-            newEl.x += 20;
-            newEl.y += 20;
+            newEl.x += offsetX;
+                newEl.y += offsetY;
             
             state.elements.push(newEl);
             selectElement(newEl.id);
@@ -4455,7 +4551,9 @@ function updateUI() {
 
         ctxDelete.addEventListener('click', () => btnDeleteSelected.click());
 
-        function duplicateSelectedElements() {
+        function duplicateSelectedElements(offsetX = 20, offsetY = 20) {
+            if (typeof offsetX !== 'number') offsetX = 20;
+            if (typeof offsetY !== 'number') offsetY = 20;
             if (!state.selectedIds || state.selectedIds.length === 0) return;
             const newIds = [];
             state.selectedIds.forEach(id => {
@@ -4466,8 +4564,8 @@ function updateUI() {
                     newEl.img = el.img;
                 }
                 newEl.id = generateId();
-                newEl.x += 20;
-                newEl.y += 20;
+                newEl.x += offsetX;
+                newEl.y += offsetY;
                 state.elements.push(newEl);
                 newIds.push(newEl.id);
             });
@@ -4944,6 +5042,7 @@ function updateUI() {
             bgColorHex.value = state.bgColor.toUpperCase();
             selectElement(null);
             document.querySelector('[data-target="panel-layers"]').click();
+            ensurePresetFontsLoaded(state.elements);
             render();
             showToast("Design loaded!");
         }
