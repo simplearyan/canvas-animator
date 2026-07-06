@@ -315,6 +315,7 @@
                     <div class="flex bg-pro-200/50 dark:bg-pro-900/50 p-1 rounded-full mb-4 shrink-0">
                         <button class="library-sub-tab flex-1 py-1.5 text-[9px] uppercase tracking-wider font-bold rounded-full bg-white dark:bg-pro-700 text-pro-900 dark:text-white shadow-sm transition-all" data-target="library-sub-projects">Projects</button>
                         <button class="library-sub-tab flex-1 py-1.5 text-[9px] uppercase tracking-wider font-bold rounded-full text-pro-500 hover:text-pro-700 dark:text-pro-400 dark:hover:text-pro-200 transition-all" data-target="library-sub-text">Text Presets</button>
+                        <button class="library-sub-tab flex-1 py-1.5 text-[9px] uppercase tracking-wider font-bold rounded-full text-pro-500 hover:text-pro-700 dark:text-pro-400 dark:hover:text-pro-200 transition-all" data-target="library-sub-shapes">Shapes</button>
                     </div>
 
                     <!-- Inner Library Container -->
@@ -373,6 +374,19 @@
                                 </label>
                                 <div id="textPresetsList" class="grid grid-cols-2 gap-2 flex-1 overflow-y-auto custom-scrollbar pr-1 min-h-0 content-start auto-rows-max">
                                     <div class="text-xs text-pro-500 dark:text-pro-400 italic col-span-2 text-center py-4" id="textPresetsEmptyMsg">No text presets saved yet. Select a text element and click "Save as Preset".</div>
+                                </div>
+                            </div>
+                        </div>
+
+                        <!-- Shapes Presets Sub-tab -->
+                        <div id="library-sub-shapes" class="library-sub-content hidden flex-col space-y-4 flex-1">
+                            <div class="bg-white dark:bg-pro-800 border border-pro-300 dark:border-pro-700 p-3 rounded-lg shadow-sm flex flex-col flex-1 min-h-0">
+                                <label class="block text-[10px] font-bold text-pro-500 dark:text-pro-400 uppercase tracking-widest mb-3 flex items-center justify-between shrink-0">
+                                    <span>My Shapes & Strokes</span>
+                                    <span class="text-[9px] text-pro-400 font-normal normal-case">Click to add</span>
+                                </label>
+                                <div id="shapePresetsList" class="grid grid-cols-2 gap-2 flex-1 overflow-y-auto custom-scrollbar pr-1 min-h-0 content-start auto-rows-max">
+                                    <div class="text-xs text-pro-500 dark:text-pro-400 italic col-span-2 text-center py-4" id="shapePresetsEmptyMsg">No shape presets saved yet. Select a shape or stroke and click "Save as Preset".</div>
                                 </div>
                             </div>
                         </div>
@@ -544,6 +558,9 @@
                                     </div>
 
                                 </div>
+                                <button id="btnSaveShapePreset" class="w-full mt-3 text-[10px] bg-brand-50 dark:bg-brand-500/20 text-brand-600 dark:text-brand-300 border border-brand-200 dark:border-brand-500/30 px-3 py-1.5 rounded-md font-bold hover:bg-brand-100 dark:hover:bg-brand-500/40 flex items-center justify-center gap-1 transition-colors">
+                                    <i class="ph-bold ph-bookmark-simple"></i> Save as Shape/Stroke Preset
+                                </button>
                             </div>
                         </details>
 
@@ -2045,6 +2062,8 @@
         const customPresetsList = document.getElementById('customPresetsList');
         const btnSaveTextPreset = document.getElementById('btnSaveTextPreset');
         const textPresetsList = document.getElementById('textPresetsList');
+        const btnSaveShapePreset = document.getElementById('btnSaveShapePreset');
+        const shapePresetsList = document.getElementById('shapePresetsList');
         const textPresetsEmptyMsg = document.getElementById('textPresetsEmptyMsg');
         const btnDownloadJson = document.getElementById('btnDownloadJson');
         const uploadJson = document.getElementById('uploadJson');
@@ -5507,6 +5526,7 @@ function updateUI() {
             try {
                 localStorage.setItem('firethumb_text_presets', JSON.stringify(presets));
                 renderTextPresets();
+            renderShapePresets();
                 showToast("Text preset saved!");
             } catch (e) {
                 showToast("Error saving preset. Storage full?");
@@ -5518,6 +5538,7 @@ function updateUI() {
             presets = presets.filter(p => p.id !== id);
             localStorage.setItem('firethumb_text_presets', JSON.stringify(presets));
             renderTextPresets();
+            renderShapePresets();
             showToast("Preset deleted.");
         }
 
@@ -5601,6 +5622,217 @@ function updateUI() {
         }
 
         btnSaveTextPreset.addEventListener('click', saveTextPreset);
+        if(btnSaveShapePreset) btnSaveShapePreset.addEventListener('click', saveShapePreset);
+
+        // --- Shape Presets Logic ---
+        function getSavedShapePresets() {
+            try { return JSON.parse(localStorage.getItem('firethumb_shape_presets')) || []; }
+            catch (e) { return []; }
+        }
+
+        function generateShapePresetPreview(el) {
+            const previewCanvas = document.createElement('canvas');
+            const previewWidth = 400;
+            const previewHeight = 300;
+            previewCanvas.width = previewWidth;
+            previewCanvas.height = previewHeight;
+            const pCtx = previewCanvas.getContext('2d');
+            
+            pCtx.fillStyle = '#f0f0f0';
+            pCtx.fillRect(0, 0, previewWidth, previewHeight);
+
+            pCtx.save();
+            pCtx.translate(previewWidth / 2, previewHeight / 2);
+
+            let scale = 1;
+            let boundsW = el.width || 100;
+            let boundsH = el.height || 100;
+
+            if (el.type === 'shape') {
+                const s = el.size || 150;
+                boundsW = boundsH = s + 40 + (el.depth || 0);
+            } else if (el.type === 'drawing' && el.points && el.points.length > 0) {
+                let minX = Infinity, maxX = -Infinity, minY = Infinity, maxY = -Infinity;
+                el.points.forEach(p => {
+                    minX = Math.min(minX, p.x);
+                    maxX = Math.max(maxX, p.x);
+                    minY = Math.min(minY, p.y);
+                    maxY = Math.max(maxY, p.y);
+                });
+                boundsW = maxX - minX + (el.strokeWidth || 5) * 2;
+                boundsH = maxY - minY + (el.strokeWidth || 5) * 2;
+                
+                const ptArr = el.points.map(p => [p.x - el.x, p.y - el.y]);
+                const getStroke = window.getStroke;
+                if(getStroke) {
+                     const path = new Path2D(getSvgPathFromStroke(getStroke(ptArr, { size: el.strokeWidth || 5, thinning: 0.5, smoothing: 0.5, streamline: 0.5 })));
+                     pCtx.fillStyle = el.strokeColor || '#ff0000';
+                     pCtx.fill(path);
+                } else {
+                     pCtx.beginPath();
+                     el.points.forEach((p, i) => {
+                         if(i===0) pCtx.moveTo(p.x - el.x, p.y - el.y);
+                         else pCtx.lineTo(p.x - el.x, p.y - el.y);
+                     });
+                     pCtx.strokeStyle = el.strokeColor || '#ff0000';
+                     pCtx.lineWidth = el.strokeWidth || 5;
+                     pCtx.lineCap = 'round';
+                     pCtx.stroke();
+                }
+            }
+            
+            if (el.type === 'shape') {
+                const targetSize = 200;
+                scale = targetSize / boundsW;
+                pCtx.scale(scale, scale);
+
+                pCtx.globalAlpha = el.opacity !== undefined ? el.opacity / 100 : 1;
+                
+                if (el.dropShadowEnabled && el.dropShadowColor && el.dropShadowColor !== '#00000000') {
+                    pCtx.shadowColor = el.dropShadowColor;
+                    pCtx.shadowBlur = el.dropShadowBlur || 0;
+                    pCtx.shadowOffsetX = el.dropShadowX || 0;
+                    pCtx.shadowOffsetY = el.dropShadowY || 0;
+                }
+
+                pCtx.beginPath();
+                drawShapePath(pCtx, el, 0, 0);
+                pCtx.fillStyle = el.color || '#f59e0b';
+                if (el.fillEnabled !== false) pCtx.fill();
+                if (el.strokeEnabled && el.strokeWidth > 0) {
+                    pCtx.strokeStyle = el.strokeColor || '#000000';
+                    pCtx.lineWidth = el.strokeWidth;
+                    pCtx.stroke();
+                }
+            }
+
+            pCtx.restore();
+            return previewCanvas.toDataURL('image/jpeg', 0.8);
+        }
+
+        function saveShapePreset() {
+            if (!state.selectedId) return;
+            const el = state.elements.find(e => e.id === state.selectedId);
+            if (!el || (el.type !== 'shape' && el.type !== 'drawing')) return;
+
+            const name = prompt("Enter a name for this preset:", el.type === 'shape' ? "Custom Shape" : "Custom Stroke");
+            if (!name) return;
+
+            let presetData = {
+                id: generateId(),
+                name: name,
+                previewDataUrl: generateShapePresetPreview(el),
+                type: el.type,
+                color: el.color,
+                strokeColor: el.strokeColor,
+                strokeWidth: el.strokeWidth,
+                opacity: el.opacity,
+                blendMode: el.blendMode,
+                dropShadowEnabled: el.dropShadowEnabled,
+                dropShadowColor: el.dropShadowColor,
+                dropShadowBlur: el.dropShadowBlur,
+                dropShadowX: el.dropShadowX,
+                dropShadowY: el.dropShadowY
+            };
+
+            if (el.type === 'shape') {
+                presetData = {
+                    ...presetData,
+                    shapeType: el.shapeType,
+                    size: el.size,
+                    points: el.points,
+                    radius: el.radius,
+                    depth: el.depth
+                };
+            } else if (el.type === 'drawing') {
+                presetData.drawingPoints = el.points;
+            }
+
+            let presets = getSavedShapePresets();
+            presets.unshift(presetData);
+            
+            try {
+                localStorage.setItem('firethumb_shape_presets', JSON.stringify(presets));
+                renderShapePresets();
+                showToast("Preset saved!");
+            } catch (e) {
+                console.error("Storage error:", e);
+                showToast("Failed to save preset. Storage might be full.");
+            }
+        }
+
+        function deleteShapePreset(id) {
+            let presets = getSavedShapePresets();
+            presets = presets.filter(p => p.id !== id);
+            localStorage.setItem('firethumb_shape_presets', JSON.stringify(presets));
+            renderShapePresets();
+            showToast("Preset deleted.");
+        }
+
+        function loadShapePreset(preset) {
+            const newEl = {
+                ...preset,
+                id: generateId(),
+                x: canvas.width / 2,
+                y: canvas.height / 2,
+                rotation: 0,
+                scaleX: 1,
+                scaleY: 1
+            };
+            delete newEl.previewDataUrl;
+            delete newEl.name;
+            if(newEl.type === 'drawing' && newEl.drawingPoints) {
+                 newEl.points = newEl.drawingPoints;
+                 delete newEl.drawingPoints;
+            }
+
+            state.elements.push(newEl);
+            selectElement(newEl.id);
+            render();
+            updateUI();
+            showToast("Preset added!");
+        }
+
+        function renderShapePresets() {
+            if(!shapePresetsList) return;
+            const presets = getSavedShapePresets();
+            shapePresetsList.innerHTML = '';
+            
+            if (presets.length === 0) {
+                shapePresetsList.innerHTML = '<div class="text-xs text-pro-500 dark:text-pro-400 italic col-span-2 text-center py-4" id="shapePresetsEmptyMsg">No shape presets saved yet. Select a shape or stroke and click "Save as Preset".</div>';
+                return;
+            }
+
+            presets.forEach(p => {
+                const div = document.createElement('div');
+                div.className = "relative group rounded-lg bg-pro-100 dark:bg-[#231f20] shadow-sm cursor-pointer h-24 flex items-center justify-center overflow-hidden border border-pro-200 dark:border-pro-700 hover:border-brand-500 dark:hover:border-brand-400 transition-colors";
+                
+                div.onclick = () => loadShapePreset(p);
+
+                if (p.previewDataUrl) {
+                    const img = document.createElement('img');
+                    img.src = p.previewDataUrl;
+                    img.className = "max-w-full max-h-full object-contain pointer-events-none";
+                    div.appendChild(img);
+                } else {
+                    div.innerHTML = '<span class="text-xs text-pro-400">No Preview</span>';
+                }
+
+                const btnDel = document.createElement('button');
+                btnDel.className = "absolute top-1 right-1 bg-red-500 hover:bg-red-600 text-white p-1 rounded opacity-0 group-hover:opacity-100 transition-opacity shadow-sm z-10 text-[10px] w-5 h-5 flex items-center justify-center";
+                btnDel.innerHTML = '<i class="ph-bold ph-trash"></i>';
+                btnDel.onclick = (e) => {
+                    e.stopPropagation();
+                    if(confirm("Delete this preset?")) deleteShapePreset(p.id);
+                };
+
+                div.title = p.name;
+                div.appendChild(btnDel);
+                
+                shapePresetsList.appendChild(div);
+            });
+        }
+
         btnSavePreset.addEventListener('click', saveToLibrary);
 
         // Download JSON
@@ -6387,6 +6619,7 @@ function updateUI() {
             renderSlideListSidebar();
             renderLibrary();
             renderTextPresets();
+            renderShapePresets();
         });
 
     </script>
