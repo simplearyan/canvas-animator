@@ -558,9 +558,6 @@
                                     </div>
 
                                 </div>
-                                <button id="btnSaveShapePreset" class="w-full mt-3 text-[10px] bg-brand-50 dark:bg-brand-500/20 text-brand-600 dark:text-brand-300 border border-brand-200 dark:border-brand-500/30 px-3 py-1.5 rounded-md font-bold hover:bg-brand-100 dark:hover:bg-brand-500/40 flex items-center justify-center gap-1 transition-colors">
-                                    <i class="ph-bold ph-bookmark-simple"></i> Save as Shape/Stroke Preset
-                                </button>
                             </div>
                         </details>
 
@@ -1300,6 +1297,12 @@
                             </div>
                         </details>
 
+                        <div id="preset-save-container" class="hidden mb-4 bg-white dark:bg-pro-800 border border-pro-300 dark:border-pro-700 rounded-lg shadow-sm p-3">
+                            <button id="btnSaveShapePreset" class="w-full text-[10px] bg-brand-50 dark:bg-brand-500/20 text-brand-600 dark:text-brand-300 border border-brand-200 dark:border-brand-500/30 px-3 py-1.5 rounded-md font-bold hover:bg-brand-100 dark:hover:bg-brand-500/40 flex items-center justify-center gap-1 transition-colors">
+                                <i class="ph-bold ph-bookmark-simple"></i> Save as Shape/Stroke Preset
+                            </button>
+                        </div>
+                        
                         <!-- Accordion: Transform & Actions (Common) -->
                         <details id="acc-transform" class="bg-white dark:bg-pro-800 border border-pro-300 dark:border-pro-700 rounded-lg shadow-sm overflow-hidden" open>
                             <summary class="flex justify-between items-center font-bold cursor-pointer p-3 bg-pro-100 dark:bg-pro-800/80 text-sm text-pro-800 dark:text-pro-200 select-none border-b border-pro-300 dark:border-pro-700">
@@ -2000,6 +2003,7 @@
         // Toggles & Settings Containers
         const toggleExtrusionBtn = document.getElementById('toggleExtrusionBtn');
         const extrusionSettings = document.getElementById('extrusionSettings');
+        const presetSaveContainer = document.getElementById('preset-save-container');
         const accStroke = document.getElementById('acc-stroke');
         const toggleStrokeBtn = document.getElementById('toggleStrokeBtn');
         const strokeSettings = document.getElementById('strokeSettings');
@@ -4026,6 +4030,13 @@ function updateUI() {
                 editDropShadowY.value = el.dropShadowY || 0;
                 editDropShadowYVal.textContent = el.dropShadowY || 0;
 
+                // Preset save container visibility
+                if (el.type === 'shape' || el.type === 'drawing') {
+                    if (presetSaveContainer) presetSaveContainer.style.display = 'block';
+                } else {
+                    if (presetSaveContainer) presetSaveContainer.style.display = 'none';
+                }
+
                 // Accordion visibility logic
                 if (el.type === 'text' || el.type === 'emoji' || el.type === 'image' || el.type === 'shape' || el.type === 'drawing') {
                     accStroke.classList.remove('hidden');
@@ -5661,8 +5672,23 @@ function updateUI() {
                 });
                 boundsW = maxX - minX + (el.strokeWidth || 5) * 2;
                 boundsH = maxY - minY + (el.strokeWidth || 5) * 2;
-                
-                const ptArr = el.points.map(p => [p.x - el.x, p.y - el.y]);
+            }
+
+            const targetSize = 200;
+            scale = targetSize / Math.max(boundsW, boundsH, 1);
+            pCtx.scale(scale, scale);
+
+            pCtx.globalAlpha = el.opacity !== undefined ? el.opacity / 100 : 1;
+            
+            if (el.dropShadowEnabled && el.dropShadowColor && el.dropShadowColor !== '#00000000') {
+                pCtx.shadowColor = el.dropShadowColor;
+                pCtx.shadowBlur = el.dropShadowBlur || 0;
+                pCtx.shadowOffsetX = el.dropShadowX || 0;
+                pCtx.shadowOffsetY = el.dropShadowY || 0;
+            }
+
+            if (el.type === 'drawing' && el.points && el.points.length > 0) {
+                const ptArr = el.points.map(p => [p.x, p.y]);
                 const getStroke = window.getStroke;
                 if(getStroke) {
                      const path = new Path2D(getSvgPathFromStroke(getStroke(ptArr, { size: el.strokeWidth || 5, thinning: 0.5, smoothing: 0.5, streamline: 0.5 })));
@@ -5671,28 +5697,41 @@ function updateUI() {
                 } else {
                      pCtx.beginPath();
                      el.points.forEach((p, i) => {
-                         if(i===0) pCtx.moveTo(p.x - el.x, p.y - el.y);
-                         else pCtx.lineTo(p.x - el.x, p.y - el.y);
+                         if(i===0) pCtx.moveTo(p.x, p.y);
+                         else pCtx.lineTo(p.x, p.y);
                      });
                      pCtx.strokeStyle = el.strokeColor || '#ff0000';
                      pCtx.lineWidth = el.strokeWidth || 5;
                      pCtx.lineCap = 'round';
                      pCtx.stroke();
                 }
-            }
-            
-            if (el.type === 'shape') {
-                const targetSize = 200;
-                scale = targetSize / boundsW;
-                pCtx.scale(scale, scale);
+            } else if (el.type === 'shape') {
+                // Handle 3D Extrusion
+                if (el.extrusionEnabled && el.depth > 0) {
+                    let dx = 1, dy = 1; // default Bottom Right
+                    if (el.extrusionDir === 'bl') { dx = -1; dy = 1; }
+                    else if (el.extrusionDir === 'tr') { dx = 1; dy = -1; }
+                    else if (el.extrusionDir === 'tl') { dx = -1; dy = -1; }
+                    else if (el.extrusionDir === 'b') { dx = 0; dy = 1; }
+                    else if (el.extrusionDir === 't') { dx = 0; dy = -1; }
+                    else if (el.extrusionDir === 'l') { dx = -1; dy = 0; }
+                    else if (el.extrusionDir === 'r') { dx = 1; dy = 0; }
 
-                pCtx.globalAlpha = el.opacity !== undefined ? el.opacity / 100 : 1;
-                
-                if (el.dropShadowEnabled && el.dropShadowColor && el.dropShadowColor !== '#00000000') {
-                    pCtx.shadowColor = el.dropShadowColor;
-                    pCtx.shadowBlur = el.dropShadowBlur || 0;
-                    pCtx.shadowOffsetX = el.dropShadowX || 0;
-                    pCtx.shadowOffsetY = el.dropShadowY || 0;
+                    pCtx.fillStyle = el.shadowColor || '#000000';
+                    pCtx.beginPath();
+                    drawShapePath(pCtx, el, el.depth * dx, el.depth * dy);
+                    pCtx.fill();
+                    
+                    for (let i = el.depth - 1; i > 0; i--) {
+                        pCtx.beginPath();
+                        drawShapePath(pCtx, el, i * dx, i * dy);
+                        if (el.strokeEnabled && el.strokeWidth > 0) {
+                            pCtx.strokeStyle = el.shadowColor || '#000000';
+                            pCtx.lineWidth = el.strokeWidth;
+                            pCtx.stroke();
+                        }
+                        pCtx.fill();
+                    }
                 }
 
                 pCtx.beginPath();
@@ -5742,7 +5781,12 @@ function updateUI() {
                     size: el.size,
                     points: el.points,
                     radius: el.radius,
-                    depth: el.depth
+                    depth: el.depth,
+                    extrusionEnabled: el.extrusionEnabled,
+                    extrusionDir: el.extrusionDir,
+                    shadowColor: el.shadowColor,
+                    fillEnabled: el.fillEnabled,
+                    strokeEnabled: el.strokeEnabled
                 };
             } else if (el.type === 'drawing') {
                 presetData.drawingPoints = el.points;
