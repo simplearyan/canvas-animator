@@ -15,7 +15,7 @@ function scanRecursive(dir, relativePath = '') {
 
     for (const file of files) {
         if (file.isDirectory()) {
-            if (['node_modules', '.git', 'screenshots', '.github'].includes(file.name)) continue;
+            if (['node_modules', '.git', 'screenshots', '.github', 'versions'].includes(file.name)) continue;
             
             const subItems = scanRecursive(path.join(dir, file.name), path.join(relativePath, file.name));
             if (subItems.length > 0) {
