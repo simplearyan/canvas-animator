@@ -13,9 +13,11 @@ const manifestPath = path.join(screenshotsDir, 'manifest.json');
 const FORCE = process.argv.includes('--force');
 
 function getHash(filePath) {
-    const fileBuffer = fs.readFileSync(filePath);
+    let content = fs.readFileSync(filePath, 'utf8');
+    // Normalize CRLF to LF so hashes match between Windows and Linux GitHub Runners
+    content = content.replace(/\r\n/g, '\n'); 
     const hashSum = crypto.createHash('md5');
-    hashSum.update(fileBuffer);
+    hashSum.update(content, 'utf8');
     return hashSum.digest('hex');
 }
 
