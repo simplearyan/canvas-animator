@@ -63,9 +63,15 @@ def fetch_and_update_presets():
             
         try:
             data = json.loads(json_str)
-            if 'id' in data and 'type' in data:
+            if 'id' in data:
                 # Basic validation passed
-                preset_type = 'text' if data.get('type') == 'text' else 'shape'
+                if 'text' in data:
+                    preset_type = 'text'
+                elif data.get('type') in ['shape', 'drawing'] or 'shapeType' in data or 'points' in data:
+                    preset_type = 'shape'
+                else:
+                    # Unknown preset type
+                    continue
                 
                 # We store the preset in the structure the UI expects
                 presets[preset_type].append({
