@@ -2835,8 +2835,14 @@
                         ctx.drawImage(outlineCnv, drawX - sw * 2, drawY - sw * 2);
                         ctx.shadowColor = 'transparent';
                     } else if (ctx.shadowColor !== 'transparent') {
+                        const theta = (el.rotation || 0) * Math.PI / 180;
+                        const flipX = (el.scale || 1) * (el.flipH ? -1 : 1);
+                        const flipY = (el.scale || 1) * (el.flipV ? -1 : 1);
+                        const shiftX = -99999 * Math.cos(theta) / flipX;
+                        const shiftY = 99999 * Math.sin(theta) / flipY;
+
                         ctx.shadowOffsetX += 99999;
-                        ctx.drawImage(tmpCnv, drawX - sw - 99999, drawY - sw);
+                        ctx.drawImage(tmpCnv, drawX - sw + shiftX, drawY - sw + shiftY);
                         ctx.shadowOffsetX -= 99999;
                         ctx.shadowColor = 'transparent';
                     }
@@ -2930,8 +2936,14 @@
                             ctx.fill();
                         }
                     } else if (ctx.shadowColor !== 'transparent') {
+                        const theta = (el.rotation || 0) * Math.PI / 180;
+                        const flipX = (el.scale || 1) * (el.flipH ? -1 : 1);
+                        const flipY = (el.scale || 1) * (el.flipV ? -1 : 1);
+                        const shiftX = -99999 * Math.cos(theta) / flipX;
+                        const shiftY = 99999 * Math.sin(theta) / flipY;
+
                         ctx.shadowOffsetX += 99999;
-                        drawShapePath(ctx, el, -99999, 0);
+                        drawShapePath(ctx, el, shiftX, shiftY);
                         ctx.fill();
                         ctx.shadowOffsetX -= 99999;
                         ctx.shadowColor = 'transparent';
@@ -3066,12 +3078,23 @@
                                 const st = cm.style;
                                 ctx.save();
                                 ctx.font = st.font;
-                                ctx.fillStyle = isExtrusionShadow ? getColorWithOpacity(el.shadowColor || '#000000', el.shadowOpacity) : st.color;
                                 
                                 const charCenterX = currentX + offsetX + (cm.width - (el.letterSpacing || 0)) / 2;
                                 const charCenterY = lineY + offsetY;
                                 
-                                ctx.translate(charCenterX, charCenterY);
+                                const isEmoji = el.type === 'emoji';
+                                const useShadowTrick = drawOnlyDropShadow || (isExtrusionShadow && isEmoji);
+                                
+                                let shiftX = 0, shiftY = 0;
+                                if (useShadowTrick) {
+                                    const theta = (el.rotation || 0) * Math.PI / 180;
+                                    const flipX = (el.scale || 1) * (el.flipH ? -1 : 1);
+                                    const flipY = (el.scale || 1) * (el.flipV ? -1 : 1);
+                                    shiftX = 99999 * Math.cos(theta) / flipX;
+                                    shiftY = -99999 * Math.sin(theta) / flipY;
+                                }
+                                
+                                ctx.translate(charCenterX + shiftX, charCenterY + shiftY);
                                 if (st.rotation) ctx.rotate(st.rotation * Math.PI / 180);
                                 if (st.scale !== 1) ctx.scale(st.scale, st.scale);
                                 
@@ -3083,10 +3106,22 @@
                                         ctx.globalAlpha = layerAlpha;
                                         ctx.shadowColor = getColorWithOpacity(el.dropShadowColor, el.dropShadowOpacity);
                                         ctx.shadowBlur = el.dropShadowBlur || 0;
-                                        ctx.shadowOffsetX = (el.dropShadowX || 0) + 99999;
+                                        ctx.shadowOffsetX = (el.dropShadowX || 0) - 99999;
                                         ctx.shadowOffsetY = el.dropShadowY || 0;
-                                        ctx.fillText(cm.text, -(cm.width - (el.letterSpacing || 0)) / 2 - 99999, 0);
+                                        ctx.fillText(cm.text, -(cm.width - (el.letterSpacing || 0)) / 2, 0);
                                     }
+                                    ctx.restore();
+                                    currentX += cm.width;
+                                    return;
+                                }
+
+                                if (isExtrusionShadow && isEmoji) {
+                                    ctx.globalAlpha = layerAlpha;
+                                    ctx.shadowColor = getColorWithOpacity(el.shadowColor || '#000000', el.shadowOpacity);
+                                    ctx.shadowBlur = 0;
+                                    ctx.shadowOffsetX = -99999;
+                                    ctx.shadowOffsetY = 0;
+                                    ctx.fillText(cm.text, -(cm.width - (el.letterSpacing || 0)) / 2, 0);
                                     ctx.restore();
                                     currentX += cm.width;
                                     return;
@@ -3097,8 +3132,9 @@
                                 ctx.shadowOffsetX = 0;
                                 ctx.shadowOffsetY = 0;
                                 ctx.shadowBlur = 0;
+                                ctx.fillStyle = isExtrusionShadow ? getColorWithOpacity(el.shadowColor || '#000000', el.shadowOpacity) : st.color;
 
-                                if (el.strokeEnabled && el.strokeWidth > 0) {
+                                if (el.strokeEnabled && el.strokeWidth > 0 && !isEmoji) {
                                     ctx.globalAlpha = layerAlpha;
                                     ctx.strokeStyle = isExtrusionShadow ? getColorWithOpacity(el.shadowColor || '#000000', el.shadowOpacity) : (el.strokeColor || '#ffffff');
                                     ctx.lineWidth = el.strokeWidth * 2;
