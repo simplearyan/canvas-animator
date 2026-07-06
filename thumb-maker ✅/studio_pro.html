@@ -5607,6 +5607,43 @@ function updateUI() {
         const fontUploadLocal = document.getElementById('fontUploadLocal');
         const fontUploadLocalGlobal = document.getElementById('fontUploadLocalGlobal');
         const customFontFamilyNames = [];
+        
+        function saveCustomFonts() {
+            localStorage.setItem('studioPro_customFonts', JSON.stringify(customFontFamilyNames));
+        }
+
+        async function importGoogleFontSilently(fontName) {
+            try {
+                const fontUrl = `https://fonts.googleapis.com/css2?family=${fontName.replace(/ /g, '+')}:wght@400;600;700;900&display=swap`;
+                const existingLink = document.querySelector(`link[href="${fontUrl}"]`);
+                if(!existingLink) {
+                    const link = document.createElement('link');
+                    link.rel = 'stylesheet';
+                    link.href = fontUrl;
+                    document.head.appendChild(link);
+                }
+                if(!customFontFamilyNames.includes(fontName)) {
+                    customFontFamilyNames.push(fontName);
+                    addCustomFontToSelects(fontName);
+                        saveCustomFonts();
+                    saveCustomFonts();
+                }
+            } catch(e) {}
+        }
+
+        function ensurePresetFontsLoaded(elements) {
+            const builtinFonts = Array.from(document.querySelectorAll('#editFontFamily option')).map(o => o.value);
+            
+            elements.forEach(el => {
+                if (el.type === 'text') {
+                    const font = el.fontFamily || (el.effects && el.effects.fontFamily);
+                    if (font && !builtinFonts.includes(font) && !customFontFamilyNames.includes(font)) {
+                        importGoogleFontSilently(font);
+                    }
+                }
+            });
+        }
+
         let customFontOptgroup = null;
 
         function addCustomFontToSelects(fontName) {
@@ -5648,6 +5685,7 @@ function updateUI() {
                     if(!customFontFamilyNames.includes(fontName)) {
                         customFontFamilyNames.push(fontName);
                         addCustomFontToSelects(fontName);
+                        saveCustomFonts();
                     }
                     
                     if (!isGlobal) {
@@ -5827,6 +5865,7 @@ function updateUI() {
                             if(!customFontFamilyNames.includes(fontName)) {
                                 customFontFamilyNames.push(fontName);
                                 addCustomFontToSelects(fontName);
+                        saveCustomFonts();
                             }
                             showToast(`${fontName} imported!`);
                             
@@ -5895,6 +5934,7 @@ function updateUI() {
                         ev.stopPropagation();
                         customFontFamilyNames.push(fontName);
                         addCustomFontToSelects(fontName);
+                        saveCustomFonts();
                         btn.textContent = 'Added';
                         btn.className = 'text-[9px] uppercase tracking-wider font-bold bg-green-600 text-white px-2 py-1 rounded';
                         btn.disabled = true;
@@ -5967,6 +6007,7 @@ function updateUI() {
                     if(!customFontFamilyNames.includes(fontName)) {
                         customFontFamilyNames.push(fontName);
                         addCustomFontToSelects(fontName);
+                        saveCustomFonts();
                         count++;
                     }
                 });
@@ -5977,6 +6018,11 @@ function updateUI() {
 
         // Initial State setup
         document.fonts.ready.then(() => {
+            try {
+                const savedFonts = JSON.parse(localStorage.getItem('studioPro_customFonts') || '[]');
+                savedFonts.forEach(font => importGoogleFontSilently(font));
+            } catch(e) {}
+
             // Load "The Classic" Preset initially
             loadPreset(0);
             artboards[0].stateData = serializeState();

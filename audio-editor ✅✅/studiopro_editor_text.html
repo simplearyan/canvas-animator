@@ -5435,34 +5435,43 @@
 
             function renderPresetGrid(clipId, propertyName, currentVal, options, isTextStagger) {
                 return `
-                    <div class="grid grid-cols-3 gap-2 w-full select-none">
+                    <div class="grid grid-cols-[repeat(auto-fill,minmax(64px,1fr))] gap-2 w-full select-none">
                         ${options.map(opt => {
                             const isActive = currentVal === opt.value;
                             const activeClasses = isActive 
-                                ? 'border-brand-500 ring-2 ring-brand-500/20 bg-brand-50/50 dark:bg-brand-500/10 font-bold' 
-                                : 'border-surface-200 dark:border-surface-700 hover:border-brand-400 dark:hover:border-brand-500/50 hover:bg-surface-50 dark:hover:bg-surface-800/40';
+                                ? 'border-brand-500 ring-2 ring-brand-500/30 bg-brand-50 dark:bg-brand-500/20 shadow-sm' 
+                                : 'border-surface-200 dark:border-surface-700 hover:border-brand-400 dark:hover:border-brand-500/50 hover:bg-surface-100 dark:hover:bg-surface-800 shadow-sm';
                             
                             let previewEl = '';
                             if (opt.value !== 'none') {
                                 if (isTextStagger) {
-                                    previewEl = `<span class="text-[14px] font-extrabold text-brand-600 dark:text-brand-400 ${opt.previewClass}">Aa</span>`;
+                                    previewEl = `<span class="text-[22px] font-extrabold text-brand-600 dark:text-brand-400 ${opt.previewClass}">Aa</span>`;
                                 } else {
-                                    previewEl = `<div class="w-5 h-5 rounded bg-brand-500/80 dark:bg-brand-400/80 ${opt.previewClass}"></div>`;
+                                    previewEl = `<div class="w-7 h-7 rounded bg-brand-500/90 dark:bg-brand-400/90 ${opt.previewClass} shadow-sm"></div>`;
                                 }
                             } else {
-                                previewEl = `<i data-lucide="ban" class="w-5 h-5 text-surface-400 dark:text-surface-600 opacity-60"></i>`;
+                                previewEl = `<i data-lucide="ban" class="w-6 h-6 text-surface-400 dark:text-surface-600 opacity-50"></i>`;
                             }
 
                             return `
                                 <button onclick="setClipEffect('${clipId}', '${propertyName}', '${opt.value}'); updateSidebarPanel();" 
-                                        class="group relative flex flex-col items-center justify-between p-1.5 rounded-lg border text-center transition-all bg-white dark:bg-surface-800/60 ${activeClasses}"
+                                        class="group relative flex items-center justify-center rounded-xl border transition-all aspect-square bg-white dark:bg-surface-800/80 overflow-hidden ${activeClasses}"
                                         title="${opt.label}">
-                                    <div class="w-full h-[46px] rounded bg-surface-100 dark:bg-surface-900 border border-surface-200/50 dark:border-surface-700/50 flex items-center justify-center overflow-hidden mb-1 relative">
+                                    
+                                    <!-- Inner Preview Element -->
+                                    <div class="flex items-center justify-center w-full h-full relative z-10 transition-transform duration-300 group-hover:scale-110">
                                         ${previewEl}
                                     </div>
-                                    <span class="text-[10px] font-bold text-surface-600 dark:text-surface-300 truncate w-full block">${opt.label}</span>
+                                    
+                                    <!-- Hover Overlay (dark bg + name text) -->
+                                    <div class="absolute inset-0 bg-surface-900/85 backdrop-blur-[2px] flex items-center justify-center opacity-0 group-hover:opacity-100 transition-opacity duration-200 z-20 pointer-events-none p-1.5">
+                                        <span class="text-[10px] font-bold text-white leading-tight break-words text-center">${opt.label}</span>
+                                    </div>
+                                    
+                                    <!-- Active State (Persistent Label) -->
                                     ${isActive ? `
-                                        <div class="absolute top-1 right-1 w-2 h-2 bg-brand-500 rounded-full flex items-center justify-center border border-white dark:border-surface-800 shadow-sm">
+                                        <div class="absolute bottom-0 inset-x-0 bg-brand-500/95 py-0.5 z-30 pointer-events-none shadow-sm">
+                                            <span class="text-[8px] font-bold text-white uppercase tracking-wider block text-center truncate px-1">${opt.label}</span>
                                         </div>
                                     ` : ''}
                                 </button>
@@ -5534,261 +5543,120 @@
                 </div>
             `;
 
-            const clipInCard = `
-                <div class="flex flex-col gap-2 bg-white dark:bg-surface-800 border border-surface-200 dark:border-surface-700 shadow-sm rounded-lg p-2.5 ${isHorizontal ? (animIn !== 'none' ? 'w-[540px]' : 'w-[320px]') : 'w-full'} shrink-0 transition-all">
+            
+            const createGridCard = (icon, title, innerHTML) => `
+                <div class="flex flex-col gap-2 bg-white dark:bg-surface-800 border border-surface-200 dark:border-surface-700 shadow-sm rounded-lg p-2.5 w-full shrink-0 transition-all">
                     <div class="flex items-center gap-1.5 border-b border-surface-150 dark:border-surface-750 pb-1.5 shrink-0">
-                        <i data-lucide="log-in" class="w-3.5 h-3.5 text-brand-500"></i>
-                        <span class="text-xs font-bold text-surface-800 dark:text-surface-200">Entrance (Whole Clip)</span>
+                        <i data-lucide="${icon}" class="w-3.5 h-3.5 text-brand-500"></i>
+                        <span class="text-xs font-bold text-surface-800 dark:text-surface-200">${title}</span>
                     </div>
-                    ${isHorizontal ? `
-                        <div class="flex flex-row gap-3 flex-1 min-h-0">
-                            <div class="flex-1 flex flex-col min-w-0">
-                                <div class="flex-1 min-h-0 overflow-y-auto pr-1 scrollbar-thin">
-                                    ${renderPresetGrid(clip.id, 'animIn', animIn, inOptions, false)}
-                                </div>
-                            </div>
-                            ${animIn !== 'none' ? `
-                                <div class="w-[210px] shrink-0 flex flex-col gap-2 justify-start border-l border-surface-150 dark:border-surface-750 pl-3 pt-1">
-                                    <div class="flex flex-col gap-1 bg-surface-100 dark:bg-surface-900/60 p-1.5 py-1 rounded-md border border-surface-200 dark:border-surface-700/80 shadow-inner">
-                                        <div class="flex justify-between items-center">
-                                            <span class="text-[9px] font-bold text-surface-500 dark:text-surface-400 uppercase">Duration</span>
-                                            <span class="text-[9px] font-bold text-surface-700 dark:text-surface-300">${animInDur}s</span>
-                                        </div>
-                                        <input type="range" min="0.1" max="5.0" step="0.1" value="${animInDur}" class="w-full custom-slider" oninput="setClipEffect('${clip.id}', 'animInDur', this.value); this.previousElementSibling.querySelector('span:last-child').textContent = this.value + 's'; this.style.background = 'linear-gradient(to right, ${sliderFill} ' + (this.value/this.max)*100 + '%, ${sliderBg} ' + (this.value/this.max)*100 + '%)'">
-                                    </div>
-                                    <div class="flex flex-col gap-1">
-                                        <span class="text-[9px] font-bold text-surface-500 dark:text-surface-400 uppercase">Easing</span>
-                                        ${renderEasingSelector(clip.id, 'animEase', animEase)}
-                                    </div>
-                                </div>
-                            ` : ''}
-                        </div>
-                    ` : `
-                        <div class="flex flex-col gap-2 flex-1">
-                            <div>
-                                ${renderPresetGrid(clip.id, 'animIn', animIn, inOptions, false)}
-                            </div>
-                            ${animIn !== 'none' ? `
-                                <div class="flex flex-col gap-2 mt-1 pt-1 border-t border-surface-150 dark:border-surface-750">
-                                    <div class="flex items-center gap-2 bg-surface-100 dark:bg-surface-900/60 p-1.5 py-1 rounded-md border border-surface-200 dark:border-surface-700/80 shadow-inner">
-                                        <span class="text-[9px] font-bold text-surface-500 dark:text-surface-400 uppercase shrink-0 w-11">Duration</span>
-                                        <input type="range" min="0.1" max="5.0" step="0.1" value="${animInDur}" class="flex-1 custom-slider" oninput="setClipEffect('${clip.id}', 'animInDur', this.value); this.nextElementSibling.textContent = this.value + 's'; this.style.background = 'linear-gradient(to right, ${sliderFill} ' + (this.value/this.max)*100 + '%, ${sliderBg} ' + (this.value/this.max)*100 + '%)'">
-                                        <span class="text-[10px] font-bold text-surface-900 dark:text-surface-100 bg-white dark:bg-surface-800 border border-surface-200 dark:border-surface-700 px-1.5 py-0.5 rounded shadow-sm shrink-0 min-w-[28px] text-center">${animInDur}s</span>
-                                    </div>
-                                    <div class="flex items-center gap-2">
-                                        <span class="text-[9px] font-bold text-surface-500 dark:text-surface-400 uppercase shrink-0 w-11">Easing</span>
-                                        <div class="flex-1">
-                                            ${renderEasingSelector(clip.id, 'animEase', animEase)}
-                                        </div>
-                                    </div>
-                                </div>
-                            ` : ''}
-                        </div>
-                    `}
-                </div>
-            `;
-
-            const textInCard = `
-                <div class="flex flex-col gap-2 bg-white dark:bg-surface-800 border border-surface-200 dark:border-surface-700 shadow-sm rounded-lg p-2.5 ${isHorizontal ? (animTextIn !== 'none' ? 'w-[540px]' : 'w-[320px]') : 'w-full'} shrink-0 transition-all">
-                    <div class="flex items-center gap-1.5 border-b border-surface-150 dark:border-surface-750 pb-1.5 shrink-0">
-                        <i data-lucide="type" class="w-3.5 h-3.5 text-brand-500"></i>
-                        <span class="text-xs font-bold text-surface-800 dark:text-surface-200">Text Entrance (Stagger)</span>
-                    </div>
-                    ${isHorizontal ? `
-                        <div class="flex flex-row gap-3 flex-1 min-h-0">
-                            <div class="flex-1 flex flex-col min-w-0">
-                                <div class="flex-1 min-h-0 overflow-y-auto pr-1 scrollbar-thin">
-                                    ${renderPresetGrid(clip.id, 'animTextIn', animTextIn, textInOptions, true)}
-                                </div>
-                            </div>
-                            ${animTextIn !== 'none' ? `
-                                <div class="w-[210px] shrink-0 flex flex-col gap-2 justify-start border-l border-surface-150 dark:border-surface-750 pl-3 pt-1">
-                                    <div class="flex flex-col gap-1 bg-surface-100 dark:bg-surface-900/60 p-1.5 py-1 rounded-md border border-surface-200 dark:border-surface-700/80 shadow-inner">
-                                        <div class="flex justify-between items-center">
-                                            <span class="text-[9px] font-bold text-surface-500 dark:text-surface-400 uppercase">Duration</span>
-                                            <span class="text-[9px] font-bold text-surface-700 dark:text-surface-300">${animTextInDur}s</span>
-                                        </div>
-                                        <input type="range" min="0.1" max="5.0" step="0.1" value="${animTextInDur}" class="w-full custom-slider" oninput="setClipEffect('${clip.id}', 'animTextInDur', this.value); this.previousElementSibling.querySelector('span:last-child').textContent = this.value + 's'; this.style.background = 'linear-gradient(to right, ${sliderFill} ' + (this.value/this.max)*100 + '%, ${sliderBg} ' + (this.value/this.max)*100 + '%)'">
-                                    </div>
-                                    <div class="flex flex-col gap-1">
-                                        <span class="text-[9px] font-bold text-surface-500 dark:text-surface-400 uppercase">Stagger</span>
-                                        ${renderStaggerSelector(clip.id, 'animTextStagger', animTextStagger)}
-                                    </div>
-                                    <div class="flex flex-col gap-1">
-                                        <span class="text-[9px] font-bold text-surface-500 dark:text-surface-400 uppercase">Easing</span>
-                                        ${renderEasingSelector(clip.id, 'animTextEase', animTextEase)}
-                                    </div>
-                                    ${animTextIn === 'fillFlash' ? `
-                                        <div class="flex items-center justify-between bg-surface-100 dark:bg-surface-900/60 px-2 py-1 rounded-md border border-surface-200 dark:border-surface-700/80 mt-1">
-                                            <span class="text-[9px] font-bold text-surface-500 dark:text-surface-400 uppercase">Flash Color</span>
-                                            <div class="relative w-5 h-5 rounded-md overflow-hidden border border-surface-300 dark:border-surface-600 shadow-sm shrink-0">
-                                                <input type="color" class="absolute -top-2 -left-2 w-8 h-8 cursor-pointer" value="${flashColor}" onchange="setClipEffect('${clip.id}', 'flashColor', this.value); drawCanvas();">
-                                            </div>
-                                        </div>
-                                    ` : ''}
-                                </div>
-                            ` : ''}
-                        </div>
-                    ` : `
-                        <div class="flex flex-col gap-2 flex-1">
-                            <div>
-                                ${renderPresetGrid(clip.id, 'animTextIn', animTextIn, textInOptions, true)}
-                            </div>
-                            ${animTextIn !== 'none' ? `
-                                <div class="flex flex-col gap-2 mt-1 pt-1 border-t border-surface-150 dark:border-surface-750">
-                                    <div class="flex items-center gap-2 bg-surface-100 dark:bg-surface-900/60 p-1.5 py-1 rounded-md border border-surface-200 dark:border-surface-700/80 shadow-inner">
-                                        <span class="text-[9px] font-bold text-surface-500 dark:text-surface-400 uppercase shrink-0 w-11">Duration</span>
-                                        <input type="range" min="0.1" max="5.0" step="0.1" value="${animTextInDur}" class="flex-1 custom-slider" oninput="setClipEffect('${clip.id}', 'animTextInDur', this.value); this.nextElementSibling.textContent = this.value + 's'; this.style.background = 'linear-gradient(to right, ${sliderFill} ' + (this.value/this.max)*100 + '%, ${sliderBg} ' + (this.value/this.max)*100 + '%)'">
-                                        <span class="text-[10px] font-bold text-surface-900 dark:text-surface-100 bg-white dark:bg-surface-800 border border-surface-200 dark:border-surface-700 px-1.5 py-0.5 rounded shadow-sm shrink-0 min-w-[28px] text-center">${animTextInDur}s</span>
-                                    </div>
-                                    <div class="flex items-center gap-2">
-                                        <span class="text-[9px] font-bold text-surface-500 dark:text-surface-400 uppercase shrink-0 w-11">Stagger</span>
-                                        <div class="flex-1">
-                                            ${renderStaggerSelector(clip.id, 'animTextStagger', animTextStagger)}
-                                        </div>
-                                    </div>
-                                    <div class="flex items-center gap-2">
-                                        <span class="text-[9px] font-bold text-surface-500 dark:text-surface-400 uppercase shrink-0 w-11">Easing</span>
-                                        <div class="flex-1">
-                                            ${renderEasingSelector(clip.id, 'animTextEase', animTextEase)}
-                                        </div>
-                                    </div>
-                                    ${animTextIn === 'fillFlash' ? `
-                                        <div class="flex items-center justify-between bg-surface-100 dark:bg-surface-900/60 px-2 py-1 rounded-md border border-surface-200 dark:border-surface-700/80">
-                                            <span class="text-[9px] font-bold text-surface-500 dark:text-surface-400 uppercase">Flash Color</span>
-                                            <div class="relative w-5 h-5 rounded-md overflow-hidden border border-surface-300 dark:border-surface-600 shadow-sm shrink-0">
-                                                <input type="color" class="absolute -top-2 -left-2 w-8 h-8 cursor-pointer" value="${flashColor}" onchange="setClipEffect('${clip.id}', 'flashColor', this.value); drawCanvas();">
-                                            </div>
-                                        </div>
-                                    ` : ''}
-                                </div>
-                            ` : ''}
-                        </div>
-                    `}
-                </div>
-            `;
-
-            const clipOutCard = `
-                <div class="flex flex-col gap-2 bg-white dark:bg-surface-800 border border-surface-200 dark:border-surface-700 shadow-sm rounded-lg p-2.5 ${isHorizontal ? (animOut !== 'none' ? 'w-[540px]' : 'w-[320px]') : 'w-full'} shrink-0 transition-all">
-                    <div class="flex items-center gap-1.5 border-b border-surface-150 dark:border-surface-750 pb-1.5 shrink-0">
-                        <i data-lucide="log-out" class="w-3.5 h-3.5 text-brand-500"></i>
-                        <span class="text-xs font-bold text-surface-800 dark:text-surface-200">Exit (Whole Clip)</span>
-                    </div>
-                    ${isHorizontal ? `
-                        <div class="flex flex-row gap-3 flex-1 min-h-0">
-                            <div class="flex-1 flex flex-col min-w-0">
-                                <div class="flex-1 min-h-0 overflow-y-auto pr-1 scrollbar-thin">
-                                    ${renderPresetGrid(clip.id, 'animOut', animOut, outOptions, false)}
-                                </div>
-                            </div>
-                            ${animOut !== 'none' ? `
-                                <div class="w-[210px] shrink-0 flex flex-col gap-2 justify-start border-l border-surface-150 dark:border-surface-750 pl-3 pt-1">
-                                    <div class="flex flex-col gap-1 bg-surface-100 dark:bg-surface-900/60 p-1.5 py-1 rounded-md border border-surface-200 dark:border-surface-700/80 shadow-inner">
-                                        <div class="flex justify-between items-center">
-                                            <span class="text-[9px] font-bold text-surface-500 dark:text-surface-400 uppercase">Duration</span>
-                                            <span class="text-[9px] font-bold text-surface-700 dark:text-surface-300">${animOutDur}s</span>
-                                        </div>
-                                        <input type="range" min="0.1" max="5.0" step="0.1" value="${animOutDur}" class="w-full custom-slider" oninput="setClipEffect('${clip.id}', 'animOutDur', this.value); this.previousElementSibling.querySelector('span:last-child').textContent = this.value + 's'; this.style.background = 'linear-gradient(to right, ${sliderFill} ' + (this.value/this.max)*100 + '%, ${sliderBg} ' + (this.value/this.max)*100 + '%)'">
-                                    </div>
-                                </div>
-                            ` : ''}
-                        </div>
-                    ` : `
-                        <div class="flex flex-col gap-2 flex-1">
-                            <div>
-                                ${renderPresetGrid(clip.id, 'animOut', animOut, outOptions, false)}
-                            </div>
-                            ${animOut !== 'none' ? `
-                                <div class="flex flex-col gap-2 mt-1 pt-1 border-t border-surface-150 dark:border-surface-750">
-                                    <div class="flex items-center gap-2 bg-surface-100 dark:bg-surface-900/60 p-1.5 py-1 rounded-md border border-surface-200 dark:border-surface-700/80 shadow-inner">
-                                        <span class="text-[9px] font-bold text-surface-500 dark:text-surface-400 uppercase shrink-0 w-11">Duration</span>
-                                        <input type="range" min="0.1" max="5.0" step="0.1" value="${animOutDur}" class="flex-1 custom-slider" oninput="setClipEffect('${clip.id}', 'animOutDur', this.value); this.nextElementSibling.textContent = this.value + 's'; this.style.background = 'linear-gradient(to right, ${sliderFill} ' + (this.value/this.max)*100 + '%, ${sliderBg} ' + (this.value/this.max)*100 + '%)'">
-                                        <span class="text-[10px] font-bold text-surface-900 dark:text-surface-100 bg-white dark:bg-surface-800 border border-surface-200 dark:border-surface-700 px-1.5 py-0.5 rounded shadow-sm shrink-0 min-w-[28px] text-center">${animOutDur}s</span>
-                                    </div>
-                                </div>
-                            ` : ''}
-                        </div>
-                    `}
-                </div>
-            `;
-
-            const textOutCard = `
-                <div class="flex flex-col gap-2 bg-white dark:bg-surface-800 border border-surface-200 dark:border-surface-700 shadow-sm rounded-lg p-2.5 ${isHorizontal ? (animTextOut !== 'none' ? 'w-[540px]' : 'w-[320px]') : 'w-full'} shrink-0 transition-all">
-                    <div class="flex items-center gap-1.5 border-b border-surface-150 dark:border-surface-750 pb-1.5 shrink-0">
-                        <i data-lucide="type" class="w-3.5 h-3.5 text-brand-500"></i>
-                        <span class="text-xs font-bold text-surface-800 dark:text-surface-200">Text Exit (Stagger)</span>
-                    </div>
-                    ${isHorizontal ? `
-                        <div class="flex flex-row gap-3 flex-1 min-h-0">
-                            <div class="flex-1 flex flex-col min-w-0">
-                                <div class="flex-1 min-h-0 overflow-y-auto pr-1 scrollbar-thin">
-                                    ${renderPresetGrid(clip.id, 'animTextOut', animTextOut, textOutOptions, true)}
-                                </div>
-                            </div>
-                            ${animTextOut !== 'none' ? `
-                                <div class="w-[210px] shrink-0 flex flex-col gap-2 justify-start border-l border-surface-150 dark:border-surface-750 pl-3 pt-1">
-                                    <div class="flex flex-col gap-1 bg-surface-100 dark:bg-surface-900/60 p-1.5 py-1 rounded-md border border-surface-200 dark:border-surface-700/80 shadow-inner">
-                                        <div class="flex justify-between items-center">
-                                            <span class="text-[9px] font-bold text-surface-500 dark:text-surface-400 uppercase">Duration</span>
-                                            <span class="text-[9px] font-bold text-surface-700 dark:text-surface-300">${animTextOutDur}s</span>
-                                        </div>
-                                        <input type="range" min="0.1" max="5.0" step="0.1" value="${animTextOutDur}" class="w-full custom-slider" oninput="setClipEffect('${clip.id}', 'animTextOutDur', this.value); this.previousElementSibling.querySelector('span:last-child').textContent = this.value + 's'; this.style.background = 'linear-gradient(to right, ${sliderFill} ' + (this.value/this.max)*100 + '%, ${sliderBg} ' + (this.value/this.max)*100 + '%)'">
-                                    </div>
-                                    <div class="flex flex-col gap-1">
-                                        <span class="text-[9px] font-bold text-surface-500 dark:text-surface-400 uppercase">Stagger</span>
-                                        ${renderStaggerSelector(clip.id, 'animTextStagger', animTextStagger)}
-                                    </div>
-                                </div>
-                            ` : ''}
-                        </div>
-                    ` : `
-                        <div class="flex flex-col gap-2 flex-1">
-                            <div>
-                                ${renderPresetGrid(clip.id, 'animTextOut', animTextOut, textOutOptions, true)}
-                            </div>
-                            ${animTextOut !== 'none' ? `
-                                <div class="flex flex-col gap-2 mt-1 pt-1 border-t border-surface-150 dark:border-surface-750">
-                                    <div class="flex items-center gap-2 bg-surface-100 dark:bg-surface-900/60 p-1.5 py-1 rounded-md border border-surface-200 dark:border-surface-700/80 shadow-inner">
-                                        <span class="text-[9px] font-bold text-surface-500 dark:text-surface-400 uppercase shrink-0 w-11">Duration</span>
-                                        <input type="range" min="0.1" max="5.0" step="0.1" value="${animTextOutDur}" class="flex-1 custom-slider" oninput="setClipEffect('${clip.id}', 'animTextOutDur', this.value); this.nextElementSibling.textContent = this.value + 's'; this.style.background = 'linear-gradient(to right, ${sliderFill} ' + (this.value/this.max)*100 + '%, ${sliderBg} ' + (this.value/this.max)*100 + '%)'">
-                                        <span class="text-[10px] font-bold text-surface-900 dark:text-surface-100 bg-white dark:bg-surface-800 border border-surface-200 dark:border-surface-700 px-1.5 py-0.5 rounded shadow-sm shrink-0 min-w-[28px] text-center">${animTextOutDur}s</span>
-                                    </div>
-                                    <div class="flex items-center gap-2">
-                                        <span class="text-[9px] font-bold text-surface-500 dark:text-surface-400 uppercase shrink-0 w-11">Stagger</span>
-                                        <div class="flex-1">
-                                            ${renderStaggerSelector(clip.id, 'animTextStagger', animTextStagger)}
-                                        </div>
-                                    </div>
-                                </div>
-                            ` : ''}
-                        </div>
-                    `}
-                </div>
-            `;
-
-            const clipLoopCard = `
-                <div class="flex flex-col gap-2 bg-white dark:bg-surface-800 border border-surface-200 dark:border-surface-700 shadow-sm rounded-lg p-2.5 ${isHorizontal ? 'w-[320px]' : 'w-full'} shrink-0 transition-all">
-                    <div class="flex items-center gap-1.5 border-b border-surface-150 dark:border-surface-750 pb-1.5 shrink-0">
-                        <i data-lucide="refresh-cw" class="w-3.5 h-3.5 text-brand-500"></i>
-                        <span class="text-xs font-bold text-surface-800 dark:text-surface-200">Clip Loop Behavior</span>
-                    </div>
-                    <div class="flex-1 min-h-0 overflow-y-auto pr-1 scrollbar-thin">
-                        ${renderPresetGrid(clip.id, 'animLoop', animLoop, loopOptions, false)}
+                    <div class="w-full">
+                        ${innerHTML}
                     </div>
                 </div>
             `;
 
-            const textLoopCard = `
-                <div class="flex flex-col gap-2 bg-white dark:bg-surface-800 border border-surface-200 dark:border-surface-700 shadow-sm rounded-lg p-2.5 ${isHorizontal ? 'w-[320px]' : 'w-full'} shrink-0 transition-all">
-                    <div class="flex items-center gap-1.5 border-b border-surface-150 dark:border-surface-750 pb-1.5 shrink-0">
-                        <i data-lucide="type" class="w-3.5 h-3.5 text-brand-500"></i>
-                        <span class="text-xs font-bold text-surface-800 dark:text-surface-200">Text Loop Behavior</span>
-                    </div>
-                    <div class="flex-1 min-h-0 overflow-y-auto pr-1 scrollbar-thin">
-                        ${renderPresetGrid(clip.id, 'animTextLoop', animTextLoop, textLoopOptions, true)}
+            const clipInCard = createGridCard('log-in', 'Entrance (Whole Clip)', renderPresetGrid(clip.id, 'animIn', animIn, inOptions, false));
+            const textInCard = createGridCard('type', 'Text Entrance (Stagger)', renderPresetGrid(clip.id, 'animTextIn', animTextIn, textInOptions, true));
+            const clipOutCard = createGridCard('log-out', 'Exit (Whole Clip)', renderPresetGrid(clip.id, 'animOut', animOut, outOptions, false));
+            const textOutCard = createGridCard('type', 'Text Exit (Stagger)', renderPresetGrid(clip.id, 'animTextOut', animTextOut, textOutOptions, true));
+            const clipLoopCard = createGridCard('refresh-cw', 'Clip Loop Behavior', renderPresetGrid(clip.id, 'animLoop', animLoop, loopOptions, false));
+            const textLoopCard = createGridCard('type', 'Text Loop Behavior', renderPresetGrid(clip.id, 'animTextLoop', animTextLoop, textLoopOptions, true));
+
+            const createPropGroup = (title, innerHTML) => `
+                <div class="flex flex-col gap-1 bg-surface-100 dark:bg-surface-900/60 p-2 rounded-md border border-surface-200 dark:border-surface-700/80 shadow-inner">
+                    <span class="text-[10px] font-bold text-surface-800 dark:text-surface-200 mb-1 border-b border-surface-200/50 dark:border-surface-700/50 pb-1">${title}</span>
+                    <div class="flex flex-col gap-2">
+                        ${innerHTML}
                     </div>
                 </div>
             `;
+            
+            let propertiesHtml = '';
+
+            if (tabInActive) {
+                if (animIn !== 'none') {
+                    propertiesHtml += createPropGroup('Entrance', `
+                        <div class="flex justify-between items-center">
+                            <span class="text-[9px] font-bold text-surface-500 dark:text-surface-400 uppercase">Duration</span>
+                            <span class="text-[9px] font-bold text-surface-700 dark:text-surface-300">${animInDur}s</span>
+                        </div>
+                        <input type="range" min="0.1" max="5.0" step="0.1" value="${animInDur}" class="w-full custom-slider" oninput="setClipEffect('${clip.id}', 'animInDur', this.value); this.previousElementSibling.querySelector('span:last-child').textContent = this.value + 's'; this.style.background = 'linear-gradient(to right, ${sliderFill} ' + (this.value/this.max)*100 + '%, ${sliderBg} ' + (this.value/this.max)*100 + '%)'">
+                        <div class="flex flex-col gap-1 mt-1">
+                            <span class="text-[9px] font-bold text-surface-500 dark:text-surface-400 uppercase">Easing</span>
+                            ${renderEasingSelector(clip.id, 'animEase', animEase)}
+                        </div>
+                    `);
+                }
+                if (isText && animTextIn !== 'none') {
+                    propertiesHtml += createPropGroup('Text Stagger', `
+                        <div class="flex justify-between items-center">
+                            <span class="text-[9px] font-bold text-surface-500 dark:text-surface-400 uppercase">Duration</span>
+                            <span class="text-[9px] font-bold text-surface-700 dark:text-surface-300">${animTextInDur}s</span>
+                        </div>
+                        <input type="range" min="0.1" max="5.0" step="0.1" value="${animTextInDur}" class="w-full custom-slider" oninput="setClipEffect('${clip.id}', 'animTextInDur', this.value); this.previousElementSibling.querySelector('span:last-child').textContent = this.value + 's'; this.style.background = 'linear-gradient(to right, ${sliderFill} ' + (this.value/this.max)*100 + '%, ${sliderBg} ' + (this.value/this.max)*100 + '%)'">
+                        <div class="flex flex-col gap-1 mt-1">
+                            <span class="text-[9px] font-bold text-surface-500 dark:text-surface-400 uppercase">Stagger</span>
+                            ${renderStaggerSelector(clip.id, 'animTextStagger', animTextStagger)}
+                        </div>
+                        <div class="flex flex-col gap-1 mt-1">
+                            <span class="text-[9px] font-bold text-surface-500 dark:text-surface-400 uppercase">Easing</span>
+                            ${renderEasingSelector(clip.id, 'animTextEase', animTextEase)}
+                        </div>
+                        ${animTextIn === 'fillFlash' ? `
+                            <div class="flex items-center justify-between mt-1 pt-1 border-t border-surface-200 dark:border-surface-700">
+                                <span class="text-[9px] font-bold text-surface-500 dark:text-surface-400 uppercase">Flash Color</span>
+                                <div class="relative w-5 h-5 rounded-md overflow-hidden border border-surface-300 dark:border-surface-600 shadow-sm shrink-0">
+                                    <input type="color" class="absolute -top-2 -left-2 w-8 h-8 cursor-pointer" value="${flashColor}" onchange="setClipEffect('${clip.id}', 'flashColor', this.value); drawCanvas();">
+                                </div>
+                            </div>
+                        ` : ''}
+                    `);
+                }
+            } else if (tabOutActive) {
+                if (animOut !== 'none') {
+                    propertiesHtml += createPropGroup('Exit', `
+                        <div class="flex justify-between items-center">
+                            <span class="text-[9px] font-bold text-surface-500 dark:text-surface-400 uppercase">Duration</span>
+                            <span class="text-[9px] font-bold text-surface-700 dark:text-surface-300">${animOutDur}s</span>
+                        </div>
+                        <input type="range" min="0.1" max="5.0" step="0.1" value="${animOutDur}" class="w-full custom-slider" oninput="setClipEffect('${clip.id}', 'animOutDur', this.value); this.previousElementSibling.querySelector('span:last-child').textContent = this.value + 's'; this.style.background = 'linear-gradient(to right, ${sliderFill} ' + (this.value/this.max)*100 + '%, ${sliderBg} ' + (this.value/this.max)*100 + '%)'">
+                    `);
+                }
+                if (isText && animTextOut !== 'none') {
+                    propertiesHtml += createPropGroup('Text Exit Stagger', `
+                        <div class="flex justify-between items-center">
+                            <span class="text-[9px] font-bold text-surface-500 dark:text-surface-400 uppercase">Duration</span>
+                            <span class="text-[9px] font-bold text-surface-700 dark:text-surface-300">${animTextOutDur}s</span>
+                        </div>
+                        <input type="range" min="0.1" max="5.0" step="0.1" value="${animTextOutDur}" class="w-full custom-slider" oninput="setClipEffect('${clip.id}', 'animTextOutDur', this.value); this.previousElementSibling.querySelector('span:last-child').textContent = this.value + 's'; this.style.background = 'linear-gradient(to right, ${sliderFill} ' + (this.value/this.max)*100 + '%, ${sliderBg} ' + (this.value/this.max)*100 + '%)'">
+                        <div class="flex flex-col gap-1 mt-1">
+                            <span class="text-[9px] font-bold text-surface-500 dark:text-surface-400 uppercase">Stagger</span>
+                            ${renderStaggerSelector(clip.id, 'animTextStagger', animTextStagger)}
+                        </div>
+                    `);
+                }
+            }
+
+            if (!propertiesHtml) {
+                propertiesHtml = `
+                    <div class="flex-1 flex flex-col items-center justify-center text-center opacity-50 p-4">
+                        <i data-lucide="sliders" class="w-6 h-6 mb-2"></i>
+                        <span class="text-[10px] font-bold uppercase tracking-wider">No Animation Selected</span>
+                    </div>
+                `;
+            }
+
+            let propertiesPanel = `
+                <div class="${isHorizontal ? 'w-[260px]' : 'w-full mt-2 border-t pt-3'} shrink-0 flex flex-col gap-3 overflow-y-auto ${isHorizontal ? 'border-l pl-4' : ''} border-surface-200 dark:border-surface-700 min-w-[200px] h-full no-scrollbar">
+                    <div class="flex items-center gap-1.5 shrink-0">
+                        <i data-lucide="settings-2" class="w-3.5 h-3.5 text-surface-500"></i>
+                        <span class="text-xs font-bold text-surface-800 dark:text-surface-200">Properties</span>
+                    </div>
+                    ${propertiesHtml}
+                </div>
+            `;
+
 
             const leftNavHtml = `
                 <div id="animLayoutNav" class="w-32 bg-surface-100 dark:bg-surface-900 border-r border-surface-200 dark:border-surface-700 flex flex-col gap-1 p-2 shrink-0 overflow-y-auto no-scrollbar">
@@ -5811,45 +5679,55 @@
                 </div>
             `;
 
+            
+            
             let animHTML = isHorizontal ? `
                 ${leftNavHtml}
-                <div id="animCardContainer" class="p-3 flex flex-row gap-4 min-w-0 overflow-x-auto flex-1 no-scrollbar items-stretch bg-surface-50 dark:bg-surface-950">
-                    ${tabInActive ? `
-                        ${clipInCard}
-                        ${isText ? textInCard : ''}
-                    ` : ''}
-                    ${tabOutActive ? `
-                        ${clipOutCard}
-                        ${isText ? textOutCard : ''}
-                    ` : ''}
-                    ${tabLoopActive ? `
-                        ${clipLoopCard}
-                        ${isText ? textLoopCard : ''}
-                    ` : ''}
-                    ${tabCustomActive ? `
-                        ${renderCustomKeyframeEditor(clip)}
-                    ` : ''}
+                <div id="animCardContainer" class="p-3 flex flex-row flex-wrap gap-4 min-w-0 flex-1 overflow-y-auto no-scrollbar items-start bg-surface-50 dark:bg-surface-950">
+                    <div class="flex-1 flex flex-col gap-4 min-w-[300px]">
+                        ${tabInActive ? `
+                            ${clipInCard}
+                            ${isText ? textInCard : ''}
+                        ` : ''}
+                        ${tabOutActive ? `
+                            ${clipOutCard}
+                            ${isText ? textOutCard : ''}
+                        ` : ''}
+                        ${tabLoopActive ? `
+                            ${clipLoopCard}
+                            ${isText ? textLoopCard : ''}
+                        ` : ''}
+                        ${tabCustomActive ? `
+                            ${renderCustomKeyframeEditor(clip)}
+                        ` : ''}
+                    </div>
+                    ${tabCustomActive ? '' : propertiesPanel}
                 </div>
             ` : `
                 ${animTabsHtml}
-                <div id="animCardContainer" class="flex flex-col gap-3 min-h-0 flex-1 overflow-y-auto no-scrollbar p-1">
-                    ${tabInActive ? `
-                        ${clipInCard}
-                        ${isText ? textInCard : ''}
-                    ` : ''}
-                    ${tabOutActive ? `
-                        ${clipOutCard}
-                        ${isText ? textOutCard : ''}
-                    ` : ''}
-                    ${tabLoopActive ? `
-                        ${clipLoopCard}
-                        ${isText ? textLoopCard : ''}
-                    ` : ''}
-                    ${tabCustomActive ? `
-                        ${renderCustomKeyframeEditor(clip)}
-                    ` : ''}
+                <div id="animCardContainer" class="p-3 flex flex-row flex-wrap gap-4 min-w-0 flex-1 overflow-y-auto no-scrollbar items-start">
+                    <div class="flex-1 flex flex-col gap-4 min-w-[300px]">
+                        ${tabInActive ? `
+                            ${clipInCard}
+                            ${isText ? textInCard : ''}
+                        ` : ''}
+                        ${tabOutActive ? `
+                            ${clipOutCard}
+                            ${isText ? textOutCard : ''}
+                        ` : ''}
+                        ${tabLoopActive ? `
+                            ${clipLoopCard}
+                            ${isText ? textLoopCard : ''}
+                        ` : ''}
+                        ${tabCustomActive ? `
+                            ${renderCustomKeyframeEditor(clip)}
+                        ` : ''}
+                    </div>
+                    ${tabCustomActive ? '' : propertiesPanel}
                 </div>
             `;
+
+
 
             // Use a clean layout for the sidebar items
             if (clip.type === 'audio') {
@@ -6596,6 +6474,10 @@
                     { key: 'rotate', name: 'Rotation', min: -360, max: 360, step: 5, def: 0 },
                     { key: 'opacity', name: 'Opacity', min: 0, max: 100, step: 1, def: 100 }
                 ];
+                if (clip.type === 'text') {
+                    props.push({ key: 'fontSize', name: 'Font Size', min: 0.1, max: 5, step: 0.1, def: 1 });
+                    props.push({ key: 'charSpacing', name: 'Char Spacing', min: -10, max: 50, step: 1, def: 0 });
+                }
             }
             
             const localTime = Math.max(0, Math.min(clip.duration, State.currentTime - clip.start));
