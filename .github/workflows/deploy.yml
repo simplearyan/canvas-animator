@@ -7,6 +7,12 @@ on:
   schedule:
     - cron: '0 * * * *'
   workflow_dispatch:
+    inputs:
+      only_fetch_presets:
+        description: 'Only fetch community presets (skip build and deploy)'
+        type: boolean
+        required: false
+        default: false
 
 permissions:
   contents: read
@@ -53,11 +59,13 @@ jobs:
           python "thumb-maker ✅/update_community_presets.py"
 
       - name: Generate Build 🔨
+        if: ${{ !inputs.only_fetch_presets }}
         run: npm run build
         env:
           CI: true
 
       - name: Copy static assets to dist 📁
+        if: ${{ !inputs.only_fetch_presets }}
         run: |
           mkdir -p dist/yt-experiments
           cp -r yt-experiments/. dist/yt-experiments/
@@ -71,11 +79,13 @@ jobs:
           cp "thumb-maker ✅/community-presets.json" "dist/thumb-maker ✅/" 2>/dev/null || true
 
       - name: Upload Artifact 📦
+        if: ${{ !inputs.only_fetch_presets }}
         uses: actions/upload-pages-artifact@v3
         with:
           path: 'dist'
 
       - name: Deploy to GitHub Pages 🚀
+        if: ${{ !inputs.only_fetch_presets }}
         id: deployment
         uses: actions/deploy-pages@v4
         env:

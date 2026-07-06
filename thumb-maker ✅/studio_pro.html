@@ -69,6 +69,15 @@
                         state.elements.push(newImg);
                         selectElement(newImg.id);
                         document.querySelector('[data-target="panel-edit"]').click();
+                        
+                        // Store internet images in Media Tab & Local Storage
+                        if (pastedUrl) {
+                            if (!myMediaAssets.some(a => a.url === pastedUrl)) {
+                                myMediaAssets.push({ url: pastedUrl });
+                                if (typeof renderMediaGallery === 'function') renderMediaGallery();
+                                if (typeof saveMediaToLocalStorage === 'function') saveMediaToLocalStorage();
+                            }
+                        }
                     });
                     break;
                 }
@@ -6324,6 +6333,19 @@ function updateUI() {
 
         // Media Assets Logic
         const myMediaAssets = [];
+        try {
+            const storedMedia = localStorage.getItem('studioPro_mediaAssets');
+            if (storedMedia) {
+                myMediaAssets.push(...JSON.parse(storedMedia));
+            }
+        } catch (e) {}
+
+        function saveMediaToLocalStorage() {
+            try {
+                const persistentAssets = myMediaAssets.filter(asset => !asset.url.startsWith('blob:'));
+                localStorage.setItem('studioPro_mediaAssets', JSON.stringify(persistentAssets));
+            } catch (e) {}
+        }
         const mediaUploadLocal = document.getElementById('mediaUploadLocal');
         const mediaUrlInput = document.getElementById('mediaUrlInput');
         const btnImportMediaUrl = document.getElementById('btnImportMediaUrl');
@@ -6357,6 +6379,7 @@ function updateUI() {
                     e.stopPropagation();
                     myMediaAssets.splice(index, 1);
                     renderMediaGallery();
+                    saveMediaToLocalStorage();
                 };
                 
                 div.appendChild(img);
@@ -6424,16 +6447,10 @@ function updateUI() {
             btnImportMediaUrl.addEventListener('click', async () => {
                 const val = mediaUrlInput.value.trim();
                 if(!val) return;
-                try {
-                    const response = await fetch(val);
-                    const blob = await response.blob();
-                    const objectUrl = URL.createObjectURL(blob);
-                    myMediaAssets.push({ url: objectUrl });
-                    renderMediaGallery();
-                    mediaUrlInput.value = '';
-                } catch(err) {
-                    showToast("Failed to load image from URL");
-                }
+                myMediaAssets.push({ url: val });
+                renderMediaGallery();
+                saveMediaToLocalStorage();
+                mediaUrlInput.value = '';
             });
         }
 
