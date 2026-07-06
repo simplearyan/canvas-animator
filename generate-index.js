@@ -16,6 +16,7 @@ function scanRecursive(dir, relativePath = '') {
     for (const file of files) {
         if (file.isDirectory()) {
             if (['node_modules', '.git', 'screenshots', '.github', 'versions', 'dist'].includes(file.name)) continue;
+            if (file.name.includes('Failed') || file.name.includes('🚫') || file.name.includes('❌')) continue;
             
             const subItems = scanRecursive(path.join(dir, file.name), path.join(relativePath, file.name));
             if (subItems.length > 0) {
@@ -28,6 +29,8 @@ function scanRecursive(dir, relativePath = '') {
                 });
             }
         } else if (file.name.endsWith('.html') && file.name !== 'index.html') {
+            if (file.name.includes('copy') || /\(\d+\)\.html$/.test(file.name)) continue;
+
             const cleanRelPath = relativePath.replace(/\\/g, '/');
             const screenshotPathStr = cleanRelPath ? `${cleanRelPath}/${file.name.replace('.html', '.png')}` : file.name.replace('.html', '.png');
             const screenshotRel = `./screenshots/${screenshotPathStr}`;

@@ -28,8 +28,10 @@ function scanRecursive(dir, relativePath = '') {
     for (const file of files) {
         if (file.isDirectory()) {
             if (['node_modules', '.git', 'screenshots', '.github', 'versions', 'dist'].includes(file.name)) continue;
+            if (file.name.includes('Failed') || file.name.includes('🚫') || file.name.includes('❌')) continue;
             demos.push(...scanRecursive(path.join(dir, file.name), path.join(relativePath, file.name)));
         } else if (file.name.endsWith('.html') && file.name !== 'index.html') {
+            if (file.name.includes('copy') || /\(\d+\)\.html$/.test(file.name)) continue;
             demos.push({
                 name: file.name,
                 relDir: relativePath,
@@ -96,7 +98,7 @@ async function captureScreenshots(demos) {
 
             try {
                 console.log(`  [${currentIdx}/${total}] ${demo.id}`);
-                await page.goto(`file://${demo.fullPath}`, { waitUntil: 'networkidle0', timeout: 30000 });
+                await page.goto(`file://${demo.fullPath}`, { waitUntil: 'networkidle0', timeout: 10000 });
                 await new Promise(r => setTimeout(r, 1500)); 
                 await page.screenshot({ path: pngPath, type: 'png' });
                 
