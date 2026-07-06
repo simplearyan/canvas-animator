@@ -5,10 +5,19 @@
 const fs = require('fs');
 const path = require('path');
 const puppeteer = require('puppeteer');
+const crypto = require('crypto');
 
 const rootDir = __dirname;
 const screenshotsDir = path.join(rootDir, 'public', 'screenshots');
+const manifestPath = path.join(screenshotsDir, 'manifest.json');
 const FORCE = process.argv.includes('--force');
+
+function getHash(filePath) {
+    const fileBuffer = fs.readFileSync(filePath);
+    const hashSum = crypto.createHash('md5');
+    hashSum.update(fileBuffer);
+    return hashSum.digest('hex');
+}
 
 function scanRecursive(dir, relativePath = '') {
     const demos = [];
@@ -32,9 +41,20 @@ function scanRecursive(dir, relativePath = '') {
 async function captureScreenshots(demos) {
     if (!fs.existsSync(screenshotsDir)) fs.mkdirSync(screenshotsDir, { recursive: true });
 
+    let manifest = {};
+    if (fs.existsSync(manifestPath)) {
+        try { manifest = JSON.parse(fs.readFileSync(manifestPath, 'utf8')); } catch (e) {}
+    }
+
     const toCapture = demos.filter(demo => {
         const pngPath = path.join(screenshotsDir, demo.relDir, demo.name.replace('.html', '.png'));
-        return FORCE || !fs.existsSync(pngPath);
+        const htmlHash = getHash(demo.fullPath);
+        demo.hash = htmlHash;
+        
+        const id = path.join(demo.relDir, demo.name).replace(/\\/g, '/'); // Normalize path for manifest keys
+        demo.id = id;
+
+        return FORCE || !fs.existsSync(pngPath) || manifest[id] !== htmlHash;
     });
 
     if (toCapture.length === 0) {
@@ -73,10 +93,14 @@ async function captureScreenshots(demos) {
             const pngPath = path.join(folderPath, demo.name.replace('.html', '.png'));
 
             try {
-                console.log(`  [${currentIdx}/${total}] ${path.join(demo.relDir, demo.name)}`);
+                console.log(`  [${currentIdx}/${total}] ${demo.id}`);
                 await page.goto(`file://${demo.fullPath}`, { waitUntil: 'networkidle0', timeout: 30000 });
                 await new Promise(r => setTimeout(r, 1500)); 
                 await page.screenshot({ path: pngPath, type: 'png' });
+                
+                // Update manifest on success
+                manifest[demo.id] = demo.hash;
+                fs.writeFileSync(manifestPath, JSON.stringify(manifest, null, 2), 'utf8');
             } catch (err) {
                 console.error(`  ✖ Failed: ${demo.name} — ${err.message}`);
             }
