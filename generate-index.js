@@ -15,7 +15,7 @@ function scanRecursive(dir, relativePath = '') {
 
     for (const file of files) {
         if (file.isDirectory()) {
-            if (['node_modules', '.git', 'screenshots', '.github', 'versions'].includes(file.name)) continue;
+            if (['node_modules', '.git', 'screenshots', '.github', 'versions', 'dist'].includes(file.name)) continue;
             
             const subItems = scanRecursive(path.join(dir, file.name), path.join(relativePath, file.name));
             if (subItems.length > 0) {
@@ -80,7 +80,7 @@ function renderHierarchy(items, depth = 0) {
             </div>`;
         } else {
             html += `
-            <a href="${item.path}" class="card" data-name="${item.cleanName.toLowerCase()}" data-path="${item.path.toLowerCase()}" data-folder="${item.path.split('/')[0].toLowerCase()}" target="_blank">
+            <a href="${encodeURI(item.path)}" class="card" data-name="${item.cleanName.toLowerCase()}" data-path="${item.path.toLowerCase()}" data-folder="${item.path.split('/')[0].toLowerCase()}" target="_blank">
                 <div class="card-thumb">
                     ${item.screenshot 
                         ? `<img src="${item.screenshot}" alt="${item.cleanName}" loading="lazy">`
