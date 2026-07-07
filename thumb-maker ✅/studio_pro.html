@@ -2496,6 +2496,36 @@
             img.src = imgSrc;
         };
 
+        const loadAndDownscaleTexture = (imgSrc, callback) => {
+            const img = new Image();
+            img.crossOrigin = "Anonymous";
+            img.onload = () => {
+                const MAX_DIM = 600;
+                if (img.width > MAX_DIM || img.height > MAX_DIM) {
+                    const ratio = Math.min(MAX_DIM / img.width, MAX_DIM / img.height);
+                    const canvas = document.createElement('canvas');
+                    canvas.width = Math.round(img.width * ratio);
+                    canvas.height = Math.round(img.height * ratio);
+                    const ctx = canvas.getContext('2d');
+                    ctx.drawImage(img, 0, 0, canvas.width, canvas.height);
+                    const dataUrl = canvas.toDataURL('image/webp', 0.85);
+                    callback(dataUrl);
+                } else {
+                    const canvas = document.createElement('canvas');
+                    canvas.width = img.width;
+                    canvas.height = img.height;
+                    const ctx = canvas.getContext('2d');
+                    ctx.drawImage(img, 0, 0);
+                    const dataUrl = canvas.toDataURL('image/webp', 0.85);
+                    callback(dataUrl);
+                }
+            };
+            img.onerror = () => {
+                callback(imgSrc);
+            };
+            img.src = imgSrc;
+        };
+
         function getColorWithOpacity(hexColor, opacity) {
             if (!hexColor) return 'rgba(0,0,0,0)';
             if (!hexColor.startsWith('#')) return hexColor;
@@ -5241,12 +5271,14 @@ function updateUI() {
             if (!file) return;
             const reader = new FileReader();
             reader.onload = (ev) => {
-                const el = state.elements.find(el => el.id === state.selectedId);
-                if (el) {
-                    el.textureSrc = ev.target.result;
-                    loadTextureImage(el);
-                    updateUI();
-                }
+                loadAndDownscaleTexture(ev.target.result, (compressedDataUrl) => {
+                    const el = state.elements.find(el => el.id === state.selectedId);
+                    if (el) {
+                        el.textureSrc = compressedDataUrl;
+                        loadTextureImage(el);
+                        updateUI();
+                    }
+                });
             };
             reader.readAsDataURL(file);
         });
