@@ -3323,7 +3323,7 @@
                     if(el.feather) ctx.filter = 'none';
                 }
                 else if (el.type === 'latex') {
-                    if (!el._latexImg) {
+                    if (!el._latexImg || !(el._latexImg instanceof HTMLImageElement)) {
                         updateLatexImage(el);
                         ctx.restore();
                         return;
@@ -6332,12 +6332,13 @@ function updateUI() {
             const thumbnail = thumbCanvas.toDataURL('image/jpeg', 0.3); // Low quality
 
             const storableElements = state.elements.map(el => {
-                if(el.type !== 'image') return el;
-                const {img, processedImg, ...rest} = el; 
+                const { _latexImg, _textureImg, ...cleanEl } = el;
+                if(cleanEl.type !== 'image') return cleanEl;
+                const {img, processedImg, ...rest} = cleanEl; 
                 if (img && img.src && (img.src.startsWith('http://') || img.src.startsWith('https://'))) {
                     return {...rest, _originalSrc: img.src, _isStorableImg: true}; 
                 }
-                if (el._originalSrc && (el._originalSrc.startsWith('http://') || el._originalSrc.startsWith('https://'))) {
+                if (cleanEl._originalSrc && (cleanEl._originalSrc.startsWith('http://') || cleanEl._originalSrc.startsWith('https://'))) {
                     return {...rest, _isStorableImg: true}; 
                 }
                 return {...rest, _isMockImage: true, _isStorableImg: true}; 
@@ -6381,6 +6382,9 @@ function updateUI() {
         }
 
         function updateLatexImage(el, callback) {
+            if (el._latexImg && !(el._latexImg instanceof HTMLImageElement)) {
+                delete el._latexImg;
+            }
             if (!el.latex || typeof MathJax === 'undefined' || !MathJax.tex2svg) {
                 el._latexImg = null;
                 if (callback) callback();
