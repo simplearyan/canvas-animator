@@ -159,6 +159,26 @@
 
     <!-- Phosphor Icons -->
     <script src="https://unpkg.com/@phosphor-icons/web"></script>
+    
+    <!-- MathJax for LaTeX Rendering -->
+    <script>
+        window.MathJax = {
+            tex: { inlineMath: [['$', '$'], ['\\(', '\\)']] },
+            svg: { fontCache: 'none' }
+        };
+        window.onMathJaxLoaded = function() {
+            if (window.state && window.state.elements) {
+                window.state.elements.forEach(el => {
+                    if (el.type === 'latex') {
+                        window.updateLatexImage(el, () => {
+                            if (window.render) window.render();
+                        });
+                    }
+                });
+            }
+        };
+    </script>
+    <script src="https://cdn.jsdelivr.net/npm/mathjax@3/es5/tex-svg.js" id="MathJax-script" defer onload="onMathJaxLoaded()"></script>
 
     <style>
         /* Custom Scrollbar */
@@ -457,6 +477,10 @@
                                 <i class="ph-bold ph-star text-xl mb-1"></i>
                                 <span class="text-[10px] font-bold">Shape</span>
                             </button>
+                            <button id="btnAddLatex" class="flex flex-col items-center justify-center p-3 border border-pro-200 dark:border-pro-700 rounded-md bg-pro-50 dark:bg-pro-900 hover:border-brand-500 dark:hover:border-brand-400 text-pro-700 dark:text-pro-300 hover:text-brand-600 dark:hover:text-brand-400 ">
+                                <i class="ph-bold ph-function text-xl mb-1"></i>
+                                <span class="text-[10px] font-bold">Math</span>
+                            </button>
                         </div>
                         
                         <div class="mt-3 pt-3 border-t border-pro-200 dark:border-pro-700">
@@ -506,6 +530,38 @@
                                 <button id="btnSaveTextPreset" class="w-full text-[10px] bg-brand-50 dark:bg-brand-500/20 text-brand-600 dark:text-brand-300 border border-brand-200 dark:border-brand-500/30 px-3 py-1.5 rounded-md font-bold hover:bg-brand-100 dark:hover:bg-brand-500/40 flex items-center justify-center gap-1 transition-colors">
                                     <i class="ph-bold ph-bookmark-simple"></i> Save as Text Preset
                                 </button>
+                            </div>
+                        </details>
+
+                        <!-- Accordion: Math LaTeX Settings -->
+                        <details id="acc-latex" class="bg-white dark:bg-pro-800 border border-pro-300 dark:border-pro-700 rounded-lg shadow-sm overflow-hidden hidden" open>
+                            <summary class="flex justify-between items-center font-bold cursor-pointer p-3 bg-pro-100 dark:bg-pro-800/80 text-sm text-pro-800 dark:text-pro-200 select-none border-b border-pro-300 dark:border-pro-700">
+                                <div class="flex items-center gap-2"><i class="ph-bold ph-function text-pro-500 dark:text-pro-400"></i> LaTeX Equation</div>
+                                <i class="ph-bold ph-caret-down text-pro-500 dark:text-pro-400"></i>
+                            </summary>
+                            <div class="p-3 bg-pro-50 dark:bg-pro-900 space-y-3">
+                                <div class="bg-white dark:bg-pro-800 border border-pro-200 dark:border-pro-700 p-1.5 rounded-md shadow-sm">
+                                    <label class="block text-[10px] font-bold text-pro-500 dark:text-pro-400 uppercase tracking-widest mb-2 px-1">LaTeX Code</label>
+                                    <textarea id="editLatexInput" rows="3" class="w-full text-xs p-2 border border-pro-300 dark:border-pro-600 bg-pro-50 dark:bg-pro-900 rounded focus:outline-none focus:border-brand-500 font-mono text-pro-800 dark:text-pro-100" placeholder="e.g. x = \frac{-b \pm \sqrt{b^2-4ac}}{2a}"></textarea>
+                                </div>
+                                <div class="grid grid-cols-2 gap-2">
+                                    <div class="bg-white dark:bg-pro-800 border border-pro-200 dark:border-pro-700 p-3 rounded-md shadow-sm">
+                                        <div class="flex items-center justify-between mb-2">
+                                            <label class="block text-[10px] font-bold text-pro-500 dark:text-pro-400 uppercase tracking-widest">Formula Color</label>
+                                        </div>
+                                        <div class="flex gap-2">
+                                            <input type="color" id="editLatexColor" class="w-8 h-8 rounded cursor-pointer border border-pro-300 dark:border-pro-600 p-0 overflow-hidden shrink-0" value="#ffffff">
+                                            <input type="text" id="editLatexColorHex" class="w-full text-xs px-2 border border-pro-300 dark:border-pro-600 bg-pro-50 dark:bg-pro-900 rounded font-mono font-bold focus:outline-none text-pro-800 dark:text-pro-200 uppercase" value="#FFFFFF">
+                                        </div>
+                                    </div>
+                                    <div class="bg-white dark:bg-pro-800 border border-pro-200 dark:border-pro-700 p-3 rounded-md shadow-sm">
+                                        <div class="flex justify-between items-center mb-2">
+                                            <label class="text-[10px] font-bold text-pro-500 dark:text-pro-400 uppercase tracking-widest">Size</label>
+                                            <span id="editLatexSizeVal" class="text-[10px] font-bold text-brand-700 dark:text-brand-300 bg-brand-50 dark:bg-brand-500/20 px-2 py-0.5 rounded">80px</span>
+                                        </div>
+                                        <input type="range" id="editLatexSize" min="20" max="300" value="80">
+                                    </div>
+                                </div>
                             </div>
                         </details>
 
@@ -2209,6 +2265,12 @@
         const accImageFilters = document.getElementById('acc-image-filters');
         const accMediaSource = document.getElementById('acc-media-source');
         const accShape = document.getElementById('acc-shape');
+        const accLatex = document.getElementById('acc-latex');
+        const editLatexInput = document.getElementById('editLatexInput');
+        const editLatexColor = document.getElementById('editLatexColor');
+        const editLatexColorHex = document.getElementById('editLatexColorHex');
+        const editLatexSize = document.getElementById('editLatexSize');
+        const editLatexSizeVal = document.getElementById('editLatexSizeVal');
         const toggleShapeFillBtn = document.getElementById('toggleShapeFillBtn');
 
         // Toggles & Settings Containers
@@ -2252,6 +2314,7 @@
         const btnAddEmoji = document.getElementById('btnAddEmoji');
         const btnAddText = document.getElementById('btnAddText');
         const btnAddShape = document.getElementById('btnAddShape');
+        const btnAddLatex = document.getElementById('btnAddLatex');
         
         const btnAddDrawing = document.getElementById('btnAddDrawing');
         if(btnAddDrawing) {
@@ -3231,6 +3294,138 @@
                     
                     if(el.feather) ctx.filter = 'none';
                 }
+                else if (el.type === 'latex') {
+                    if (!el._latexImg) {
+                        updateLatexImage(el);
+                        ctx.restore();
+                        return;
+                    }
+
+                    const w = el.width || 100;
+                    const h = el.height || 50;
+                    const layerAlpha = el.opacity !== undefined ? el.opacity / 100 : 1;
+                    const fillAlpha = el.fillOpacity !== undefined ? el.fillOpacity / 100 : 1;
+
+                    ctx.globalAlpha = layerAlpha;
+
+                    // 1. Drop Shadow
+                    if (el.dropShadowEnabled && el.dropShadowColor && el.dropShadowColor !== '#00000000') {
+                        ctx.shadowColor = getColorWithOpacity(el.dropShadowColor, el.dropShadowOpacity);
+                        ctx.shadowBlur = el.dropShadowBlur || 0;
+                        ctx.shadowOffsetX = el.dropShadowX || 0;
+                        ctx.shadowOffsetY = el.dropShadowY || 0;
+                    } else {
+                        ctx.shadowColor = 'transparent';
+                    }
+
+                    // 2. 3D Extrusion
+                    if (el.extrusionEnabled && el.depth > 0) {
+                        let dx = 1, dy = 1;
+                        if (el.extrusionDir === 'bl') { dx = -1; dy = 1; }
+                        else if (el.extrusionDir === 'tr') { dx = 1; dy = -1; }
+                        else if (el.extrusionDir === 'tl') { dx = -1; dy = -1; }
+                        else if (el.extrusionDir === 'b') { dx = 0; dy = 1; }
+                        else if (el.extrusionDir === 't') { dx = 0; dy = -1; }
+                        else if (el.extrusionDir === 'l') { dx = -1; dy = 0; }
+                        else if (el.extrusionDir === 'r') { dx = 1; dy = 0; }
+
+                        const shadowCnv = document.createElement('canvas');
+                        shadowCnv.width = w;
+                        shadowCnv.height = h;
+                        const sctx = shadowCnv.getContext('2d');
+                        sctx.drawImage(el._latexImg, 0, 0, w, h);
+                        sctx.globalCompositeOperation = 'source-in';
+                        sctx.fillStyle = el.shadowColor || '#000000';
+                        sctx.fillRect(0, 0, w, h);
+
+                        ctx.shadowColor = 'transparent';
+                        ctx.globalAlpha = layerAlpha;
+                        for (let i = el.depth; i > 0; i--) {
+                            ctx.drawImage(shadowCnv, -w/2 + i * dx, -h/2 + i * dy, w, h);
+                        }
+                    } else if (ctx.shadowColor !== 'transparent') {
+                        const theta = (el.rotation || 0) * Math.PI / 180;
+                        const flipX = (el.scale || 1) * (el.flipH ? -1 : 1);
+                        const flipY = (el.scale || 1) * (el.flipV ? -1 : 1);
+                        const shiftX = -99999 * Math.cos(theta) / flipX;
+                        const shiftY = 99999 * Math.sin(theta) / flipY;
+
+                        ctx.shadowOffsetX += 99999;
+                        ctx.drawImage(el._latexImg, -w/2 + shiftX, -h/2 + shiftY, w, h);
+                        ctx.shadowOffsetX -= 99999;
+                        ctx.shadowColor = 'transparent';
+                    }
+
+                    // 3. Main Equation
+                    ctx.globalAlpha = layerAlpha * fillAlpha;
+                    ctx.drawImage(el._latexImg, -w/2, -h/2, w, h);
+
+                    // 4. Inner Shadow
+                    if (el.innerShadowEnabled && el.innerShadowColor) {
+                        ctx.save();
+                        const padX = 50, padY = 50;
+                        const scratch1 = document.createElement('canvas');
+                        scratch1.width = w + padX * 2;
+                        scratch1.height = h + padY * 2;
+                        const s1ctx = scratch1.getContext('2d');
+                        s1ctx.drawImage(el._latexImg, padX, padY, w, h);
+
+                        const scratch2 = document.createElement('canvas');
+                        scratch2.width = scratch1.width;
+                        scratch2.height = scratch1.height;
+                        const s2ctx = scratch2.getContext('2d');
+                        s2ctx.fillStyle = '#000000';
+                        s2ctx.fillRect(0, 0, scratch2.width, scratch2.height);
+                        s2ctx.globalCompositeOperation = 'destination-out';
+                        s2ctx.drawImage(scratch1, 0, 0);
+
+                        const scratch3 = document.createElement('canvas');
+                        scratch3.width = scratch1.width;
+                        scratch3.height = scratch1.height;
+                        const s3ctx = scratch3.getContext('2d');
+                        s3ctx.shadowColor = getColorWithOpacity(el.innerShadowColor, el.innerShadowOpacity !== undefined ? el.innerShadowOpacity : 50);
+                        s3ctx.shadowBlur = el.innerShadowBlur !== undefined ? el.innerShadowBlur : 10;
+                        s3ctx.shadowOffsetX = (el.innerShadowX !== undefined ? el.innerShadowX : 5);
+                        s3ctx.shadowOffsetY = (el.innerShadowY !== undefined ? el.innerShadowY : 5);
+                        s3ctx.drawImage(scratch2, 0, 0);
+
+                        s3ctx.globalCompositeOperation = 'destination-in';
+                        s3ctx.drawImage(scratch1, 0, 0);
+
+                        ctx.drawImage(scratch3, -w/2 - padX, -h/2 - padY);
+                        ctx.restore();
+                    }
+
+                    // 5. Texture Overlay
+                    if (el.textureEnabled && el.textureSrc && el._textureImg && (el._textureImg instanceof HTMLImageElement || el._textureImg instanceof HTMLCanvasElement)) {
+                        ctx.save();
+                        ctx.globalCompositeOperation = el.textureBlendMode || 'multiply';
+                        ctx.globalAlpha = ((el.textureOpacity !== undefined ? el.textureOpacity : 50) / 100) * layerAlpha * fillAlpha;
+                        
+                        const scratchTexture = document.createElement('canvas');
+                        scratchTexture.width = w;
+                        scratchTexture.height = h;
+                        const stctx = scratchTexture.getContext('2d');
+                        stctx.drawImage(el._latexImg, 0, 0, w, h);
+                        stctx.globalCompositeOperation = 'source-in';
+                        
+                        if (el.textureFitting === 'stretch') {
+                            stctx.drawImage(el._textureImg, 0, 0, w, h);
+                        } else {
+                            const pattern = stctx.createPattern(el._textureImg, 'repeat');
+                            if (pattern) {
+                                const matrix = new DOMMatrix();
+                                const scale = (el.textureScale !== undefined ? el.textureScale : 100) / 100;
+                                matrix.scaleSelf(scale, scale);
+                                pattern.setTransform(matrix);
+                                stctx.fillStyle = pattern;
+                                stctx.fillRect(0, 0, w, h);
+                            }
+                        }
+                        ctx.drawImage(scratchTexture, -w/2, -h/2);
+                        ctx.restore();
+                    }
+                }
                 else if (el.type === 'text' || el.type === 'emoji') {
                     // Apply Normal Drop Shadow
                     if(el.dropShadowEnabled && el.dropShadowColor && el.dropShadowColor !== '#00000000') {
@@ -3637,6 +3832,11 @@
                         w = el.img.width * (1 - (cropL + cropR)/100);
                         h = el.img.height * (1 - (cropT + cropB)/100);
                         ox = -w/2; oy = -h/2;
+                    } else if (el.type === 'latex') {
+                        w = el.width || 100;
+                        h = el.height || 50;
+                        w += 20 + (el.depth || 0); h += 20 + (el.depth || 0);
+                        ox = -w/2 + ((el.depth || 0)/2); oy = -h/2 + ((el.depth || 0)/2);
                     } else if (el.type === 'shape') {
                         w = el.size || 150;
                         h = el.size || 150;
@@ -3822,6 +4022,10 @@
                         const pad = (el.strokeWidth || 5) / 2 + 5;
                         if (localX >= minX - pad && localX <= maxX + pad && localY >= minY - pad && localY <= maxY + pad) hit = true;
                     }
+                } else if (el.type === 'latex') {
+                    const w = (el.width || 100) + 20;
+                    const h = (el.height || 50) + 20;
+                    if (localX >= -w/2 && localX <= w/2 && localY >= -h/2 && localY <= h/2) hit = true;
                 } else if (el.type === 'shape') {
                     const size = el.size || 150;
                     const w = size + 20;
@@ -4140,6 +4344,9 @@
             if (el._textureImg) {
                 newEl._textureImg = el._textureImg;
             }
+            if (el._latexImg) {
+                newEl._latexImg = el._latexImg;
+            }
             newEl.id = generateId();
             newEl.x += offsetX;
                 newEl.y += offsetY;
@@ -4191,6 +4398,9 @@
         }
 
 
+        window.updateLatexImage = updateLatexImage;
+        window.render = render;
+
         window.deleteElement = (id) => {
             state.elements = state.elements.filter(e => e.id !== id);
             if(state.selectedId === id) selectElement(null);
@@ -4212,10 +4422,13 @@
                 
                 const isShape = el.type === 'shape';
                 const isDrawing = el.type === 'drawing';
-                const icon = el.type === 'emoji' ? 'ph-smiley' : (el.type === 'text' ? 'ph-text-t' : (isShape ? 'ph-star' : (isDrawing ? 'ph-pencil-simple' : 'ph-image')));
+                const isLatex = el.type === 'latex';
+                const icon = el.type === 'emoji' ? 'ph-smiley' : (el.type === 'text' ? 'ph-text-t' : (isShape ? 'ph-star' : (isDrawing ? 'ph-pencil-simple' : (isLatex ? 'ph-function' : 'ph-image'))));
                 let label = 'Image Layer';
                 if (el.type === 'text' || el.type === 'emoji') {
                     label = el.text.split('\n')[0].substring(0, 15) + (el.text.length > 15 ? '...' : '');
+                } else if (isLatex) {
+                    label = el.latex.substring(0, 15) + (el.latex.length > 15 ? '...' : '');
                 } else if (isShape) {
                     label = (el.shapeType || 'Shape') + ' Layer';
                     label = label.charAt(0).toUpperCase() + label.slice(1);
@@ -4620,26 +4833,26 @@ function updateUI() {
                 }
 
                 // Preset save container visibility
-                if (el.type === 'shape' || el.type === 'drawing') {
+                if (el.type === 'shape' || el.type === 'drawing' || el.type === 'latex') {
                     if (presetSaveContainer) presetSaveContainer.style.display = 'block';
                 } else {
                     if (presetSaveContainer) presetSaveContainer.style.display = 'none';
                 }
 
                 // Accordion visibility logic
-                if (el.type === 'text' || el.type === 'emoji' || el.type === 'image' || el.type === 'shape' || el.type === 'drawing') {
+                if (el.type === 'text' || el.type === 'emoji' || el.type === 'image' || el.type === 'shape' || el.type === 'drawing' || el.type === 'latex') {
                     accStroke.classList.remove('hidden');
                 } else {
                     accStroke.classList.add('hidden');
                 }
 
-                if (el.type === 'text' || el.type === 'emoji' || el.type === 'shape') {
+                if (el.type === 'text' || el.type === 'emoji' || el.type === 'shape' || el.type === 'latex') {
                     accInnerShadow.classList.remove('hidden');
                 } else {
                     accInnerShadow.classList.add('hidden');
                 }
 
-                if (el.type === 'text' || el.type === 'emoji' || el.type === 'shape') {
+                if (el.type === 'text' || el.type === 'emoji' || el.type === 'shape' || el.type === 'latex') {
                     accTexture.classList.remove('hidden');
                 } else {
                     accTexture.classList.add('hidden');
@@ -4653,6 +4866,7 @@ function updateUI() {
                     accImageStyle.style.display = 'none';
                     accImageFilters.style.display = 'none';
                     accShape.style.display = 'none';
+                    accLatex.style.display = 'none';
                     if(accImageMask) accImageMask.style.display = 'none';
                     if(accMediaSource) accMediaSource.style.display = 'none';
                     if(accColorGrading) accColorGrading.style.display = 'none';
@@ -4699,6 +4913,7 @@ function updateUI() {
                     accImageStyle.style.display = 'none';
                     accImageFilters.style.display = 'none';
                     accShape.style.display = 'none';
+                    accLatex.style.display = 'none';
                     if(accImageMask) accImageMask.style.display = 'none';
                     if(accMediaSource) accMediaSource.style.display = 'none';
                     if(accColorGrading) accColorGrading.style.display = 'none';
@@ -4711,6 +4926,7 @@ function updateUI() {
                     accImageStyle.style.display = 'none';
                     accImageFilters.style.display = 'none';
                     accShape.style.display = 'block';
+                    accLatex.style.display = 'none';
                     if(accImageMask) accImageMask.style.display = 'none';
                     if(accMediaSource) accMediaSource.style.display = 'none';
                     if(accColorGrading) accColorGrading.style.display = 'none';
@@ -4753,6 +4969,32 @@ function updateUI() {
                     if (editTextShadowOpacity) { editTextShadowOpacity.value = el.shadowOpacity !== undefined ? el.shadowOpacity : 100; editTextShadowOpacityVal.textContent = (el.shadowOpacity !== undefined ? el.shadowOpacity : 100) + "%"; }
                     editTextDepthVal.textContent = el.depth || 0;
                     if (editTextExtrusionDir) editTextExtrusionDir.value = el.extrusionDir || 'br';
+                } else if (el.type === 'latex') {
+                    accContent.style.display = 'none';
+                    accTypography.style.display = 'none';
+                    accTextAdvanced.style.display = 'none';
+                    acc3d.style.display = 'block';
+                    accImageStyle.style.display = 'none';
+                    accImageFilters.style.display = 'none';
+                    accShape.style.display = 'none';
+                    accLatex.style.display = 'block';
+                    if(accImageMask) accImageMask.style.display = 'none';
+                    if(accMediaSource) accMediaSource.style.display = 'none';
+                    if(accColorGrading) accColorGrading.style.display = 'none';
+                    if(accColorCorrection) accColorCorrection.style.display = 'none';
+
+                    editLatexInput.value = el.latex || '';
+                    editLatexColor.value = (el.color || '#ffffff').substring(0, 7);
+                    editLatexColorHex.value = (el.color || '#ffffff').toUpperCase();
+                    editLatexSize.value = el.size || 80;
+                    editLatexSizeVal.textContent = `${el.size || 80}px`;
+
+                    editTextShadowColor.value = (el.shadowColor || '#000000').substring(0, 7);
+                    editTextShadowColorHex.value = (el.shadowColor || '#000000').toUpperCase();
+                    editTextDepth.value = el.depth || 0;
+                    if (editTextShadowOpacity) { editTextShadowOpacity.value = el.shadowOpacity !== undefined ? el.shadowOpacity : 100; editTextShadowOpacityVal.textContent = (el.shadowOpacity !== undefined ? el.shadowOpacity : 100) + "%"; }
+                    editTextDepthVal.textContent = el.depth || 0;
+                    if (editTextExtrusionDir) editTextExtrusionDir.value = el.extrusionDir || 'br';
                 } else {
                     accContent.style.display = 'none';
                     accTypography.style.display = 'none';
@@ -4767,6 +5009,7 @@ function updateUI() {
                     if(cc) cc.style.display = 'block';
                     if(accMediaSource) accMediaSource.style.display = 'block';
                     accShape.style.display = 'none';
+                    accLatex.style.display = 'none';
 
                     editRadius.value = el.radius || 0;
                     editRadiusVal.textContent = `${el.radius || 0}px`;
@@ -4984,8 +5227,62 @@ function updateUI() {
         const updateProp = (prop, value) => {
             if(!state.selectedId) return;
             const el = state.elements.find(e => e.id === state.selectedId);
-            if(el) { el[prop] = value; render(); }
+            if(el) {
+                el[prop] = value;
+                if (el.type === 'latex' && ['latex', 'color', 'size', 'strokeEnabled', 'strokeColor', 'strokeWidth'].includes(prop)) {
+                    updateLatexImage(el, () => {
+                        render();
+                    });
+                } else {
+                    render();
+                }
+            }
         };
+
+        // LaTeX Bindings
+        editLatexInput.addEventListener('input', (e) => {
+            const el = state.elements.find(x => x.id === state.selectedId);
+            if (el) {
+                el.latex = e.target.value;
+                updateLatexImage(el, () => {
+                    render();
+                });
+            }
+        });
+        editLatexColor.addEventListener('input', (e) => {
+            syncHex(e.target, editLatexColorHex);
+            const el = state.elements.find(x => x.id === state.selectedId);
+            if (el) {
+                el.color = e.target.value;
+                updateLatexImage(el, () => {
+                    render();
+                });
+            }
+        });
+        editLatexColorHex.addEventListener('input', (e) => {
+            let val = e.target.value;
+            if (val.length === 7 && val.startsWith('#')) {
+                editLatexColor.value = val;
+                const el = state.elements.find(x => x.id === state.selectedId);
+                if (el) {
+                    el.color = val;
+                    updateLatexImage(el, () => {
+                        render();
+                    });
+                }
+            }
+        });
+        editLatexSize.addEventListener('input', (e) => {
+            const val = parseInt(e.target.value);
+            editLatexSizeVal.textContent = `${val}px`;
+            const el = state.elements.find(x => x.id === state.selectedId);
+            if (el) {
+                el.size = val;
+                updateLatexImage(el, () => {
+                    render();
+                });
+            }
+        });
 
         // Text Content & Typography Bindings
         editTextInput.addEventListener('input', (e) => { 
@@ -5567,6 +5864,9 @@ function updateUI() {
                 if (el._textureImg) {
                     newEl._textureImg = el._textureImg;
                 }
+                if (el._latexImg) {
+                    newEl._latexImg = el._latexImg;
+                }
                 newEl.id = generateId();
                 newEl.x += offsetX;
                 newEl.y += offsetY;
@@ -5754,6 +6054,40 @@ function updateUI() {
             state.elements.push(newShape);
             selectElement(newShape.id);
             document.querySelector('[data-target="panel-edit"]').click();
+        });
+
+        btnAddLatex.addEventListener('click', () => {
+            const newLatex = {
+                id: generateId(), 
+                type: 'latex', 
+                latex: 'x = \\frac{-b \\pm \\sqrt{b^2 - 4ac}}{2a}', 
+                color: '#ffffff', 
+                size: 80,
+                strokeEnabled: false, 
+                strokeColor: '#ff0000', 
+                strokeWidth: 2,
+                extrusionEnabled: false, 
+                shadowColor: '#000000', 
+                depth: 10, 
+                extrusionDir: 'br',
+                dropShadowEnabled: false, 
+                dropShadowColor: '#000000', 
+                dropShadowBlur: 20, 
+                dropShadowX: 0, 
+                dropShadowY: 10,
+                x: CANVAS_WIDTH / 2, 
+                y: CANVAS_HEIGHT / 2, 
+                rotation: 0, 
+                scale: 1, 
+                opacity: 100, 
+                blendMode: 'source-over'
+            };
+            updateLatexImage(newLatex, () => {
+                state.elements.push(newLatex);
+                selectElement(newLatex.id);
+                document.querySelector('[data-target="panel-edit"]').click();
+                render();
+            });
         });
 
         editShapeType.addEventListener('change', (e) => { updateProp('shapeType', e.target.value); updateUI(); });
@@ -6006,6 +6340,67 @@ function updateUI() {
             }
         }
 
+        function updateLatexImage(el, callback) {
+            if (!el.latex || typeof MathJax === 'undefined' || !MathJax.tex2svg) {
+                el._latexImg = null;
+                if (callback) callback();
+                return;
+            }
+            try {
+                const container = MathJax.tex2svg(el.latex);
+                const svgEl = container.querySelector('svg');
+                if (!svgEl) {
+                    if (callback) callback();
+                    return;
+                }
+                
+                const viewBoxAttr = svgEl.getAttribute('viewBox');
+                const viewBox = viewBoxAttr ? viewBoxAttr.split(' ').map(Number) : [0, 0, 100, 50];
+                const widthEx = parseFloat(svgEl.getAttribute('width')) || 10;
+                const heightEx = parseFloat(svgEl.getAttribute('height')) || 3;
+                
+                const vbHeight = viewBox[3] || 1000;
+                const scaleFactor = (el.size || 80) / 10;
+                el.width = widthEx * scaleFactor;
+                el.height = heightEx * scaleFactor;
+                
+                const ratio = vbHeight / el.height;
+                const svgStrokeWidth = (el.strokeWidth || 0) * ratio;
+
+                const paths = svgEl.querySelectorAll('path');
+                paths.forEach(p => {
+                    p.setAttribute('fill', el.color || '#ffffff');
+                    if (el.strokeEnabled && el.strokeWidth > 0) {
+                        p.setAttribute('stroke', el.strokeColor || '#ff0000');
+                        p.setAttribute('stroke-width', svgStrokeWidth);
+                        p.setAttribute('paint-order', 'stroke fill');
+                        p.setAttribute('stroke-linejoin', 'round');
+                        p.setAttribute('stroke-linecap', 'round');
+                    } else {
+                        p.removeAttribute('stroke');
+                        p.removeAttribute('stroke-width');
+                    }
+                });
+
+                const svgString = new XMLSerializer().serializeToString(svgEl);
+                const img = new Image();
+                img.crossOrigin = "Anonymous";
+                img.onload = () => {
+                    el._latexImg = img;
+                    if (callback) callback();
+                    render();
+                };
+                img.onerror = () => {
+                    console.error("Failed to load SVG for LaTeX", el.latex);
+                    if (callback) callback();
+                };
+                img.src = 'data:image/svg+xml;charset=utf-8,' + encodeURIComponent(svgString);
+            } catch (err) {
+                console.error("MathJax conversion error:", err);
+                if (callback) callback();
+            }
+        }
+
         function loadFromLibrary(preset) {
             state.bgColor = preset.bgColor || '#231F20';
             state.bgImage = null;
@@ -6016,6 +6411,9 @@ function updateUI() {
                 return true;
             }).map(el => {
                 loadTextureImage(el);
+                if (el.type === 'latex') {
+                    updateLatexImage(el);
+                }
                 if(el.type !== 'image') return el;
                 
                 // Cleanup any corrupted processedImg objects from old presets
@@ -6509,6 +6907,37 @@ function updateUI() {
                     pCtx.lineWidth = el.strokeWidth;
                     pCtx.stroke();
                 }
+            } else if (el.type === 'latex') {
+                if (el._latexImg) {
+                    const w = el.width || 100;
+                    const h = el.height || 50;
+                    
+                    if (el.extrusionEnabled && el.depth > 0) {
+                        let dx = 1, dy = 1;
+                        if (el.extrusionDir === 'bl') { dx = -1; dy = 1; }
+                        else if (el.extrusionDir === 'tr') { dx = 1; dy = -1; }
+                        else if (el.extrusionDir === 'tl') { dx = -1; dy = -1; }
+                        else if (el.extrusionDir === 'b') { dx = 0; dy = 1; }
+                        else if (el.extrusionDir === 't') { dx = 0; dy = -1; }
+                        else if (el.extrusionDir === 'l') { dx = -1; dy = 0; }
+                        else if (el.extrusionDir === 'r') { dx = 1; dy = 0; }
+
+                        const shadowCnv = document.createElement('canvas');
+                        shadowCnv.width = w;
+                        shadowCnv.height = h;
+                        const sctx = shadowCnv.getContext('2d');
+                        sctx.drawImage(el._latexImg, 0, 0, w, h);
+                        sctx.globalCompositeOperation = 'source-in';
+                        sctx.fillStyle = el.shadowColor || '#000000';
+                        sctx.fillRect(0, 0, w, h);
+
+                        for (let i = el.depth; i > 0; i--) {
+                            pCtx.drawImage(shadowCnv, -w/2 + i * dx, -h/2 + i * dy, w, h);
+                        }
+                    }
+
+                    pCtx.drawImage(el._latexImg, -w/2, -h/2, w, h);
+                }
             }
 
             pCtx.restore();
@@ -6518,9 +6947,9 @@ function updateUI() {
         function saveShapePreset() {
             if (!state.selectedId) return;
             const el = state.elements.find(e => e.id === state.selectedId);
-            if (!el || (el.type !== 'shape' && el.type !== 'drawing')) return;
+            if (!el || (el.type !== 'shape' && el.type !== 'drawing' && el.type !== 'latex')) return;
 
-            const name = prompt("Enter a name for this preset:", el.type === 'shape' ? "Custom Shape" : "Custom Stroke");
+            const name = prompt("Enter a name for this preset:", el.type === 'shape' ? "Custom Shape" : (el.type === 'latex' ? "Custom Equation" : "Custom Stroke"));
             if (!name) return;
 
             let presetData = {
@@ -6559,6 +6988,18 @@ function updateUI() {
                     extrusionDir: el.extrusionDir,
                     shadowColor: el.shadowColor,
                     fillEnabled: el.fillEnabled,
+                    strokeEnabled: el.strokeEnabled
+                };
+            } else if (el.type === 'latex') {
+                presetData = {
+                    ...presetData,
+                    latex: el.latex,
+                    size: el.size,
+                    depth: el.depth,
+                    extrusionEnabled: el.extrusionEnabled,
+                    extrusionDir: el.extrusionDir,
+                    shadowColor: el.shadowColor,
+                    shadowOpacity: el.shadowOpacity,
                     strokeEnabled: el.strokeEnabled
                 };
             } else if (el.type === 'drawing') {
@@ -6604,6 +7045,9 @@ function updateUI() {
             }
 
             loadTextureImage(newEl);
+            if (newEl.type === 'latex') {
+                updateLatexImage(newEl);
+            }
             state.elements.push(newEl);
             selectElement(newEl.id);
             render();
