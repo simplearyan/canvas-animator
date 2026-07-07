@@ -544,6 +544,31 @@
                                     <label class="block text-[10px] font-bold text-pro-500 dark:text-pro-400 uppercase tracking-widest mb-2 px-1">LaTeX Code</label>
                                     <textarea id="editLatexInput" rows="3" class="w-full text-xs p-2 border border-pro-300 dark:border-pro-600 bg-pro-50 dark:bg-pro-900 rounded focus:outline-none focus:border-brand-500 font-mono text-pro-800 dark:text-pro-100" placeholder="e.g. x = \frac{-b \pm \sqrt{b^2-4ac}}{2a}"></textarea>
                                 </div>
+                                <div class="grid grid-cols-3 gap-2">
+                                    <div class="bg-white dark:bg-pro-800 border border-pro-200 dark:border-pro-700 p-2 rounded-md shadow-sm">
+                                        <label class="block text-[9px] font-bold text-pro-500 dark:text-pro-400 uppercase tracking-widest mb-1.5 px-0.5">Family</label>
+                                        <select id="editLatexFamily" class="w-full text-[11px] p-1 bg-pro-50 dark:bg-pro-900 border border-pro-300 dark:border-pro-600 rounded focus:outline-none focus:border-brand-500 text-pro-800 dark:text-pro-200 cursor-pointer font-bold">
+                                            <option value="default">Default Math</option>
+                                            <option value="serif">Serif</option>
+                                            <option value="sans">Sans-Serif</option>
+                                            <option value="mono">Monospace</option>
+                                        </select>
+                                    </div>
+                                    <div class="bg-white dark:bg-pro-800 border border-pro-200 dark:border-pro-700 p-2 rounded-md shadow-sm">
+                                        <label class="block text-[9px] font-bold text-pro-500 dark:text-pro-400 uppercase tracking-widest mb-1.5 px-0.5">Weight</label>
+                                        <select id="editLatexWeight" class="w-full text-[11px] p-1 bg-pro-50 dark:bg-pro-900 border border-pro-300 dark:border-pro-600 rounded focus:outline-none focus:border-brand-500 text-pro-800 dark:text-pro-200 cursor-pointer font-bold">
+                                            <option value="normal">Regular</option>
+                                            <option value="bold">Bold</option>
+                                        </select>
+                                    </div>
+                                    <div class="bg-white dark:bg-pro-800 border border-pro-200 dark:border-pro-700 p-2 rounded-md shadow-sm">
+                                        <label class="block text-[9px] font-bold text-pro-500 dark:text-pro-400 uppercase tracking-widest mb-1.5 px-0.5">Style</label>
+                                        <select id="editLatexStyle" class="w-full text-[11px] p-1 bg-pro-50 dark:bg-pro-900 border border-pro-300 dark:border-pro-600 rounded focus:outline-none focus:border-brand-500 text-pro-800 dark:text-pro-200 cursor-pointer font-bold">
+                                            <option value="italic">Italic</option>
+                                            <option value="normal">Normal</option>
+                                        </select>
+                                    </div>
+                                </div>
                                 <div class="grid grid-cols-2 gap-2">
                                     <div class="bg-white dark:bg-pro-800 border border-pro-200 dark:border-pro-700 p-3 rounded-md shadow-sm">
                                         <div class="flex items-center justify-between mb-2">
@@ -2271,6 +2296,9 @@
         const editLatexColorHex = document.getElementById('editLatexColorHex');
         const editLatexSize = document.getElementById('editLatexSize');
         const editLatexSizeVal = document.getElementById('editLatexSizeVal');
+        const editLatexFamily = document.getElementById('editLatexFamily');
+        const editLatexWeight = document.getElementById('editLatexWeight');
+        const editLatexStyle = document.getElementById('editLatexStyle');
         const toggleShapeFillBtn = document.getElementById('toggleShapeFillBtn');
 
         // Toggles & Settings Containers
@@ -4988,6 +5016,9 @@ function updateUI() {
                     editLatexColorHex.value = (el.color || '#ffffff').toUpperCase();
                     editLatexSize.value = el.size || 80;
                     editLatexSizeVal.textContent = `${el.size || 80}px`;
+                    editLatexFamily.value = el.mathFontFamily || 'default';
+                    editLatexWeight.value = el.mathFontWeight || 'normal';
+                    editLatexStyle.value = el.mathFontStyle || 'italic';
 
                     editTextShadowColor.value = (el.shadowColor || '#000000').substring(0, 7);
                     editTextShadowColorHex.value = (el.shadowColor || '#000000').toUpperCase();
@@ -5229,7 +5260,7 @@ function updateUI() {
             const el = state.elements.find(e => e.id === state.selectedId);
             if(el) {
                 el[prop] = value;
-                if (el.type === 'latex' && ['latex', 'color', 'size', 'strokeEnabled', 'strokeColor', 'strokeWidth'].includes(prop)) {
+                if (el.type === 'latex' && ['latex', 'color', 'size', 'strokeEnabled', 'strokeColor', 'strokeWidth', 'mathFontFamily', 'mathFontWeight', 'mathFontStyle'].includes(prop)) {
                     updateLatexImage(el, () => {
                         render();
                     });
@@ -5282,6 +5313,15 @@ function updateUI() {
                     render();
                 });
             }
+        });
+        editLatexFamily.addEventListener('change', (e) => {
+            updateProp('mathFontFamily', e.target.value);
+        });
+        editLatexWeight.addEventListener('change', (e) => {
+            updateProp('mathFontWeight', e.target.value);
+        });
+        editLatexStyle.addEventListener('change', (e) => {
+            updateProp('mathFontStyle', e.target.value);
         });
 
         // Text Content & Typography Bindings
@@ -6347,7 +6387,26 @@ function updateUI() {
                 return;
             }
             try {
-                const container = MathJax.tex2svg(el.latex);
+                let renderLatex = el.latex;
+                const family = el.mathFontFamily || 'default';
+                const weight = el.mathFontWeight || 'normal';
+                const style = el.mathFontStyle || 'italic';
+
+                if (style === 'normal') {
+                    renderLatex = `\\mathrm{${renderLatex}}`;
+                }
+                if (weight === 'bold') {
+                    renderLatex = `\\boldsymbol{${renderLatex}}`;
+                }
+                if (family === 'sans') {
+                    renderLatex = `\\mathsf{${renderLatex}}`;
+                } else if (family === 'mono') {
+                    renderLatex = `\\mathtt{${renderLatex}}`;
+                } else if (family === 'serif' && style !== 'normal') {
+                    renderLatex = `\\mathrm{${renderLatex}}`;
+                }
+
+                const container = MathJax.tex2svg(renderLatex);
                 const svgEl = container.querySelector('svg');
                 if (!svgEl) {
                     if (callback) callback();
@@ -6367,18 +6426,20 @@ function updateUI() {
                 const ratio = vbHeight / el.height;
                 const svgStrokeWidth = (el.strokeWidth || 0) * ratio;
 
-                const paths = svgEl.querySelectorAll('path');
-                paths.forEach(p => {
+                const shapes = svgEl.querySelectorAll('path, rect');
+                shapes.forEach(p => {
                     p.setAttribute('fill', el.color || '#ffffff');
-                    if (el.strokeEnabled && el.strokeWidth > 0) {
-                        p.setAttribute('stroke', el.strokeColor || '#ff0000');
-                        p.setAttribute('stroke-width', svgStrokeWidth);
-                        p.setAttribute('paint-order', 'stroke fill');
-                        p.setAttribute('stroke-linejoin', 'round');
-                        p.setAttribute('stroke-linecap', 'round');
-                    } else {
-                        p.removeAttribute('stroke');
-                        p.removeAttribute('stroke-width');
+                    if (p.tagName.toLowerCase() === 'path') {
+                        if (el.strokeEnabled && el.strokeWidth > 0) {
+                            p.setAttribute('stroke', el.strokeColor || '#ff0000');
+                            p.setAttribute('stroke-width', svgStrokeWidth);
+                            p.setAttribute('paint-order', 'stroke fill');
+                            p.setAttribute('stroke-linejoin', 'round');
+                            p.setAttribute('stroke-linecap', 'round');
+                        } else {
+                            p.removeAttribute('stroke');
+                            p.removeAttribute('stroke-width');
+                        }
                     }
                 });
 
@@ -7000,7 +7061,10 @@ function updateUI() {
                     extrusionDir: el.extrusionDir,
                     shadowColor: el.shadowColor,
                     shadowOpacity: el.shadowOpacity,
-                    strokeEnabled: el.strokeEnabled
+                    strokeEnabled: el.strokeEnabled,
+                    mathFontFamily: el.mathFontFamily,
+                    mathFontWeight: el.mathFontWeight,
+                    mathFontStyle: el.mathFontStyle
                 };
             } else if (el.type === 'drawing') {
                 presetData.drawingPoints = el.points;

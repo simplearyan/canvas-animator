@@ -67,7 +67,7 @@ def fetch_and_update_presets():
                 # Basic validation passed
                 if 'text' in data:
                     preset_type = 'text'
-                elif data.get('type') in ['shape', 'drawing'] or 'shapeType' in data or 'points' in data:
+                elif data.get('type') in ['shape', 'drawing', 'latex'] or 'shapeType' in data or 'points' in data or 'latex' in data:
                     preset_type = 'shape'
                 else:
                     # Unknown preset type
