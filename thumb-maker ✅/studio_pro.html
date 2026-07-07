@@ -3024,6 +3024,8 @@
             if(domBoxContainer) domBoxContainer.innerHTML = '';
             
             ctx.clearRect(0, 0, CANVAS_WIDTH, CANVAS_HEIGHT);
+            ctx.imageSmoothingEnabled = true;
+            ctx.imageSmoothingQuality = 'high';
             
             // Draw Background
             if (state.bgImage) {
@@ -5276,7 +5278,7 @@ function updateUI() {
             const el = state.elements.find(e => e.id === state.selectedId);
             if(el) {
                 el[prop] = value;
-                if (el.type === 'latex' && ['latex', 'color', 'size', 'strokeEnabled', 'strokeColor', 'strokeWidth', 'mathFontFamily', 'mathFontWeight', 'mathFontStyle'].includes(prop)) {
+                if (el.type === 'latex' && ['latex', 'color', 'size', 'scale', 'strokeEnabled', 'strokeColor', 'strokeWidth', 'mathFontFamily', 'mathFontWeight', 'mathFontStyle'].includes(prop)) {
                     updateLatexImage(el, () => {
                         render();
                     });
@@ -5828,7 +5830,10 @@ function updateUI() {
             const ids = state.selectedIds || [];
             ids.forEach(id => {
                 const el = state.elements.find(x => x.id === id);
-                if(el) el.scale = Math.max(0.1, (el.scale || 1) - 0.1);
+                if(el) {
+                    el.scale = Math.max(0.1, (el.scale || 1) - 0.1);
+                    if (el.type === 'latex') debouncedUpdateLatexImage(el);
+                }
             });
             if(state.selectedId) {
                 const el = state.elements.find(x => x.id === state.selectedId);
@@ -5837,12 +5842,15 @@ function updateUI() {
             render();
             debouncedSave();
         });
-
+ 
         ctxScaleUp.addEventListener('click', () => {
             const ids = state.selectedIds || [];
             ids.forEach(id => {
                 const el = state.elements.find(x => x.id === id);
-                if(el) el.scale = Math.min(5, (el.scale || 1) + 0.1);
+                if(el) {
+                    el.scale = Math.min(5, (el.scale || 1) + 0.1);
+                    if (el.type === 'latex') debouncedUpdateLatexImage(el);
+                }
             });
             if(state.selectedId) {
                 const el = state.elements.find(x => x.id === state.selectedId);
@@ -6118,7 +6126,7 @@ function updateUI() {
                 type: 'latex', 
                 latex: 'x = \\frac{-b \\pm \\sqrt{b^2 - 4ac}}{2a}', 
                 color: '#ffffff', 
-                size: 80,
+                size: 130,
                 strokeEnabled: false, 
                 strokeColor: '#ff0000', 
                 strokeWidth: 2,
@@ -6472,6 +6480,10 @@ function updateUI() {
                         }
                     }
                 });
+
+                const finalScale = el.scale || 1;
+                svgEl.setAttribute('width', (el.width * finalScale * 8) + 'px');
+                svgEl.setAttribute('height', (el.height * finalScale * 8) + 'px');
 
                 const svgString = new XMLSerializer().serializeToString(svgEl);
                 const img = new Image();
