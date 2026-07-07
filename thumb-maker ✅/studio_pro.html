@@ -163,7 +163,11 @@
     <!-- MathJax for LaTeX Rendering -->
     <script>
         window.MathJax = {
-            tex: { inlineMath: [['$', '$'], ['\\(', '\\)']] },
+            loader: { load: ['[tex]/boldsymbol'] },
+            tex: { 
+                inlineMath: [['$', '$'], ['\\(', '\\)']],
+                packages: {'[+]': ['boldsymbol']}
+            },
             svg: { fontCache: 'none' }
         };
         window.onMathJaxLoaded = function() {
@@ -6483,6 +6487,17 @@ function updateUI() {
                 };
                 img.src = 'data:image/svg+xml;charset=utf-8,' + encodeURIComponent(svgString);
             } catch (err) {
+                if (err.message && err.message.includes('retry')) {
+                    // Wait for MathJax startup/loader promise to resolve and retry rendering
+                    if (typeof MathJax !== 'undefined' && MathJax.startup && MathJax.startup.promise) {
+                        MathJax.startup.promise.then(() => {
+                            setTimeout(() => {
+                                updateLatexImage(el, callback);
+                            }, 50);
+                        });
+                        return;
+                    }
+                }
                 console.error("MathJax conversion error:", err);
                 if (callback) callback();
             }
