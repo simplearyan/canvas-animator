@@ -3274,8 +3274,8 @@
                                         textScratchCanvas2.height = totalH;
                                     }
                                     
-                                    textScratchCtx1.clearRect(0, 0, totalW, totalH);
-                                    textScratchCtx2.clearRect(0, 0, totalW, totalH);
+                                    textScratchCtx1.clearRect(0, 0, textScratchCanvas1.width, textScratchCanvas1.height);
+                                    textScratchCtx2.clearRect(0, 0, textScratchCanvas2.width, textScratchCanvas2.height);
                                     
                                     // 1. Draw solid black text on scratch 1
                                     textScratchCtx1.font = ctx.font;
@@ -3285,19 +3285,32 @@
                                     textScratchCtx1.fillText(cm.text, padX, padY + charH/2);
                                     
                                     // 2. Draw solid rect on scratch 2, cut out scratch 1
+                                    textScratchCtx2.save();
                                     textScratchCtx2.fillStyle = '#000000';
                                     textScratchCtx2.fillRect(0, 0, totalW, totalH);
                                     textScratchCtx2.globalCompositeOperation = 'destination-out';
                                     textScratchCtx2.drawImage(textScratchCanvas1, 0, 0);
+                                    textScratchCtx2.restore();
                                     
-                                    // 3. Draw shadow of scratch 2 onto scratch 1, clipped
+                                    // 3. Clear scratch 1 and draw the shadow of scratch 2 onto it (source-over)
+                                    textScratchCtx1.clearRect(0, 0, textScratchCanvas1.width, textScratchCanvas1.height);
+                                    
                                     textScratchCtx1.save();
-                                    textScratchCtx1.globalCompositeOperation = 'source-in';
                                     textScratchCtx1.shadowColor = getColorWithOpacity(el.innerShadowColor, el.innerShadowOpacity !== undefined ? el.innerShadowOpacity : 50);
                                     textScratchCtx1.shadowBlur = el.innerShadowBlur !== undefined ? el.innerShadowBlur : 10;
                                     textScratchCtx1.shadowOffsetX = (el.innerShadowX !== undefined ? el.innerShadowX : 5) + 99999;
                                     textScratchCtx1.shadowOffsetY = el.innerShadowY !== undefined ? el.innerShadowY : 5;
                                     textScratchCtx1.drawImage(textScratchCanvas2, -99999, 0);
+                                    textScratchCtx1.restore();
+                                    
+                                    // 4. Clip the shadow to the text shape using destination-in
+                                    textScratchCtx1.save();
+                                    textScratchCtx1.globalCompositeOperation = 'destination-in';
+                                    textScratchCtx1.font = ctx.font;
+                                    textScratchCtx1.fillStyle = '#000000';
+                                    textScratchCtx1.textAlign = 'left';
+                                    textScratchCtx1.textBaseline = 'middle';
+                                    textScratchCtx1.fillText(cm.text, padX, padY + charH/2);
                                     textScratchCtx1.restore();
                                     
                                     // 4. Draw scratch 1 onto main canvas
