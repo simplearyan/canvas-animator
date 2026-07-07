@@ -2799,6 +2799,7 @@
             bgColorHex.value = state.bgColor.toUpperCase();
             selectElement(null);
             document.querySelector('[data-target="panel-layers"]').click(); // Switch to layers to see them
+            state.elements.forEach(el => loadTextureImage(el));
             ensurePresetFontsLoaded(state.elements);
             render();
             showToast("Preset loaded successfully!");
@@ -3164,7 +3165,7 @@
                         }
                     }
 
-                    if (el.fillEnabled !== false && el.textureEnabled && el.textureSrc && el._textureImg) {
+                    if (el.fillEnabled !== false && el.textureEnabled && el.textureSrc && el._textureImg && (el._textureImg instanceof HTMLImageElement || el._textureImg instanceof HTMLCanvasElement)) {
                         ctx.save();
                         drawShapePath(ctx, el, 0, 0);
                         ctx.clip();
@@ -3445,7 +3446,7 @@
                                     ctx.restore();
                                 }
 
-                                if (!isExtrusionShadow && el.textureEnabled && el.textureSrc && el._textureImg && el.type !== 'emoji') {
+                                if (!isExtrusionShadow && el.textureEnabled && el.textureSrc && el._textureImg && (el._textureImg instanceof HTMLImageElement || el._textureImg instanceof HTMLCanvasElement) && el.type !== 'emoji') {
                                     ctx.save();
                                     
                                     const charW = Math.ceil(cm.width);
@@ -4105,6 +4106,9 @@
             const newEl = JSON.parse(JSON.stringify(el));
             if (el.type === 'image') {
                 newEl.img = el.img;
+            }
+            if (el._textureImg) {
+                newEl._textureImg = el._textureImg;
             }
             newEl.id = generateId();
             newEl.x += offsetX;
@@ -5528,6 +5532,9 @@ function updateUI() {
                 if (el.type === 'image') {
                     newEl.img = el.img;
                 }
+                if (el._textureImg) {
+                    newEl._textureImg = el._textureImg;
+                }
                 newEl.id = generateId();
                 newEl.x += offsetX;
                 newEl.y += offsetY;
@@ -6121,6 +6128,9 @@ function updateUI() {
             CANVAS_HEIGHT = previewHeight;
 
             const clone = JSON.parse(JSON.stringify(el));
+            if (el._textureImg) {
+                clone._textureImg = el._textureImg;
+            }
             clone.x = previewWidth / 2;
             clone.y = previewHeight / 2;
             clone.rotation = 0;
@@ -6221,6 +6231,12 @@ function updateUI() {
                 
                 opacity: el.opacity || 100,
                 blendMode: el.blendMode || 'source-over',
+                textureEnabled: el.textureEnabled,
+                textureSrc: el.textureSrc,
+                textureOpacity: el.textureOpacity,
+                textureBlendMode: el.textureBlendMode,
+                textureFitting: el.textureFitting,
+                textureScale: el.textureScale,
                 letterOverrides: el.letterOverrides ? JSON.parse(JSON.stringify(el.letterOverrides)) : {},
                 wordOverrides: el.wordOverrides ? JSON.parse(JSON.stringify(el.wordOverrides)) : {}
             };
@@ -6259,6 +6275,7 @@ function updateUI() {
             };
             if(!newText.text) newText.text = "Custom Text";
             delete newText.name; // remove the preset name property from element
+            loadTextureImage(newText);
             state.elements.push(newText);
             selectElement(newText.id);
             render();
@@ -6489,7 +6506,13 @@ function updateUI() {
                 dropShadowBlur: el.dropShadowBlur,
                 dropShadowX: el.dropShadowX,
                 dropShadowY: el.dropShadowY,
-                dropShadowOpacity: el.dropShadowOpacity
+                dropShadowOpacity: el.dropShadowOpacity,
+                textureEnabled: el.textureEnabled,
+                textureSrc: el.textureSrc,
+                textureOpacity: el.textureOpacity,
+                textureBlendMode: el.textureBlendMode,
+                textureFitting: el.textureFitting,
+                textureScale: el.textureScale,
             };
 
             if (el.type === 'shape') {
@@ -6548,6 +6571,7 @@ function updateUI() {
                  delete newEl.drawingPoints;
             }
 
+            loadTextureImage(newEl);
             state.elements.push(newEl);
             selectElement(newEl.id);
             render();
