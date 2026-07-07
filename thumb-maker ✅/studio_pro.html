@@ -3386,7 +3386,19 @@
 
                     // 3. Main Equation
                     ctx.globalAlpha = layerAlpha * fillAlpha;
-                    ctx.drawImage(el._latexImg, -w/2, -h/2, w, h);
+                    if (!el.strokeEnabled || el.strokeWidth === 0) {
+                        const tintCnv = document.createElement('canvas');
+                        tintCnv.width = w;
+                        tintCnv.height = h;
+                        const tctx = tintCnv.getContext('2d');
+                        tctx.drawImage(el._latexImg, 0, 0, w, h);
+                        tctx.globalCompositeOperation = 'source-in';
+                        tctx.fillStyle = el.color || '#ffffff';
+                        tctx.fillRect(0, 0, w, h);
+                        ctx.drawImage(tintCnv, -w/2, -h/2, w, h);
+                    } else {
+                        ctx.drawImage(el._latexImg, -w/2, -h/2, w, h);
+                    }
 
                     // 4. Inner Shadow
                     if (el.innerShadowEnabled && el.innerShadowColor) {
@@ -5275,9 +5287,7 @@ function updateUI() {
             const el = state.elements.find(x => x.id === state.selectedId);
             if (el) {
                 el.latex = e.target.value;
-                updateLatexImage(el, () => {
-                    render();
-                });
+                debouncedUpdateLatexImage(el);
             }
         });
         editLatexColor.addEventListener('input', (e) => {
@@ -5285,9 +5295,8 @@ function updateUI() {
             const el = state.elements.find(x => x.id === state.selectedId);
             if (el) {
                 el.color = e.target.value;
-                updateLatexImage(el, () => {
-                    render();
-                });
+                render(); // Instantly update color on canvas synchronously using tinting
+                debouncedUpdateLatexImage(el); // Debounce full vector generation
             }
         });
         editLatexColorHex.addEventListener('input', (e) => {
@@ -5297,9 +5306,8 @@ function updateUI() {
                 const el = state.elements.find(x => x.id === state.selectedId);
                 if (el) {
                     el.color = val;
-                    updateLatexImage(el, () => {
-                        render();
-                    });
+                    render();
+                    debouncedUpdateLatexImage(el);
                 }
             }
         });
@@ -5309,9 +5317,13 @@ function updateUI() {
             const el = state.elements.find(x => x.id === state.selectedId);
             if (el) {
                 el.size = val;
-                updateLatexImage(el, () => {
-                    render();
-                });
+                // Instantly update element scale synchronously
+                if (el.widthEx && el.heightEx) {
+                    el.width = el.widthEx * (val / 10);
+                    el.height = el.heightEx * (val / 10);
+                }
+                render();
+                debouncedUpdateLatexImage(el);
             }
         });
         editLatexFamily.addEventListener('change', (e) => {
@@ -6381,6 +6393,14 @@ function updateUI() {
             }
         }
 
+        let latexUpdateTimeout = null;
+        function debouncedUpdateLatexImage(el, callback) {
+            if (latexUpdateTimeout) clearTimeout(latexUpdateTimeout);
+            latexUpdateTimeout = setTimeout(() => {
+                updateLatexImage(el, callback);
+            }, 100); // 100ms debounce
+        }
+
         function updateLatexImage(el, callback) {
             if (el._latexImg && !(el._latexImg instanceof HTMLImageElement)) {
                 delete el._latexImg;
@@ -6424,6 +6444,8 @@ function updateUI() {
                 
                 const vbHeight = viewBox[3] || 1000;
                 const scaleFactor = (el.size || 80) / 10;
+                el.widthEx = widthEx;
+                el.heightEx = heightEx;
                 el.width = widthEx * scaleFactor;
                 el.height = heightEx * scaleFactor;
                 
