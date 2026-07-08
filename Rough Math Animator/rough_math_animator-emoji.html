@@ -1,0 +1,1199 @@
+<!DOCTYPE html>
+<html lang="en" class="light">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+    <title>Rough Math Animator - LaTeX to Sketch</title>
+    
+    <!-- Favicon Emoji -->
+    <link rel="icon" href="data:image/svg+xml,<svg xmlns=%22http://www.w3.org/2000/svg%22 viewBox=%220 0 100 100%22><text y=%22.9em%22 font-size=%2290%22>📐</text></svg>">
+    
+    <!-- Google Fonts -->
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Caveat:wght@400;600;700&family=Inter:wght@400;500;600&family=Fira+Code:wght@400;500&display=swap" rel="stylesheet">
+
+    <!-- Tailwind CSS -->
+    <script src="https://cdn.tailwindcss.com"></script>
+    <script>
+        tailwind.config = {
+            darkMode: 'class',
+            theme: {
+                extend: {
+                    fontFamily: {
+                        sans: ['Inter', 'sans-serif'],
+                        hand: ['Caveat', 'cursive'],
+                        mono: ['Fira Code', 'monospace'],
+                    },
+                    colors: {
+                        brand: {
+                            50: '#fff1f2',
+                            500: '#f43f5e',
+                            600: '#e11d48',
+                            900: '#881337',
+                        }
+                    }
+                }
+            }
+        }
+    </script>
+
+    <!-- Phosphor Icons -->
+    <script src="https://unpkg.com/@phosphor-icons/web"></script>
+    
+    <!-- Rough.js -->
+    <script src="https://unpkg.com/roughjs@4.5.2/bundled/rough.js"></script>
+
+    <!-- MathJax Configuration & Loader -->
+    <script>
+        window.MathJax = {
+            tex: {
+                packages: {'[+]': ['base', 'ams']}
+            },
+            svg: {
+                fontCache: 'local' // Forces MathJax to emit distinct paths for parsing
+            },
+            startup: {
+                pageReady: () => {
+                    return MathJax.startup.defaultPageReady().then(() => {
+                        window.mathJaxLoaded = true;
+                        document.getElementById('loading-overlay').style.opacity = '0';
+                        setTimeout(() => document.getElementById('loading-overlay').remove(), 300);
+                        // Trigger initial render
+                        document.getElementById('latex-input').dispatchEvent(new Event('input'));
+                    });
+                }
+            }
+        };
+    </script>
+    <script id="MathJax-script" async src="https://cdn.jsdelivr.net/npm/mathjax@3/es5/tex-svg.js"></script>
+
+    <style>
+        body {
+            transition: background-color 0.2s ease, color 0.2s ease;
+            overscroll-behavior-y: none;
+        }
+        
+        /* Custom ranges for toolbar */
+        input[type=range] {
+            -webkit-appearance: none;
+            width: 100%;
+            background: transparent;
+        }
+        input[type=range]::-webkit-slider-thumb {
+            -webkit-appearance: none;
+            height: 16px;
+            width: 16px;
+            border-radius: 50%;
+            background: #f43f5e;
+            cursor: pointer;
+            margin-top: -6px;
+        }
+        input[type=range]:disabled::-webkit-slider-thumb {
+            background: #94a3b8;
+            cursor: not-allowed;
+        }
+        input[type=range]::-webkit-slider-runnable-track {
+            width: 100%;
+            height: 4px;
+            cursor: pointer;
+            background: #cbd5e1;
+            border-radius: 2px;
+        }
+        .dark input[type=range]::-webkit-slider-runnable-track {
+            background: #475569;
+        }
+        
+        /* Container and Canvas wrapper handling */
+        #canvas-container {
+            touch-action: none;
+            transition: background-color 0.3s ease;
+        }
+
+        #drawing-canvas {
+            transition: box-shadow 0.3s ease, border-radius 0.3s ease;
+        }
+
+        /* Custom scrollbars */
+        textarea::-webkit-scrollbar, aside::-webkit-scrollbar {
+            width: 6px;
+        }
+        textarea::-webkit-scrollbar-track, aside::-webkit-scrollbar-track {
+            background: transparent;
+        }
+        textarea::-webkit-scrollbar-thumb, aside::-webkit-scrollbar-thumb {
+            background-color: #cbd5e1;
+            border-radius: 3px;
+        }
+        .dark textarea::-webkit-scrollbar-thumb, .dark aside::-webkit-scrollbar-thumb {
+            background-color: #475569;
+        }
+    </style>
+</head>
+<body class="bg-gray-50 dark:bg-gray-900 text-gray-900 dark:text-gray-100 h-screen flex flex-col overflow-hidden">
+
+    <!-- Loading Overlay for MathJax -->
+    <div id="loading-overlay" class="fixed inset-0 bg-white/90 dark:bg-gray-900/90 z-[100] flex flex-col items-center justify-center transition-opacity duration-300 backdrop-blur-sm">
+        <i class="ph-bold ph-spinner-gap text-5xl text-brand-500 animate-spin mb-4"></i>
+        <h2 class="font-hand text-3xl font-bold text-gray-800 dark:text-white">Loading Math Engine...</h2>
+    </div>
+
+    <!-- HEADER -->
+    <header class="h-16 bg-white dark:bg-gray-800 border-b border-gray-200 dark:border-gray-700 flex items-center justify-between px-4 sm:px-6 flex-shrink-0 z-30 relative">
+        <div class="flex items-center gap-2">
+            <div class="bg-brand-500 text-white p-1.5 rounded-lg">
+                <i class="ph-bold ph-function text-2xl"></i>
+            </div>
+            <h1 class="font-hand text-3xl font-bold tracking-tight text-brand-600 dark:text-brand-400 mt-1">Rough Math</h1>
+        </div>
+        
+        <div class="flex items-center gap-3">
+            
+            <button id="btn-animate" class="flex items-center justify-center gap-2 px-4 py-1.5 bg-gray-900 text-white dark:bg-gray-100 dark:text-gray-900 hover:bg-gray-800 dark:hover:bg-gray-200 rounded-lg text-sm font-bold transition shadow-sm disabled:opacity-50">
+                <i class="ph-fill ph-play-circle text-lg"></i> Preview
+            </button>
+            <button id="btn-record" class="flex items-center justify-center gap-2 px-4 py-1.5 bg-brand-500 hover:bg-brand-600 text-white rounded-lg text-sm font-bold transition shadow-sm disabled:opacity-50 group">
+                <i class="ph-fill ph-record text-lg text-red-100 group-hover:text-red-200"></i> Record Video
+            </button>
+
+            <!-- Export Options Dropdown -->
+            <div class="relative ml-2">
+                <button id="export-dropdown-btn" class="flex items-center gap-2 px-3 py-1.5 bg-gray-100 dark:bg-gray-700 hover:bg-gray-200 dark:hover:bg-gray-600 rounded-lg text-sm font-medium transition text-gray-700 dark:text-gray-200" title="Export Image">
+                    <i class="ph-bold ph-image text-lg"></i>
+                </button>
+                
+                <div id="export-dropdown-menu" class="absolute right-0 mt-2 w-64 bg-white dark:bg-gray-800 border border-gray-200 dark:border-gray-700 rounded-lg shadow-xl hidden z-50 p-3 flex flex-col gap-3">
+                    <div>
+                        <label class="block text-[10px] font-bold text-gray-500 uppercase tracking-wider mb-1">Global Resolution</label>
+                        <p class="text-[9px] text-gray-400 mb-1 leading-tight">Applies to Image & Video exports</p>
+                        <select id="export-res" class="w-full p-2 rounded bg-gray-50 dark:bg-gray-900 border border-gray-200 dark:border-gray-700 text-sm outline-none cursor-pointer focus:ring-1 focus:ring-brand-500">
+                            <option value="HD">HD (1080p)</option>
+                            <option value="2K">2K (1440p)</option>
+                            <option value="4K">4K (2160p)</option>
+                        </select>
+                    </div>
+                    <hr class="border-gray-200 dark:border-gray-700">
+                    <div>
+                        <label class="block text-[10px] font-bold text-gray-500 uppercase tracking-wider mb-1">Image Format</label>
+                        <select id="export-format" class="w-full p-2 rounded bg-gray-50 dark:bg-gray-900 border border-gray-200 dark:border-gray-700 text-sm outline-none cursor-pointer focus:ring-1 focus:ring-brand-500">
+                            <option value="png">PNG (High Quality)</option>
+                            <option value="jpg">JPG (Smaller Size)</option>
+                            <option value="webp">WebP (Modern)</option>
+                        </select>
+                    </div>
+                    <button id="btn-do-export" class="w-full py-2 bg-brand-500 hover:bg-brand-600 text-white rounded font-bold text-sm transition shadow-sm mt-1">
+                        Download Image
+                    </button>
+                </div>
+            </div>
+
+            <div class="w-px h-6 bg-gray-300 dark:bg-gray-600 mx-1"></div>
+
+            <button id="theme-toggle" class="p-2 rounded-full bg-gray-100 dark:bg-gray-700 hover:bg-gray-200 dark:hover:bg-gray-600 transition text-gray-700 dark:text-gray-200" title="Toggle Theme">
+                <i class="ph-fill ph-moon text-lg dark:hidden"></i>
+                <i class="ph-fill ph-sun text-lg hidden dark:block"></i>
+            </button>
+        </div>
+    </header>
+
+    <!-- MAIN APP AREA -->
+    <main class="flex-1 flex flex-col md:flex-row overflow-hidden relative">
+        
+        <!-- Recording Overlay Indicator -->
+        <div id="recording-overlay" class="absolute top-4 left-1/2 -translate-x-1/2 bg-red-500 text-white px-4 py-2 rounded-full font-medium text-sm flex items-center gap-2 shadow-lg z-50 transition-transform duration-300 transform -translate-y-20">
+            <div class="w-3 h-3 bg-white rounded-full animate-pulse"></div>
+            Recording Animation...
+        </div>
+
+        <!-- TOOLBAR / SIDEBAR -->
+        <aside class="w-full md:w-[420px] bg-white dark:bg-gray-800 border-b md:border-b-0 md:border-r border-gray-200 dark:border-gray-700 p-4 md:p-5 flex flex-col gap-4 overflow-y-auto z-10 flex-shrink-0 h-[45vh] md:h-full pb-10">
+            
+            <!-- Sidebar Navigation Tabs -->
+            <div class="flex border-b border-gray-200 dark:border-gray-700 mb-2 gap-1 flex-shrink-0">
+                <button id="tab-equation-btn" class="flex-1 pb-2 text-xs font-bold uppercase tracking-wider border-b-2 border-brand-500 text-brand-600 dark:text-brand-400 flex items-center justify-center gap-1.5 focus:outline-none transition">
+                    <i class="ph-bold ph-function text-base"></i> Equation
+                </button>
+                <button id="tab-style-btn" class="flex-1 pb-2 text-xs font-bold uppercase tracking-wider border-b-2 border-transparent text-gray-500 hover:text-gray-700 dark:text-gray-400 dark:hover:text-gray-200 flex items-center justify-center gap-1.5 focus:outline-none transition">
+                    <i class="ph-bold ph-palette text-base"></i> Style
+                </button>
+                <button id="tab-canvas-btn" class="flex-1 pb-2 text-xs font-bold uppercase tracking-wider border-b-2 border-transparent text-gray-500 hover:text-gray-700 dark:text-gray-400 dark:hover:text-gray-200 flex items-center justify-center gap-1.5 focus:outline-none transition">
+                    <i class="ph-bold ph-desktop text-base"></i> Canvas
+                </button>
+            </div>
+
+            <!-- Tab Content: Equation -->
+            <div id="tab-equation-content" class="flex flex-col gap-5">
+                <!-- Equation Editor -->
+                <div class="flex flex-col gap-2 flex-shrink-0">
+                    <div class="flex justify-between items-center">
+                        <h2 class="text-xs font-bold uppercase tracking-wider text-gray-500 dark:text-gray-400">LaTeX Equation</h2>
+                        <a href="https://en.wikibooks.org/wiki/LaTeX/Mathematics" target="_blank" class="text-xs text-brand-500 hover:underline"><i class="ph ph-info"></i> Guide</a>
+                    </div>
+                    <textarea id="latex-input" class="w-full h-28 p-3 rounded-lg border border-gray-300 dark:border-gray-600 bg-gray-50 dark:bg-gray-900 text-sm font-mono focus:ring-2 focus:ring-brand-500 focus:border-brand-500 outline-none resize-none" spellcheck="false">i\hbar\frac{\partial}{\partial t}\Psi(\mathbf{r},t) = \left[-\frac{\hbar^2}{2m}\nabla^2 + V(\mathbf{r},t)\right]\Psi(\mathbf{r},t)</textarea>
+                </div>
+
+                <!-- Accordion: Quick Templates -->
+                <details class="group bg-gray-50 dark:bg-gray-900 border border-gray-200 dark:border-gray-700 rounded-lg overflow-hidden [&_summary::-webkit-details-marker]:hidden" open>
+                    <summary class="flex items-center justify-between px-3 py-2.5 cursor-pointer select-none hover:bg-gray-100 dark:hover:bg-gray-800 transition">
+                        <span class="text-xs font-bold uppercase tracking-wider text-gray-600 dark:text-gray-300 flex items-center gap-1.5">
+                            <i class="ph-bold ph-brackets-angle text-sm text-brand-500"></i> Complex Templates
+                        </span>
+                        <i class="ph-bold ph-caret-down text-xs text-gray-400 group-open:rotate-180 transition-transform"></i>
+                    </summary>
+                    <div class="p-3 border-t border-gray-200 dark:border-gray-700 grid grid-cols-2 gap-2 bg-white dark:bg-gray-800">
+                        <button class="template-btn py-1.5 bg-gray-100 dark:bg-gray-700 hover:bg-gray-200 dark:hover:bg-gray-600 rounded text-xs font-medium transition truncate px-2 text-gray-800 dark:text-gray-200" data-tex="\rho \left( \frac{\partial \mathbf{v}}{\partial t} + \mathbf{v} \cdot \nabla \mathbf{v} \right) = -\nabla p + \mu \nabla^2 \mathbf{v} + \mathbf{f}">Navier-Stokes Eq.</button>
+                        <button class="template-btn py-1.5 bg-gray-100 dark:bg-gray-700 hover:bg-gray-200 dark:hover:bg-gray-600 rounded text-xs font-medium transition truncate px-2 text-gray-800 dark:text-gray-200" data-tex="i\hbar\frac{\partial}{\partial t}\Psi(\mathbf{r},t) = \left[-\frac{\hbar^2}{2m}\nabla^2 + V(\mathbf{r},t)\right]\Psi(\mathbf{r},t)">Schrödinger Eq.</button>
+                        <button class="template-btn py-1.5 bg-gray-100 dark:bg-gray-700 hover:bg-gray-200 dark:hover:bg-gray-600 rounded text-xs font-medium transition truncate px-2 text-gray-800 dark:text-gray-200" data-tex="R_{\mu\nu} - \frac{1}{2}Rg_{\mu\nu} + \Lambda g_{\mu\nu} = \frac{8\pi G}{c^4}T_{\mu\nu}">Einstein Field Eqs.</button>
+                        <button class="template-btn py-1.5 bg-gray-100 dark:bg-gray-700 hover:bg-gray-200 dark:hover:bg-gray-600 rounded text-xs font-medium transition truncate px-2 text-gray-800 dark:text-gray-200" data-tex="\hat{f}(\xi) = \int_{-\infty}^{\infty} f(x) e^{-i 2\pi \xi x} \,dx">Fourier Transform</button>
+                        <button class="template-btn py-1.5 bg-gray-100 dark:bg-gray-700 hover:bg-gray-200 dark:hover:bg-gray-600 rounded text-xs font-medium transition truncate px-2 text-gray-800 dark:text-gray-200" data-tex="\iint_{\Sigma} (\nabla \times \mathbf{F}) \cdot d\mathbf{S} = \oint_{\partial \Sigma} \mathbf{F} \cdot d\mathbf{r}">Stokes' Theorem</button>
+                        <button class="template-btn py-1.5 bg-gray-100 dark:bg-gray-700 hover:bg-gray-200 dark:hover:bg-gray-600 rounded text-xs font-medium transition truncate px-2 text-gray-800 dark:text-gray-200" data-tex="A = \begin{bmatrix} a_{11} & a_{12} & a_{13} \\ a_{21} & a_{22} & a_{23} \\ a_{31} & a_{32} & a_{33} \end{bmatrix}">3x3 Matrix</button>
+                    </div>
+                </details>
+
+                <!-- Accordion: Real World / Exam Questions -->
+                <details class="group bg-gray-50 dark:bg-gray-900 border border-gray-200 dark:border-gray-700 rounded-lg overflow-hidden [&_summary::-webkit-details-marker]:hidden" open>
+                    <summary class="flex items-center justify-between px-3 py-2.5 cursor-pointer select-none hover:bg-gray-100 dark:hover:bg-gray-800 transition">
+                        <span class="text-xs font-bold uppercase tracking-wider text-gray-600 dark:text-gray-300 flex items-center gap-1.5">
+                            <i class="ph-bold ph-question text-sm text-brand-500"></i> Real-World Questions
+                        </span>
+                        <i class="ph-bold ph-caret-down text-xs text-gray-400 group-open:rotate-180 transition-transform"></i>
+                    </summary>
+                    <div class="p-3 border-t border-gray-200 dark:border-gray-700 flex flex-col gap-2 bg-white dark:bg-gray-800">
+                        <button class="template-btn py-2 bg-gray-100 dark:bg-gray-700 hover:bg-gray-200 dark:hover:bg-gray-600 rounded text-xs font-medium transition px-3 text-left flex items-center justify-between text-gray-800 dark:text-gray-200" 
+                                data-tex="\begin{array}{l}
+\text{Consider the set of vectors } S \text{ in } \mathbb{R}^3: \\
+S = \{(1, 2, 0), (0, 3, 1), (3, 3, -1), (3, 0, -2)\} \\
+\\
+\text{Let } V \text{ be the vector space spanned by } (1, 2, 0) \text{ and } (0, 3, 1). \\
+\text{Which one of the following is correct?} \\
+\\
+\bigcirc \quad V = \{(a, 2a + 3b, b) \mid a, b \in \mathbb{R}\} \\
+\bigcirc \quad V = \{(0, 2a - 3b, b) \mid a, b \in \mathbb{R}\} \\
+\bigcirc \quad V = \{(-a, 2a + 3b, 0) \mid a, b \in \mathbb{R}\} \\
+\bigcirc \quad V = \{(0, 2a + 3b, 0) \mid a, b \in \mathbb{R}\}
+\end{array}">
+                            <span>Linear Algebra Exam Q</span> <i class="ph-bold ph-arrow-right"></i>
+                        </button>
+                        
+                        <button class="template-btn py-2 bg-gray-100 dark:bg-gray-700 hover:bg-gray-200 dark:hover:bg-gray-600 rounded text-xs font-medium transition px-3 text-left flex items-center justify-between text-gray-800 dark:text-gray-200" 
+                                data-tex="\begin{array}{l}
+\text{Q: A car accelerates uniformly from rest to } 20 \text{ m/s} \\
+\text{in } 5 \text{ seconds. Find the distance traveled.} \\
+\\
+v = u + at \implies 20 = 0 + a(5) \implies a = 4 \text{ m/s}^2 \\
+s = ut + \frac{1}{2}at^2 \implies s = 0 + \frac{1}{2}(4)(5^2) \\
+s = 50 \text{ meters}
+\end{array}">
+                            <span>Physics Kinematics Q</span> <i class="ph-bold ph-arrow-right"></i>
+                        </button>
+                    </div>
+                </details>
+            </div>
+
+            <!-- Tab Content: Style -->
+            <div id="tab-style-content" class="hidden flex flex-col gap-5">
+                <!-- Color Picker -->
+                <div>
+                    <label class="block text-sm font-semibold mb-2 text-gray-700 dark:text-gray-300">Pen Color</label>
+                    <div class="flex gap-2 flex-wrap">
+                        <button class="color-btn w-6 h-6 rounded-full border-2 border-transparent hover:scale-110 transition shadow-sm ring-2 ring-offset-2 ring-transparent ring-offset-white dark:ring-offset-gray-800 active-color" data-color="#0f0f0f" style="background-color: #0f0f0f;"></button>
+                        <button class="color-btn w-6 h-6 rounded-full border-2 border-transparent hover:scale-110 transition shadow-sm ring-2 ring-offset-2 ring-transparent ring-offset-white dark:ring-offset-gray-800" data-color="#ef4444" style="background-color: #ef4444;"></button>
+                        <button class="color-btn w-6 h-6 rounded-full border-2 border-transparent hover:scale-110 transition shadow-sm ring-2 ring-offset-2 ring-transparent ring-offset-white dark:ring-offset-gray-800" data-color="#3b82f6" style="background-color: #3b82f6;"></button>
+                        <button class="color-btn w-6 h-6 rounded-full border-2 border-transparent hover:scale-110 transition shadow-sm ring-2 ring-offset-2 ring-transparent ring-offset-white dark:ring-offset-gray-800" data-color="#10b981" style="background-color: #10b981;"></button>
+                        <div class="relative w-6 h-6 rounded-full overflow-hidden border border-gray-300 dark:border-gray-600" title="Custom Pen Color">
+                            <input type="color" id="custom-color" value="#8b5cf6" class="absolute -top-2 -left-2 w-10 h-10 cursor-pointer">
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Font & Fill Styles -->
+                <div class="grid grid-cols-2 gap-4">
+                    <div>
+                        <label class="block text-sm font-semibold mb-1 text-gray-700 dark:text-gray-300">Font Style</label>
+                        <select id="math-font-style" class="w-full p-2 rounded border border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-700 text-sm outline-none focus:ring-2 focus:ring-brand-500">
+                            <option value="normal">Default (Math Roman)</option>
+                            <option value="mathsf">Sans-Serif</option>
+                            <option value="mathtt">Typewriter (Mono)</option>
+                            <option value="mathbf">Bold</option>
+                            <option value="mathit">Italic</option>
+                        </select>
+                    </div>
+                    <div>
+                        <label class="block text-sm font-semibold mb-1 text-gray-700 dark:text-gray-300">Fill Style</label>
+                        <select id="fill-style" class="w-full p-2 rounded border border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-700 text-sm outline-none focus:ring-2 focus:ring-brand-500">
+                            <option value="solid">Solid Marker</option>
+                            <option value="hachure">Pencil Shading</option>
+                            <option value="cross-hatch">Cross Hatch</option>
+                            <option value="none">Outline (Bubble)</option>
+                        </select>
+                    </div>
+                </div>
+
+                <!-- Rough.js Properties: 4 Sliders -->
+                <div class="flex flex-col gap-4 border-t border-gray-100 dark:border-gray-700 pt-4 mt-2">
+                    <div>
+                        <div class="flex justify-between items-center mb-1">
+                            <label class="block text-sm font-semibold text-gray-700 dark:text-gray-300">Scale</label>
+                            <span id="scale-val" class="text-xs text-gray-500 font-mono">1.0x</span>
+                        </div>
+                        <input type="range" id="math-scale" min="0.2" max="3" step="0.1" value="1.0">
+                    </div>
+                    <div>
+                        <div class="flex justify-between items-center mb-1">
+                            <label class="block text-sm font-semibold text-gray-700 dark:text-gray-300">Scribble (Roughness)</label>
+                            <span id="roughness-val" class="text-xs text-gray-500 font-mono">1.5</span>
+                        </div>
+                        <input type="range" id="roughness" min="0" max="4" step="0.5" value="1.5">
+                    </div>
+                    <div>
+                        <div class="flex justify-between items-center mb-1">
+                            <label class="block text-sm font-semibold text-gray-700 dark:text-gray-300">Bowing</label>
+                            <span id="bowing-val" class="text-xs text-gray-500 font-mono">1.0</span>
+                        </div>
+                        <input type="range" id="bowing" min="0" max="10" step="0.5" value="1.0">
+                    </div>
+                    <div>
+                        <div class="flex justify-between items-center mb-1">
+                            <label class="block text-sm font-semibold text-gray-700 dark:text-gray-300">Stroke Width</label>
+                            <span id="stroke-w-val" class="text-xs text-gray-500 font-mono">2.0</span>
+                        </div>
+                        <input type="range" id="stroke-width" min="0.5" max="6" step="0.5" value="2.0">
+                    </div>
+                </div>
+            </div>
+
+            <!-- Tab Content: Canvas Settings -->
+            <div id="tab-canvas-content" class="hidden flex flex-col gap-5">
+                <!-- Ratio / Format -->
+                <div>
+                    <label class="block text-sm font-semibold mb-1 text-gray-700 dark:text-gray-300">Canvas Ratio (Format)</label>
+                    <select id="canvas-ratio" class="w-full p-2 rounded border border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-700 text-sm outline-none focus:ring-2 focus:ring-brand-500">
+                        <option value="auto">Auto (Fill Screen)</option>
+                        <option value="16:9">16:9 (Landscape Video)</option>
+                        <option value="9:16">9:16 (Shorts / Reels)</option>
+                        <option value="1:1">1:1 (Square)</option>
+                    </select>
+                </div>
+
+                <!-- Background Color Picker -->
+                <div>
+                    <label class="block text-sm font-semibold mb-2 text-gray-700 dark:text-gray-300">Background Color</label>
+                    <div class="flex gap-2 flex-wrap">
+                        <button class="bg-color-btn w-6 h-6 rounded-full border-2 border-transparent hover:scale-110 transition shadow-sm ring-2 ring-offset-2 ring-transparent ring-offset-white dark:ring-offset-gray-800 active-bg-color" data-color="#f8fafc" style="background-color: #f8fafc;"></button>
+                        <button class="bg-color-btn w-6 h-6 rounded-full border-2 border-transparent hover:scale-110 transition shadow-sm ring-2 ring-offset-2 ring-transparent ring-offset-white dark:ring-offset-gray-800" data-color="#0f172a" style="background-color: #0f172a;"></button>
+                        <button class="bg-color-btn w-6 h-6 rounded-full border-2 border-transparent hover:scale-110 transition shadow-sm ring-2 ring-offset-2 ring-transparent ring-offset-white dark:ring-offset-gray-800" data-color="#ecfdf5" style="background-color: #ecfdf5;"></button>
+                        <button class="bg-color-btn w-6 h-6 rounded-full border-2 border-transparent hover:scale-110 transition shadow-sm ring-2 ring-offset-2 ring-transparent ring-offset-white dark:ring-offset-gray-800" data-color="#fdf2f8" style="background-color: #fdf2f8;"></button>
+                        <div class="relative w-6 h-6 rounded-full overflow-hidden border border-gray-300 dark:border-gray-600" title="Custom Background Color">
+                            <input type="color" id="custom-bg-color" value="#fffbeb" class="absolute -top-2 -left-2 w-10 h-10 cursor-pointer">
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Seed & Motion (Boiling) -->
+                <div class="flex flex-col gap-4 border-t border-gray-100 dark:border-gray-700 pt-4">
+                    <h2 class="text-xs font-bold uppercase tracking-wider text-gray-500 dark:text-gray-400">Seed & Motion</h2>
+                    
+                    <div class="flex flex-col gap-4">
+                        <!-- Custom Seed -->
+                        <div>
+                            <label class="block text-sm font-semibold mb-1 text-gray-700 dark:text-gray-300">Static Seed</label>
+                            <div class="flex items-center gap-2">
+                                <div class="flex-1 flex items-center bg-gray-50 dark:bg-gray-900 border border-gray-300 dark:border-gray-600 rounded px-2 py-1.5 focus-within:ring-2 focus-within:ring-brand-500 transition">
+                                    <input type="number" id="seed-input" value="1" class="w-full bg-transparent text-sm focus:outline-none text-gray-700 dark:text-gray-200 font-mono">
+                                </div>
+                                <button id="btn-random-seed" class="p-1.5 bg-gray-100 dark:bg-gray-700 hover:bg-gray-200 dark:hover:bg-gray-600 rounded border border-gray-300 dark:border-gray-600 transition" title="Randomize Seed">
+                                    <i class="ph-bold ph-dice-three text-lg text-gray-700 dark:text-gray-200"></i>
+                                </button>
+                            </div>
+                        </div>
+
+                        <!-- Boil Effect -->
+                        <div>
+                            <div class="flex items-center justify-between mb-2">
+                                <label class="text-sm font-semibold text-gray-700 dark:text-gray-300">Boil Effect</label>
+                                <label class="relative inline-flex items-center cursor-pointer">
+                                    <input type="checkbox" id="boil-toggle" class="sr-only peer">
+                                    <div class="w-9 h-5 bg-gray-300 peer-focus:outline-none rounded-full peer dark:bg-gray-600 peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border-gray-300 after:border after:rounded-full after:h-4 after:w-4 after:transition-all peer-checked:bg-brand-500"></div>
+                                </label>
+                            </div>
+                            <div class="flex items-center justify-between bg-gray-50 dark:bg-gray-900 p-2 rounded-lg border border-gray-200 dark:border-gray-700">
+                                <span id="boil-speed-val" class="text-xs text-gray-500 font-mono font-bold uppercase w-12">8 fps</span>
+                                <input type="range" id="boil-speed" min="1" max="24" step="1" value="8" disabled class="flex-1 ml-2 opacity-50">
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </aside>
+
+        <!-- CANVAS AREA -->
+        <section id="canvas-container" class="flex-1 relative flex items-center justify-center overflow-hidden">
+            <canvas id="drawing-canvas"></canvas>
+            
+            <!-- Error State Prompt -->
+            <div id="error-state" class="absolute inset-0 flex flex-col items-center justify-center text-red-500 dark:text-red-400 opacity-0 pointer-events-none transition-opacity duration-300">
+                <i class="ph ph-warning-circle text-6xl mb-2"></i>
+                <p class="font-hand text-2xl">Invalid LaTeX Equation</p>
+            </div>
+        </section>
+
+    </main>
+
+    <script>
+        // --- Core Application Logic ---
+        
+        const htmlElement = document.documentElement;
+        const container = document.getElementById('canvas-container');
+        const canvas = document.getElementById('drawing-canvas');
+        const ctx = canvas.getContext('2d', { willReadFrequently: true });
+        let rc; // RoughCanvas
+        
+        // Recording / High-Res offscreen context
+        let recCanvas = null;
+        let recCtx = null;
+        let recRC = null;
+
+        // App State
+        let currentParsedMath = null;
+        let isAnimating = false;
+        let isRecording = false;
+        let currentDrawIndex = -1; // Controls how much of the path is drawn
+        
+        // Settings State
+        let currentColor = '#0f0f0f';
+        let currentBgColor = '#f8fafc';
+        
+        let currentRatio = 'auto';
+        let currentScale = 1.0;
+        let currentRoughness = 1.5;
+        let currentBowing = 1.0;
+        let currentStrokeWidth = 2.0;
+        let currentFillStyle = 'solid';
+        
+        // Seed & Boiling State
+        let currentSeed = 1;
+        let isBoiling = false;
+        let boilSpeed = 8;
+        let boilTimeout = null;
+
+        // Check Theme
+        if (localStorage.theme === 'dark' || (!('theme' in localStorage) && window.matchMedia('(prefers-color-scheme: dark)').matches)) {
+            htmlElement.classList.add('dark');
+            currentColor = '#f8fafc';
+            currentBgColor = '#0f172a';
+            
+            document.querySelector('.color-btn[data-color="#0f0f0f"]').style.backgroundColor = '#f8fafc';
+            document.querySelector('.color-btn[data-color="#0f0f0f"]').setAttribute('data-color', '#f8fafc');
+            
+            document.querySelector('.bg-color-btn[data-color="#f8fafc"]').style.backgroundColor = '#0f172a';
+            document.querySelector('.bg-color-btn[data-color="#f8fafc"]').setAttribute('data-color', '#0f172a');
+        }
+
+        // Apply initial background
+        updateCanvasBackgroundCSS();
+
+        // --- Canvas Sizing ---
+        function resizeCanvas() {
+            const rect = container.getBoundingClientRect();
+            let targetW = rect.width;
+            let targetH = rect.height;
+
+            if (currentRatio !== 'auto') {
+                const ratioMap = { '16:9': 16/9, '9:16': 9/16, '1:1': 1 };
+                const r = ratioMap[currentRatio];
+                // Fit within container with some padding (40px total)
+                if (rect.width / rect.height > r) {
+                    targetH = rect.height - 40;
+                    targetW = targetH * r;
+                } else {
+                    targetW = rect.width - 40;
+                    targetH = targetW / r;
+                }
+            }
+
+            canvas.width = targetW;
+            canvas.height = targetH;
+            canvas.style.width = targetW + 'px';
+            canvas.style.height = targetH + 'px';
+            
+            rc = rough.canvas(canvas);
+            if (currentParsedMath) redrawMath();
+        }
+        window.addEventListener('resize', resizeCanvas);
+        setTimeout(resizeCanvas, 0);
+
+        // Tab switching logic
+        const tabEquationBtn = document.getElementById('tab-equation-btn');
+        const tabStyleBtn = document.getElementById('tab-style-btn');
+        const tabCanvasBtn = document.getElementById('tab-canvas-btn');
+
+        const tabEquationContent = document.getElementById('tab-equation-content');
+        const tabStyleContent = document.getElementById('tab-style-content');
+        const tabCanvasContent = document.getElementById('tab-canvas-content');
+
+        function switchTab(activeBtn, activeContent) {
+            [tabEquationBtn, tabStyleBtn, tabCanvasBtn].forEach(btn => {
+                btn.classList.remove('border-brand-500', 'text-brand-600', 'dark:text-brand-400');
+                btn.classList.add('border-transparent', 'text-gray-500', 'hover:text-gray-700', 'dark:text-gray-400', 'dark:hover:text-gray-200');
+            });
+            [tabEquationContent, tabStyleContent, tabCanvasContent].forEach(content => {
+                content.classList.add('hidden');
+                content.classList.remove('flex');
+            });
+
+            activeBtn.classList.remove('border-transparent', 'text-gray-500', 'hover:text-gray-700', 'dark:text-gray-400', 'dark:hover:text-gray-200');
+            activeBtn.classList.add('border-brand-500', 'text-brand-600', 'dark:text-brand-400');
+            activeContent.classList.remove('hidden');
+            activeContent.classList.add('flex', 'flex-col', 'gap-5');
+        }
+
+        tabEquationBtn.addEventListener('click', () => switchTab(tabEquationBtn, tabEquationContent));
+        tabStyleBtn.addEventListener('click', () => switchTab(tabStyleBtn, tabStyleContent));
+        tabCanvasBtn.addEventListener('click', () => switchTab(tabCanvasBtn, tabCanvasContent));
+
+        // --- UI Interactions ---
+        document.getElementById('theme-toggle').addEventListener('click', () => {
+            htmlElement.classList.toggle('dark');
+            localStorage.theme = htmlElement.classList.contains('dark') ? 'dark' : 'light';
+            updateCanvasBackgroundCSS();
+            redrawMath();
+        });
+
+        // Templates
+        document.querySelectorAll('.template-btn').forEach(btn => {
+            btn.addEventListener('click', () => {
+                document.getElementById('latex-input').value = btn.getAttribute('data-tex');
+                processLatex();
+            });
+        });
+
+        // Pen Colors
+        const colorBtns = document.querySelectorAll('.color-btn');
+        const customColorBtn = document.getElementById('custom-color');
+
+        function setActiveColorBtn(btn) {
+            colorBtns.forEach(b => b.classList.remove('ring-brand-500'));
+            customColorBtn.parentElement.classList.remove('ring-2', 'ring-brand-500', 'ring-offset-2');
+            if (btn === customColorBtn) {
+                customColorBtn.parentElement.classList.add('ring-2', 'ring-brand-500', 'ring-offset-2');
+            } else {
+                btn.classList.add('ring-brand-500');
+            }
+            if(currentParsedMath) redrawMath();
+        }
+
+        colorBtns.forEach(btn => {
+            btn.addEventListener('click', (e) => {
+                currentColor = e.target.getAttribute('data-color');
+                setActiveColorBtn(e.target);
+            });
+        });
+
+        customColorBtn.addEventListener('input', (e) => {
+            currentColor = e.target.value;
+            setActiveColorBtn(customColorBtn);
+        });
+        setActiveColorBtn(colorBtns[0]);
+
+        // Background Colors
+        const bgColorBtns = document.querySelectorAll('.bg-color-btn');
+        const customBgColorBtn = document.getElementById('custom-bg-color');
+
+        function isDarkColor(color) {
+            const hex = color.replace('#', '');
+            if(hex.length === 6) {
+                const r = parseInt(hex.substr(0, 2), 16);
+                const g = parseInt(hex.substr(2, 2), 16);
+                const b = parseInt(hex.substr(4, 2), 16);
+                return (r * 0.299 + g * 0.587 + b * 0.114) < 128;
+            }
+            return false; // default light
+        }
+
+        function updateCanvasBackgroundCSS() {
+            const isDark = htmlElement.classList.contains('dark');
+            
+            if (currentRatio !== 'auto') {
+                // Container gets solid dark/light backdrop
+                container.style.backgroundColor = isDark ? '#1e293b' : '#e2e8f0'; // slate-800 or slate-200
+                // Canvas gets the math grid
+                canvas.style.backgroundColor = currentBgColor;
+                const isDarkBg = isDarkColor(currentBgColor);
+                const gridColor = isDarkBg ? 'rgba(255,255,255,0.06)' : 'rgba(0,0,0,0.06)';
+                canvas.style.backgroundImage = `
+                    linear-gradient(${gridColor} 1px, transparent 1px),
+                    linear-gradient(90deg, ${gridColor} 1px, transparent 1px)
+                `;
+                canvas.style.backgroundSize = '30px 30px';
+                canvas.style.backgroundPosition = '-1px -1px';
+                canvas.classList.add('shadow-2xl', 'ring-1', isDark ? 'ring-white/10' : 'ring-black/10', 'rounded-md');
+            } else {
+                // Container handles everything
+                canvas.style.background = 'transparent';
+                canvas.classList.remove('shadow-2xl', 'ring-1', 'ring-white/10', 'ring-black/10', 'rounded-md');
+                container.style.backgroundColor = currentBgColor;
+                const isDarkBg = isDarkColor(currentBgColor);
+                const gridColor = isDarkBg ? 'rgba(255,255,255,0.06)' : 'rgba(0,0,0,0.06)';
+                container.style.backgroundImage = `
+                    linear-gradient(${gridColor} 1px, transparent 1px),
+                    linear-gradient(90deg, ${gridColor} 1px, transparent 1px)
+                `;
+            }
+        }
+
+        function setActiveBgColorBtn(btn) {
+            bgColorBtns.forEach(b => b.classList.remove('ring-brand-500'));
+            customBgColorBtn.parentElement.classList.remove('ring-2', 'ring-brand-500', 'ring-offset-2');
+            if (btn === customBgColorBtn) {
+                customBgColorBtn.parentElement.classList.add('ring-2', 'ring-brand-500', 'ring-offset-2');
+            } else {
+                btn.classList.add('ring-brand-500');
+            }
+            updateCanvasBackgroundCSS();
+            if(currentParsedMath) redrawMath();
+        }
+
+        bgColorBtns.forEach(btn => {
+            btn.addEventListener('click', (e) => {
+                currentBgColor = e.target.getAttribute('data-color');
+                setActiveBgColorBtn(e.target);
+            });
+        });
+
+        customBgColorBtn.addEventListener('input', (e) => {
+            currentBgColor = e.target.value;
+            setActiveBgColorBtn(customBgColorBtn);
+        });
+        setActiveBgColorBtn(bgColorBtns[0]);
+
+        // Sliders & Selects
+        document.getElementById('canvas-ratio').addEventListener('change', (e) => {
+            currentRatio = e.target.value;
+            updateCanvasBackgroundCSS();
+            resizeCanvas();
+        });
+
+        document.getElementById('math-scale').addEventListener('input', (e) => {
+            currentScale = parseFloat(e.target.value);
+            document.getElementById('scale-val').textContent = currentScale.toFixed(1) + 'x';
+            if(currentParsedMath) redrawMath();
+        });
+
+        document.getElementById('roughness').addEventListener('input', (e) => {
+            currentRoughness = parseFloat(e.target.value);
+            document.getElementById('roughness-val').textContent = currentRoughness;
+            if(currentParsedMath) redrawMath();
+        });
+
+        document.getElementById('bowing').addEventListener('input', (e) => {
+            currentBowing = parseFloat(e.target.value);
+            document.getElementById('bowing-val').textContent = currentBowing.toFixed(1);
+            if(currentParsedMath) redrawMath();
+        });
+
+        document.getElementById('stroke-width').addEventListener('input', (e) => {
+            currentStrokeWidth = parseFloat(e.target.value);
+            document.getElementById('stroke-w-val').textContent = currentStrokeWidth.toFixed(1);
+            if(currentParsedMath) redrawMath();
+        });
+
+        document.getElementById('fill-style').addEventListener('change', (e) => {
+            currentFillStyle = e.target.value;
+            if(currentParsedMath) redrawMath();
+        });
+        
+        document.getElementById('math-font-style').addEventListener('change', () => {
+            processLatex();
+        });
+
+        // Seed & Boiling Handlers
+        const seedInput = document.getElementById('seed-input');
+        const boilToggle = document.getElementById('boil-toggle');
+        const boilSpeedSlider = document.getElementById('boil-speed');
+
+        seedInput.addEventListener('change', (e) => {
+            currentSeed = parseInt(e.target.value) || 1;
+            redrawMath();
+        });
+
+        document.getElementById('btn-random-seed').addEventListener('click', () => {
+            currentSeed = Math.floor(Math.random() * 1000000);
+            seedInput.value = currentSeed;
+            redrawMath();
+        });
+
+        function updateBoilLoop() {
+            if (isBoiling) {
+                currentSeed = Math.floor(Math.random() * 1000000);
+                if (document.getElementById('seed-input')) {
+                    document.getElementById('seed-input').value = currentSeed;
+                }
+                
+                // If animating, the playAnimation loop will also force redraws, but boil running 
+                // constantly guarantees the seed updates regularly, keeping the effect alive.
+                redrawMath(currentDrawIndex); 
+                
+                boilTimeout = setTimeout(updateBoilLoop, 1000 / boilSpeed);
+            }
+        }
+
+        boilToggle.addEventListener('change', (e) => {
+            isBoiling = e.target.checked;
+            if (isBoiling) {
+                boilSpeedSlider.disabled = false;
+                boilSpeedSlider.classList.remove('opacity-50');
+                updateBoilLoop();
+            } else {
+                boilSpeedSlider.disabled = true;
+                boilSpeedSlider.classList.add('opacity-50');
+                clearTimeout(boilTimeout);
+            }
+        });
+
+        boilSpeedSlider.addEventListener('input', (e) => {
+            boilSpeed = parseInt(e.target.value);
+            document.getElementById('boil-speed-val').textContent = boilSpeed + 'fps';
+        });
+
+        // Export Dropdown Handlers
+        const exportBtn = document.getElementById('export-dropdown-btn');
+        const exportMenu = document.getElementById('export-dropdown-menu');
+
+        exportBtn.addEventListener('click', (e) => {
+            e.stopPropagation();
+            exportMenu.classList.toggle('hidden');
+        });
+
+        document.addEventListener('click', (e) => {
+            if (!exportMenu.contains(e.target) && !exportBtn.contains(e.target)) {
+                exportMenu.classList.add('hidden');
+            }
+        });
+
+        // Logic for high res exports (Image and Video)
+        function getExportDimensions(resolution, ratio, sourceCanvas) {
+            let maxDim;
+            if (resolution === 'HD') maxDim = 1920;
+            else if (resolution === '2K') maxDim = 2560;
+            else if (resolution === '4K') maxDim = 3840;
+
+            let w, h;
+            if (ratio === '16:9') {
+                w = maxDim; h = Math.round(maxDim * 9 / 16);
+            } else if (ratio === '9:16') {
+                h = maxDim; w = Math.round(maxDim * 9 / 16);
+            } else if (ratio === '1:1') {
+                w = maxDim; h = maxDim;
+            } else { // auto
+                const aspect = sourceCanvas.width / sourceCanvas.height;
+                if (aspect > 1) {
+                    w = maxDim; h = Math.round(maxDim / aspect);
+                } else {
+                    h = maxDim; w = Math.round(maxDim * aspect);
+                }
+            }
+            return { w, h };
+        }
+
+        document.getElementById('btn-do-export').addEventListener('click', () => {
+            const format = document.getElementById('export-format').value;
+            const res = document.getElementById('export-res').value;
+            exportMenu.classList.add('hidden');
+            
+            const dims = getExportDimensions(res, currentRatio, canvas);
+
+            // Create temporary canvas for high-res export
+            const tempCanvas = document.createElement('canvas');
+            tempCanvas.width = dims.w;
+            tempCanvas.height = dims.h;
+            const tempCtx = tempCanvas.getContext('2d');
+            const tempRC = rough.canvas(tempCanvas);
+
+            // Temporarily pause boiling to guarantee a clean render frame
+            const wasBoiling = isBoiling;
+            if (isBoiling) {
+                isBoiling = false;
+                clearTimeout(boilTimeout);
+            }
+
+            // Render directly to the high-res context (force bg grid true)
+            renderMathCore(tempCanvas, tempCtx, tempRC, -1, true);
+
+            // Export to data URL
+            const mimeType = format === 'jpg' ? 'image/jpeg' : `image/${format}`;
+            const dataUrl = tempCanvas.toDataURL(mimeType, 1.0);
+
+            // Trigger Download
+            const a = document.createElement('a');
+            a.href = dataUrl;
+            a.download = `rough-math-export-${res}.${format}`;
+            document.body.appendChild(a);
+            a.click();
+            document.body.removeChild(a);
+
+            // Resume boiling
+            if (wasBoiling) {
+                isBoiling = true;
+                updateBoilLoop();
+            }
+        });
+
+
+        // --- MathJax to Rough.js Engine ---
+
+        function applyTransform(matrix, transformStr) {
+            if (!transformStr) return matrix;
+            const regex = /([a-zA-Z]+)\(([^)]+)\)/g;
+            let m = new DOMMatrix(matrix);
+            let match;
+            while ((match = regex.exec(transformStr)) !== null) {
+                const type = match[1];
+                const args = match[2].split(/[,\s]+/).map(parseFloat);
+                if (type === 'translate') {
+                    m = m.translate(args[0], args[1] || 0);
+                } else if (type === 'scale') {
+                    m = m.scale(args[0], args[1] !== undefined ? args[1] : args[0]);
+                } else if (type === 'matrix') {
+                    m = m.multiply(new DOMMatrix(args));
+                }
+            }
+            return m;
+        }
+
+        function extractPaths(svgElement) {
+            const defs = {};
+            svgElement.querySelectorAll('defs path').forEach(p => {
+                defs[p.id] = p.getAttribute('d');
+            });
+
+            const paths = [];
+
+            function traverse(node, currentMatrix) {
+                let matrix = new DOMMatrix(currentMatrix);
+
+                const transform = node.getAttribute('transform');
+                if (transform) {
+                    matrix = applyTransform(matrix, transform);
+                }
+
+                const x = parseFloat(node.getAttribute('x') || 0);
+                const y = parseFloat(node.getAttribute('y') || 0);
+                if (x !== 0 || y !== 0) {
+                    matrix = matrix.translate(x, y);
+                }
+
+                const tagName = node.tagName.toLowerCase();
+                
+                if (tagName === 'use') {
+                    const href = node.getAttribute('href') || node.getAttribute('xlink:href');
+                    if (href) {
+                        const id = href.substring(1);
+                        if (defs[id]) {
+                            paths.push({ d: defs[id], matrix: matrix });
+                        }
+                    }
+                } else if (tagName === 'path' && !node.closest('defs')) {
+                    const d = node.getAttribute('d');
+                    if (d) paths.push({ d: d, matrix: matrix });
+                } else if (tagName === 'rect') {
+                    const w = parseFloat(node.getAttribute('width') || 0);
+                    const h = parseFloat(node.getAttribute('height') || 0);
+                    if (w > 0 && h > 0) {
+                        const d = `M 0 0 L ${w} 0 L ${w} ${h} L 0 ${h} Z`;
+                        paths.push({ d, matrix });
+                    }
+                }
+
+                Array.from(node.children).forEach(child => {
+                    if (child.tagName.toLowerCase() !== 'defs') {
+                        traverse(child, matrix);
+                    }
+                });
+            }
+
+            traverse(svgElement, new DOMMatrix());
+            
+            const viewBox = svgElement.getAttribute('viewBox');
+            let vbArr = [0, 0, 1000, 1000];
+            if (viewBox) {
+                vbArr = viewBox.split(' ').map(parseFloat);
+            }
+            return { paths, viewBox: vbArr };
+        }
+
+        // Processing LaTeX Input
+        let debounceTimer;
+        const latexInput = document.getElementById('latex-input');
+        const errorState = document.getElementById('error-state');
+
+        latexInput.addEventListener('input', () => {
+            clearTimeout(debounceTimer);
+            debounceTimer = setTimeout(processLatex, 300);
+        });
+
+        async function processLatex() {
+            if (!window.mathJaxLoaded) return;
+            let tex = latexInput.value.trim();
+            if (!tex) {
+                currentParsedMath = null;
+                redrawMath();
+                return;
+            }
+
+            // Apply selected font style by wrapping the equation
+            const fontStyle = document.getElementById('math-font-style').value;
+            if (fontStyle !== 'normal') {
+                tex = `\\${fontStyle}{${tex}}`;
+            }
+
+            try {
+                // Generate SVG wrapper element asynchronously
+                const wrapper = await MathJax.tex2svgPromise(tex, { display: true });
+                const svg = wrapper.querySelector('svg');
+                
+                if (!svg) throw new Error("No SVG generated");
+
+                // Check for MathJax parse errors (it emits a specific data-mml-node element)
+                const isError = wrapper.querySelector('[data-mml-node="merror"]');
+                if (isError) {
+                    errorState.style.opacity = '1';
+                    currentParsedMath = null;
+                    redrawMath();
+                    return;
+                }
+                
+                errorState.style.opacity = '0';
+                currentParsedMath = extractPaths(svg);
+                redrawMath();
+
+            } catch (err) {
+                console.error("MathJax rendering error:", err);
+                errorState.style.opacity = '1';
+                currentParsedMath = null;
+                redrawMath();
+            }
+        }
+
+        // --- Core Rendering Engine ---
+        // Draws to ANY context and canvas (useful for High-Res video/image exports)
+        function renderMathCore(targetCanvas, targetCtx, targetRC, upToPathIndex = -1, forceGridBackground = false) {
+            targetCtx.clearRect(0, 0, targetCanvas.width, targetCanvas.height);
+            
+            // Draw opaque background and grid
+            if (isRecording || forceGridBackground || currentRatio !== 'auto') {
+                targetCtx.fillStyle = currentBgColor;
+                targetCtx.fillRect(0, 0, targetCanvas.width, targetCanvas.height);
+                
+                const isDarkBg = isDarkColor(currentBgColor);
+                targetCtx.strokeStyle = isDarkBg ? 'rgba(255,255,255,0.06)' : 'rgba(0,0,0,0.06)';
+                targetCtx.lineWidth = 1;
+                targetCtx.beginPath();
+                for (let x = 0; x <= targetCanvas.width; x += 30) {
+                    targetCtx.moveTo(x, 0);
+                    targetCtx.lineTo(x, targetCanvas.height);
+                }
+                for (let y = 0; y <= targetCanvas.height; y += 30) {
+                    targetCtx.moveTo(0, y);
+                    targetCtx.lineTo(targetCanvas.width, y);
+                }
+                targetCtx.stroke();
+            }
+
+            if (!currentParsedMath || currentParsedMath.paths.length === 0) return;
+
+            const padding = Math.min(targetCanvas.width, targetCanvas.height) * 0.15;
+            const vx = currentParsedMath.viewBox[0];
+            const vy = currentParsedMath.viewBox[1];
+            const vw = currentParsedMath.viewBox[2];
+            const vh = currentParsedMath.viewBox[3];
+
+            // Calculate scale to fit target canvas
+            const baseScale = Math.min((targetCanvas.width - padding*2) / vw, (targetCanvas.height - padding*2) / vh);
+            const finalScale = baseScale * currentScale;
+
+            targetCtx.save();
+            targetCtx.translate(targetCanvas.width / 2, targetCanvas.height / 2);
+            targetCtx.scale(finalScale, finalScale);
+            targetCtx.translate(-(vx + vw / 2), -(vy + vh / 2));
+
+            // Adjust rough.js parameters relative to the huge MathJax coordinate space
+            const roughAmp = currentRoughness * (100 / (finalScale * 100)); 
+            
+            const pathsToDraw = upToPathIndex >= 0 ? currentParsedMath.paths.slice(0, upToPathIndex) : currentParsedMath.paths;
+
+            pathsToDraw.forEach((p, index) => {
+                targetCtx.save();
+                targetCtx.transform(p.matrix.a, p.matrix.b, p.matrix.c, p.matrix.d, p.matrix.e, p.matrix.f);
+                
+                let roughOptions = {
+                    stroke: currentColor,
+                    strokeWidth: currentStrokeWidth / finalScale, 
+                    roughness: roughAmp,
+                    bowing: currentBowing,
+                    // Ensuring stability by appending path index to seed.
+                    seed: currentSeed + index
+                };
+
+                if (currentFillStyle !== 'none') {
+                    roughOptions.fill = currentColor;
+                    roughOptions.fillStyle = currentFillStyle;
+                    
+                    if (currentFillStyle === 'solid') {
+                        roughOptions.strokeWidth = (currentStrokeWidth / 2) / finalScale;
+                    } else {
+                        roughOptions.hachureGap = Math.max(3.5, currentStrokeWidth * 0.8) / finalScale; 
+                        roughOptions.hachureAngle = 60;
+                        roughOptions.strokeWidth = (currentStrokeWidth * 0.4) / finalScale;
+                        roughOptions.fillWeight = (currentStrokeWidth * 0.4) / finalScale;
+                    }
+                } else {
+                    roughOptions.fill = 'none';
+                }
+
+                targetRC.path(p.d, roughOptions);
+                targetCtx.restore();
+            });
+
+            targetCtx.restore();
+        }
+
+        // Standard wrapper for Workspace Rendering (draws to visible canvas and offscreen recording canvas)
+        function redrawMath(upToPathIndex = currentDrawIndex) {
+            // Block manual UI redraws if animating. (Boiling loop is suspended separately).
+            if (isAnimating && upToPathIndex === -1 && currentDrawIndex !== -1) return; 
+            
+            renderMathCore(canvas, ctx, rc, upToPathIndex, false);
+
+            // Sync to the high-res offscreen canvas if recording
+            if (isRecording && recCanvas) {
+                renderMathCore(recCanvas, recCtx, recRC, upToPathIndex, true);
+            }
+        }
+
+        // --- Animation & Recording ---
+        const btnAnimate = document.getElementById('btn-animate');
+        const btnRecord = document.getElementById('btn-record');
+
+        async function playAnimation(recordCallback = null) {
+            if (!currentParsedMath || currentParsedMath.paths.length === 0 || isAnimating) return;
+            
+            isAnimating = true;
+            btnAnimate.disabled = true;
+            btnRecord.disabled = true;
+
+            if (recordCallback) await recordCallback();
+
+            const totalPaths = currentParsedMath.paths.length;
+            const targetDurationMs = 2500; 
+            const delay = Math.max(30, Math.min(200, targetDurationMs / totalPaths));
+
+            // Sequentially draw the paths
+            for (let i = 1; i <= totalPaths; i++) {
+                currentDrawIndex = i;
+                redrawMath(currentDrawIndex);
+                await new Promise(r => setTimeout(r, delay));
+            }
+
+            // Draw full final equation
+            currentDrawIndex = -1;
+            redrawMath(-1);
+
+            isAnimating = false;
+            btnAnimate.disabled = false;
+            btnRecord.disabled = false;
+        }
+
+        btnAnimate.addEventListener('click', () => playAnimation());
+
+        btnRecord.addEventListener('click', async () => {
+            if (!currentParsedMath || currentParsedMath.paths.length === 0 || isAnimating) return;
+            
+            let mediaRecorder;
+            let recordedChunks = [];
+            isRecording = true;
+            
+            try {
+                // Determine recording dimensions
+                const res = document.getElementById('export-res').value;
+                const dims = getExportDimensions(res, currentRatio, canvas);
+                
+                // Initialize high-res offscreen canvas
+                recCanvas = document.createElement('canvas');
+                recCanvas.width = dims.w;
+                recCanvas.height = dims.h;
+                recCtx = recCanvas.getContext('2d', { willReadFrequently: true });
+                recRC = rough.canvas(recCanvas);
+
+                const stream = recCanvas.captureStream(30);
+                let options = { mimeType: 'video/webm;codecs=vp9' };
+                
+                if (!MediaRecorder.isTypeSupported(options.mimeType)) {
+                    options = { mimeType: 'video/webm' };
+                    if (!MediaRecorder.isTypeSupported(options.mimeType)) {
+                        options = { mimeType: 'video/mp4' };
+                    }
+                }
+
+                mediaRecorder = new MediaRecorder(stream, options);
+
+                mediaRecorder.ondataavailable = (e) => {
+                    if (e.data.size > 0) recordedChunks.push(e.data);
+                };
+
+                mediaRecorder.onstop = () => {
+                    const blob = new Blob(recordedChunks, { type: options.mimeType.split(';')[0] });
+                    const url = URL.createObjectURL(blob);
+                    
+                    const a = document.createElement('a');
+                    a.style.display = 'none';
+                    a.href = url;
+                    const ext = options.mimeType.includes('mp4') ? 'mp4' : 'webm';
+                    a.download = `rough-math-video-${res}.${ext}`;
+                    document.body.appendChild(a);
+                    a.click();
+                    
+                    setTimeout(() => {
+                        document.body.removeChild(a);
+                        window.URL.revokeObjectURL(url);
+                    }, 100);
+
+                    document.getElementById('recording-overlay').classList.remove('translate-y-4');
+                    document.getElementById('recording-overlay').classList.add('-translate-y-20');
+                    
+                    isRecording = false;
+                    recCanvas = null;
+                    recCtx = null;
+                    recRC = null;
+                    redrawMath();
+                };
+
+                document.getElementById('recording-overlay').classList.remove('-translate-y-20');
+                document.getElementById('recording-overlay').classList.add('translate-y-4');
+
+                await playAnimation(() => {
+                    mediaRecorder.start();
+                });
+
+                // Hold final frame briefly before stopping.
+                // The boil effect (if active) will continue generating jiggling frames inside this 800ms window!
+                await new Promise(r => setTimeout(r, 800));
+                
+                mediaRecorder.stop();
+
+            } catch (err) {
+                console.error("Recording failed:", err);
+                alert("Recording failed. Your browser might not support canvas recording.");
+                document.getElementById('recording-overlay').classList.remove('translate-y-4');
+                document.getElementById('recording-overlay').classList.add('-translate-y-20');
+                isAnimating = false;
+                isRecording = false;
+                btnAnimate.disabled = false;
+                btnRecord.disabled = false;
+                recCanvas = null;
+                redrawMath();
+            }
+        });
+
+    </script>
+</body>
+</html>
