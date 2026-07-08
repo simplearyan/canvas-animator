@@ -219,6 +219,9 @@
                 <button id="tab-canvas-btn" class="flex-1 pb-2 text-xs font-bold uppercase tracking-wider border-b-2 border-transparent text-gray-500 hover:text-gray-700 dark:text-gray-400 dark:hover:text-gray-200 flex items-center justify-center gap-1.5 focus:outline-none transition">
                     <i class="ph-bold ph-desktop text-base"></i> Canvas
                 </button>
+                <button id="tab-media-btn" class="flex-1 pb-2 text-xs font-bold uppercase tracking-wider border-b-2 border-transparent text-gray-500 hover:text-gray-700 dark:text-gray-400 dark:hover:text-gray-200 flex items-center justify-center gap-1.5 focus:outline-none transition">
+                    <i class="ph-bold ph-folder-open text-base"></i> Media
+                </button>
             </div>
 
             <!-- Tab Content: Equation -->
@@ -485,6 +488,32 @@ s = 50 \text{ meters}
                     </div>
                 </div>
             </div>
+
+            <!-- Tab Content: Media -->
+            <div id="tab-media-content" class="hidden flex flex-col gap-5">
+                <!-- Fetch Google Fonts -->
+                <div class="flex flex-col gap-3">
+                    <h2 class="text-xs font-bold uppercase tracking-wider text-gray-500 dark:text-gray-400">Fetch Google Fonts</h2>
+                    <div class="flex flex-col gap-2">
+                        <label class="block text-sm font-semibold text-gray-700 dark:text-gray-300">Google Font Name</label>
+                        <input type="text" id="google-font-input" placeholder="e.g. Outfit, Lora, Roboto, Caveat..." class="w-full p-2 rounded border border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-700 text-sm outline-none focus:ring-2 focus:ring-brand-500 placeholder-gray-400 dark:placeholder-gray-500">
+                    </div>
+                    <button id="btn-fetch-font" class="w-full py-2 bg-brand-500 hover:bg-brand-600 text-white rounded font-bold text-sm transition shadow-sm flex items-center justify-center gap-1.5">
+                        <i class="ph-bold ph-download-simple"></i> Import Font (100-900)
+                    </button>
+                </div>
+
+                <!-- Active Fonts List -->
+                <div class="flex flex-col gap-2">
+                    <h2 class="text-xs font-bold uppercase tracking-wider text-gray-500 dark:text-gray-400">Active Web Fonts</h2>
+                    <div id="loaded-fonts-list" class="flex flex-col gap-1 text-xs text-gray-500 dark:text-gray-400 bg-gray-50 dark:bg-gray-900 p-3 rounded-lg border border-gray-200 dark:border-gray-700">
+                        <div class="flex items-center justify-between">
+                            <span>Inter (System Default)</span>
+                            <span class="text-[10px] text-green-500 font-bold uppercase">Ready</span>
+                        </div>
+                    </div>
+                </div>
+            </div>
         </aside>
 
         <!-- CANVAS AREA -->
@@ -595,17 +624,19 @@ s = 50 \text{ meters}
         const tabEquationBtn = document.getElementById('tab-equation-btn');
         const tabStyleBtn = document.getElementById('tab-style-btn');
         const tabCanvasBtn = document.getElementById('tab-canvas-btn');
+        const tabMediaBtn = document.getElementById('tab-media-btn');
 
         const tabEquationContent = document.getElementById('tab-equation-content');
         const tabStyleContent = document.getElementById('tab-style-content');
         const tabCanvasContent = document.getElementById('tab-canvas-content');
+        const tabMediaContent = document.getElementById('tab-media-content');
 
         function switchTab(activeBtn, activeContent) {
-            [tabEquationBtn, tabStyleBtn, tabCanvasBtn].forEach(btn => {
+            [tabEquationBtn, tabStyleBtn, tabCanvasBtn, tabMediaBtn].forEach(btn => {
                 btn.classList.remove('border-brand-500', 'text-brand-600', 'dark:text-brand-400');
                 btn.classList.add('border-transparent', 'text-gray-500', 'hover:text-gray-700', 'dark:text-gray-400', 'dark:hover:text-gray-200');
             });
-            [tabEquationContent, tabStyleContent, tabCanvasContent].forEach(content => {
+            [tabEquationContent, tabStyleContent, tabCanvasContent, tabMediaContent].forEach(content => {
                 content.classList.add('hidden');
                 content.classList.remove('flex');
             });
@@ -619,6 +650,7 @@ s = 50 \text{ meters}
         tabEquationBtn.addEventListener('click', () => switchTab(tabEquationBtn, tabEquationContent));
         tabStyleBtn.addEventListener('click', () => switchTab(tabStyleBtn, tabStyleContent));
         tabCanvasBtn.addEventListener('click', () => switchTab(tabCanvasBtn, tabCanvasContent));
+        tabMediaBtn.addEventListener('click', () => switchTab(tabMediaBtn, tabMediaContent));
 
         // --- UI Interactions ---
         document.getElementById('theme-toggle').addEventListener('click', () => {
@@ -823,6 +855,115 @@ s = 50 \text{ meters}
             boilSpeed = parseInt(e.target.value);
             document.getElementById('boil-speed-val').textContent = boilSpeed + 'fps';
         });
+
+        // Google Fonts Loading Engine
+        const loadedFonts = new Set(['Inter']);
+
+        const fetchFontBtn = document.getElementById('btn-fetch-font');
+        const fontInput = document.getElementById('google-font-input');
+
+        if (fetchFontBtn && fontInput) {
+            fetchFontBtn.addEventListener('click', async () => {
+                const fontNameRaw = fontInput.value.trim();
+                if (!fontNameRaw) {
+                    alert("Please enter a Google Font name");
+                    return;
+                }
+
+                // Capitalize correctly (e.g. "outfit font" -> "Outfit Font")
+                const fontName = fontNameRaw.split(' ').map(w => w.charAt(0).toUpperCase() + w.slice(1).toLowerCase()).join(' ');
+
+                if (loadedFonts.has(fontName)) {
+                    alert(`Font "${fontName}" is already loaded!`);
+                    return;
+                }
+
+                const originalHTML = fetchFontBtn.innerHTML;
+                fetchFontBtn.disabled = true;
+                fetchFontBtn.innerHTML = `<i class="ph-bold ph-spinner animate-spin"></i> Fetching...`;
+
+                try {
+                    // Fetch full spectrum weights
+                    const fontUrl = `https://fonts.googleapis.com/css2?family=${fontName.replace(/ /g, '+')}:wght@100;200;300;400;500;600;700;800;900&display=swap`;
+                    
+                    const res = await fetch(fontUrl);
+                    if (!res.ok) throw new Error("Font not found on Google Fonts");
+
+                    const existingLink = document.querySelector(`link[href="${fontUrl}"]`);
+                    if (!existingLink) {
+                        const link = document.createElement('link');
+                        link.rel = 'stylesheet';
+                        link.href = fontUrl;
+                        document.head.appendChild(link);
+                    }
+
+                    // Wait for the font regular weight to load
+                    await document.fonts.load(`400 1em "${fontName}"`);
+                    
+                    loadedFonts.add(fontName);
+
+                    // Add styles for the family
+                    const styleId = `style-${fontName.toLowerCase().replace(/ /g, '-')}`;
+                    if (!document.getElementById(styleId)) {
+                        const styleEl = document.createElement('style');
+                        styleEl.id = styleId;
+                        styleEl.textContent = `
+                            .font-family-${fontName.toLowerCase().replace(/ /g, '-')} {
+                                font-family: '${fontName}', sans-serif;
+                            }
+                        `;
+                        document.head.appendChild(styleEl);
+                    }
+
+                    // Add to UI list of active fonts
+                    const list = document.getElementById('loaded-fonts-list');
+                    const item = document.createElement('div');
+                    item.className = 'flex items-center justify-between mt-2 pt-2 border-t border-gray-100 dark:border-gray-700';
+                    item.innerHTML = `
+                        <span class="font-medium" style="font-family: '${fontName}';">${fontName} (100-900)</span>
+                        <span class="text-[10px] text-green-500 font-bold uppercase flex items-center gap-1"><i class="ph-fill ph-check-circle"></i> Ready</span>
+                    `;
+                    list.appendChild(item);
+
+                    // Add standard weights options to the font style dropdown in the Style tab
+                    const styleSelect = document.getElementById('math-font-style');
+                    const weights = [
+                        { val: '300', name: 'Light (300)' },
+                        { val: '400', name: 'Regular (400)' },
+                        { val: '600', name: 'Semi-Bold (600)' },
+                        { val: '700', name: 'Bold (700)' }
+                    ];
+                    
+                    weights.forEach(w => {
+                        const option = document.createElement('option');
+                        option.value = `loaded-font-${fontName.toLowerCase().replace(/ /g, '-')}-${w.val}`;
+                        option.textContent = `${fontName} - ${w.name}`;
+                        styleSelect.appendChild(option);
+                    });
+
+                    // Clear input and reset button
+                    fontInput.value = '';
+                    fetchFontBtn.disabled = false;
+                    fetchFontBtn.innerHTML = originalHTML;
+                    
+                    // Show success feedback
+                    alert(`Loaded "${fontName}" with weights 100-900 successfully! It is now available under "Font Style" inside the Style tab.`);
+
+                } catch (err) {
+                    console.error("Failed to load Google Font:", err);
+                    fetchFontBtn.disabled = false;
+                    fetchFontBtn.innerHTML = originalHTML;
+                    alert(`Failed to load "${fontName}" from Google Fonts. Please check spelling or internet connection.`);
+                }
+            });
+
+            // Enter key listener to trigger search
+            fontInput.addEventListener('keydown', (e) => {
+                if (e.key === 'Enter') {
+                    fetchFontBtn.click();
+                }
+            });
+        }
 
 
         // Drop Shadow Settings UI bindings
@@ -1065,8 +1206,15 @@ s = 50 \text{ meters}
 
             // Apply selected font style
             const fontStyle = document.getElementById('math-font-style').value;
+            let customFontFamily = '';
+            let customFontWeight = '';
             if (fontStyle !== 'normal') {
-                if (['mathbb', 'mathscr'].includes(fontStyle)) {
+                if (fontStyle.startsWith('loaded-font-')) {
+                    // Format: loaded-font-[family-name]-[weight]
+                    const parts = fontStyle.split('-');
+                    customFontWeight = parts.pop();
+                    customFontFamily = parts.slice(2).map(w => w.charAt(0).toUpperCase() + w.slice(1)).join(' ');
+                } else if (['mathbb', 'mathscr'].includes(fontStyle)) {
                     // MathJax TeX double-struck and script only support uppercase (A-Z) and cause rendering blanks if wrapped globally
                     tex = tex.replace(/(\\[a-zA-Z]+)|([A-Z])/g, (match, cmd, letter) => {
                         return cmd ? cmd : `\\${fontStyle}{${letter}}`;
