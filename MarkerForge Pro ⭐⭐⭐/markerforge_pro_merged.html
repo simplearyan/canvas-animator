@@ -1,0 +1,1906 @@
+<!DOCTYPE html>
+<html lang="en" class="dark">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+    <title>MarkerForge Pro - Material</title>
+    
+    <!-- Favicon Emoji -->
+    <link rel="icon" href="data:image/svg+xml,<svg xmlns=%22http://www.w3.org/2000/svg%22 viewBox=%220 0 100 100%22><text y=%22.9em%22 font-size=%2290%22>🖌️</text></svg>">
+    
+    <!-- Google Fonts & Material Symbols -->
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link rel="preload" as="style" href="https://fonts.googleapis.com/css2?family=Material+Symbols+Rounded:opsz,wght,FILL,GRAD@20..48,100..700,0..1,-50..200&display=block" />
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=Google+Sans:wght@400;500;700&display=swap" rel="stylesheet">
+    <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Material+Symbols+Rounded:opsz,wght,FILL,GRAD@20..48,100..700,0..1,-50..200&display=block" />
+
+    <!-- Tailwind CSS -->
+    <script>
+        // Suppress cdn.tailwindcss.com warning in console
+        const originalWarn = console.warn;
+        console.warn = function(...args) {
+            if (args[0] && typeof args[0] === 'string' && args[0].includes('cdn.tailwindcss.com')) return;
+            originalWarn.apply(console, args);
+        };
+    </script>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <script>
+        tailwind.config = {
+            darkMode: 'class',
+            theme: {
+                extend: {
+                    fontFamily: {
+                        sans: ['"Google Sans"', 'sans-serif'],
+                        inter: ['Inter', 'sans-serif'],
+                        mono: ['ui-monospace', 'SFMono-Regular', 'Menlo', 'Monaco', 'Consolas', 'monospace'],
+                    },
+                    colors: {
+                        google: {
+                            // Light Mode
+                            bg: '#f0f4f9',
+                            surface: '#ffffff',
+                            surfaceHover: '#f0f4f9',
+                            border: '#c7c7c7',
+                            text: '#1f1f1f',
+                            textMuted: '#444746',
+                            primary: '#0b57d0',
+                            primaryHover: '#0842a0',
+                            primaryBg: '#d3e3fd',
+                            // Dark Mode
+                            darkBg: '#131314',
+                            darkSurface: '#1e1e20',
+                            darkSurfaceHover: '#333537',
+                            darkBorder: '#444746',
+                            darkText: '#e3e3e3',
+                            darkTextMuted: '#c4c7c5',
+                            darkPrimary: '#a8c7fa',
+                            darkPrimaryHover: '#d3e3fd',
+                            darkPrimaryBg: '#0842a0',
+                        }
+                    }
+                }
+            }
+        }
+    </script>
+
+    <!-- p5.js Library -->
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/p5.js/1.9.0/p5.min.js"></script>
+
+    <style>
+        body { overscroll-behavior-y: none; }
+        
+        .ms-icon {
+            font-family: 'Material Symbols Rounded';
+            font-weight: normal;
+            font-style: normal;
+            font-size: 20px;
+            line-height: 1;
+            letter-spacing: normal;
+            text-transform: none;
+            display: inline-block;
+            white-space: nowrap;
+            word-wrap: normal;
+            direction: ltr;
+            -webkit-font-smoothing: antialiased;
+        }
+
+        /* Material 3 Styled Range Sliders */
+        input[type=range] {
+            -webkit-appearance: none;
+            width: 100%;
+            background: transparent;
+        }
+        input[type=range]::-webkit-slider-thumb {
+            -webkit-appearance: none;
+            height: 16px;
+            width: 16px;
+            border-radius: 50%;
+            background: #0b57d0;
+            cursor: pointer;
+            margin-top: -6px;
+            transition: transform 0.1s, box-shadow 0.1s;
+        }
+        .dark input[type=range]::-webkit-slider-thumb { background: #a8c7fa; }
+        input[type=range]::-webkit-slider-thumb:hover {
+            transform: scale(1.2);
+            box-shadow: 0 0 0 8px rgba(11, 87, 208, 0.1);
+        }
+        .dark input[type=range]::-webkit-slider-thumb:hover { box-shadow: 0 0 0 8px rgba(168, 199, 250, 0.1); }
+        input[type=range]:disabled::-webkit-slider-thumb { background: #c7c7c7; cursor: not-allowed; box-shadow: none; transform: none; }
+        .dark input[type=range]:disabled::-webkit-slider-thumb { background: #444746; }
+        
+        input[type=range]::-webkit-slider-runnable-track {
+            width: 100%; height: 4px; cursor: pointer; background: #e0e0e0; border-radius: 2px;
+        }
+        .dark input[type=range]::-webkit-slider-runnable-track { background: #444746; }
+
+        /* Scrollbars */
+        ::-webkit-scrollbar { width: 6px; height: 6px; }
+        ::-webkit-scrollbar-track { background: transparent; }
+        ::-webkit-scrollbar-thumb { background-color: #c7c7c7; border-radius: 3px; }
+        .dark ::-webkit-scrollbar-thumb { background-color: #444746; }
+        ::-webkit-scrollbar-thumb:hover { background-color: #a0a0a0; }
+
+        /* Accordion Animations */
+        .accordion-content { display: grid; grid-template-rows: 0fr; transition: grid-template-rows 0.2s ease-out; }
+        .accordion-content.open { grid-template-rows: 1fr; }
+        .accordion-inner { overflow: hidden; min-height: 0; }
+        .accordion-icon { transition: transform 0.2s; }
+        .accordion-icon.open { transform: rotate(180deg); }
+
+        /* P5 Canvas Container */
+        #scale-wrapper {
+            position: absolute;
+            inset: 0;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            overflow: hidden;
+            border-radius: 1rem;
+        }
+        #p5-container canvas {
+            box-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.1), 0 2px 4px -1px rgba(0, 0, 0, 0.06);
+            transform-origin: center center;
+            will-change: transform;
+            cursor: crosshair;
+        }
+        .dark #p5-container canvas {
+            box-shadow: 0 10px 15px -3px rgba(0, 0, 0, 0.5), 0 4px 6px -2px rgba(0, 0, 0, 0.3);
+        }
+    </style>
+</head>
+<body class="bg-google-bg dark:bg-google-darkBg text-google-text dark:text-google-darkText h-screen flex flex-col overflow-hidden transition-colors duration-200">
+
+    <!-- HEADER -->
+    <header class="h-16 flex items-center justify-between px-4 sm:px-6 flex-shrink-0 z-30 transition-colors duration-200">
+        <div class="flex items-center gap-3">
+            <div class="w-9 h-9 rounded bg-google-primary dark:bg-google-darkPrimary flex items-center justify-center text-white dark:text-google-darkBg shadow-sm">
+                <span class="ms-icon text-[22px]">draw</span>
+            </div>
+            <h1 class="font-google text-xl font-medium tracking-tight mt-0.5">MarkerForge <span class="text-google-textMuted dark:text-google-darkTextMuted">Pro</span></h1>
+        </div>
+        
+        <div class="flex items-center gap-2 sm:gap-3">
+            <!-- Utility Actions -->
+            <button onclick="undoStroke()" class="flex items-center justify-center w-9 h-9 text-google-textMuted dark:text-google-darkTextMuted hover:bg-black/5 dark:hover:bg-white/10 rounded-full transition" title="Undo">
+                <span class="ms-icon text-[20px]">undo</span>
+            </button>
+            <button onclick="clearCanvas()" class="flex items-center justify-center w-9 h-9 text-red-500 dark:text-red-400 hover:bg-red-500/10 rounded-full transition" title="Clear Canvas">
+                <span class="ms-icon text-[20px]">delete</span>
+            </button>
+            
+            <div class="w-px h-5 bg-google-border dark:bg-google-darkBorder mx-1"></div>
+
+            <!-- Playback & Export -->
+            <button id="btn-play" onclick="togglePreview()" class="flex items-center gap-2 px-4 py-2 bg-google-surface dark:bg-google-darkSurface border border-google-border dark:border-google-darkBorder hover:bg-google-surfaceHover dark:hover:bg-google-darkSurfaceHover rounded-full text-sm font-medium transition shadow-sm">
+                <span class="ms-icon text-[18px]" id="icon-play">play_arrow</span> <span id="text-play" class="hidden sm:inline">Preview</span>
+            </button>
+            
+            <div class="flex items-center bg-google-primary dark:bg-google-darkPrimary rounded-full shadow-sm overflow-hidden">
+                <select id="export-res" class="bg-transparent text-white dark:text-google-darkBg text-xs font-medium pl-4 pr-1 py-2 outline-none cursor-pointer appearance-none border-none">
+                    <option value="1920" class="text-black">HD (1080p)</option>
+                    <option value="2560" class="text-black">2K (1440p)</option>
+                    <option value="3840" class="text-black">4K (2160p)</option>
+                </select>
+                <div class="w-px h-5 bg-white/30 dark:bg-black/20 mx-1"></div>
+                <button onclick="exportImage()" id="btn-export-img" class="flex items-center justify-center px-3 py-2 text-white dark:text-google-darkBg transition hover:bg-white/10 dark:hover:bg-black/10" title="Export PNG Image">
+                    <span class="ms-icon text-[18px]">image</span>
+                </button>
+                <div class="w-px h-5 bg-white/30 dark:bg-black/20"></div>
+                <button onclick="exportVideo()" id="btn-export-vid" class="flex items-center gap-1.5 px-3 py-2 pr-4 text-white dark:text-google-darkBg text-sm font-medium transition hover:bg-white/10 dark:hover:bg-black/10" title="Export WebM Animation">
+                    <span class="ms-icon text-[18px]">videocam</span> <span class="hidden sm:inline">Video</span>
+                </button>
+            </div>
+
+            <div class="w-px h-5 bg-google-border dark:bg-google-darkBorder mx-1"></div>
+
+            <button id="theme-toggle" class="flex items-center justify-center w-9 h-9 text-google-textMuted dark:text-google-darkTextMuted hover:bg-black/5 dark:hover:bg-white/10 rounded-full transition" title="Toggle Theme">
+                <span class="ms-icon text-[20px]" id="theme-icon">light_mode</span>
+            </button>
+        </div>
+    </header>
+
+    <!-- WORKSPACE -->
+    <div class="flex-1 flex flex-col md:flex-row overflow-hidden p-2 sm:p-4 pt-0 gap-4 relative">
+        
+        <!-- LEFT SIDEBAR (INSPECTOR) -->
+        <aside class="w-full md:w-[380px] bg-google-surface dark:bg-google-darkSurface rounded-2xl border border-google-border dark:border-google-darkBorder flex flex-col overflow-hidden shadow-sm flex-shrink-0 transition-colors duration-200 h-[45vh] md:h-full z-10">
+            
+            <!-- Segmented Control (Tabs) -->
+            <div class="flex p-2 border-b border-google-border dark:border-google-darkBorder shrink-0 bg-google-surface dark:bg-google-darkSurface gap-1">
+                <button class="tab-btn active flex-1 py-1.5 text-[11px] sm:text-xs font-medium rounded-lg transition-colors flex items-center justify-center gap-1 bg-google-primaryBg dark:bg-google-darkPrimaryBg text-google-primary dark:text-google-darkPrimary" data-target="tab-tools">
+                    <span class="ms-icon text-[16px]">edit</span> Tools
+                </button>
+                <button class="tab-btn flex-1 py-1.5 text-[11px] sm:text-xs font-medium rounded-lg transition-colors flex items-center justify-center gap-1 text-google-textMuted dark:text-google-darkTextMuted hover:bg-black/5 dark:hover:bg-white/5" data-target="tab-props">
+                    <span class="ms-icon text-[16px]">tune</span> Props
+                </button>
+                <button class="tab-btn flex-1 py-1.5 text-[11px] sm:text-xs font-medium rounded-lg transition-colors flex items-center justify-center gap-1 text-google-textMuted dark:text-google-darkTextMuted hover:bg-black/5 dark:hover:bg-white/5" data-target="tab-workspace">
+                    <span class="ms-icon text-[16px]">layers</span> Wkspc
+                </button>
+            </div>
+
+            <!-- TAB CONTENT PANELS -->
+            <div class="flex-1 overflow-y-auto p-2">
+                
+                <!-- 1. TOOLS TAB -->
+                <div id="tab-tools" class="tab-panel flex flex-col gap-2">
+                    
+                    <!-- Marker Variants Accordion -->
+                    <div class="border border-google-border dark:border-google-darkBorder rounded-xl bg-white dark:bg-[#282a2c] overflow-hidden">
+                        <button class="accordion-toggle w-full flex items-center justify-between p-3 text-sm font-medium hover:bg-black/5 dark:hover:bg-white/5 transition-colors open">
+                            <div class="flex items-center gap-2"><span class="ms-icon text-[18px] text-google-textMuted dark:text-google-darkTextMuted">brush</span> Marker Variants</div>
+                            <span class="ms-icon accordion-icon open text-[20px]">expand_more</span>
+                        </button>
+                        <div class="accordion-content open">
+                            <div class="accordion-inner">
+                                <div class="p-3 pt-0 grid grid-cols-3 gap-2">
+                                    <button class="tool-btn group relative p-3 rounded-xl border border-google-border dark:border-google-darkBorder bg-google-surface dark:bg-google-darkSurface hover:shadow-md transition-all flex flex-col justify-center items-center gap-1.5 col-span-3 mb-1" data-tool="select" onclick="setTool('select')">
+                                        <span class="ms-icon text-[24px] text-google-textMuted dark:text-google-darkTextMuted group-[.active]:text-google-primary dark:group-[.active]:text-google-darkPrimary transition-colors">arrow_selector_tool</span>
+                                        <span class="text-[10px] font-semibold text-google-textMuted dark:text-google-darkTextMuted group-[.active]:text-google-primary dark:group-[.active]:text-google-darkPrimary transition-colors">Select Tool</span>
+                                        <div class="absolute inset-0 border-2 border-transparent group-[.active]:border-google-primary dark:group-[.active]:border-google-darkPrimary rounded-xl transition-all pointer-events-none"></div>
+                                        <div class="absolute inset-0 bg-google-primary/5 dark:bg-google-primary/10 opacity-0 group-[.active]:opacity-100 rounded-xl transition-opacity pointer-events-none"></div>
+                                    </button>
+
+                                    <button class="tool-btn group relative p-3 rounded-xl border border-google-border dark:border-google-darkBorder bg-google-surface dark:bg-google-darkSurface hover:shadow-md transition-all flex flex-col justify-center items-center gap-1.5" data-tool="chisel" onclick="setTool('chisel')">
+                                        <span class="ms-icon text-[24px] text-google-textMuted dark:text-google-darkTextMuted group-[.active]:text-google-primary dark:group-[.active]:text-google-darkPrimary transition-colors transform -rotate-45">edit</span>
+                                        <span class="text-[10px] font-semibold text-google-textMuted dark:text-google-darkTextMuted group-[.active]:text-google-primary dark:group-[.active]:text-google-darkPrimary transition-colors">Chisel</span>
+                                        <div class="absolute inset-0 border-2 border-transparent group-[.active]:border-google-primary dark:group-[.active]:border-google-darkPrimary rounded-xl transition-all pointer-events-none"></div>
+                                        <div class="absolute inset-0 bg-google-primary/5 dark:bg-google-primary/10 opacity-0 group-[.active]:opacity-100 rounded-xl transition-opacity pointer-events-none"></div>
+                                    </button>
+                                    
+                                    <button class="tool-btn group relative p-3 rounded-xl border border-google-border dark:border-google-darkBorder bg-google-surface dark:bg-google-darkSurface hover:shadow-md transition-all flex flex-col justify-center items-center gap-1.5" data-tool="fine" onclick="setTool('fine')">
+                                        <span class="ms-icon text-[24px] text-google-textMuted dark:text-google-darkTextMuted group-[.active]:text-google-primary dark:group-[.active]:text-google-darkPrimary transition-colors">draw</span>
+                                        <span class="text-[10px] font-semibold text-google-textMuted dark:text-google-darkTextMuted group-[.active]:text-google-primary dark:group-[.active]:text-google-darkPrimary transition-colors">Fine</span>
+                                        <div class="absolute inset-0 border-2 border-transparent group-[.active]:border-google-primary dark:group-[.active]:border-google-darkPrimary rounded-xl transition-all pointer-events-none"></div>
+                                        <div class="absolute inset-0 bg-google-primary/5 dark:bg-google-primary/10 opacity-0 group-[.active]:opacity-100 rounded-xl transition-opacity pointer-events-none"></div>
+                                    </button>
+
+                                    <button class="tool-btn active group relative p-3 rounded-xl border border-google-border dark:border-google-darkBorder bg-google-surface dark:bg-google-darkSurface hover:shadow-md transition-all flex flex-col justify-center items-center gap-1.5" data-tool="highlighter" onclick="setTool('highlighter')">
+                                        <span class="ms-icon text-[24px] text-google-textMuted dark:text-google-darkTextMuted group-[.active]:text-yellow-500 dark:group-[.active]:text-yellow-400 transition-colors">format_ink_highlighter</span>
+                                        <span class="text-[10px] font-semibold text-google-textMuted dark:text-google-darkTextMuted group-[.active]:text-yellow-600 dark:group-[.active]:text-yellow-400 transition-colors">Highlight</span>
+                                        <div class="absolute inset-0 border-2 border-transparent group-[.active]:border-yellow-500 dark:group-[.active]:border-yellow-400 rounded-xl transition-all pointer-events-none"></div>
+                                        <div class="absolute inset-0 bg-yellow-500/10 dark:bg-yellow-400/10 opacity-0 group-[.active]:opacity-100 rounded-xl transition-opacity pointer-events-none"></div>
+                                    </button>
+                                    
+                                    <button class="tool-btn group relative p-3 rounded-xl border border-google-border dark:border-google-darkBorder bg-google-surface dark:bg-google-darkSurface hover:shadow-md transition-all flex flex-col justify-center items-center gap-1.5" data-tool="wetMarker" onclick="setTool('wetMarker')">
+                                        <span class="ms-icon text-[24px] text-google-textMuted dark:text-google-darkTextMuted group-[.active]:text-sky-500 transition-colors">water_drop</span>
+                                        <span class="text-[10px] font-semibold text-google-textMuted dark:text-google-darkTextMuted group-[.active]:text-sky-600 dark:group-[.active]:text-sky-400 transition-colors">Wet</span>
+                                        <div class="absolute inset-0 border-2 border-transparent group-[.active]:border-sky-500 rounded-xl transition-all pointer-events-none"></div>
+                                        <div class="absolute inset-0 bg-sky-500/10 opacity-0 group-[.active]:opacity-100 rounded-xl transition-opacity pointer-events-none"></div>
+                                    </button>
+                                    
+                                    <button class="tool-btn group relative p-3 rounded-xl border border-google-border dark:border-google-darkBorder bg-google-surface dark:bg-google-darkSurface hover:shadow-md transition-all flex flex-col justify-center items-center gap-1.5" data-tool="dryErase" onclick="setTool('dryErase')">
+                                        <span class="ms-icon text-[24px] text-google-textMuted dark:text-google-darkTextMuted group-[.active]:text-gray-500 dark:group-[.active]:text-gray-400 transition-colors">ink_pen</span>
+                                        <span class="text-[10px] font-semibold text-google-textMuted dark:text-google-darkTextMuted group-[.active]:text-gray-600 dark:group-[.active]:text-gray-400 transition-colors">Dry Erase</span>
+                                        <div class="absolute inset-0 border-2 border-transparent group-[.active]:border-gray-500 dark:group-[.active]:border-gray-400 rounded-xl transition-all pointer-events-none"></div>
+                                        <div class="absolute inset-0 bg-gray-500/10 dark:bg-gray-400/10 opacity-0 group-[.active]:opacity-100 rounded-xl transition-opacity pointer-events-none"></div>
+                                    </button>
+                                    
+                                    <button class="tool-btn group relative p-3 rounded-xl border border-google-border dark:border-google-darkBorder bg-google-surface dark:bg-google-darkSurface hover:shadow-md transition-all flex flex-col justify-center items-center gap-1.5" data-tool="brushPen" onclick="setTool('brushPen')">
+                                        <span class="ms-icon text-[24px] text-google-textMuted dark:text-google-darkTextMuted group-[.active]:text-pink-500 transition-colors">gesture</span>
+                                        <span class="text-[10px] font-semibold text-google-textMuted dark:text-google-darkTextMuted group-[.active]:text-pink-600 dark:group-[.active]:text-pink-400 transition-colors">Brush</span>
+                                        <div class="absolute inset-0 border-2 border-transparent group-[.active]:border-pink-500 rounded-xl transition-all pointer-events-none"></div>
+                                        <div class="absolute inset-0 bg-pink-500/10 opacity-0 group-[.active]:opacity-100 rounded-xl transition-opacity pointer-events-none"></div>
+                                    </button>
+                                    
+                                    <button class="tool-btn group relative p-3 rounded-xl border border-google-border dark:border-google-darkBorder bg-google-surface dark:bg-google-darkSurface hover:shadow-md transition-all flex flex-col justify-center items-center gap-1.5" data-tool="paintMarker" onclick="setTool('paintMarker')">
+                                        <span class="ms-icon text-[24px] text-google-textMuted dark:text-google-darkTextMuted group-[.active]:text-emerald-500 transition-colors">format_paint</span>
+                                        <span class="text-[10px] font-semibold text-google-textMuted dark:text-google-darkTextMuted group-[.active]:text-emerald-600 dark:group-[.active]:text-emerald-400 transition-colors">Paint</span>
+                                        <div class="absolute inset-0 border-2 border-transparent group-[.active]:border-emerald-500 rounded-xl transition-all pointer-events-none"></div>
+                                        <div class="absolute inset-0 bg-emerald-500/10 opacity-0 group-[.active]:opacity-100 rounded-xl transition-opacity pointer-events-none"></div>
+                                    </button>
+                                    
+                                    <button class="tool-btn group relative p-3 rounded-xl border border-google-border dark:border-google-darkBorder bg-google-surface dark:bg-google-darkSurface hover:shadow-md transition-all flex flex-col justify-center items-center gap-1.5" data-tool="calligraphy" onclick="setTool('calligraphy')">
+                                        <span class="ms-icon text-[24px] text-google-textMuted dark:text-google-darkTextMuted group-[.active]:text-violet-500 transition-colors">history_edu</span>
+                                        <span class="text-[10px] font-semibold text-google-textMuted dark:text-google-darkTextMuted group-[.active]:text-violet-600 dark:group-[.active]:text-violet-400 transition-colors">Calligraphy</span>
+                                        <div class="absolute inset-0 border-2 border-transparent group-[.active]:border-violet-500 rounded-xl transition-all pointer-events-none"></div>
+                                        <div class="absolute inset-0 bg-violet-500/10 opacity-0 group-[.active]:opacity-100 rounded-xl transition-opacity pointer-events-none"></div>
+                                    </button>
+
+                                    <button class="tool-btn group relative p-3 rounded-xl border border-google-border dark:border-google-darkBorder bg-google-surface dark:bg-google-darkSurface hover:shadow-md transition-all flex flex-col justify-center items-center gap-1.5" data-tool="eraser" onclick="setTool('eraser')">
+                                        <span class="ms-icon text-[24px] text-google-textMuted dark:text-google-darkTextMuted group-[.active]:text-red-500 transition-colors">ink_eraser</span>
+                                        <span class="text-[10px] font-semibold text-google-textMuted dark:text-google-darkTextMuted group-[.active]:text-red-600 dark:group-[.active]:text-red-400 transition-colors">Eraser</span>
+                                        <div class="absolute inset-0 border-2 border-transparent group-[.active]:border-red-500 rounded-xl transition-all pointer-events-none"></div>
+                                        <div class="absolute inset-0 bg-red-500/10 opacity-0 group-[.active]:opacity-100 rounded-xl transition-opacity pointer-events-none"></div>
+                                    </button>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+
+                    <!-- Colors Accordion -->
+                    <div class="border border-google-border dark:border-google-darkBorder rounded-xl bg-white dark:bg-[#282a2c] overflow-hidden flex flex-col">
+                        <button class="accordion-toggle w-full flex items-center justify-between p-3 text-sm font-medium hover:bg-black/5 dark:hover:bg-white/5 transition-colors open">
+                            <div class="flex items-center gap-2"><span class="ms-icon text-[18px] text-google-textMuted dark:text-google-darkTextMuted">palette</span> Colors</div>
+                            <span class="ms-icon accordion-icon open text-[20px]">expand_more</span>
+                        </button>
+                        <div class="accordion-content open">
+                            <div class="accordion-inner">
+                                <div class="p-3 pt-0 flex flex-col">
+                                    <div>
+                                        <label class="block text-xs font-medium text-google-textMuted dark:text-google-darkTextMuted mb-2">Ink Color</label>
+                                        <div class="flex gap-2 flex-wrap items-center">
+                                            <button class="color-btn w-7 h-7 rounded-full border-2 border-transparent shadow-sm ring-2 ring-offset-2 ring-transparent ring-offset-white dark:ring-offset-[#282a2c] transition-all" data-color="#111827" style="background-color: #111827;" onclick="setColor('#111827')"></button>
+                                            <button class="color-btn w-7 h-7 rounded-full border-2 border-transparent shadow-sm ring-2 ring-offset-2 ring-transparent ring-offset-white dark:ring-offset-[#282a2c] transition-all" data-color="#ef4444" style="background-color: #ef4444;" onclick="setColor('#ef4444')"></button>
+                                            <button class="color-btn w-7 h-7 rounded-full border-2 border-transparent shadow-sm ring-2 ring-offset-2 ring-transparent ring-offset-white dark:ring-offset-[#282a2c] transition-all" data-color="#0ea5e9" style="background-color: #0ea5e9;" onclick="setColor('#0ea5e9')"></button>
+                                            <button class="color-btn w-7 h-7 rounded-full border-2 border-transparent shadow-sm ring-2 ring-offset-2 ring-transparent ring-offset-white dark:ring-offset-[#282a2c] transition-all" data-color="#22c55e" style="background-color: #22c55e;" onclick="setColor('#22c55e')"></button>
+                                            <button class="color-btn w-7 h-7 rounded-full border-2 border-transparent shadow-sm ring-2 ring-offset-2 ring-transparent ring-offset-white dark:ring-offset-[#282a2c] active-color transition-all" data-color="#fde047" style="background-color: #fde047;" onclick="setColor('#fde047')"></button>
+                                            
+                                            <div class="w-px h-6 bg-google-border dark:bg-google-darkBorder mx-1"></div>
+
+                                            <div class="relative w-7 h-7 rounded-full overflow-hidden border border-google-border dark:border-google-darkBorder cursor-pointer custom-color-btn transition-all" title="Custom Pen Color">
+                                                <input type="color" id="prop-color" value="#fde047" class="absolute -top-2 -left-2 w-12 h-12 cursor-pointer" onchange="setColor(this.value)" oninput="setColor(this.value)">
+                                            </div>
+                                        </div>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+
+                    <!-- Smart Highlighter Accordion -->
+                    <div class="border border-google-border dark:border-google-darkBorder rounded-xl bg-white dark:bg-[#282a2c] overflow-hidden flex flex-col">
+                        <button class="accordion-toggle w-full flex items-center justify-between p-3 text-sm font-medium hover:bg-black/5 dark:hover:bg-white/5 transition-colors">
+                            <div class="flex items-center gap-2"><span class="ms-icon text-[18px] text-google-textMuted dark:text-google-darkTextMuted">auto_fix_high</span> Smart Highlighter</div>
+                            <span class="ms-icon accordion-icon text-[20px]">expand_more</span>
+                        </button>
+                        <div class="accordion-content">
+                            <div class="accordion-inner">
+                                <div class="p-3 pt-0 flex flex-col">
+                                    <!-- Smart Highlighter Slick UI -->
+                                    <div class="p-4 bg-gradient-to-br from-indigo-50 to-purple-50 dark:from-indigo-950/20 dark:to-purple-950/20 rounded-xl border border-indigo-100 dark:border-indigo-900/30 shadow-sm relative overflow-hidden flex flex-col gap-3">
+                                        <div class="flex items-center gap-2">
+                                            <div class="w-6 h-6 rounded-md bg-gradient-to-br from-indigo-500 to-purple-500 flex items-center justify-center shadow-md">
+                                                <span class="ms-icon text-[14px] text-white">auto_fix_high</span>
+                                            </div>
+                                            <span class="text-xs font-bold tracking-tight bg-clip-text text-transparent bg-gradient-to-r from-indigo-600 to-purple-600 dark:from-indigo-400 dark:to-purple-400">Smart Highlighter</span>
+                                        </div>
+                                        
+                                        <div class="flex gap-3">
+                                            <div class="flex-1">
+                                                <label class="block text-[10px] font-medium text-google-textMuted dark:text-google-darkTextMuted mb-1">Text Color</label>
+                                                <div class="relative w-full h-8 rounded-lg border border-indigo-200 dark:border-indigo-800 shadow-inner overflow-hidden cursor-pointer hover:ring-2 ring-indigo-400 transition-all bg-white dark:bg-black/50">
+                                                    <input type="color" class="absolute w-[200%] h-[200%] -top-2 -left-2 cursor-pointer" value="#000000" id="sc-text-color" oninput="updateSmartColors()">
+                                                </div>
+                                            </div>
+                                            <div class="flex-1">
+                                                <label class="block text-[10px] font-medium text-google-textMuted dark:text-google-darkTextMuted mb-1">Paper Color</label>
+                                                <div class="relative w-full h-8 rounded-lg border border-purple-200 dark:border-purple-800 shadow-inner overflow-hidden cursor-pointer hover:ring-2 ring-purple-400 transition-all bg-white dark:bg-black/50">
+                                                    <input type="color" class="absolute w-[200%] h-[200%] -top-2 -left-2 cursor-pointer" value="#ffffff" id="sc-bg-color" oninput="updateSmartColors()">
+                                                </div>
+                                            </div>
+                                        </div>
+                                        
+                                        <div class="grid grid-cols-3 gap-2" id="sc-recommendations"></div>
+                                        
+                                        <div class="w-full h-14 rounded-lg bg-white dark:bg-black/40 shadow-inner border border-white/50 dark:border-white/5 relative flex items-center justify-center overflow-hidden mt-1" id="sc-preview-box" style="background-color: #ffffff;">
+                                            <div class="font-serif italic font-bold text-xl z-10 select-none transition-colors" id="sc-preview-text" style="color: #000000;">Preview</div>
+                                            <div class="absolute inset-y-2 inset-x-4 rounded-md z-20 pointer-events-none opacity-80 mix-blend-multiply transition-colors" id="sc-preview-highlight" style="background-color: transparent;"></div>
+                                        </div>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+
+                </div>
+
+                <!-- 2. PROPS TAB -->
+                <div id="tab-props" class="tab-panel hidden flex flex-col gap-2">
+                    <!-- Sub-tabs Header -->
+                    <div class="flex p-1 bg-google-bg dark:bg-google-darkBg rounded-lg mb-2">
+                        <button class="sub-tab-btn active flex-1 py-1.5 text-[11px] sm:text-xs font-medium rounded-md bg-white dark:bg-google-darkSurface shadow-sm text-google-primary dark:text-google-darkPrimary transition-all" data-target="sub-prop-ink">Ink</button>
+                        <button class="sub-tab-btn flex-1 py-1.5 text-[11px] sm:text-xs font-medium rounded-md text-google-textMuted dark:text-google-darkTextMuted hover:bg-black/5 dark:hover:bg-white/5 transition-all" data-target="sub-prop-paper">Paper</button>
+                    </div>
+
+                    <!-- Ink Panel -->
+                    <div id="sub-prop-ink" class="sub-tab-panel flex flex-col gap-2">
+                        <div class="border border-google-border dark:border-google-darkBorder rounded-xl bg-white dark:bg-[#282a2c] overflow-hidden">
+                            <div class="p-4 flex flex-col gap-4">
+                                <div class="flex items-center justify-between">
+                                    <label class="text-sm font-medium">Straight Lines</label>
+                                    <label class="relative inline-flex items-center cursor-pointer">
+                                        <input type="checkbox" id="straight-line-toggle" class="sr-only peer" onchange="appState.straightLine = this.checked;">
+                                        <div class="w-9 h-5 bg-gray-300 peer-focus:outline-none rounded-full peer dark:bg-[#444746] peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border-gray-300 after:border after:rounded-full after:h-4 after:w-4 after:transition-all peer-checked:bg-google-primary dark:peer-checked:bg-google-darkPrimary"></div>
+                                    </label>
+                                </div>
+                                <div>
+                                    <div class="flex justify-between items-center mb-1">
+                                        <label class="text-xs font-medium text-google-textMuted dark:text-google-darkTextMuted">Tip Size</label>
+                                        <span id="size-val" class="text-xs font-mono">30px</span>
+                                    </div>
+                                    <input type="range" id="size-slider" min="2" max="150" value="30" oninput="appState.size = parseInt(this.value); document.getElementById('size-val').innerText = this.value + 'px';">
+                                </div>
+                                <div>
+                                    <div class="flex justify-between items-center mb-1">
+                                        <label class="text-xs font-medium text-google-textMuted dark:text-google-darkTextMuted">Ink Opacity</label>
+                                        <span id="opacity-val" class="text-xs font-mono">50%</span>
+                                    </div>
+                                    <input type="range" id="opacity-slider" min="5" max="100" value="50" oninput="appState.opacity = parseInt(this.value); document.getElementById('opacity-val').innerText = this.value + '%';">
+                                </div>
+                                <div>
+                                    <label class="block text-xs font-medium text-google-textMuted dark:text-google-darkTextMuted mb-1">Blend Mode</label>
+                                    <select id="blend-dropdown" class="w-full p-2 rounded-lg bg-google-bg dark:bg-google-darkBg border border-google-border dark:border-google-darkBorder text-sm outline-none cursor-pointer focus:ring-2 focus:ring-google-primary" onchange="appState.blendMode = this.value">
+                                        <option value="auto">Auto (Tool Default)</option>
+                                        <option value="source-over">Normal (Opaque)</option>
+                                        <option value="multiply">Multiply (Highlighter)</option>
+                                    </select>
+                                </div>
+                                
+                                <hr class="border-google-border dark:border-google-darkBorder">
+                                
+                                <div id="prop-angle-container">
+                                    <div class="flex justify-between items-center mb-1">
+                                        <label class="text-xs font-medium text-google-textMuted dark:text-google-darkTextMuted">Marker Angle</label>
+                                        <span id="angle-val" class="text-xs font-mono">45°</span>
+                                    </div>
+                                    <input type="range" id="angle-slider" min="0" max="180" value="45" oninput="appState.angle = parseInt(this.value); document.getElementById('angle-val').innerText = this.value + '°';">
+                                </div>
+                                <div id="prop-texture-container">
+                                    <div class="flex justify-between items-center mb-1">
+                                        <label class="text-xs font-medium text-google-textMuted dark:text-google-darkTextMuted">Bleed / Streakiness</label>
+                                        <span id="texture-val" class="text-xs font-mono">60%</span>
+                                    </div>
+                                    <input type="range" id="texture-slider" min="0" max="100" value="60" oninput="appState.texture = parseInt(this.value); document.getElementById('texture-val').innerText = this.value + '%';">
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+
+                    <!-- Paper Panel -->
+                    <div id="sub-prop-paper" class="sub-tab-panel hidden flex flex-col gap-2">
+                        <div class="border border-google-border dark:border-google-darkBorder rounded-xl bg-white dark:bg-[#282a2c] overflow-hidden p-4 flex flex-col gap-4">
+                            <div class="flex items-center justify-between">
+                                <label class="text-sm font-medium">Transparent Background</label>
+                                <label class="relative inline-flex items-center cursor-pointer">
+                                    <input type="checkbox" id="bg-transparent-toggle" class="sr-only peer" onchange="appState.bgTransparent = this.checked; updateBg();">
+                                    <div class="w-9 h-5 bg-gray-300 peer-focus:outline-none rounded-full peer dark:bg-[#444746] peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border-gray-300 after:border after:rounded-full after:h-4 after:w-4 after:transition-all peer-checked:bg-google-primary dark:peer-checked:bg-google-darkPrimary"></div>
+                                </label>
+                            </div>
+                            
+                            <div>
+                                <label class="block text-xs font-medium text-google-textMuted dark:text-google-darkTextMuted mb-2">Paper Color</label>
+                                <div class="flex gap-2 flex-wrap items-center">
+                                    <button class="bg-color-btn w-7 h-7 rounded-full border-2 border-transparent shadow-sm ring-2 ring-offset-2 ring-transparent ring-offset-white dark:ring-offset-[#282a2c] active-bg-color transition-all" data-color="#ffffff" style="background-color: #ffffff;" onclick="setBgColor('#ffffff')"></button>
+                                    <button class="bg-color-btn w-7 h-7 rounded-full border-2 border-transparent shadow-sm ring-2 ring-offset-2 ring-transparent ring-offset-white dark:ring-offset-[#282a2c] transition-all" data-color="#f8fafc" style="background-color: #f8fafc;" onclick="setBgColor('#f8fafc')"></button>
+                                    <button class="bg-color-btn w-7 h-7 rounded-full border-2 border-transparent shadow-sm ring-2 ring-offset-2 ring-transparent ring-offset-white dark:ring-offset-[#282a2c] transition-all" data-color="#fef3c7" style="background-color: #fef3c7;" onclick="setBgColor('#fef3c7')"></button>
+                                    <button class="bg-color-btn w-7 h-7 rounded-full border-2 border-transparent shadow-sm ring-2 ring-offset-2 ring-transparent ring-offset-white dark:ring-offset-[#282a2c] transition-all" data-color="#18181b" style="background-color: #18181b;" onclick="setBgColor('#18181b')"></button>
+                                    
+                                    <div class="relative w-7 h-7 rounded-full overflow-hidden border border-google-border dark:border-google-darkBorder cursor-pointer custom-bg-btn transition-all" title="Custom Paper Color">
+                                        <input type="color" id="bg-color" value="#ffffff" class="absolute -top-2 -left-2 w-12 h-12 cursor-pointer" onchange="setBgColor(this.value)" oninput="setBgColor(this.value)">
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- 3. WORKSPACE TAB -->
+                <div id="tab-workspace" class="tab-panel hidden flex flex-col gap-2">
+                    
+                    <!-- Camera Accordion -->
+                    <div class="border border-google-border dark:border-google-darkBorder rounded-xl bg-white dark:bg-[#282a2c] overflow-hidden">
+                        <button class="accordion-toggle w-full flex items-center justify-between p-3 text-sm font-medium hover:bg-black/5 dark:hover:bg-white/5 transition-colors open">
+                            <div class="flex items-center gap-2"><span class="ms-icon text-[18px] text-google-textMuted dark:text-google-darkTextMuted">photo_camera</span> Camera / Viewport</div>
+                            <span class="ms-icon accordion-icon open text-[20px]">expand_more</span>
+                        </button>
+                        <div class="accordion-content open">
+                            <div class="accordion-inner">
+                                <div class="p-3 pt-0 flex flex-col gap-4">
+                                    <button onclick="resetCamera()" class="w-full py-1.5 text-xs font-medium rounded-lg border border-google-border dark:border-google-darkBorder hover:bg-black/5 dark:hover:bg-white/5 transition">Reset View</button>
+                                    <div>
+                                        <div class="flex justify-between items-center mb-1">
+                                            <label class="text-xs font-medium text-google-textMuted dark:text-google-darkTextMuted">Zoom</label>
+                                            <span id="zoom-val" class="text-xs font-mono">100%</span>
+                                        </div>
+                                        <input type="range" id="zoom-slider" min="10" max="500" value="100" oninput="setCameraZoom(this.value)">
+                                    </div>
+                                    <div>
+                                        <div class="flex justify-between items-center mb-1">
+                                            <label class="text-xs font-medium text-google-textMuted dark:text-google-darkTextMuted">Pan X</label>
+                                            <span id="panx-val" class="text-xs font-mono">0px</span>
+                                        </div>
+                                        <input type="range" id="panx-slider" min="-3840" max="3840" value="0" oninput="setCameraPanX(this.value)">
+                                    </div>
+                                    <div>
+                                        <div class="flex justify-between items-center mb-1">
+                                            <label class="text-xs font-medium text-google-textMuted dark:text-google-darkTextMuted">Pan Y</label>
+                                            <span id="pany-val" class="text-xs font-mono">0px</span>
+                                        </div>
+                                        <input type="range" id="pany-slider" min="-2160" max="2160" value="0" oninput="setCameraPanY(this.value)">
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+
+                    <!-- Reference Image Accordion -->
+                    <div class="border border-google-border dark:border-google-darkBorder rounded-xl bg-white dark:bg-[#282a2c] overflow-hidden">
+                        <button class="accordion-toggle w-full flex items-center justify-between p-3 text-sm font-medium hover:bg-black/5 dark:hover:bg-white/5 transition-colors open">
+                            <div class="flex items-center gap-2"><span class="ms-icon text-[18px] text-google-textMuted dark:text-google-darkTextMuted">image</span> Reference Guide</div>
+                            <span class="ms-icon accordion-icon open text-[20px]">expand_more</span>
+                        </button>
+                        <div class="accordion-content open">
+                            <div class="accordion-inner">
+                                <div class="p-3 pt-0 flex flex-col gap-3">
+                                    <div class="flex items-center justify-between">
+                                        <label class="text-sm font-medium text-google-textMuted dark:text-google-darkTextMuted">Show Image</label>
+                                        <label class="relative inline-flex items-center cursor-pointer">
+                                            <input type="checkbox" id="ref-image-toggle" class="sr-only peer" onchange="appState.showRefImage = this.checked; updateBg();">
+                                            <div class="w-9 h-5 bg-gray-300 peer-focus:outline-none rounded-full peer dark:bg-[#444746] peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border-gray-300 after:border after:rounded-full after:h-4 after:w-4 after:transition-all peer-checked:bg-google-primary dark:peer-checked:bg-google-darkPrimary"></div>
+                                        </label>
+                                    </div>
+                                    <div class="flex items-center justify-between gap-2 p-2 rounded-lg bg-google-bg dark:bg-google-darkBg border border-google-border dark:border-google-darkBorder">
+                                        <div class="flex items-center gap-2 overflow-hidden">
+                                            <span class="ms-icon text-[16px] text-google-textMuted dark:text-google-darkTextMuted shrink-0">photo</span>
+                                            <span class="text-xs text-google-textMuted dark:text-google-darkTextMuted truncate" id="ref-image-name">No image</span>
+                                        </div>
+                                        <button onclick="document.getElementById('ref-image-input').click()" class="shrink-0 px-2 py-1 bg-white dark:bg-google-darkSurface border border-google-border dark:border-google-darkBorder hover:bg-black/5 dark:hover:bg-white/5 rounded text-xs font-medium transition-colors shadow-sm">Upload</button>
+                                        <input type="file" id="ref-image-input" class="hidden" accept="image/*" onchange="handleRefImage(event)">
+                                    </div>
+                                    <p class="text-[10px] text-google-textMuted dark:text-google-darkTextMuted leading-tight">Image serves as a tracing guide and is hidden during export.</p>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+
+                    <!-- Presets Accordion -->
+                    <div class="border border-google-border dark:border-google-darkBorder rounded-xl bg-white dark:bg-[#282a2c] overflow-hidden">
+                        <button class="accordion-toggle w-full flex items-center justify-between p-3 text-sm font-medium hover:bg-black/5 dark:hover:bg-white/5 transition-colors open">
+                            <div class="flex items-center gap-2"><span class="ms-icon text-[18px] text-google-textMuted dark:text-google-darkTextMuted">bookmark</span> Presets</div>
+                            <span class="ms-icon accordion-icon open text-[20px]">expand_more</span>
+                        </button>
+                        <div class="accordion-content open">
+                            <div class="accordion-inner">
+                                <div class="p-3 pt-0 flex flex-col gap-3">
+                                    <select id="preset-dropdown" class="w-full p-2 rounded-lg bg-google-bg dark:bg-google-darkBg border border-google-border dark:border-google-darkBorder text-sm outline-none cursor-pointer focus:ring-2 focus:ring-google-primary" onchange="applyPresetFromDropdown(this.value)">
+                                        <option value="">-- Select Preset --</option>
+                                    </select>
+                                    
+                                    <div class="grid grid-cols-2 gap-2">
+                                        <button onclick="toggleSavePresetForm()" class="py-1.5 text-xs font-medium rounded-lg bg-google-primaryBg dark:bg-google-darkPrimaryBg text-google-primary dark:text-google-darkPrimary transition flex items-center justify-center gap-1"><span class="ms-icon text-[16px]">add</span> Save</button>
+                                        <button onclick="deleteSelectedPreset()" class="py-1.5 text-xs font-medium rounded-lg text-red-500 hover:bg-red-500/10 transition flex items-center justify-center gap-1"><span class="ms-icon text-[16px]">delete</span> Delete</button>
+                                        <button onclick="document.getElementById('import-preset-input').click()" class="py-1.5 text-xs font-medium rounded-lg border border-google-border dark:border-google-darkBorder hover:bg-black/5 dark:hover:bg-white/5 transition flex items-center justify-center gap-1"><span class="ms-icon text-[16px]">upload</span> Import</button>
+                                        <button onclick="exportPresets()" class="py-1.5 text-xs font-medium rounded-lg border border-google-border dark:border-google-darkBorder hover:bg-black/5 dark:hover:bg-white/5 transition flex items-center justify-center gap-1"><span class="ms-icon text-[16px]">download</span> Export</button>
+                                    </div>
+
+                                    <!-- Inline Save Form -->
+                                    <div id="save-preset-form" class="hidden flex flex-col gap-3 p-3 bg-google-bg dark:bg-google-darkBg rounded-lg border border-google-border dark:border-google-darkBorder mt-2">
+                                        <input type="text" id="preset-name-input" class="w-full bg-white dark:bg-[#282a2c] border border-google-border dark:border-google-darkBorder rounded-lg px-2.5 py-1.5 text-xs outline-none focus:border-google-primary focus:ring-1 focus:ring-google-primary transition-all" placeholder="Preset Name">
+                                        <div class="space-y-1">
+                                            <label class="flex items-center gap-2 text-xs">
+                                                <input type="checkbox" id="preset-include-tools" class="accent-google-primary" checked> Save Tool Settings
+                                            </label>
+                                            <label class="flex items-center gap-2 text-xs">
+                                                <input type="checkbox" id="preset-include-drawing" class="accent-google-primary"> Include Canvas Drawing
+                                            </label>
+                                        </div>
+                                        <button onclick="confirmSavePreset()" class="w-full py-1.5 bg-google-primary dark:bg-google-darkPrimary text-white dark:text-google-darkBg rounded-lg text-xs font-medium transition">Confirm Save</button>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+
+                </div>
+            </div>
+        </aside>
+
+        <!-- MAIN CANVAS -->
+        <main class="flex-1 bg-google-surface dark:bg-google-darkSurface rounded-2xl border border-google-border dark:border-google-darkBorder flex items-center justify-center relative overflow-hidden transition-colors duration-200">
+            <div id="scale-wrapper" class="bg-google-bg dark:bg-[#131314]">
+                <div id="p5-container"></div>
+            </div>
+            
+            <!-- Context Toolbar for Selections -->
+            <div id="context-toolbar" class="absolute top-4 left-1/2 -translate-x-1/2 flex items-center gap-2 bg-google-surface dark:bg-google-darkSurface border border-google-border dark:border-google-darkBorder px-4 py-2 rounded-full shadow-lg transition-all transform -translate-y-20 opacity-0 z-40 pointer-events-none">
+                <button onclick="modSelectedSize(-5)" class="p-1.5 text-google-textMuted dark:text-google-darkTextMuted hover:text-google-text dark:hover:text-google-darkText transition-colors rounded-full hover:bg-black/5 dark:hover:bg-white/10" title="Decrease Size">
+                    <span class="ms-icon text-[20px]">remove</span>
+                </button>
+                <button onclick="modSelectedSize(5)" class="p-1.5 text-google-textMuted dark:text-google-darkTextMuted hover:text-google-text dark:hover:text-google-darkText transition-colors rounded-full hover:bg-black/5 dark:hover:bg-white/10" title="Increase Size">
+                    <span class="ms-icon text-[20px]">add</span>
+                </button>
+                <div class="w-px h-5 bg-google-border dark:bg-google-darkBorder mx-1"></div>
+                <div class="relative w-7 h-7 rounded-full overflow-hidden border border-google-border dark:border-google-darkBorder cursor-pointer shadow-sm hover:scale-105 transition-transform" title="Change Color">
+                    <input type="color" id="context-color" class="absolute -top-2 -left-2 w-12 h-12 cursor-pointer" oninput="modSelectedColor(this.value)">
+                </div>
+                <div class="w-px h-5 bg-google-border dark:bg-google-darkBorder mx-1"></div>
+                <button onclick="deleteSelected()" class="p-1.5 text-red-500 hover:text-red-600 transition-colors rounded-full hover:bg-red-500/10" title="Delete Selection">
+                    <span class="ms-icon text-[20px]">delete</span>
+                </button>
+            </div>
+
+            <div id="status-indicator" class="absolute top-4 right-4 flex items-center gap-2 bg-google-primaryBg dark:bg-google-darkPrimaryBg border border-google-primary dark:border-google-darkPrimary text-google-primary dark:text-google-darkPrimary px-4 py-2 rounded-full shadow-sm opacity-0 transition-opacity duration-300 pointer-events-none z-50">
+                <div class="w-2 h-2 rounded-full bg-google-primary dark:bg-google-darkPrimary animate-pulse" id="status-dot"></div>
+                <span class="text-xs font-bold tracking-wide uppercase" id="status-text">Playing Sequence</span>
+            </div>
+        </main>
+    </div>
+
+    <!-- Export Loading Overlay -->
+    <div id="export-loader" class="fixed inset-0 z-[100] bg-white/80 dark:bg-black/80 hidden flex flex-col items-center justify-center transition-opacity opacity-0 backdrop-blur-sm">
+        <span class="ms-icon text-5xl text-google-primary dark:text-google-darkPrimary animate-spin mb-4">progress_activity</span>
+        <h2 class="font-google text-2xl font-medium text-gray-800 dark:text-white mb-2">Rendering WebM Video</h2>
+        <p class="text-sm font-mono text-google-textMuted dark:text-google-darkTextMuted font-medium" id="rec-time">Processing 0%</p>
+    </div>
+
+    <!-- Toasts -->
+    <div id="toast-container" class="fixed top-20 right-6 z-[60] flex flex-col gap-2 pointer-events-none"></div>
+
+    <script>
+        // --- Core Application State ---
+        const htmlElement = document.documentElement;
+        
+        const appState = {
+            tool: 'highlighter', 
+            color: '#fde047',
+            size: 30,
+            opacity: 50,
+            selectedStrokeIdx: null,
+            angle: 45,      
+            texture: 60,    
+            straightLine: false, 
+            blendMode: 'auto', 
+            
+            bgColor: '#ffffff',
+            bgTransparent: false,
+            
+            refImage: null,
+            showRefImage: false,
+
+            cameraX: 0,
+            cameraY: 0,
+            cameraZoom: 1.0,
+            
+            history: [], 
+            
+            isPlaying: false,
+            isExporting: false
+        };
+
+        // --- Theme & Initialization ---
+        function applyTheme() {
+            const isDark = htmlElement.classList.contains('dark');
+            const themeIcon = document.getElementById('theme-icon');
+            themeIcon.textContent = isDark ? 'light_mode' : 'dark_mode';
+        }
+
+        if (localStorage.theme === 'dark' || (!('theme' in localStorage) && window.matchMedia('(prefers-color-scheme: dark)').matches)) {
+            htmlElement.classList.add('dark');
+        }
+        applyTheme();
+
+        document.getElementById('theme-toggle').addEventListener('click', () => {
+            htmlElement.classList.toggle('dark');
+            localStorage.theme = htmlElement.classList.contains('dark') ? 'dark' : 'light';
+            applyTheme();
+        });
+
+        // --- Tab & Accordion UI Logic ---
+        document.querySelectorAll('.tab-btn').forEach(btn => {
+            btn.addEventListener('click', (e) => {
+                document.querySelectorAll('.tab-btn').forEach(b => {
+                    b.classList.remove('active', 'bg-google-primaryBg', 'dark:bg-google-darkPrimaryBg', 'text-google-primary', 'dark:text-google-darkPrimary');
+                    b.classList.add('text-google-textMuted', 'dark:text-google-darkTextMuted');
+                });
+                document.querySelectorAll('.tab-panel').forEach(p => p.classList.add('hidden'));
+                
+                const target = e.currentTarget;
+                target.classList.add('active', 'bg-google-primaryBg', 'dark:bg-google-darkPrimaryBg', 'text-google-primary', 'dark:text-google-darkPrimary');
+                target.classList.remove('text-google-textMuted', 'dark:text-google-darkTextMuted');
+                document.getElementById(target.getAttribute('data-target')).classList.remove('hidden');
+            });
+        });
+
+        document.querySelectorAll('.sub-tab-btn').forEach(btn => {
+            btn.addEventListener('click', (e) => {
+                const parent = e.currentTarget.closest('.tab-panel');
+                parent.querySelectorAll('.sub-tab-btn').forEach(b => {
+                    b.classList.remove('active', 'bg-white', 'dark:bg-google-darkSurface', 'shadow-sm', 'text-google-primary', 'dark:text-google-darkPrimary');
+                    b.classList.add('text-google-textMuted', 'dark:text-google-darkTextMuted');
+                });
+                parent.querySelectorAll('.sub-tab-panel').forEach(p => p.classList.add('hidden'));
+                
+                const target = e.currentTarget;
+                target.classList.add('active', 'bg-white', 'dark:bg-google-darkSurface', 'shadow-sm', 'text-google-primary', 'dark:text-google-darkPrimary');
+                target.classList.remove('text-google-textMuted', 'dark:text-google-darkTextMuted');
+                document.getElementById(target.getAttribute('data-target')).classList.remove('hidden');
+            });
+        });
+
+        document.querySelectorAll('.accordion-toggle').forEach(btn => {
+            btn.addEventListener('click', () => {
+                const content = btn.nextElementSibling;
+                const icon = btn.querySelector('.accordion-icon');
+                content.classList.toggle('open');
+                icon.classList.toggle('open');
+            });
+        });
+
+        // --- Camera Control Functions ---
+        function setCameraZoom(val) {
+            appState.cameraZoom = parseInt(val) / 100;
+            document.getElementById('zoom-val').innerText = val + '%';
+            if (window.p5inst && !appState.isPlaying) window.p5inst.redrawHistory();
+        }
+
+        function setCameraPanX(val) {
+            appState.cameraX = parseInt(val);
+            document.getElementById('panx-val').innerText = val + 'px';
+            if (window.p5inst && !appState.isPlaying) window.p5inst.redrawHistory();
+        }
+
+        function setCameraPanY(val) {
+            appState.cameraY = parseInt(val);
+            document.getElementById('pany-val').innerText = val + 'px';
+            if (window.p5inst && !appState.isPlaying) window.p5inst.redrawHistory();
+        }
+
+        function resetCamera() {
+            document.getElementById('zoom-slider').value = 100;
+            document.getElementById('panx-slider').value = 0;
+            document.getElementById('pany-slider').value = 0;
+            setCameraZoom(100);
+            setCameraPanX(0);
+            setCameraPanY(0);
+        }
+
+        // --- Reference Image ---
+        function handleRefImage(event) {
+            const file = event.target.files[0];
+            if (!file) return;
+
+            const url = URL.createObjectURL(file);
+            if (window.p5inst) {
+                window.p5inst.loadImage(url, (img) => {
+                    appState.refImage = img;
+                    appState.showRefImage = true;
+                    document.getElementById('ref-image-toggle').checked = true;
+                    document.getElementById('ref-image-name').innerText = file.name;
+                    updateBg();
+                    showToast('Reference image loaded', 'success');
+                }, () => {
+                    showToast('Failed to load image', 'error');
+                });
+            }
+            event.target.value = ''; 
+        }
+
+        // --- Preset Management ---
+        const PRESETS_KEY = 'markerforge_presets';
+        let savedPresets = [];
+
+        try {
+            savedPresets = JSON.parse(localStorage.getItem(PRESETS_KEY) || '[]');
+        } catch(e) { savedPresets = []; }
+
+        function updatePresetDropdown() {
+            const select = document.getElementById('preset-dropdown');
+            if(!select) return;
+            select.innerHTML = '<option value="">-- Select Preset --</option>';
+            
+            savedPresets.forEach((p, index) => {
+                let label = p.name;
+                if (p.history && !p.tool) label += ' (Drawing Only)';
+                else if (p.history && p.tool) label += ' (Tools + Drawing)';
+                
+                const opt = document.createElement('option');
+                opt.value = index;
+                opt.innerText = label;
+                select.appendChild(opt);
+            });
+        }
+
+        function toggleSavePresetForm() {
+            if (appState.isPlaying) return;
+            const form = document.getElementById('save-preset-form');
+            form.classList.toggle('hidden');
+            if (!form.classList.contains('hidden')) {
+                document.getElementById('preset-name-input').value = '';
+                document.getElementById('preset-include-tools').checked = true;
+                document.getElementById('preset-include-drawing').checked = appState.history.length > 0;
+                document.getElementById('preset-name-input').focus();
+            }
+        }
+
+        function confirmSavePreset() {
+            const name = document.getElementById('preset-name-input').value.trim();
+            const includeTools = document.getElementById('preset-include-tools').checked;
+            const includeDrawing = document.getElementById('preset-include-drawing').checked;
+            
+            if (!name) return showToast('Please enter a preset name', 'error');
+            if (!includeTools && !includeDrawing) return showToast('Select at least one save option', 'error');
+            
+            const preset = { name: name };
+
+            if (includeTools) {
+                preset.tool = appState.tool;
+                preset.color = appState.color;
+                preset.size = appState.size;
+                preset.opacity = appState.opacity;
+                preset.angle = appState.angle;
+                preset.texture = appState.texture;
+                preset.straightLine = appState.straightLine;
+                preset.blendMode = appState.blendMode;
+            }
+
+            if (includeDrawing) {
+                preset.history = JSON.parse(JSON.stringify(appState.history));
+                preset.bgColor = appState.bgColor;
+                preset.bgTransparent = appState.bgTransparent;
+                preset.cameraX = appState.cameraX;
+                preset.cameraY = appState.cameraY;
+                preset.cameraZoom = appState.cameraZoom;
+            }
+            
+            try {
+                savedPresets.push(preset);
+                localStorage.setItem(PRESETS_KEY, JSON.stringify(savedPresets));
+                updatePresetDropdown();
+                document.getElementById('preset-dropdown').value = savedPresets.length - 1;
+                document.getElementById('save-preset-form').classList.add('hidden');
+                showToast('Preset saved successfully!', 'success');
+            } catch (e) {
+                savedPresets.pop(); 
+                if (e.name === 'QuotaExceededError') {
+                    showToast('Storage full! Drawing history is too large.', 'error');
+                } else {
+                    showToast('Error saving preset', 'error');
+                }
+            }
+        }
+
+        function deleteSelectedPreset() {
+            const select = document.getElementById('preset-dropdown');
+            const index = select.value;
+            if (index === '') return showToast('Select a preset to delete', 'error');
+            
+            savedPresets.splice(index, 1);
+            localStorage.setItem(PRESETS_KEY, JSON.stringify(savedPresets));
+            updatePresetDropdown();
+            showToast('Preset deleted', 'info');
+        }
+
+        function applyPresetFromDropdown(val) {
+            if (val === '') return;
+            const p = savedPresets[val];
+            if (!p) return;
+
+            let loadedWhat = [];
+
+            if (p.tool) {
+                setTool(p.tool);
+                setColor(p.color);
+                
+                appState.size = p.size || 30;
+                appState.opacity = p.opacity || 50;
+                appState.angle = p.angle || 45;
+                appState.texture = p.texture || 60;
+                appState.straightLine = p.straightLine || false;
+                appState.blendMode = p.blendMode || 'auto';
+
+                document.getElementById('size-slider').value = appState.size;
+                document.getElementById('size-val').innerText = appState.size + 'px';
+                document.getElementById('opacity-slider').value = appState.opacity;
+                document.getElementById('opacity-val').innerText = appState.opacity + '%';
+                document.getElementById('angle-slider').value = appState.angle;
+                document.getElementById('angle-val').innerText = appState.angle + '°';
+                document.getElementById('texture-slider').value = appState.texture;
+                document.getElementById('texture-val').innerText = appState.texture + '%';
+                document.getElementById('straight-line-toggle').checked = appState.straightLine;
+                document.getElementById('blend-dropdown').value = appState.blendMode;
+                
+                loadedWhat.push('tools');
+            }
+
+            if (p.history) {
+                appState.history = JSON.parse(JSON.stringify(p.history));
+                appState.bgColor = p.bgColor || '#ffffff';
+                appState.bgTransparent = p.bgTransparent || false;
+                appState.cameraX = p.cameraX || 0;
+                appState.cameraY = p.cameraY || 0;
+                appState.cameraZoom = p.cameraZoom || 1.0;
+                
+                document.getElementById('bg-color').value = appState.bgColor;
+                document.getElementById('bg-transparent-toggle').checked = appState.bgTransparent;
+                
+                document.getElementById('zoom-slider').value = Math.round(appState.cameraZoom * 100);
+                document.getElementById('zoom-val').innerText = Math.round(appState.cameraZoom * 100) + '%';
+                document.getElementById('panx-slider').value = appState.cameraX;
+                document.getElementById('panx-val').innerText = appState.cameraX + 'px';
+                document.getElementById('pany-slider').value = appState.cameraY;
+                document.getElementById('pany-val').innerText = appState.cameraY + 'px';
+
+                if (window.p5inst && window.p5inst.syncTime) window.p5inst.syncTime();
+                if (window.p5inst) window.p5inst.redrawHistory();
+                
+                loadedWhat.push('drawing');
+            }
+
+            if (loadedWhat.length === 2) showToast(`Loaded: ${p.name} (Tools & Drawing)`, 'info');
+            else if (loadedWhat.includes('drawing')) showToast(`Loaded: ${p.name} (Drawing Only)`, 'info');
+            else showToast(`Loaded: ${p.name}`, 'info');
+            
+            // Reset dropdown to default visually
+            document.getElementById('preset-dropdown').value = '';
+        }
+
+        function exportPresets() {
+            if (savedPresets.length === 0) return showToast('No presets to export', 'error');
+            const dataStr = "data:text/json;charset=utf-8," + encodeURIComponent(JSON.stringify(savedPresets, null, 2));
+            const a = document.createElement('a');
+            a.href = dataStr;
+            a.download = "markerforge-presets.json";
+            document.body.appendChild(a);
+            a.click();
+            a.remove();
+            showToast('Presets exported', 'success');
+        }
+
+        function importPresets(event) {
+            const file = event.target.files[0];
+            if (!file) return;
+            const reader = new FileReader();
+            reader.onload = function(e) {
+                try {
+                    const imported = JSON.parse(e.target.result);
+                    if (Array.isArray(imported)) {
+                        savedPresets = savedPresets.concat(imported);
+                        localStorage.setItem(PRESETS_KEY, JSON.stringify(savedPresets));
+                        updatePresetDropdown();
+                        showToast(`Imported ${imported.length} presets`, 'success');
+                    } else {
+                        showToast('Invalid preset file format', 'error');
+                    }
+                } catch (err) {
+                    showToast('Failed to parse file', 'error');
+                }
+                event.target.value = ''; 
+            };
+            reader.readAsText(file);
+        }
+
+        window.addEventListener('DOMContentLoaded', () => {
+            updatePresetDropdown();
+            setColor(appState.color); 
+        });
+
+        // --- Smart Highlighter Color Recommender ---
+        function hexToHsl(hex) {
+            let result = /^#?([a-f\d]{2})([a-f\d]{2})([a-f\d]{2})$/i.exec(hex);
+            if(!result) return {h:0, s:0, l:1};
+            let r = parseInt(result[1], 16) / 255;
+            let g = parseInt(result[2], 16) / 255;
+            let b = parseInt(result[3], 16) / 255;
+            let max = Math.max(r, g, b), min = Math.min(r, g, b);
+            let h, s, l = (max + min) / 2;
+            if (max == min) { h = s = 0; } else {
+                let d = max - min;
+                s = l > 0.5 ? d / (2 - max - min) : d / (max + min);
+                switch (max) {
+                    case r: h = (g - b) / d + (g < b ? 6 : 0); break;
+                    case g: h = (b - r) / d + 2; break;
+                    case b: h = (r - g) / d + 4; break;
+                }
+                h /= 6;
+            }
+            return { h: h * 360, s, l };
+        }
+
+        function hslToHex(h, s, l) {
+            l /= 100;
+            const a = s * Math.min(l, 1 - l) / 100;
+            const f = n => {
+                const k = (n + h / 30) % 12;
+                const color = l - a * Math.max(Math.min(k - 3, 9 - k, 1), -1);
+                return Math.round(255 * color).toString(16).padStart(2, '0');
+            };
+            return `#${f(0)}${f(8)}${f(4)}`;
+        }
+
+        let currentSmartRecommendations = [];
+        function updateSmartColors() {
+            const textHex = document.getElementById('sc-text-color').value;
+            const bgHex = document.getElementById('sc-bg-color').value;
+            
+            document.getElementById('sc-preview-box').style.backgroundColor = bgHex;
+            document.getElementById('sc-preview-text').style.color = textHex;
+
+            const hsl = hexToHsl(textHex);
+            const isGrayscale = hsl.s < 0.1 || hsl.l < 0.15 || hsl.l > 0.85;
+
+            let hues = [];
+            if (isGrayscale) hues = [60, 180, 320]; 
+            else hues = [(hsl.h + 60) % 360, (hsl.h + 180) % 360, (hsl.h + 300) % 360];
+
+            currentSmartRecommendations = hues.map(h => hslToHex(h, 95, 75)); 
+
+            const container = document.getElementById('sc-recommendations');
+            container.innerHTML = '';
+
+            currentSmartRecommendations.forEach((color, i) => {
+                const btn = document.createElement('button');
+                const isActive = appState.color.toLowerCase() === color.toLowerCase();
+                
+                btn.className = `h-8 rounded-lg flex items-center justify-center transition-all relative overflow-hidden shadow-sm ${isActive ? 'ring-2 ring-offset-2 ring-offset-indigo-50 dark:ring-offset-indigo-950 ring-indigo-500 scale-105 z-10' : 'border border-black/10 dark:border-white/10 hover:scale-105'}`;
+                btn.style.backgroundColor = color;
+                
+                if (isActive) {
+                    btn.innerHTML = `<span class="ms-icon text-[18px] text-black/60 absolute z-20">check</span><div class="absolute inset-0 bg-gradient-to-b from-white/40 to-transparent z-10"></div>`;
+                } else {
+                    btn.innerHTML = `<div class="absolute inset-0 bg-gradient-to-b from-white/30 to-transparent z-10"></div>`;
+                }
+
+                btn.onclick = () => {
+                    setColor(color);
+                    setTool('highlighter');
+                    showToast('Smart Color Applied', 'success');
+                };
+                
+                btn.onmouseenter = () => { document.getElementById('sc-preview-highlight').style.backgroundColor = color; };
+                btn.onmouseleave = () => {
+                    const activeColor = currentSmartRecommendations.find(c => c.toLowerCase() === appState.color.toLowerCase()) || currentSmartRecommendations[0];
+                    document.getElementById('sc-preview-highlight').style.backgroundColor = activeColor;
+                };
+                
+                container.appendChild(btn);
+            });
+
+            const activeColor = currentSmartRecommendations.find(c => c.toLowerCase() === appState.color.toLowerCase()) || currentSmartRecommendations[0];
+            document.getElementById('sc-preview-highlight').style.backgroundColor = activeColor;
+        }
+
+        // --- Context Toolbar Actions ---
+        function updateContextToolbar() {
+            const tb = document.getElementById('context-toolbar');
+            if(!tb) return;
+            if (appState.selectedStrokeIdx !== null && appState.selectedStrokeIdx !== undefined && appState.tool === 'select') {
+                tb.classList.remove('-translate-y-20', 'opacity-0', 'pointer-events-none');
+                const colorPicker = document.getElementById('context-color');
+                colorPicker.value = appState.history[appState.selectedStrokeIdx].color;
+            } else {
+                tb.classList.add('-translate-y-20', 'opacity-0', 'pointer-events-none');
+            }
+        }
+        function modSelectedSize(delta) {
+            if(appState.selectedStrokeIdx === null || appState.selectedStrokeIdx === undefined) return;
+            let s = appState.history[appState.selectedStrokeIdx];
+            s.size = Math.max(2, s.size + delta);
+            if(window.p5inst) window.p5inst.redrawHistory();
+        }
+        function modSelectedColor(hex) {
+            if(appState.selectedStrokeIdx === null || appState.selectedStrokeIdx === undefined) return;
+            appState.history[appState.selectedStrokeIdx].color = hex;
+            if(window.p5inst) window.p5inst.redrawHistory();
+        }
+        function deleteSelected() {
+            if(appState.selectedStrokeIdx === null || appState.selectedStrokeIdx === undefined) return;
+            appState.history.splice(appState.selectedStrokeIdx, 1);
+            appState.selectedStrokeIdx = null;
+            updateContextToolbar();
+            if(window.p5inst) window.p5inst.redrawHistory();
+        }
+
+        // --- UI Functions ---
+        function setTool(toolName) {
+            if(appState.isPlaying) return;
+            appState.tool = toolName;
+            appState.selectedStrokeIdx = null;
+            updateContextToolbar();
+            if(window.p5inst) window.p5inst.redrawHistory();
+            
+            document.querySelectorAll('.tool-btn').forEach(btn => {
+                btn.classList.remove('active');
+                if(btn.dataset.tool === toolName) {
+                    btn.classList.add('active');
+                }
+            });
+
+            const opSlider = document.getElementById('opacity-slider');
+            if (toolName === 'highlighter' || toolName === 'wetMarker') appState.opacity = 50;
+            else if (toolName === 'brushPen') appState.opacity = 80;
+            else if (toolName === 'chisel' || toolName === 'fine' || toolName === 'dryErase' || toolName === 'calligraphy' || toolName === 'paintMarker') appState.opacity = 95;
+            else if (toolName === 'eraser') appState.opacity = 100;
+            
+            if (opSlider) {
+                opSlider.value = appState.opacity;
+                document.getElementById('opacity-val').innerText = appState.opacity + '%';
+            }
+        }
+
+        function setColor(hex) {
+            appState.color = hex;
+            document.getElementById('prop-color').value = hex;
+            
+            let isStandard = false;
+            document.querySelectorAll('.color-btn').forEach(btn => {
+                if(btn.dataset.color.toLowerCase() === hex.toLowerCase()) {
+                    btn.classList.add('ring-google-primary', 'dark:ring-google-darkPrimary', 'scale-110', 'z-10');
+                    isStandard = true;
+                } else {
+                    btn.classList.remove('ring-google-primary', 'dark:ring-google-darkPrimary', 'scale-110', 'z-10');
+                }
+            });
+
+            const customBtn = document.querySelector('.custom-color-btn');
+            if (!isStandard) {
+                customBtn.classList.add('ring-2', 'ring-google-primary', 'dark:ring-google-darkPrimary', 'scale-110', 'z-10');
+            } else {
+                customBtn.classList.remove('ring-2', 'ring-google-primary', 'dark:ring-google-darkPrimary', 'scale-110', 'z-10');
+            }
+
+            updateSmartColors();
+        }
+
+        function setBgColor(hex) {
+            appState.bgColor = hex;
+            document.getElementById('bg-color').value = hex;
+            appState.bgTransparent = false;
+            document.getElementById('bg-transparent-toggle').checked = false;
+            
+            document.querySelectorAll('.bg-color-btn').forEach(btn => {
+                if(btn.dataset.color.toLowerCase() === hex.toLowerCase()) {
+                    btn.classList.add('ring-google-primary', 'dark:ring-google-darkPrimary', 'scale-110', 'z-10');
+                } else {
+                    btn.classList.remove('ring-google-primary', 'dark:ring-google-darkPrimary', 'scale-110', 'z-10');
+                }
+            });
+            updateBg();
+        }
+
+        function updateBg() {
+            if (window.p5inst && !appState.isPlaying) {
+                window.p5inst.redrawHistory();
+            }
+        }
+
+        function clearCanvas() {
+            if (appState.isPlaying || appState.isExporting) return;
+            appState.history = [];
+            if (window.p5inst && window.p5inst.syncTime) window.p5inst.syncTime();
+            window.p5inst.clearCanvas();
+            showToast('Canvas cleared', 'success');
+        }
+
+        function undoStroke() {
+            if (appState.isPlaying || appState.isExporting) return;
+            if (appState.history.length > 0) {
+                appState.history.pop();
+                if (window.p5inst && window.p5inst.syncTime) window.p5inst.syncTime();
+                window.p5inst.redrawHistory();
+                showToast('Undo successful', 'info');
+            }
+        }
+
+        function showToast(message, type = 'info') {
+            const container = document.getElementById('toast-container');
+            const toast = document.createElement('div');
+            toast.className = `bg-white dark:bg-zinc-800 text-google-text dark:text-google-darkText px-4 py-3 rounded-xl shadow-lg border border-google-border dark:border-google-darkBorder flex items-center gap-3 transform transition-all -translate-y-4 opacity-0 z-50`;
+            let icon = type === 'success' ? 'check_circle' : (type === 'error' ? 'error' : 'info');
+            let color = type === 'success' ? 'text-green-500' : (type === 'error' ? 'text-red-500' : 'text-google-primary');
+            toast.innerHTML = `<span class="ms-icon text-[20px] ${color}">${icon}</span> <span class="text-sm font-medium">${message}</span>`;
+            container.appendChild(toast);
+            requestAnimationFrame(() => toast.classList.remove('-translate-y-4', 'opacity-0'));
+            setTimeout(() => { toast.classList.add('-translate-y-4', 'opacity-0'); setTimeout(() => toast.remove(), 300); }, 3000);
+        }
+
+        // --- Global Controller ---
+        function togglePreview() {
+            if (window.p5inst) {
+                if (appState.isPlaying) window.p5inst.stopPlayback();
+                else window.p5inst.startPlayback();
+            }
+        }
+
+        function exportVideo() {
+            if (window.p5inst) window.p5inst.exportVideo();
+        }
+
+        function exportImage() {
+            if (window.p5inst) window.p5inst.exportImage();
+        }
+
+        // --- Viewport Scaling ---
+        function updateLayoutScale() {
+            const wrapper = document.getElementById('scale-wrapper');
+            const availW = wrapper.clientWidth;
+            const availH = wrapper.clientHeight;
+
+            const logicalW = 1920;
+            const logicalH = 1080;
+
+            const scale = Math.min(availW / logicalW, availH / logicalH, 1.0);
+            const container = document.getElementById('p5-container');
+            if(container) container.style.transform = `scale(${scale})`;
+        }
+        window.addEventListener('resize', updateLayoutScale);
+
+        // ==========================================
+        // P5.JS ENGINE (Instance Mode)
+        // ==========================================
+        const sketch = (p) => {
+            
+            const LOGICAL_W = 1920;
+            const LOGICAL_H = 1080;
+            
+            let mainCanvas;
+            
+            // Interaction State
+            let isDrawing = false;
+            let isDraggingSelection = false;
+            let dragLastX = 0, dragLastY = 0;
+            let currentStroke = null;
+            let logicalTime = 0;
+            let lastEventTime = 0;
+            let pX = 0, pY = 0; 
+            let lineStartX = 0, lineStartY = 0; 
+            let strokeBuffer = null;            
+
+            // Playback State
+            let playStartTime = 0;
+            let playStrokeIdx = 0;
+            let playPointIdx = 0;
+
+            p.setup = () => {
+                mainCanvas = p.createCanvas(LOGICAL_W, LOGICAL_H);
+                mainCanvas.parent('p5-container');
+                p.pixelDensity(1); 
+                
+                const el = mainCanvas.elt;
+                el.addEventListener('pointerdown', handlePointerDown);
+                el.addEventListener('pointermove', handlePointerMove);
+                window.addEventListener('pointerup', handlePointerUp);
+                
+                updateLayoutScale();
+                p.clearCanvas();
+                
+                // Initialize default tool state
+                setTool(appState.tool); 
+            };
+
+            p.draw = () => {
+                if (appState.isPlaying && !appState.isExporting) {
+                    let elapsed = p.millis() - playStartTime;
+                    stepPlayback(elapsed, p); 
+                }
+            };
+
+            p.syncTime = () => {
+                if (appState.history.length === 0) logicalTime = 0;
+                else {
+                    let last = appState.history[appState.history.length - 1];
+                    logicalTime = last.startTime + last.duration;
+                }
+                lastEventTime = p.millis(); 
+            };
+
+            function getScaledPos(evt) {
+                const rect = mainCanvas.elt.getBoundingClientRect();
+                const scaleX = LOGICAL_W / rect.width;
+                const scaleY = LOGICAL_H / rect.height;
+                let rawX = (evt.clientX - rect.left) * scaleX;
+                let rawY = (evt.clientY - rect.top) * scaleY;
+                return {
+                    x: (rawX - appState.cameraX) / appState.cameraZoom,
+                    y: (rawY - appState.cameraY) / appState.cameraZoom
+                };
+            }
+
+            function handlePointerDown(e) {
+                if (appState.isPlaying || appState.isExporting) return;
+                e.preventDefault();
+                mainCanvas.elt.setPointerCapture(e.pointerId);
+                
+                const pos = getScaledPos(e);
+
+                if (appState.tool === 'select') {
+                    let hitIdx = null;
+                    for (let i = appState.history.length - 1; i >= 0; i--) {
+                        let stroke = appState.history[i];
+                        let hit = stroke.points.some(pt => p.dist(pos.x, pos.y, pt.x, pt.y) <= (stroke.size/2 + 10));
+                        if (hit) { hitIdx = i; break; }
+                    }
+                    appState.selectedStrokeIdx = hitIdx;
+                    updateContextToolbar();
+                    p.redrawHistory();
+                    if(hitIdx !== null) {
+                        isDraggingSelection = true;
+                        dragLastX = pos.x; dragLastY = pos.y;
+                    }
+                    return;
+                }
+                
+                isDrawing = true;
+                pX = pos.x; pY = pos.y;
+                lineStartX = pos.x; lineStartY = pos.y;
+                
+                let now = p.millis();
+                if (appState.history.length === 0) logicalTime = 0;
+                else {
+                    let diff = now - lastEventTime;
+                    if (diff > 1000) diff = 1000;
+                    logicalTime += diff;
+                }
+                lastEventTime = now;
+
+                if (appState.straightLine) {
+                    strokeBuffer = p.get(); 
+                }
+
+                currentStroke = {
+                    tool: appState.tool,
+                    color: appState.color,
+                    size: appState.size,
+                    opacity: appState.opacity,
+                    angle: appState.angle,
+                    texture: appState.texture,
+                    blendMode: appState.blendMode,
+                    startTime: logicalTime,
+                    duration: 0,
+                    points: []
+                };
+            }
+
+            function handlePointerMove(e) {
+                if (appState.isPlaying || appState.isExporting) return;
+                e.preventDefault();
+                
+                const pos = getScaledPos(e);
+
+                if (appState.tool === 'select' && isDraggingSelection && appState.selectedStrokeIdx !== null && appState.selectedStrokeIdx !== undefined) {
+                    let dx = pos.x - dragLastX;
+                    let dy = pos.y - dragLastY;
+                    let stroke = appState.history[appState.selectedStrokeIdx];
+                    stroke.points.forEach(pt => { pt.x += dx; pt.y += dy; pt.px += dx; pt.py += dy; });
+                    dragLastX = pos.x; dragLastY = pos.y;
+                    p.redrawHistory();
+                    return;
+                }
+
+                if (!isDrawing) return;
+                let now = p.millis();
+                logicalTime += (now - lastEventTime);
+                lastEventTime = now;
+
+                if (appState.straightLine) {
+                    p.clearCanvas();
+                    p.image(strokeBuffer, 0, 0, LOGICAL_W, LOGICAL_H);
+                    
+                    let dist = p.dist(lineStartX, lineStartY, pos.x, pos.y);
+                    let visual_dist = dist * appState.cameraZoom;
+                    let steps = Math.max(1, p.floor(visual_dist / 2));
+                    
+                    p.push();
+                    p.translate(appState.cameraX, appState.cameraY);
+                    p.scale(appState.cameraZoom);
+                    
+                    for(let i=1; i<=steps; i++) {
+                        let t1 = (i-1)/steps;
+                        let t2 = i/steps;
+                        let px = p.lerp(lineStartX, pos.x, t1);
+                        let py = p.lerp(lineStartY, pos.y, t1);
+                        let x = p.lerp(lineStartX, pos.x, t2);
+                        let y = p.lerp(lineStartY, pos.y, t2);
+                        
+                        let pt = {x, y, px, py, t: 0};
+                        drawBrushSegment(p, pt, currentStroke, 1.0);
+                    }
+                    p.pop();
+
+                } else {
+                    let d = p.dist(pX, pY, pos.x, pos.y);
+                    if (d > 1) { 
+                        let pt = { x: pos.x, y: pos.y, px: pX, py: pY, t: logicalTime };
+                        currentStroke.points.push(pt);
+                        currentStroke.duration = logicalTime - currentStroke.startTime;
+                        
+                        p.push();
+                        p.translate(appState.cameraX, appState.cameraY);
+                        p.scale(appState.cameraZoom);
+                        drawBrushSegment(p, pt, currentStroke, 1.0);
+                        p.pop();
+                        
+                        pX = pos.x; pY = pos.y;
+                    }
+                }
+            }
+
+            function handlePointerUp(e) {
+                if (appState.tool === 'select') {
+                    isDraggingSelection = false;
+                }
+                if (!isDrawing) return;
+                isDrawing = false;
+                if(e.pointerId) mainCanvas.elt.releasePointerCapture(e.pointerId);
+                
+                if (appState.straightLine) {
+                    const pos = getScaledPos(e);
+                    let dist = p.dist(lineStartX, lineStartY, pos.x, pos.y);
+                    let visual_dist = dist * appState.cameraZoom;
+                    
+                    if (visual_dist > 1) {
+                        let steps = Math.max(1, p.floor(visual_dist / 2));
+                        let timePerStep = (logicalTime - currentStroke.startTime) / steps;
+                        
+                        for(let i=1; i<=steps; i++) {
+                            let t1 = (i-1)/steps;
+                            let t2 = i/steps;
+                            let px = p.lerp(lineStartX, pos.x, t1);
+                            let py = p.lerp(lineStartY, pos.y, t1);
+                            let x = p.lerp(lineStartX, pos.x, t2);
+                            let y = p.lerp(lineStartY, pos.y, t2);
+                            
+                            let pt = {
+                                x, y, px, py, 
+                                t: currentStroke.startTime + (timePerStep * i)
+                            };
+                            currentStroke.points.push(pt);
+                        }
+                        currentStroke.duration = logicalTime - currentStroke.startTime;
+                        appState.history.push(currentStroke);
+                    }
+                    
+                    p.redrawHistory(); 
+                    strokeBuffer = null;
+                } else {
+                    if (currentStroke && currentStroke.points.length > 0) {
+                        appState.history.push(currentStroke);
+                    }
+                }
+                currentStroke = null;
+            }
+
+            function drawBrushSegment(target, pt, strokeData, baseExportScale = 1.0) {
+                let x = pt.x * baseExportScale;
+                let y = pt.y * baseExportScale;
+                let px = pt.px * baseExportScale;
+                let py = pt.py * baseExportScale;
+                let size = strokeData.size * baseExportScale;
+                let requestedBlendMode = strokeData.blendMode || 'auto';
+                
+                let c = p.color(strokeData.color);
+                let op = strokeData.opacity / 100;
+                let texture = strokeData.texture / 100; 
+                let angleRad = p.radians(strokeData.angle || 45);
+                
+                let distScaled = p.dist(x, y, px, py);
+                let visual_d = distScaled * appState.cameraZoom; 
+                
+                if (distScaled === 0 && strokeData.tool !== 'wetMarker') return; 
+
+                target.push();
+
+                if (strokeData.tool === 'eraser') {
+                    target.strokeWeight(size);
+                    target.strokeCap(p.ROUND);
+                    target.strokeJoin(p.ROUND);
+                    if (appState.bgTransparent) {
+                        target.drawingContext.globalCompositeOperation = 'destination-out';
+                        c = p.color(0); c.setAlpha(255);
+                    } else {
+                        target.drawingContext.globalCompositeOperation = 'source-over';
+                        c = p.color(appState.bgColor);
+                        c.setAlpha(255 * op);
+                    }
+                    target.stroke(c);
+                    target.line(px, py, x, y);
+                }
+                else {
+                    let activeBlend = requestedBlendMode;
+                    if (activeBlend === 'auto') {
+                        if (strokeData.tool === 'highlighter' || strokeData.tool === 'wetMarker' || strokeData.tool === 'brushPen') {
+                            activeBlend = 'multiply';
+                        } else {
+                            activeBlend = 'source-over';
+                        }
+                    }
+                    target.drawingContext.globalCompositeOperation = activeBlend;
+
+                    if (strokeData.tool === 'chisel' || strokeData.tool === 'highlighter') {
+                        target.strokeCap(p.SQUARE);
+                        target.strokeWeight(Math.max(1, size * 0.15)); 
+                        
+                        let alphaMultiplier = strokeData.tool === 'highlighter' ? 120 : 255;
+                        c.setAlpha(alphaMultiplier * op);
+                        target.stroke(c);
+
+                        let steps = Math.max(1, p.floor(visual_d / 1.5)); 
+                        for (let i = 0; i <= steps; i++) {
+                            let interX = p.lerp(px, x, i / steps);
+                            let interY = p.lerp(py, y, i / steps);
+                            let dx = p.cos(angleRad) * (size / 2);
+                            let dy = p.sin(angleRad) * (size / 2);
+                            target.line(interX - dx, interY - dy, interX + dx, interY + dy);
+                        }
+                    }
+                    else if (strokeData.tool === 'fine') {
+                        target.strokeWeight(size);
+                        target.strokeCap(p.ROUND);
+                        c.setAlpha(255 * op);
+                        target.stroke(c);
+                        target.line(px, py, x, y);
+                    }
+                    else if (strokeData.tool === 'dryErase') {
+                        target.noStroke();
+                        c.setAlpha(255 * op);
+                        target.fill(c);
+                        
+                        let steps = Math.max(1, p.floor(visual_d / 1.5));
+                        let bristles = Math.max(4, p.floor(size * 0.5));
+                        let perpX = -(y - py) / (distScaled || 1);
+                        let perpY = (x - px) / (distScaled || 1);
+
+                        for (let i = 0; i <= steps; i++) {
+                            let interX = p.lerp(px, x, i / steps);
+                            let interY = p.lerp(py, y, i / steps);
+                            
+                            for (let b = 0; b < bristles; b++) {
+                                let offsetMap = p.map(b, 0, bristles-1, -size/2, size/2);
+                                let bx = interX + perpX * offsetMap;
+                                let by = interY + perpY * offsetMap;
+                                
+                                let noiseVal = p.noise(bx * 0.05, by * 0.05, strokeData.startTime + b);
+                                let streakThreshold = p.map(texture, 0, 1, 0, 0.75); 
+                                
+                                if (noiseVal > streakThreshold) {
+                                    let dotRadius = size * p.random(0.15, 0.25);
+                                    target.circle(bx, by, dotRadius);
+                                }
+                            }
+                        }
+                    }
+                    else if (strokeData.tool === 'wetMarker') {
+                        target.noStroke();
+                        let visualSize = size * appState.cameraZoom;
+                        let steps = Math.max(1, p.floor(visual_d / (visualSize * 0.15)));
+                        for (let i = 0; i <= steps; i++) {
+                            let interX = p.lerp(px, x, i / steps);
+                            let interY = p.lerp(py, y, i / steps);
+                            
+                            c.setAlpha(120 * op);
+                            target.fill(c);
+                            target.circle(interX, interY, size * 0.8);
+                            
+                            if (p.random() < texture) {
+                                c.setAlpha(25 * op);
+                                target.fill(c);
+                                let bleedSpread = size * p.map(texture, 0, 1, 1.0, 1.6);
+                                target.circle(interX + p.random(-2, 2), interY + p.random(-2, 2), p.random(size*0.9, bleedSpread));
+                            }
+                        }
+                    }
+                    else if (strokeData.tool === 'brushPen') {
+                        target.noStroke();
+                        c.setAlpha(255 * op); 
+                        target.fill(c);
+                        
+                        let speed = distScaled / baseExportScale; 
+                        let targetSize = p.map(speed, 0, 40, size * 1.5, size * 0.3, true);
+                        let steps = Math.max(1, p.floor(visual_d / 1.5));
+                        for (let i = 0; i <= steps; i++) {
+                            let interX = p.lerp(px, x, i / steps);
+                            let interY = p.lerp(py, y, i / steps);
+                            target.circle(interX, interY, targetSize);
+                        }
+                    }
+                    else if (strokeData.tool === 'paintMarker') {
+                        target.noStroke();
+                        c.setAlpha(255 * op);
+                        target.fill(c);
+
+                        let steps = Math.max(1, p.floor(visual_d / 2));
+                        for (let i = 0; i <= steps; i++) {
+                            let interX = p.lerp(px, x, i / steps);
+                            let interY = p.lerp(py, y, i / steps);
+                            target.circle(interX, interY, size);
+                            
+                            if (texture > 0 && p.random() < texture) {
+                                let noiseRad = size * p.map(texture, 0, 1, 0.5, 0.65);
+                                let angle = p.random(p.TWO_PI);
+                                target.circle(interX + p.cos(angle)*noiseRad, interY + p.sin(angle)*noiseRad, p.random(1, 4) * baseExportScale);
+                            }
+                        }
+                    }
+                    else if (strokeData.tool === 'calligraphy') {
+                        target.strokeCap(p.SQUARE);
+                        target.strokeWeight(2 * baseExportScale); 
+                        c.setAlpha(255 * op);
+                        target.stroke(c);
+
+                        let steps = Math.max(1, p.floor(visual_d / 1)); 
+                        for (let i = 0; i <= steps; i++) {
+                            let interX = p.lerp(px, x, i / steps);
+                            let interY = p.lerp(py, y, i / steps);
+                            let dx = p.cos(angleRad) * (size / 2);
+                            let dy = p.sin(angleRad) * (size / 2);
+                            target.line(interX - dx, interY - dy, interX + dx, interY + dy);
+                        }
+                    }
+                }
+                target.pop();
+            }
+
+            p.clearCanvas = () => {
+                p.drawingContext.globalCompositeOperation = 'source-over';
+                if (appState.bgTransparent) p.clear();
+                else p.background(appState.bgColor);
+            };
+
+            p.redrawHistory = () => {
+                p.clearCanvas();
+                p.push();
+                p.translate(appState.cameraX, appState.cameraY);
+                p.scale(appState.cameraZoom);
+
+                if (appState.refImage && appState.showRefImage && !appState.isPlaying) {
+                    p.image(appState.refImage, 0, 0, LOGICAL_W, LOGICAL_H);
+                }
+
+                for (let i = 0; i < appState.history.length; i++) {
+                    let stroke = appState.history[i];
+                    for (let pt of stroke.points) {
+                        drawBrushSegment(p, pt, stroke, 1.0);
+                    }
+                    
+                    if (i === appState.selectedStrokeIdx && appState.tool === 'select') {
+                        let minX = Infinity, minY = Infinity, maxX = -Infinity, maxY = -Infinity;
+                        stroke.points.forEach(pt => {
+                            let r = stroke.size / 2;
+                            minX = Math.min(minX, pt.x - r); minY = Math.min(minY, pt.y - r);
+                            maxX = Math.max(maxX, pt.x + r); maxY = Math.max(maxY, pt.y + r);
+                        });
+                        let pad = 8;
+                        p.push();
+                        p.noFill();
+                        p.stroke('#0ea5e9'); // Visual highlight
+                        p.strokeWeight(2 / appState.cameraZoom);
+                        p.drawingContext.setLineDash([8 / appState.cameraZoom, 8 / appState.cameraZoom]);
+                        p.rect(minX - pad, minY - pad, maxX - minX + pad*2, maxY - minY + pad*2);
+                        p.pop();
+                    }
+                }
+                p.pop();
+            };
+
+            p.getTotalTime = () => {
+                if (appState.history.length === 0) return 0;
+                let last = appState.history[appState.history.length - 1];
+                return last.startTime + last.duration;
+            };
+
+            function setPlayUI(playing, exporting = false) {
+                const btnPlay = document.getElementById('btn-play');
+                const iconPlay = document.getElementById('icon-play');
+                const textPlay = document.getElementById('text-play');
+                const ind = document.getElementById('status-indicator');
+                const txt = document.getElementById('status-text');
+
+                document.querySelectorAll('.tool-btn, input, select, button').forEach(b => {
+                    if (b.id !== 'btn-play' && b.id !== 'icon-play') b.disabled = playing;
+                });
+
+                if (playing) {
+                    ind.classList.remove('opacity-0');
+                    if (exporting) {
+                        btnPlay.disabled = true;
+                        ind.classList.replace('bg-google-primaryBg', 'bg-red-500/10');
+                        ind.classList.replace('dark:bg-google-darkPrimaryBg', 'dark:bg-red-500/10');
+                        ind.classList.replace('border-google-primary', 'border-red-500/50');
+                        ind.classList.replace('dark:border-google-darkPrimary', 'dark:border-red-500/50');
+                        ind.classList.replace('text-google-primary', 'text-red-500');
+                        ind.classList.replace('dark:text-google-darkPrimary', 'dark:text-red-400');
+                        document.getElementById('status-dot').classList.replace('bg-google-primary', 'bg-red-500');
+                        document.getElementById('status-dot').classList.replace('dark:bg-google-darkPrimary', 'dark:bg-red-400');
+                        txt.innerText = 'Rendering Video...';
+                    } else {
+                        btnPlay.classList.add('bg-red-500/10', 'text-red-500', 'dark:text-red-400');
+                        btnPlay.classList.remove('bg-google-surface', 'dark:bg-google-darkSurface');
+                        iconPlay.textContent = 'square';
+                        textPlay.innerText = 'Stop';
+                        txt.innerText = 'Playing Sequence';
+                    }
+                } else {
+                    btnPlay.disabled = false;
+                    btnPlay.classList.remove('bg-red-500/10', 'text-red-500', 'dark:text-red-400');
+                    btnPlay.classList.add('bg-google-surface', 'dark:bg-google-darkSurface');
+                    iconPlay.textContent = 'play_arrow';
+                    textPlay.innerText = 'Preview';
+                    ind.classList.add('opacity-0');
+                    
+                    ind.classList.replace('bg-red-500/10', 'bg-google-primaryBg');
+                    ind.classList.replace('dark:bg-red-500/10', 'dark:bg-google-darkPrimaryBg');
+                    ind.classList.replace('border-red-500/50', 'border-google-primary');
+                    ind.classList.replace('dark:border-red-500/50', 'dark:border-google-darkPrimary');
+                    ind.classList.replace('text-red-500', 'text-google-primary');
+                    ind.classList.replace('dark:text-red-400', 'dark:text-google-darkPrimary');
+                    document.getElementById('status-dot').classList.replace('bg-red-500', 'bg-google-primary');
+                    document.getElementById('status-dot').classList.replace('dark:bg-red-400', 'dark:bg-google-darkPrimary');
+                }
+            }
+
+            p.startPlayback = () => {
+                if (appState.history.length === 0) return showToast('Draw something first!', 'error');
+                appState.isPlaying = true;
+                appState.isExporting = false;
+                setPlayUI(true);
+                
+                p.clearCanvas();
+                playStartTime = p.millis();
+                playStrokeIdx = 0;
+                playPointIdx = 0;
+            };
+
+            p.stopPlayback = () => {
+                appState.isPlaying = false;
+                setPlayUI(false);
+                p.redrawHistory();
+            };
+
+            function stepPlayback(elapsedMs, targetBuffer, scale = 1.0) {
+                targetBuffer.push();
+                targetBuffer.translate(appState.cameraX * scale, appState.cameraY * scale);
+                targetBuffer.scale(appState.cameraZoom);
+                
+                while (playStrokeIdx < appState.history.length) {
+                    let stroke = appState.history[playStrokeIdx];
+
+                    if (playPointIdx >= stroke.points.length) {
+                        playStrokeIdx++;
+                        playPointIdx = 0;
+                        continue;
+                    }
+
+                    let pt = stroke.points[playPointIdx];
+                    if (pt.t <= elapsedMs) {
+                        drawBrushSegment(targetBuffer, pt, stroke, scale);
+                        playPointIdx++;
+                    } else {
+                        break; 
+                    }
+                }
+                targetBuffer.pop();
+
+                let totalTime = p.getTotalTime();
+                
+                if (appState.isExporting) {
+                    let pct = Math.min(100, Math.round((elapsedMs / totalTime) * 100));
+                    document.getElementById('rec-time').innerText = `Processing ${pct}%`;
+                }
+
+                if (elapsedMs >= totalTime + 1000) { 
+                    if (appState.isExporting) {
+                        document.getElementById('rec-time').innerText = `Finalizing File...`;
+                        setTimeout(() => {
+                            if (appState.mediaRecorder && appState.mediaRecorder.state !== 'inactive') {
+                                appState.mediaRecorder.stop();
+                            }
+                        }, 500);
+                        appState.isPlaying = false;
+                    } else {
+                        p.stopPlayback();
+                    }
+                }
+            }
+
+            p.exportImage = () => {
+                if (appState.history.length === 0) return showToast('Draw something first!', 'error');
+                if (appState.isPlaying || appState.isExporting) return;
+
+                const targetWidth = parseInt(document.getElementById('export-res').value);
+                const aspect = LOGICAL_H / LOGICAL_W;
+                const targetHeight = targetWidth * aspect;
+                const exportScale = targetWidth / LOGICAL_W;
+
+                const pg = p.createGraphics(targetWidth, targetHeight);
+                pg.drawingContext.globalCompositeOperation = 'source-over';
+                if (appState.bgTransparent) pg.clear();
+                else pg.background(appState.bgColor);
+
+                pg.push();
+                pg.translate(appState.cameraX * exportScale, appState.cameraY * exportScale);
+                pg.scale(appState.cameraZoom);
+
+                for (let stroke of appState.history) {
+                    for (let pt of stroke.points) {
+                        drawBrushSegment(pg, pt, stroke, exportScale);
+                    }
+                }
+                pg.pop();
+
+                const dataUrl = pg.elt.toDataURL('image/png');
+                const link = document.createElement('a');
+                link.download = `markerforge-${targetWidth}w-${Date.now()}.png`;
+                link.href = dataUrl;
+                link.click();
+                
+                pg.remove();
+                showToast('Image exported successfully!', 'success');
+            };
+
+            p.exportVideo = () => {
+                if (appState.history.length === 0) return showToast('Draw something first!', 'error');
+                if (appState.isPlaying || appState.isExporting) return;
+
+                const targetWidth = parseInt(document.getElementById('export-res').value);
+                const aspect = LOGICAL_H / LOGICAL_W;
+                const targetHeight = targetWidth * aspect;
+                const exportScale = targetWidth / LOGICAL_W;
+
+                const pg = p.createGraphics(targetWidth, targetHeight);
+                pg.drawingContext.globalCompositeOperation = 'source-over';
+                if (appState.bgTransparent) pg.clear();
+                else pg.background(appState.bgColor);
+
+                p.clearCanvas();
+                p.image(pg, 0, 0, LOGICAL_W, LOGICAL_H);
+
+                const stream = pg.elt.captureStream(60); 
+                appState.recordedChunks = [];
+                appState.mediaRecorder = new MediaRecorder(stream, { 
+                    mimeType: 'video/webm; codecs=vp9',
+                    videoBitsPerSecond: 20000000 
+                });
+                
+                appState.mediaRecorder.ondataavailable = (e) => {
+                    if (e.data.size > 0) appState.recordedChunks.push(e.data);
+                };
+
+                appState.mediaRecorder.onstop = () => {
+                    const blob = new Blob(appState.recordedChunks, { type: 'video/webm' });
+                    const url = URL.createObjectURL(blob);
+                    const link = document.createElement('a');
+                    link.href = url;
+                    link.download = `markerforge-${targetWidth}w-${Date.now()}.webm`;
+                    link.click();
+                    URL.revokeObjectURL(url);
+                    
+                    appState.isExporting = false;
+                    appState.isPlaying = false;
+                    setPlayUI(false);
+                    document.getElementById('export-loader').classList.add('opacity-0');
+                    setTimeout(() => document.getElementById('export-loader').classList.add('hidden'), 300);
+                    
+                    pg.remove(); 
+                    p.redrawHistory();
+                    showToast('Video exported successfully!', 'success');
+                };
+
+                appState.isPlaying = true;
+                appState.isExporting = true;
+                setPlayUI(true, true);
+                
+                const loader = document.getElementById('export-loader');
+                loader.classList.remove('hidden');
+                requestAnimationFrame(() => loader.classList.remove('opacity-0'));
+
+                playStrokeIdx = 0;
+                playPointIdx = 0;
+                let exportStartTime = 0; 
+                
+                function exportLoop() {
+                    if (!appState.isExporting) return;
+                    let elapsedMs = p.millis() - exportStartTime;
+                    
+                    stepPlayback(elapsedMs, pg, exportScale);
+                    
+                    p.clearCanvas();
+                    p.image(pg, 0, 0, LOGICAL_W, LOGICAL_H);
+
+                    requestAnimationFrame(exportLoop);
+                }
+                
+                setTimeout(() => {
+                    appState.mediaRecorder.start();
+                    exportStartTime = p.millis(); 
+                    exportLoop();
+                }, 100);
+            };
+
+            window.p5inst = p;
+        };
+
+        new p5(sketch);
+    </script>
+</body>
+</html>
