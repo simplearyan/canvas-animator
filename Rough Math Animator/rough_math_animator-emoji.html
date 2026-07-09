@@ -313,7 +313,7 @@ s = 50 \text{ meters}
                 <div class="flex flex-col gap-4">
                     <div class="grid grid-cols-2 gap-4">
                         <div>
-                            <label class="block text-sm font-semibold mb-1 text-gray-700 dark:text-gray-300">Font Style</label>
+                            <label class="block text-sm font-semibold mb-1 text-gray-700 dark:text-gray-300">Math Style</label>
                             <select id="math-font-style" class="w-full p-2 rounded border border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-700 text-sm outline-none focus:ring-2 focus:ring-brand-500">
                                 <option value="normal">Default (Math Roman)</option>
                                 <option value="mathsf">Sans-Serif (\mathsf)</option>
@@ -327,14 +327,25 @@ s = 50 \text{ meters}
                             </select>
                         </div>
                         <div>
-                            <label class="block text-sm font-semibold mb-1 text-gray-700 dark:text-gray-300">Fill Style</label>
-                            <select id="fill-style" class="w-full p-2 rounded border border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-700 text-sm outline-none focus:ring-2 focus:ring-brand-500">
-                                <option value="solid">Solid Marker</option>
-                                <option value="hachure">Pencil Shading</option>
-                                <option value="cross-hatch">Cross Hatch</option>
-                                <option value="none">Outline (Bubble)</option>
+                            <label class="block text-sm font-semibold mb-1 text-gray-700 dark:text-gray-300">Text Style</label>
+                            <select id="text-font-style" class="w-full p-2 rounded border border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-700 text-sm outline-none focus:ring-2 focus:ring-brand-500">
+                                <option value="normal">Default</option>
+                                <option value="textsf">Sans-Serif (\textsf)</option>
+                                <option value="texttt">Typewriter (\texttt)</option>
+                                <option value="textbf">Bold (\textbf)</option>
+                                <option value="textit">Italic (\textit)</option>
+                                <option value="textrm">Roman (\textrm)</option>
                             </select>
                         </div>
+                    </div>
+                    <div>
+                        <label class="block text-sm font-semibold mb-1 text-gray-700 dark:text-gray-300">Fill Style</label>
+                        <select id="fill-style" class="w-full p-2 rounded border border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-700 text-sm outline-none focus:ring-2 focus:ring-brand-500">
+                            <option value="solid">Solid Marker</option>
+                            <option value="hachure">Pencil Shading</option>
+                            <option value="cross-hatch">Cross Hatch</option>
+                            <option value="none">Outline (Bubble)</option>
+                        </select>
                     </div>
                 </div>
 
@@ -807,6 +818,10 @@ s = 50 \text{ meters}
             processLatex();
         });
 
+        document.getElementById('text-font-style').addEventListener('change', () => {
+            processLatex();
+        });
+
         // Seed & Boiling Handlers
         const seedInput = document.getElementById('seed-input');
         const boilToggle = document.getElementById('boil-toggle');
@@ -1195,6 +1210,54 @@ s = 50 \text{ meters}
             debounceTimer = setTimeout(processLatex, 300);
         });
 
+        function applyStyleToLatex(tex, mathStyle, textStyle) {
+            // Extract all \text{...} blocks to avoid styling them as math variables
+            const textBlocks = [];
+            let placeholderTex = tex.replace(/\\text\s*\{((?:[^{}]|\{[^{}]*\})*)\}/g, (match, content) => {
+                let styledContent = content;
+                if (textStyle && textStyle !== 'normal') {
+                    styledContent = `\\${textStyle}{${content}}`;
+                }
+                textBlocks.push(`\\text{${styledContent}}`);
+                return `§§${textBlocks.length - 1}§§`; // Non-alphabetic placeholder
+            });
+
+            // Extract LaTeX command patterns and environments (including matrices, arrays, brackets, and math symbols)
+            const commands = [];
+            placeholderTex = placeholderTex.replace(/(\\[a-zA-Z]+(?:\{[^{}]*\})*|\\\\|&)/g, (match) => {
+                commands.push(match);
+                return `%%${commands.length - 1}%%`; // Non-alphabetic placeholder
+            });
+
+            // Apply selected math style to remaining math variables
+            if (mathStyle && mathStyle !== 'normal' && !mathStyle.startsWith('loaded-font-')) {
+                let letterRegex;
+                if (['mathbb', 'mathcal', 'mathscr'].includes(mathStyle)) {
+                    // Double-struck, calligraphic, and script only support uppercase (A-Z) in MathJax
+                    letterRegex = /[A-Z]/g;
+                } else {
+                    // Standard font styles apply to both uppercase and lowercase letters (a-z, A-Z)
+                    letterRegex = /[a-zA-Z]/g;
+                }
+
+                placeholderTex = placeholderTex.replace(letterRegex, (match) => {
+                    return `\\${mathStyle}{${match}}`;
+                });
+            }
+
+            // Restore all commands
+            placeholderTex = placeholderTex.replace(/%%(\d+)%%/g, (match, index) => {
+                return commands[parseInt(index)];
+            });
+
+            // Restore all text blocks
+            placeholderTex = placeholderTex.replace(/§§(\d+)§§/g, (match, index) => {
+                return textBlocks[parseInt(index)];
+            });
+
+            return placeholderTex;
+        }
+
         async function processLatex() {
             if (!window.mathJaxLoaded) return;
             let tex = latexInput.value.trim();
@@ -1204,26 +1267,21 @@ s = 50 \text{ meters}
                 return;
             }
 
-            // Apply selected font style
-            const fontStyle = document.getElementById('math-font-style').value;
+            // Apply selected font styles
+            const mathStyle = document.getElementById('math-font-style').value;
+            const textStyle = document.getElementById('text-font-style').value;
             let customFontFamily = '';
             let customFontWeight = '';
-            if (fontStyle !== 'normal') {
-                if (fontStyle.startsWith('loaded-font-')) {
-                    // Format: loaded-font-[family-name]-[weight]
-                    const parts = fontStyle.split('-');
-                    customFontWeight = parts.pop();
-                    customFontFamily = parts.slice(2).map(w => w.charAt(0).toUpperCase() + w.slice(1)).join(' ');
-                } else if (['mathbb', 'mathscr'].includes(fontStyle)) {
-                    // MathJax TeX double-struck and script only support uppercase (A-Z) and cause rendering blanks if wrapped globally
-                    tex = tex.replace(/(\\[a-zA-Z]+)|([A-Z])/g, (match, cmd, letter) => {
-                        return cmd ? cmd : `\\${fontStyle}{${letter}}`;
-                    });
-                } else {
-                    // Standard styles (including Fraktur/Gothic and Calligraphic) wrap the entire expression successfully
-                    tex = `\\${fontStyle}{${tex}}`;
-                }
+            
+            if (mathStyle.startsWith('loaded-font-')) {
+                // Format: loaded-font-[family-name]-[weight]
+                const parts = mathStyle.split('-');
+                customFontWeight = parts.pop();
+                customFontFamily = parts.slice(2).map(w => w.charAt(0).toUpperCase() + w.slice(1)).join(' ');
             }
+            
+            // Style the LaTeX math and text parts using the token-based parser
+            tex = applyStyleToLatex(tex, mathStyle, textStyle);
 
             try {
                 // Generate SVG wrapper element asynchronously

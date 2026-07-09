@@ -1,0 +1,1532 @@
+<!DOCTYPE html>
+<html lang="en" class="light">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+    <title>Google Flow - Rough Math Workspace</title>
+    
+    <!-- Google Fonts & Material Symbols -->
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link rel="preconnect" href="https://cdn.jsdelivr.net" crossorigin>
+    <link rel="preconnect" href="https://unpkg.com" crossorigin>
+    <link rel="preload" as="style" href="https://fonts.googleapis.com/css2?family=Material+Symbols+Rounded:opsz,wght,FILL,GRAD@20..48,100..700,0..1,-50..200&display=block" />
+    <link href="https://fonts.googleapis.com/css2?family=Caveat:wght@400;600;700&family=Google+Sans:wght@400;500;700&family=Fira+Code:wght@400;500&display=swap" rel="stylesheet">
+    <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Material+Symbols+Rounded:opsz,wght,FILL,GRAD@20..48,100..700,0..1,-50..200&display=block" />
+
+    <!-- Tailwind CSS -->
+    <script src="https://cdn.tailwindcss.com"></script>
+    <script>
+        tailwind.config = {
+            darkMode: 'class',
+            theme: {
+                extend: {
+                    fontFamily: {
+                        sans: ['"Google Sans"', 'sans-serif'],
+                        hand: ['Caveat', 'cursive'],
+                        mono: ['Fira Code', 'monospace'],
+                    },
+                    colors: {
+                        google: {
+                            // Light Mode
+                            bg: '#f0f4f9',
+                            surface: '#ffffff',
+                            surfaceHover: '#f0f4f9',
+                            border: '#c7c7c7',
+                            text: '#1f1f1f',
+                            textMuted: '#444746',
+                            primary: '#0b57d0',
+                            primaryHover: '#0842a0',
+                            primaryBg: '#d3e3fd',
+                            // Dark Mode
+                            darkBg: '#131314',
+                            darkSurface: '#1e1e20',
+                            darkSurfaceHover: '#333537',
+                            darkBorder: '#444746',
+                            darkText: '#e3e3e3',
+                            darkTextMuted: '#c4c7c5',
+                            darkPrimary: '#a8c7fa',
+                            darkPrimaryHover: '#d3e3fd',
+                            darkPrimaryBg: '#0842a0',
+                        }
+                    }
+                }
+            }
+        }
+    </script>
+
+    <!-- Rough.js -->
+    <script src="https://unpkg.com/roughjs@4.5.2/bundled/rough.js"></script>
+
+    <!-- MathJax Configuration & Loader -->
+    <script>
+        window.MathJax = {
+            loader: {load: ['[tex]/boldsymbol']},
+            tex: { packages: {'[+]': ['base', 'ams', 'boldsymbol']} },
+            svg: { fontCache: 'local' },
+            startup: {
+                pageReady: () => {
+                    return MathJax.startup.defaultPageReady().then(() => {
+                        window.mathJaxLoaded = true;
+                        document.getElementById('loading-overlay').style.opacity = '0';
+                        setTimeout(() => document.getElementById('loading-overlay').remove(), 300);
+                        document.getElementById('latex-input').dispatchEvent(new Event('input'));
+                    });
+                }
+            }
+        };
+    </script>
+    <script id="MathJax-script" async src="https://cdn.jsdelivr.net/npm/mathjax@3/es5/tex-svg.js"></script>
+
+    <style>
+        body { overscroll-behavior-y: none; }
+        
+        .ms-icon {
+            font-family: 'Material Symbols Rounded';
+            font-weight: normal;
+            font-style: normal;
+            font-size: 20px;
+            line-height: 1;
+            letter-spacing: normal;
+            text-transform: none;
+            display: inline-block;
+            white-space: nowrap;
+            word-wrap: normal;
+            direction: ltr;
+            -webkit-font-smoothing: antialiased;
+        }
+
+        /* Material 3 Styled Range Sliders */
+        input[type=range] {
+            -webkit-appearance: none;
+            width: 100%;
+            background: transparent;
+        }
+        input[type=range]::-webkit-slider-thumb {
+            -webkit-appearance: none;
+            height: 16px;
+            width: 16px;
+            border-radius: 50%;
+            background: #0b57d0;
+            cursor: pointer;
+            margin-top: -6px;
+            transition: transform 0.1s, box-shadow 0.1s;
+        }
+        .dark input[type=range]::-webkit-slider-thumb {
+            background: #a8c7fa;
+        }
+        input[type=range]::-webkit-slider-thumb:hover {
+            transform: scale(1.2);
+            box-shadow: 0 0 0 8px rgba(11, 87, 208, 0.1);
+        }
+        .dark input[type=range]::-webkit-slider-thumb:hover {
+            box-shadow: 0 0 0 8px rgba(168, 199, 250, 0.1);
+        }
+        input[type=range]:disabled::-webkit-slider-thumb {
+            background: #c7c7c7; cursor: not-allowed; box-shadow: none; transform: none;
+        }
+        .dark input[type=range]:disabled::-webkit-slider-thumb { background: #444746; }
+        
+        input[type=range]::-webkit-slider-runnable-track {
+            width: 100%; height: 4px; cursor: pointer; background: #e0e0e0; border-radius: 2px;
+        }
+        .dark input[type=range]::-webkit-slider-runnable-track { background: #444746; }
+        
+        /* Canvas & Grid Setup */
+        #canvas-container {
+            touch-action: none;
+            background-size: 30px 30px;
+            background-position: -1px -1px;
+            transition: background-color 0.3s ease;
+        }
+
+        /* Scrollbars */
+        ::-webkit-scrollbar { width: 6px; height: 6px; }
+        ::-webkit-scrollbar-track { background: transparent; }
+        ::-webkit-scrollbar-thumb { background-color: #c7c7c7; border-radius: 3px; }
+        .dark ::-webkit-scrollbar-thumb { background-color: #444746; }
+        ::-webkit-scrollbar-thumb:hover { background-color: #a0a0a0; }
+
+        /* Accordion Animations */
+        .accordion-content {
+            display: grid;
+            grid-template-rows: 0fr;
+            transition: grid-template-rows 0.2s ease-out;
+        }
+        .accordion-content.open { grid-template-rows: 1fr; }
+        .accordion-inner { overflow: hidden; min-height: 0; }
+        .accordion-icon { transition: transform 0.2s; }
+        .accordion-icon.open { transform: rotate(180deg); }
+
+        /* Template Button Styling */
+        .template-btn {
+            white-space: nowrap; overflow: hidden; text-overflow: ellipsis;
+        }
+    </style>
+</head>
+<body class="bg-google-bg dark:bg-google-darkBg text-google-text dark:text-google-darkText h-screen flex flex-col overflow-hidden transition-colors duration-200">
+
+    <!-- Loading Overlay -->
+    <div id="loading-overlay" class="fixed inset-0 bg-white/90 dark:bg-[#131314]/90 z-[100] flex flex-col items-center justify-center transition-opacity duration-300 backdrop-blur-sm">
+        <span class="ms-icon text-5xl text-google-primary dark:text-google-darkPrimary animate-spin mb-4">progress_activity</span>
+        <h2 class="font-google text-2xl font-medium text-gray-800 dark:text-white">Loading Engine...</h2>
+    </div>
+
+    <!-- HEADER -->
+    <header class="h-16 flex items-center justify-between px-4 sm:px-6 flex-shrink-0 z-30 transition-colors duration-200">
+        <div class="flex items-center gap-3">
+            <div class="w-9 h-9 rounded bg-google-primary dark:bg-google-darkPrimary flex items-center justify-center text-white dark:text-google-darkBg shadow-sm">
+                <span class="ms-icon text-[22px]">draw</span>
+            </div>
+            <h1 class="font-google text-xl font-medium tracking-tight mt-0.5">Rough Math</h1>
+        </div>
+        
+        <div class="flex items-center gap-2 sm:gap-3">
+            
+            <button id="btn-animate" class="flex items-center gap-2 px-4 py-2 bg-google-surface dark:bg-google-darkSurface border border-google-border dark:border-google-darkBorder hover:bg-google-surfaceHover dark:hover:bg-google-darkSurfaceHover rounded-full text-sm font-medium transition shadow-sm disabled:opacity-50">
+                <span class="ms-icon text-[18px]">play_arrow</span> <span class="hidden sm:inline">Preview</span>
+            </button>
+            
+            <button id="btn-record" class="flex items-center gap-2 px-4 py-2 bg-google-primary dark:bg-google-darkPrimary text-white dark:text-google-darkBg hover:bg-google-primaryHover dark:hover:bg-google-darkPrimaryHover rounded-full text-sm font-medium transition shadow-sm disabled:opacity-50">
+                <span class="ms-icon text-[18px]">videocam</span> <span class="hidden sm:inline">Record</span>
+            </button>
+
+            <!-- Export Image Button -->
+            <button id="btn-export" class="flex items-center justify-center w-9 h-9 bg-google-surface dark:bg-google-darkSurface border border-google-border dark:border-google-darkBorder hover:bg-google-surfaceHover dark:hover:bg-google-darkSurfaceHover rounded-full transition shadow-sm" title="Export Image">
+                <span class="ms-icon text-[18px]">image</span>
+            </button>
+
+            <div class="w-px h-5 bg-google-border dark:bg-google-darkBorder mx-1"></div>
+
+            <button id="theme-toggle" class="flex items-center justify-center w-9 h-9 text-google-textMuted dark:text-google-darkTextMuted hover:bg-black/5 dark:hover:bg-white/10 rounded-full transition" title="Toggle Theme">
+                <span class="ms-icon text-[20px]" id="theme-icon">dark_mode</span>
+            </button>
+        </div>
+    </header>
+
+    <!-- WORKSPACE -->
+    <div class="flex-1 flex flex-col md:flex-row overflow-hidden p-2 sm:p-4 pt-0 gap-4 relative">
+        
+        <!-- Recording Overlay Indicator -->
+        <div id="recording-overlay" class="absolute top-4 left-1/2 -translate-x-1/2 bg-red-500 text-white px-5 py-2.5 rounded-full font-medium text-sm flex items-center gap-2 shadow-lg z-50 transition-transform duration-300 transform -translate-y-20">
+            <div class="w-2.5 h-2.5 bg-white rounded-full animate-pulse"></div>
+            Recording Animation...
+        </div>
+
+        <!-- LEFT SIDEBAR (INSPECTOR) -->
+        <aside class="w-full md:w-[380px] bg-google-surface dark:bg-google-darkSurface rounded-2xl border border-google-border dark:border-google-darkBorder flex flex-col overflow-hidden shadow-sm flex-shrink-0 transition-colors duration-200 h-[45vh] md:h-full z-10">
+            
+            <!-- Segmented Control (Tabs) -->
+            <div class="flex p-2 border-b border-google-border dark:border-google-darkBorder shrink-0 bg-google-surface dark:bg-google-darkSurface gap-1">
+                <button class="tab-btn active flex-1 py-1.5 text-[11px] sm:text-xs font-medium rounded-lg transition-colors flex items-center justify-center gap-1 bg-google-primaryBg dark:bg-google-darkPrimaryBg text-google-primary dark:text-google-darkPrimary" data-target="tab-content">
+                    <span class="ms-icon text-[16px]">edit_note</span> Content
+                </button>
+                <button class="tab-btn flex-1 py-1.5 text-[11px] sm:text-xs font-medium rounded-lg transition-colors flex items-center justify-center gap-1 text-google-textMuted dark:text-google-darkTextMuted hover:bg-black/5 dark:hover:bg-white/5" data-target="tab-style">
+                    <span class="ms-icon text-[16px]">palette</span> Style
+                </button>
+                <button class="tab-btn flex-1 py-1.5 text-[11px] sm:text-xs font-medium rounded-lg transition-colors flex items-center justify-center gap-1 text-google-textMuted dark:text-google-darkTextMuted hover:bg-black/5 dark:hover:bg-white/5" data-target="tab-props">
+                    <span class="ms-icon text-[16px]">tune</span> Props
+                </button>
+                <button class="tab-btn flex-1 py-1.5 text-[11px] sm:text-xs font-medium rounded-lg transition-colors flex items-center justify-center gap-1 text-google-textMuted dark:text-google-darkTextMuted hover:bg-black/5 dark:hover:bg-white/5" data-target="tab-motion">
+                    <span class="ms-icon text-[16px]">animation</span> Motion
+                </button>
+            </div>
+
+            <!-- TAB CONTENT PANELS -->
+            <div class="flex-1 overflow-y-auto p-2">
+                
+                <!-- 1. CONTENT TAB -->
+                <div id="tab-content" class="tab-panel flex flex-col gap-2">
+                    
+                    <!-- LaTeX Input -->
+                    <div class="p-3 bg-white dark:bg-[#282a2c] rounded-xl border border-google-border dark:border-google-darkBorder">
+                        <div class="flex justify-between items-center mb-2">
+                            <label class="text-xs font-medium text-google-textMuted dark:text-google-darkTextMuted">Equation (LaTeX)</label>
+                            <a href="https://en.wikibooks.org/wiki/LaTeX/Mathematics" target="_blank" class="text-xs text-google-primary dark:text-google-darkPrimary hover:underline flex items-center gap-1"><span class="ms-icon text-[14px]">help</span> Help</a>
+                        </div>
+                        <textarea id="latex-input" class="w-full h-28 p-3 rounded-lg bg-google-bg dark:bg-google-darkBg border border-google-border dark:border-google-darkBorder text-sm font-mono focus:ring-2 focus:ring-google-primary dark:focus:ring-google-darkPrimary focus:border-transparent outline-none resize-none" spellcheck="false">i\hbar\frac{\partial}{\partial t}\Psi(\mathbf{r},t) = \left[-\frac{\hbar^2}{2m}\nabla^2 + V(\mathbf{r},t)\right]\Psi(\mathbf{r},t)</textarea>
+                    </div>
+
+                    <!-- Templates Accordion -->
+                    <div class="border border-google-border dark:border-google-darkBorder rounded-xl bg-white dark:bg-[#282a2c] overflow-hidden">
+                        <button class="accordion-toggle w-full flex items-center justify-between p-3 text-sm font-medium hover:bg-black/5 dark:hover:bg-white/5 transition-colors">
+                            <div class="flex items-center gap-2"><span class="ms-icon text-[18px] text-google-textMuted dark:text-google-darkTextMuted">functions</span> Standard Equations</div>
+                            <span class="ms-icon accordion-icon text-[20px]">expand_more</span>
+                        </button>
+                        <div class="accordion-content">
+                            <div class="accordion-inner">
+                                <div class="p-3 pt-0 grid grid-cols-2 gap-2">
+                                    <button class="template-btn py-2 bg-google-bg dark:bg-google-darkBg hover:bg-google-border dark:hover:bg-google-darkBorder rounded-lg text-xs font-medium transition px-2" data-tex="\rho \left( \frac{\partial \mathbf{v}}{\partial t} + \mathbf{v} \cdot \nabla \mathbf{v} \right) = -\nabla p + \mu \nabla^2 \mathbf{v} + \mathbf{f}">Navier-Stokes</button>
+                                    <button class="template-btn py-2 bg-google-bg dark:bg-google-darkBg hover:bg-google-border dark:hover:bg-google-darkBorder rounded-lg text-xs font-medium transition px-2" data-tex="i\hbar\frac{\partial}{\partial t}\Psi(\mathbf{r},t) = \left[-\frac{\hbar^2}{2m}\nabla^2 + V(\mathbf{r},t)\right]\Psi(\mathbf{r},t)">Schrödinger</button>
+                                    <button class="template-btn py-2 bg-google-bg dark:bg-google-darkBg hover:bg-google-border dark:hover:bg-google-darkBorder rounded-lg text-xs font-medium transition px-2" data-tex="R_{\mu\nu} - \frac{1}{2}Rg_{\mu\nu} + \Lambda g_{\mu\nu} = \frac{8\pi G}{c^4}T_{\mu\nu}">Einstein Field</button>
+                                    <button class="template-btn py-2 bg-google-bg dark:bg-google-darkBg hover:bg-google-border dark:hover:bg-google-darkBorder rounded-lg text-xs font-medium transition px-2" data-tex="\hat{f}(\xi) = \int_{-\infty}^{\infty} f(x) e^{-i 2\pi \xi x} \,dx">Fourier Transform</button>
+                                    <button class="template-btn py-2 bg-google-bg dark:bg-google-darkBg hover:bg-google-border dark:hover:bg-google-darkBorder rounded-lg text-xs font-medium transition px-2" data-tex="A = \begin{bmatrix} a_{11} & a_{12} & a_{13} \\ a_{21} & a_{22} & a_{23} \\ a_{31} & a_{32} & a_{33} \end{bmatrix}">3x3 Matrix</button>
+                                    <button class="template-btn py-2 bg-google-bg dark:bg-google-darkBg hover:bg-google-border dark:hover:bg-google-darkBorder rounded-lg text-xs font-medium transition px-2" data-tex="x = \frac{-b \pm \sqrt{b^2 - 4ac}}{2a}">Quadratic</button>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+
+                    <!-- Questions Accordion -->
+                    <div class="border border-google-border dark:border-google-darkBorder rounded-xl bg-white dark:bg-[#282a2c] overflow-hidden">
+                        <button class="accordion-toggle w-full flex items-center justify-between p-3 text-sm font-medium hover:bg-black/5 dark:hover:bg-white/5 transition-colors">
+                            <div class="flex items-center gap-2"><span class="ms-icon text-[18px] text-google-textMuted dark:text-google-darkTextMuted">assignment</span> Word Problems</div>
+                            <span class="ms-icon accordion-icon text-[20px]">expand_more</span>
+                        </button>
+                        <div class="accordion-content">
+                            <div class="accordion-inner">
+                                <div class="p-3 pt-0 flex flex-col gap-2">
+                                    <button class="template-btn py-2 bg-google-bg dark:bg-google-darkBg hover:bg-google-border dark:hover:bg-google-darkBorder rounded-lg text-xs font-medium transition px-3 text-left flex items-center justify-between" 
+                                        data-tex="\begin{array}{l}
+\text{Q: A car accelerates uniformly from rest to } 20 \text{ m/s} \\
+\text{in } 5 \text{ seconds. Find the distance traveled.} \\
+\\
+v = u + at \implies 20 = 0 + a(5) \implies a = 4 \text{ m/s}^2 \\
+s = ut + \frac{1}{2}at^2 \implies s = 0 + \frac{1}{2}(4)(5^2) \\
+s = 50 \text{ meters}
+\end{array}">
+                                        Physics Kinematics Q <span class="ms-icon text-[16px]">arrow_forward</span>
+                                    </button>
+                                    <button class="template-btn py-2 bg-google-bg dark:bg-google-darkBg hover:bg-google-border dark:hover:bg-google-darkBorder rounded-lg text-xs font-medium transition px-3 text-left flex items-center justify-between" 
+                                        data-tex="\begin{array}{l}
+\text{Consider the set of vectors } S \text{ in } \mathbb{R}^3: \\
+S = \{(1, 2, 0), (0, 3, 1), (3, 3, -1)\} \\
+\\
+\text{Let } V \text{ be the vector space spanned by } (1, 2, 0) \text{ and } (0, 3, 1). \\
+\bigcirc \quad V = \{(a, 2a + 3b, b) \mid a, b \in \mathbb{R}\}
+\end{array}">
+                                        Linear Algebra Exam <span class="ms-icon text-[16px]">arrow_forward</span>
+                                    </button>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- 2. STYLE TAB -->
+                <div id="tab-style" class="tab-panel hidden flex flex-col gap-2">
+                    
+                    <!-- Sub-tabs Header -->
+                    <div class="flex p-1 bg-google-bg dark:bg-google-darkBg rounded-lg mb-2">
+                        <button class="sub-tab-btn active flex-1 py-1.5 text-[11px] sm:text-xs font-medium rounded-md bg-white dark:bg-google-darkSurface shadow-sm text-google-primary dark:text-google-darkPrimary transition-all" data-target="sub-style-canvas">Canvas & Colors</button>
+                        <button class="sub-tab-btn flex-1 py-1.5 text-[11px] sm:text-xs font-medium rounded-md text-google-textMuted dark:text-google-darkTextMuted hover:bg-black/5 dark:hover:bg-white/5 transition-all" data-target="sub-style-strokes">Layout & Strokes</button>
+                    </div>
+
+                    <!-- Canvas & Colors Sub-panel -->
+                    <div id="sub-style-canvas" class="sub-tab-panel flex flex-col gap-2">
+                        <!-- Colors Accordion -->
+                        <div class="border border-google-border dark:border-google-darkBorder rounded-xl bg-white dark:bg-[#282a2c] overflow-hidden">
+                            <button class="accordion-toggle w-full flex items-center justify-between p-3 text-sm font-medium hover:bg-black/5 dark:hover:bg-white/5 transition-colors open">
+                                <div class="flex items-center gap-2"><span class="ms-icon text-[18px] text-google-textMuted dark:text-google-darkTextMuted">colors</span> Colors</div>
+                                <span class="ms-icon accordion-icon open text-[20px]">expand_more</span>
+                            </button>
+                            <div class="accordion-content open">
+                                <div class="accordion-inner">
+                                    <div class="p-3 pt-0 grid grid-cols-2 gap-4">
+                                        <div>
+                                            <label class="block text-xs font-medium text-google-textMuted dark:text-google-darkTextMuted mb-2">Pen Color</label>
+                                            <div class="flex gap-2 flex-wrap">
+                                                <button class="color-btn w-6 h-6 rounded-full border-2 border-transparent shadow-sm ring-2 ring-offset-2 ring-transparent ring-offset-white dark:ring-offset-[#282a2c] active-color transition-all" data-color="#1f1f1f" style="background-color: #1f1f1f;"></button>
+                                                <button class="color-btn w-6 h-6 rounded-full border-2 border-transparent shadow-sm ring-2 ring-offset-2 ring-transparent ring-offset-white dark:ring-offset-[#282a2c] transition-all" data-color="#d93025" style="background-color: #d93025;"></button>
+                                                <button class="color-btn w-6 h-6 rounded-full border-2 border-transparent shadow-sm ring-2 ring-offset-2 ring-transparent ring-offset-white dark:ring-offset-[#282a2c] transition-all" data-color="#1a73e8" style="background-color: #1a73e8;"></button>
+                                                <div class="relative w-6 h-6 rounded-full overflow-hidden border border-google-border dark:border-google-darkBorder cursor-pointer" title="Custom Pen Color">
+                                                    <input type="color" id="custom-color" value="#8b5cf6" class="absolute -top-2 -left-2 w-10 h-10 cursor-pointer">
+                                                </div>
+                                            </div>
+                                        </div>
+                                        <div>
+                                            <label class="block text-xs font-medium text-google-textMuted dark:text-google-darkTextMuted mb-2">Canvas Paper</label>
+                                            <div class="flex gap-2 flex-wrap">
+                                                <button class="bg-color-btn w-6 h-6 rounded-full border-2 border-transparent shadow-sm ring-2 ring-offset-2 ring-transparent ring-offset-white dark:ring-offset-[#282a2c] active-bg-color transition-all" data-color="#ffffff" style="background-color: #ffffff;"></button>
+                                                <button class="bg-color-btn w-6 h-6 rounded-full border-2 border-transparent shadow-sm ring-2 ring-offset-2 ring-transparent ring-offset-white dark:ring-offset-[#282a2c] transition-all" data-color="#1e1e20" style="background-color: #1e1e20;"></button>
+                                                <button class="bg-color-btn w-6 h-6 rounded-full border-2 border-transparent shadow-sm ring-2 ring-offset-2 ring-transparent ring-offset-white dark:ring-offset-[#282a2c] transition-all" data-color="#fef7e0" style="background-color: #fef7e0;"></button>
+                                                <div class="relative w-6 h-6 rounded-full overflow-hidden border border-google-border dark:border-google-darkBorder cursor-pointer" title="Custom Paper Color">
+                                                    <input type="color" id="custom-bg-color" value="#e8f0fe" class="absolute -top-2 -left-2 w-10 h-10 cursor-pointer">
+                                                </div>
+                                            </div>
+                                        </div>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+
+                        <!-- Grid Accordion -->
+                        <div class="border border-google-border dark:border-google-darkBorder rounded-xl bg-white dark:bg-[#282a2c] overflow-hidden">
+                            <button class="accordion-toggle w-full flex items-center justify-between p-3 text-sm font-medium hover:bg-black/5 dark:hover:bg-white/5 transition-colors open">
+                                <div class="flex items-center gap-2"><span class="ms-icon text-[18px] text-google-textMuted dark:text-google-darkTextMuted">grid_on</span> Paper Grid</div>
+                                <span class="ms-icon accordion-icon open text-[20px]">expand_more</span>
+                            </button>
+                            <div class="accordion-content open">
+                                <div class="accordion-inner">
+                                    <div class="p-3 pt-0 flex flex-col gap-3">
+                                        <div class="flex items-center justify-between">
+                                            <label class="text-xs font-medium text-google-textMuted dark:text-google-darkTextMuted">Show Grid</label>
+                                            <label class="relative inline-flex items-center cursor-pointer">
+                                                <input type="checkbox" id="grid-toggle" class="sr-only peer" checked>
+                                                <div class="w-9 h-5 bg-gray-300 peer-focus:outline-none rounded-full peer dark:bg-[#444746] peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border-gray-300 after:border after:rounded-full after:h-4 after:w-4 after:transition-all peer-checked:bg-google-primary dark:peer-checked:bg-google-darkPrimary"></div>
+                                            </label>
+                                        </div>
+                                        <div>
+                                            <div class="flex justify-between items-center mb-1">
+                                                <label class="text-xs font-medium text-google-textMuted dark:text-google-darkTextMuted">Grid Scale</label>
+                                                <span id="grid-size-val" class="text-xs font-mono">30px</span>
+                                            </div>
+                                            <input type="range" id="grid-size" min="10" max="100" step="5" value="30">
+                                        </div>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+
+                    <!-- Layout & Strokes Sub-panel -->
+                    <div id="sub-style-strokes" class="sub-tab-panel hidden flex flex-col gap-2">
+                        <!-- Layout Accordion -->
+                        <div class="border border-google-border dark:border-google-darkBorder rounded-xl bg-white dark:bg-[#282a2c] overflow-hidden">
+                            <button class="accordion-toggle w-full flex items-center justify-between p-3 text-sm font-medium hover:bg-black/5 dark:hover:bg-white/5 transition-colors open">
+                                <div class="flex items-center gap-2"><span class="ms-icon text-[18px] text-google-textMuted dark:text-google-darkTextMuted">aspect_ratio</span> Layout & Fill</div>
+                                <span class="ms-icon accordion-icon open text-[20px]">expand_more</span>
+                            </button>
+                            <div class="accordion-content open">
+                                <div class="accordion-inner">
+                                    <div class="p-3 pt-0 flex flex-col gap-3">
+                                        <div>
+                                            <label class="block text-xs font-medium text-google-textMuted dark:text-google-darkTextMuted mb-1">Canvas Format</label>
+                                            <select id="canvas-ratio" class="w-full p-2 rounded-lg bg-google-bg dark:bg-google-darkBg border border-google-border dark:border-google-darkBorder text-sm outline-none cursor-pointer focus:ring-2 focus:ring-google-primary">
+                                                <option value="auto">Auto (Responsive Fill)</option>
+                                                <option value="16:9">16:9 (Landscape Video)</option>
+                                                <option value="9:16">9:16 (Shorts / Reels)</option>
+                                                <option value="1:1">1:1 (Square)</option>
+                                            </select>
+                                        </div>
+                                        <div>
+                                            <label class="block text-xs font-medium text-google-textMuted dark:text-google-darkTextMuted mb-1">Marker Style</label>
+                                            <select id="fill-style" class="w-full p-2 rounded-lg bg-google-bg dark:bg-google-darkBg border border-google-border dark:border-google-darkBorder text-sm outline-none cursor-pointer focus:ring-2 focus:ring-google-primary">
+                                                <option value="solid">Solid Ink</option>
+                                                <option value="hachure">Pencil Shading</option>
+                                                <option value="cross-hatch">Cross Hatch</option>
+                                                <option value="none">Outline Only</option>
+                                            </select>
+                                        </div>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+
+                        <!-- Scribble Accordion -->
+                        <div class="border border-google-border dark:border-google-darkBorder rounded-xl bg-white dark:bg-[#282a2c] overflow-hidden">
+                            <button class="accordion-toggle w-full flex items-center justify-between p-3 text-sm font-medium hover:bg-black/5 dark:hover:bg-white/5 transition-colors open">
+                                <div class="flex items-center gap-2"><span class="ms-icon text-[18px] text-google-textMuted dark:text-google-darkTextMuted">gesture</span> Scribble Tuning</div>
+                                <span class="ms-icon accordion-icon open text-[20px]">expand_more</span>
+                            </button>
+                            <div class="accordion-content open">
+                                <div class="accordion-inner">
+                                    <div class="p-3 pt-0 grid grid-cols-2 gap-x-4 gap-y-4">
+                                        <div>
+                                            <div class="flex justify-between items-center mb-1">
+                                                <label class="text-xs font-medium text-google-textMuted dark:text-google-darkTextMuted">Roughness</label>
+                                                <span id="roughness-val" class="text-xs font-mono">0.5</span>
+                                            </div>
+                                            <input type="range" id="roughness" min="0" max="4" step="0.1" value="0.5">
+                                        </div>
+                                        <div>
+                                            <div class="flex justify-between items-center mb-1">
+                                                <label class="text-xs font-medium text-google-textMuted dark:text-google-darkTextMuted">Line Bowing</label>
+                                                <span id="bowing-val" class="text-xs font-mono">1.0</span>
+                                            </div>
+                                            <input type="range" id="bowing" min="0" max="10" step="0.5" value="1.0">
+                                        </div>
+                                        <div>
+                                            <div class="flex justify-between items-center mb-1">
+                                                <label class="text-xs font-medium text-google-textMuted dark:text-google-darkTextMuted">Pen Width</label>
+                                                <span id="stroke-w-val" class="text-xs font-mono">2.0</span>
+                                            </div>
+                                            <input type="range" id="stroke-width" min="0.5" max="6" step="0.5" value="2.0">
+                                        </div>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- 3. PROPS TAB -->
+                <div id="tab-props" class="tab-panel hidden flex flex-col gap-2">
+                    
+                    <!-- Sub-tabs Header -->
+                    <div class="flex p-1 bg-google-bg dark:bg-google-darkBg rounded-lg mb-2">
+                        <button class="sub-tab-btn active flex-1 py-1.5 text-[11px] sm:text-xs font-medium rounded-md bg-white dark:bg-google-darkSurface shadow-sm text-google-primary dark:text-google-darkPrimary transition-all" data-target="sub-transform">Transform</button>
+                        <button class="sub-tab-btn flex-1 py-1.5 text-[11px] sm:text-xs font-medium rounded-md text-google-textMuted dark:text-google-darkTextMuted hover:bg-black/5 dark:hover:bg-white/5 transition-all" data-target="sub-shadow">Shadows</button>
+                        <button class="sub-tab-btn flex-1 py-1.5 text-[11px] sm:text-xs font-medium rounded-md text-google-textMuted dark:text-google-darkTextMuted hover:bg-black/5 dark:hover:bg-white/5 transition-all" data-target="sub-text">Text</button>
+                    </div>
+
+                    <!-- Transform Panel -->
+                    <div id="sub-transform" class="sub-tab-panel flex flex-col gap-4 p-4 bg-white dark:bg-[#282a2c] rounded-xl border border-google-border dark:border-google-darkBorder">
+                        <div>
+                            <div class="flex justify-between items-center mb-1">
+                                <label class="text-xs font-medium text-google-textMuted dark:text-google-darkTextMuted">Scale</label>
+                                <span id="scale-val" class="text-xs font-mono">1.0x</span>
+                            </div>
+                            <input type="range" id="math-scale" min="0.2" max="3" step="0.1" value="1.0">
+                        </div>
+                        <div>
+                            <div class="flex justify-between items-center mb-1">
+                                <label class="text-xs font-medium text-google-textMuted dark:text-google-darkTextMuted">Rotation Angle</label>
+                                <span id="angle-val" class="text-xs font-mono">0°</span>
+                            </div>
+                            <input type="range" id="trans-angle" min="0" max="360" step="1" value="0">
+                        </div>
+                        <div class="grid grid-cols-2 gap-4 mt-2">
+                            <div class="flex items-center justify-between">
+                                <label class="text-xs font-medium text-google-textMuted dark:text-google-darkTextMuted">Flip X</label>
+                                <label class="relative inline-flex items-center cursor-pointer">
+                                    <input type="checkbox" id="flip-x" class="sr-only peer">
+                                    <div class="w-8 h-4 bg-gray-300 peer-focus:outline-none rounded-full peer dark:bg-[#444746] peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border-gray-300 after:border after:rounded-full after:h-3 after:w-3 after:transition-all peer-checked:bg-google-primary dark:peer-checked:bg-google-darkPrimary"></div>
+                                </label>
+                            </div>
+                            <div class="flex items-center justify-between">
+                                <label class="text-xs font-medium text-google-textMuted dark:text-google-darkTextMuted">Flip Y</label>
+                                <label class="relative inline-flex items-center cursor-pointer">
+                                    <input type="checkbox" id="flip-y" class="sr-only peer">
+                                    <div class="w-8 h-4 bg-gray-300 peer-focus:outline-none rounded-full peer dark:bg-[#444746] peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border-gray-300 after:border after:rounded-full after:h-3 after:w-3 after:transition-all peer-checked:bg-google-primary dark:peer-checked:bg-google-darkPrimary"></div>
+                                </label>
+                            </div>
+                        </div>
+                    </div>
+
+                    <!-- Shadows Panel -->
+                    <div id="sub-shadow" class="sub-tab-panel hidden flex flex-col gap-2">
+                        
+                        <!-- Drop Shadow Accordion -->
+                        <div class="border border-google-border dark:border-google-darkBorder rounded-xl bg-white dark:bg-[#282a2c] overflow-hidden">
+                            <div class="accordion-toggle w-full flex items-center justify-between p-3 text-sm font-medium hover:bg-black/5 dark:hover:bg-white/5 transition-colors cursor-pointer open">
+                                <div class="flex items-center gap-2"><span class="ms-icon text-[18px] text-google-textMuted dark:text-google-darkTextMuted">layers</span> Drop Shadow</div>
+                                <div class="flex items-center gap-3">
+                                    <label class="relative inline-flex items-center cursor-pointer" onclick="event.stopPropagation()">
+                                        <input type="checkbox" id="shadow-toggle" class="sr-only peer">
+                                        <div class="w-9 h-5 bg-gray-300 peer-focus:outline-none rounded-full peer dark:bg-[#444746] peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border-gray-300 after:border after:rounded-full after:h-4 after:w-4 after:transition-all peer-checked:bg-google-primary dark:peer-checked:bg-google-darkPrimary"></div>
+                                    </label>
+                                    <span class="ms-icon accordion-icon open text-[20px]">expand_more</span>
+                                </div>
+                            </div>
+                            <div class="accordion-content open">
+                                <div class="accordion-inner">
+                                    <div class="p-3 pt-0 flex flex-col gap-4">
+                                        <div class="grid grid-cols-2 gap-4 items-end">
+                                            <div>
+                                                <label class="block text-xs font-medium text-google-textMuted dark:text-google-darkTextMuted mb-2">Shadow Color</label>
+                                                <div class="relative w-8 h-8 rounded-full overflow-hidden border border-google-border dark:border-google-darkBorder cursor-pointer">
+                                                    <input type="color" id="shadow-color" value="#000000" class="absolute -top-2 -left-2 w-12 h-12 cursor-pointer">
+                                                </div>
+                                            </div>
+                                            <div>
+                                                <div class="flex justify-between items-center mb-1">
+                                                    <label class="text-xs font-medium text-google-textMuted dark:text-google-darkTextMuted">Opacity</label>
+                                                    <span id="shadow-op-val" class="text-xs font-mono">0.5</span>
+                                                </div>
+                                                <input type="range" id="shadow-opacity" min="0" max="1" step="0.1" value="0.5">
+                                            </div>
+                                        </div>
+                                        
+                                        <div>
+                                            <div class="flex justify-between items-center mb-1">
+                                                <label class="text-xs font-medium text-google-textMuted dark:text-google-darkTextMuted">Blur</label>
+                                                <span id="shadow-blur-val" class="text-xs font-mono">4px</span>
+                                            </div>
+                                            <input type="range" id="shadow-blur" min="0" max="30" step="1" value="4">
+                                        </div>
+                                        
+                                        <div class="grid grid-cols-2 gap-4">
+                                            <div>
+                                                <div class="flex justify-between items-center mb-1">
+                                                    <label class="text-xs font-medium text-google-textMuted dark:text-google-darkTextMuted">Offset X</label>
+                                                    <span id="shadow-x-val" class="text-xs font-mono">4px</span>
+                                                </div>
+                                                <input type="range" id="shadow-x" min="-30" max="30" step="1" value="4">
+                                            </div>
+                                            <div>
+                                                <div class="flex justify-between items-center mb-1">
+                                                    <label class="text-xs font-medium text-google-textMuted dark:text-google-darkTextMuted">Offset Y</label>
+                                                    <span id="shadow-y-val" class="text-xs font-mono">4px</span>
+                                                </div>
+                                                <input type="range" id="shadow-y" min="-30" max="30" step="1" value="4">
+                                            </div>
+                                        </div>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+
+                        <!-- 3D Extrude Accordion -->
+                        <div class="border border-google-border dark:border-google-darkBorder rounded-xl bg-white dark:bg-[#282a2c] overflow-hidden">
+                            <div class="accordion-toggle w-full flex items-center justify-between p-3 text-sm font-medium hover:bg-black/5 dark:hover:bg-white/5 transition-colors cursor-pointer">
+                                <div class="flex items-center gap-2"><span class="ms-icon text-[18px] text-google-textMuted dark:text-google-darkTextMuted">view_in_ar</span> 3D Extrude</div>
+                                <div class="flex items-center gap-3">
+                                    <label class="relative inline-flex items-center cursor-pointer" onclick="event.stopPropagation()">
+                                        <input type="checkbox" id="extrude-toggle" class="sr-only peer">
+                                        <div class="w-9 h-5 bg-gray-300 peer-focus:outline-none rounded-full peer dark:bg-[#444746] peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border-gray-300 after:border after:rounded-full after:h-4 after:w-4 after:transition-all peer-checked:bg-google-primary dark:peer-checked:bg-google-darkPrimary"></div>
+                                    </label>
+                                    <span class="ms-icon accordion-icon text-[20px]">expand_more</span>
+                                </div>
+                            </div>
+                            <div class="accordion-content">
+                                <div class="accordion-inner">
+                                    <div class="p-3 pt-0 flex flex-col gap-4">
+                                        <div class="grid grid-cols-2 gap-4 items-end">
+                                            <div>
+                                                <label class="block text-xs font-medium text-google-textMuted dark:text-google-darkTextMuted mb-2">Extrude Color</label>
+                                                <div class="relative w-8 h-8 rounded-full overflow-hidden border border-google-border dark:border-google-darkBorder cursor-pointer">
+                                                    <input type="color" id="extrude-color" value="#e3e3e3" class="absolute -top-2 -left-2 w-12 h-12 cursor-pointer">
+                                                </div>
+                                            </div>
+                                            <div>
+                                                <label class="block text-xs font-medium text-google-textMuted dark:text-google-darkTextMuted mb-2">Direction</label>
+                                                <select id="extrude-dir" class="w-full p-2 rounded-lg bg-google-bg dark:bg-google-darkBg border border-google-border dark:border-google-darkBorder text-sm outline-none cursor-pointer focus:ring-2 focus:ring-google-primary">
+                                                    <option value="bottom-right">Bottom Right</option>
+                                                    <option value="bottom-left">Bottom Left</option>
+                                                    <option value="top-right">Top Right</option>
+                                                    <option value="top-left">Top Left</option>
+                                                    <option value="bottom">Bottom</option>
+                                                    <option value="top">Top</option>
+                                                    <option value="right">Right</option>
+                                                    <option value="left">Left</option>
+                                                </select>
+                                            </div>
+                                        </div>
+
+                                        <div>
+                                            <div class="flex justify-between items-center mb-1">
+                                                <label class="text-xs font-medium text-google-textMuted dark:text-google-darkTextMuted">Depth</label>
+                                                <span id="extrude-depth-val" class="text-xs font-mono">15</span>
+                                            </div>
+                                            <input type="range" id="extrude-depth" min="1" max="50" step="1" value="15">
+                                        </div>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+
+                    </div>
+
+                    <!-- Text Panel -->
+                    <div id="sub-text" class="sub-tab-panel hidden flex flex-col gap-4 p-4 bg-white dark:bg-[#282a2c] rounded-xl border border-google-border dark:border-google-darkBorder">
+                        <div>
+                            <label class="block text-xs font-medium text-google-textMuted dark:text-google-darkTextMuted mb-1">Font Family</label>
+                            <select id="text-font-family" class="w-full p-2 rounded-lg bg-google-bg dark:bg-google-darkBg border border-google-border dark:border-google-darkBorder text-sm outline-none cursor-pointer focus:ring-2 focus:ring-google-primary">
+                                <option value="normal">Serif (Math Default)</option>
+                                <option value="mathsf">Sans-Serif</option>
+                                <option value="mathtt">Monospace</option>
+                                <option value="mathcal">Calligraphic</option>
+                                <option value="mathbb">Blackboard Bold</option>
+                                <option value="mathfrak">Fraktur</option>
+                            </select>
+                        </div>
+                        <div class="grid grid-cols-2 gap-4">
+                            <div>
+                                <label class="block text-xs font-medium text-google-textMuted dark:text-google-darkTextMuted mb-1">Weight</label>
+                                <select id="text-font-weight" class="w-full p-2 rounded-lg bg-google-bg dark:bg-google-darkBg border border-google-border dark:border-google-darkBorder text-sm outline-none cursor-pointer focus:ring-2 focus:ring-google-primary">
+                                    <option value="normal">Normal</option>
+                                    <option value="semibold">Semi-bold</option>
+                                    <option value="bold">Bold</option>
+                                    <option value="black">Black</option>
+                                </select>
+                            </div>
+                            <div>
+                                <label class="block text-xs font-medium text-google-textMuted dark:text-google-darkTextMuted mb-1">Style</label>
+                                <select id="text-font-style" class="w-full p-2 rounded-lg bg-google-bg dark:bg-google-darkBg border border-google-border dark:border-google-darkBorder text-sm outline-none cursor-pointer focus:ring-2 focus:ring-google-primary">
+                                    <option value="normal">Normal</option>
+                                    <option value="italic">Italic</option>
+                                </select>
+                            </div>
+                        </div>
+
+                        <hr class="border-google-border dark:border-google-darkBorder my-1">
+
+                        <div>
+                            <div class="flex justify-between items-center mb-1">
+                                <label class="text-xs font-medium text-google-textMuted dark:text-google-darkTextMuted">Letter Spacing</label>
+                                <span id="spacing-x-val" class="text-xs font-mono">1.0x</span>
+                            </div>
+                            <input type="range" id="spacing-x" min="0.5" max="3" step="0.1" value="1.0">
+                        </div>
+                        <div>
+                            <div class="flex justify-between items-center mb-1">
+                                <label class="text-xs font-medium text-google-textMuted dark:text-google-darkTextMuted">Line Height</label>
+                                <span id="spacing-y-val" class="text-xs font-mono">1.0x</span>
+                            </div>
+                            <input type="range" id="spacing-y" min="0.5" max="3" step="0.1" value="1.0">
+                        </div>
+                    </div>
+                </div>
+
+                <!-- 4. MOTION TAB -->
+                <div id="tab-motion" class="tab-panel hidden flex flex-col gap-2">
+                    <div class="p-4 bg-white dark:bg-[#282a2c] rounded-xl border border-google-border dark:border-google-darkBorder flex flex-col gap-5">
+                        
+                        <!-- Seed -->
+                        <div>
+                            <label class="block text-xs font-medium text-google-textMuted dark:text-google-darkTextMuted mb-2">Static Seed (Lock Shape)</label>
+                            <div class="flex items-center gap-2">
+                                <input type="number" id="seed-input" value="1" class="flex-1 bg-google-bg dark:bg-google-darkBg border border-google-border dark:border-google-darkBorder rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-google-primary font-mono transition">
+                                <button id="btn-random-seed" class="p-2 bg-google-bg dark:bg-google-darkBg hover:bg-google-border dark:hover:bg-google-darkBorder border border-google-border dark:border-google-darkBorder rounded-lg transition" title="Randomize">
+                                    <span class="ms-icon text-[18px]">casino</span>
+                                </button>
+                            </div>
+                        </div>
+
+                        <hr class="border-google-border dark:border-google-darkBorder">
+
+                        <!-- Export Settings -->
+                        <div>
+                            <label class="block text-xs font-medium text-google-textMuted dark:text-google-darkTextMuted mb-2">Export Quality & Format</label>
+                            <div class="grid grid-cols-2 gap-3">
+                                <select id="export-res" class="w-full p-2 rounded-lg bg-google-bg dark:bg-google-darkBg border border-google-border dark:border-google-darkBorder text-sm outline-none cursor-pointer focus:ring-2 focus:ring-google-primary">
+                                    <option value="HD">HD (1080p)</option>
+                                    <option value="2K">2K (1440p)</option>
+                                    <option value="4K">4K (2160p)</option>
+                                </select>
+                                <select id="export-format" class="w-full p-2 rounded-lg bg-google-bg dark:bg-google-darkBg border border-google-border dark:border-google-darkBorder text-sm outline-none cursor-pointer focus:ring-2 focus:ring-google-primary">
+                                    <option value="png">PNG Image</option>
+                                    <option value="jpg">JPG Image</option>
+                                    <option value="webp">WebP Image</option>
+                                </select>
+                            </div>
+                        </div>
+
+                        <hr class="border-google-border dark:border-google-darkBorder">
+
+                        <!-- Boil -->
+                        <div>
+                            <div class="flex items-center justify-between mb-3">
+                                <div>
+                                    <label class="block text-sm font-medium">Jitter Effect</label>
+                                    <p class="text-[10px] text-google-textMuted dark:text-google-darkTextMuted leading-tight mt-0.5">Continuously redraws to simulate hand-drawn animation</p>
+                                </div>
+                                <!-- Material Toggle Switch -->
+                                <label class="relative inline-flex items-center cursor-pointer">
+                                    <input type="checkbox" id="boil-toggle" class="sr-only peer">
+                                    <div class="w-9 h-5 bg-gray-300 peer-focus:outline-none rounded-full peer dark:bg-[#444746] peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border-gray-300 after:border after:rounded-full after:h-4 after:w-4 after:transition-all peer-checked:bg-google-primary dark:peer-checked:bg-google-darkPrimary"></div>
+                                </label>
+                            </div>
+                            
+                            <div class="flex items-center gap-3">
+                                <span class="ms-icon text-google-textMuted dark:text-google-darkTextMuted text-[18px]">speed</span>
+                                <input type="range" id="boil-speed" min="1" max="24" step="1" value="8" disabled class="flex-1">
+                                <span id="boil-speed-val" class="text-xs font-mono font-bold w-8 text-right">8fps</span>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+
+            </div>
+        </aside>
+
+        <!-- MAIN CANVAS -->
+        <section class="flex-1 bg-google-surface dark:bg-google-darkSurface rounded-2xl border border-google-border dark:border-google-darkBorder flex items-center justify-center relative overflow-hidden transition-colors duration-200">
+            <!-- Canvas wrapper for Aspect Ratio control -->
+            <div id="canvas-container" class="w-full h-full relative flex items-center justify-center">
+                <canvas id="drawing-canvas" class="absolute shadow-sm"></canvas>
+            </div>
+            
+            <div id="error-state" class="absolute inset-0 flex flex-col items-center justify-center text-red-500 opacity-0 pointer-events-none transition-opacity duration-300 bg-white/80 dark:bg-black/80 backdrop-blur-sm z-20">
+                <span class="ms-icon text-5xl mb-2">error</span>
+                <p class="font-google font-medium text-lg">Invalid LaTeX Equation</p>
+            </div>
+        </section>
+
+    </div>
+
+    <script>
+        // --- Core Variables ---
+        const htmlElement = document.documentElement;
+        const container = document.getElementById('canvas-container');
+        const canvas = document.getElementById('drawing-canvas');
+        const ctx = canvas.getContext('2d', { willReadFrequently: true });
+        let rc; // RoughCanvas
+        
+        let recCanvas = null, recCtx = null, recRC = null;
+
+        // State
+        let currentParsedMath = null;
+        let isAnimating = false;
+        let isRecording = false;
+        let currentDrawIndex = -1; 
+        
+        // Settings - Style
+        let currentColor = '#1f1f1f';
+        let currentBgColor = '#ffffff';
+        let currentRatio = 'auto';
+        let currentRoughness = 0.5;
+        let currentBowing = 1.0;
+        let currentStrokeWidth = 2.0;
+        let currentFillStyle = 'solid';
+        let showGrid = true;
+        let gridSize = 30;
+        
+        // Settings - Props (Transform & Shadow)
+        let currentScale = 1.0;
+        let transformAngle = 0;
+        let flipX = false;
+        let flipY = false;
+        let dropShadow = false;
+        let shadowColor = '#000000';
+        let shadowOpacity = 0.5;
+        let shadowBlur = 4;
+        let shadowOffsetX = 4;
+        let shadowOffsetY = 4;
+
+        let extrude3D = false;
+        let extrudeColor = '#e3e3e3';
+        let extrudeDepth = 15;
+        let extrudeDirection = 'bottom-right';
+
+        let currentLetterSpacing = 1.0;
+        let currentLineHeight = 1.0;
+        let currentRawSVG = null;
+
+        // Settings - Motion
+        let currentSeed = 1;
+        let isBoiling = false;
+        let boilSpeed = 8;
+        let boilTimeout = null;
+
+        // --- Theme & Initialization ---
+        function applyTheme() {
+            const isDark = htmlElement.classList.contains('dark');
+            const themeIcon = document.getElementById('theme-icon');
+            themeIcon.textContent = isDark ? 'light_mode' : 'dark_mode';
+            
+            updateCanvasBackgroundCSS();
+            if(currentParsedMath) redrawMath();
+        }
+
+        if (localStorage.theme === 'dark' || (!('theme' in localStorage) && window.matchMedia('(prefers-color-scheme: dark)').matches)) {
+            htmlElement.classList.add('dark');
+        }
+        applyTheme();
+
+        document.getElementById('theme-toggle').addEventListener('click', () => {
+            htmlElement.classList.toggle('dark');
+            localStorage.theme = htmlElement.classList.contains('dark') ? 'dark' : 'light';
+            applyTheme();
+        });
+
+        // --- Main Tabs Logic ---
+        document.querySelectorAll('.tab-btn').forEach(btn => {
+            btn.addEventListener('click', (e) => {
+                // Remove active from all
+                document.querySelectorAll('.tab-btn').forEach(b => {
+                    b.classList.remove('active', 'bg-google-primaryBg', 'dark:bg-google-darkPrimaryBg', 'text-google-primary', 'dark:text-google-darkPrimary');
+                    b.classList.add('text-google-textMuted', 'dark:text-google-darkTextMuted');
+                });
+                document.querySelectorAll('.tab-panel').forEach(p => p.classList.add('hidden'));
+                
+                // Set active
+                const target = e.currentTarget;
+                target.classList.add('active', 'bg-google-primaryBg', 'dark:bg-google-darkPrimaryBg', 'text-google-primary', 'dark:text-google-darkPrimary');
+                target.classList.remove('text-google-textMuted', 'dark:text-google-darkTextMuted');
+                document.getElementById(target.getAttribute('data-target')).classList.remove('hidden');
+            });
+        });
+
+        // --- Sub-Tabs Logic ---
+        document.querySelectorAll('.sub-tab-btn').forEach(btn => {
+            btn.addEventListener('click', (e) => {
+                const parent = e.currentTarget.closest('.tab-panel');
+                
+                parent.querySelectorAll('.sub-tab-btn').forEach(b => {
+                    b.classList.remove('active', 'bg-white', 'dark:bg-google-darkSurface', 'shadow-sm', 'text-google-primary', 'dark:text-google-darkPrimary');
+                    b.classList.add('text-google-textMuted', 'dark:text-google-darkTextMuted');
+                });
+                parent.querySelectorAll('.sub-tab-panel').forEach(p => p.classList.add('hidden'));
+                
+                const target = e.currentTarget;
+                target.classList.add('active', 'bg-white', 'dark:bg-google-darkSurface', 'shadow-sm', 'text-google-primary', 'dark:text-google-darkPrimary');
+                target.classList.remove('text-google-textMuted', 'dark:text-google-darkTextMuted');
+                document.getElementById(target.getAttribute('data-target')).classList.remove('hidden');
+            });
+        });
+
+        // --- Accordions Logic ---
+        document.querySelectorAll('.accordion-toggle').forEach(btn => {
+            btn.addEventListener('click', () => {
+                const content = btn.nextElementSibling;
+                const icon = btn.querySelector('.accordion-icon');
+                content.classList.toggle('open');
+                icon.classList.toggle('open');
+            });
+        });
+
+        // --- Layout & Resizing ---
+        function resizeCanvas() {
+            const rect = container.getBoundingClientRect();
+            let targetW = rect.width;
+            let targetH = rect.height;
+
+            if (currentRatio !== 'auto') {
+                const ratioMap = { '16:9': 16/9, '9:16': 9/16, '1:1': 1 };
+                const r = ratioMap[currentRatio];
+                // Fit within container with padding (32px total)
+                if (rect.width / rect.height > r) {
+                    targetH = rect.height - 32;
+                    targetW = targetH * r;
+                } else {
+                    targetW = rect.width - 32;
+                    targetH = targetW / r;
+                }
+            }
+
+            canvas.width = targetW;
+            canvas.height = targetH;
+            canvas.style.width = targetW + 'px';
+            canvas.style.height = targetH + 'px';
+            
+            rc = rough.canvas(canvas);
+            if (currentParsedMath) redrawMath();
+        }
+        window.addEventListener('resize', resizeCanvas);
+        setTimeout(resizeCanvas, 0);
+
+        document.getElementById('canvas-ratio').addEventListener('change', (e) => {
+            currentRatio = e.target.value;
+            updateCanvasBackgroundCSS();
+            resizeCanvas();
+        });
+
+        // --- Color Pickers ---
+        const colorBtns = document.querySelectorAll('.color-btn');
+        const customColorBtn = document.getElementById('custom-color');
+
+        function setActiveColorBtn(btn) {
+            colorBtns.forEach(b => b.classList.remove('ring-google-primary', 'dark:ring-google-darkPrimary'));
+            customColorBtn.parentElement.classList.remove('ring-2', 'ring-google-primary', 'dark:ring-google-darkPrimary', 'ring-offset-2');
+            if (btn === customColorBtn) {
+                customColorBtn.parentElement.classList.add('ring-2', 'ring-google-primary', 'dark:ring-google-darkPrimary', 'ring-offset-2');
+            } else {
+                btn.classList.add('ring-google-primary', 'dark:ring-google-darkPrimary');
+            }
+            if(currentParsedMath) redrawMath();
+        }
+
+        colorBtns.forEach(btn => {
+            btn.addEventListener('click', (e) => {
+                currentColor = e.target.getAttribute('data-color');
+                setActiveColorBtn(e.target);
+            });
+        });
+        customColorBtn.addEventListener('input', (e) => {
+            currentColor = e.target.value;
+            setActiveColorBtn(customColorBtn);
+        });
+        setActiveColorBtn(colorBtns[0]);
+
+        const bgColorBtns = document.querySelectorAll('.bg-color-btn');
+        const customBgColorBtn = document.getElementById('custom-bg-color');
+
+        function isDarkColor(color) {
+            const hex = color.replace('#', '');
+            if(hex.length === 6) {
+                const r = parseInt(hex.substr(0, 2), 16);
+                const g = parseInt(hex.substr(2, 2), 16);
+                const b = parseInt(hex.substr(4, 2), 16);
+                return (r * 0.299 + g * 0.587 + b * 0.114) < 128;
+            }
+            return false;
+        }
+
+        function updateCanvasBackgroundCSS() {
+            if (currentRatio !== 'auto') {
+                container.style.backgroundColor = 'transparent';
+                canvas.style.backgroundColor = 'transparent';
+                canvas.style.backgroundImage = 'none';
+                canvas.classList.add('shadow-xl', 'ring-1', 'ring-black/10', 'dark:ring-white/10', 'rounded-lg');
+            } else {
+                canvas.style.backgroundColor = 'transparent';
+                canvas.style.backgroundImage = 'none';
+                canvas.classList.remove('shadow-xl', 'ring-1', 'ring-black/10', 'dark:ring-white/10', 'rounded-lg');
+                container.style.backgroundColor = currentBgColor;
+            }
+        }
+
+        function setActiveBgColorBtn(btn) {
+            bgColorBtns.forEach(b => b.classList.remove('ring-google-primary', 'dark:ring-google-darkPrimary'));
+            customBgColorBtn.parentElement.classList.remove('ring-2', 'ring-google-primary', 'dark:ring-google-darkPrimary', 'ring-offset-2');
+            if (btn === customBgColorBtn) {
+                customBgColorBtn.parentElement.classList.add('ring-2', 'ring-google-primary', 'dark:ring-google-darkPrimary', 'ring-offset-2');
+            } else {
+                btn.classList.add('ring-google-primary', 'dark:ring-google-darkPrimary');
+            }
+            updateCanvasBackgroundCSS();
+            if(currentParsedMath) redrawMath();
+        }
+
+        bgColorBtns.forEach(btn => {
+            btn.addEventListener('click', (e) => {
+                currentBgColor = e.target.getAttribute('data-color');
+                setActiveBgColorBtn(e.target);
+            });
+        });
+        customBgColorBtn.addEventListener('input', (e) => {
+            currentBgColor = e.target.value;
+            setActiveBgColorBtn(customBgColorBtn);
+        });
+        setActiveBgColorBtn(bgColorBtns[0]);
+
+        // --- Controls Mapping ---
+        document.querySelectorAll('.template-btn').forEach(btn => {
+            btn.addEventListener('click', () => {
+                document.getElementById('latex-input').value = btn.getAttribute('data-tex');
+                processLatex();
+            });
+        });
+
+        // Style Events
+        document.getElementById('roughness').addEventListener('input', (e) => { currentRoughness = parseFloat(e.target.value); document.getElementById('roughness-val').textContent = currentRoughness.toFixed(1); if(currentParsedMath) redrawMath(); });
+        document.getElementById('bowing').addEventListener('input', (e) => { currentBowing = parseFloat(e.target.value); document.getElementById('bowing-val').textContent = currentBowing.toFixed(1); if(currentParsedMath) redrawMath(); });
+        document.getElementById('stroke-width').addEventListener('input', (e) => { currentStrokeWidth = parseFloat(e.target.value); document.getElementById('stroke-w-val').textContent = currentStrokeWidth.toFixed(1); if(currentParsedMath) redrawMath(); });
+        document.getElementById('fill-style').addEventListener('change', (e) => { currentFillStyle = e.target.value; if(currentParsedMath) redrawMath(); });
+        document.getElementById('grid-toggle').addEventListener('change', (e) => { showGrid = e.target.checked; if(currentParsedMath) redrawMath(); });
+        document.getElementById('grid-size').addEventListener('input', (e) => { gridSize = parseInt(e.target.value); document.getElementById('grid-size-val').textContent = gridSize + 'px'; if(currentParsedMath) redrawMath(); });
+
+        // Props Events (Transform, Drop Shadow, Extrude, Text)
+        document.getElementById('math-scale').addEventListener('input', (e) => { currentScale = parseFloat(e.target.value); document.getElementById('scale-val').textContent = currentScale.toFixed(1) + 'x'; if(currentParsedMath) redrawMath(); });
+        document.getElementById('trans-angle').addEventListener('input', (e) => { transformAngle = parseInt(e.target.value); document.getElementById('angle-val').textContent = transformAngle + '°'; if(currentParsedMath) redrawMath(); });
+        document.getElementById('flip-x').addEventListener('change', (e) => { flipX = e.target.checked; if(currentParsedMath) redrawMath(); });
+        document.getElementById('flip-y').addEventListener('change', (e) => { flipY = e.target.checked; if(currentParsedMath) redrawMath(); });
+        
+        document.getElementById('shadow-toggle').addEventListener('change', (e) => { dropShadow = e.target.checked; if(currentParsedMath) redrawMath(); });
+        document.getElementById('shadow-color').addEventListener('input', (e) => { shadowColor = e.target.value; if(currentParsedMath) redrawMath(); });
+        document.getElementById('shadow-opacity').addEventListener('input', (e) => { shadowOpacity = parseFloat(e.target.value); document.getElementById('shadow-op-val').textContent = shadowOpacity.toFixed(1); if(currentParsedMath) redrawMath(); });
+        document.getElementById('shadow-blur').addEventListener('input', (e) => { shadowBlur = parseInt(e.target.value); document.getElementById('shadow-blur-val').textContent = shadowBlur + 'px'; if(currentParsedMath) redrawMath(); });
+        document.getElementById('shadow-x').addEventListener('input', (e) => { shadowOffsetX = parseInt(e.target.value); document.getElementById('shadow-x-val').textContent = shadowOffsetX + 'px'; if(currentParsedMath) redrawMath(); });
+        document.getElementById('shadow-y').addEventListener('input', (e) => { shadowOffsetY = parseInt(e.target.value); document.getElementById('shadow-y-val').textContent = shadowOffsetY + 'px'; if(currentParsedMath) redrawMath(); });
+
+        document.getElementById('extrude-toggle').addEventListener('change', (e) => { extrude3D = e.target.checked; if(currentParsedMath) redrawMath(); });
+        document.getElementById('extrude-color').addEventListener('input', (e) => { extrudeColor = e.target.value; if(currentParsedMath) redrawMath(); });
+        document.getElementById('extrude-depth').addEventListener('input', (e) => { extrudeDepth = parseInt(e.target.value); document.getElementById('extrude-depth-val').textContent = extrudeDepth; if(currentParsedMath) redrawMath(); });
+        document.getElementById('extrude-dir').addEventListener('change', (e) => { extrudeDirection = e.target.value; if(currentParsedMath) redrawMath(); });
+
+        document.getElementById('text-font-family').addEventListener('change', () => processLatex());
+        document.getElementById('text-font-weight').addEventListener('change', () => processLatex());
+        document.getElementById('text-font-style').addEventListener('change', () => processLatex());
+        document.getElementById('spacing-x').addEventListener('input', (e) => { currentLetterSpacing = parseFloat(e.target.value); document.getElementById('spacing-x-val').textContent = currentLetterSpacing.toFixed(1) + 'x'; if(currentRawSVG) { currentParsedMath = extractPaths(currentRawSVG, currentLetterSpacing, currentLineHeight); redrawMath(); } });
+        document.getElementById('spacing-y').addEventListener('input', (e) => { currentLineHeight = parseFloat(e.target.value); document.getElementById('spacing-y-val').textContent = currentLineHeight.toFixed(1) + 'x'; if(currentRawSVG) { currentParsedMath = extractPaths(currentRawSVG, currentLetterSpacing, currentLineHeight); redrawMath(); } });
+
+        // --- Motion Logic ---
+        const seedInput = document.getElementById('seed-input');
+        const boilToggle = document.getElementById('boil-toggle');
+        const boilSpeedSlider = document.getElementById('boil-speed');
+
+        seedInput.addEventListener('change', (e) => { currentSeed = parseInt(e.target.value) || 1; redrawMath(); });
+        document.getElementById('btn-random-seed').addEventListener('click', () => { currentSeed = Math.floor(Math.random() * 1000000); seedInput.value = currentSeed; redrawMath(); });
+
+        function updateBoilLoop() {
+            if (isBoiling && !isAnimating && !isRecording) {
+                currentSeed = Math.floor(Math.random() * 1000000);
+                seedInput.value = currentSeed;
+                redrawMath();
+                boilTimeout = setTimeout(updateBoilLoop, 1000 / boilSpeed);
+            }
+        }
+
+        boilToggle.addEventListener('change', (e) => {
+            isBoiling = e.target.checked;
+            boilSpeedSlider.disabled = !isBoiling;
+            if (isBoiling) updateBoilLoop();
+            else clearTimeout(boilTimeout);
+        });
+
+        boilSpeedSlider.addEventListener('input', (e) => {
+            boilSpeed = parseInt(e.target.value);
+            document.getElementById('boil-speed-val').textContent = boilSpeed + 'fps';
+        });
+
+        // --- Export Menu ---
+        document.getElementById('btn-export').addEventListener('click', () => {
+            const format = document.getElementById('export-format').value;
+            const res = document.getElementById('export-res').value;
+            
+            let w, h;
+            if (res === 'HD') { w = 1920; h = 1080; }
+            else if (res === '2K') { w = 2560; h = 1440; }
+            else { w = 3840; h = 2160; }
+            
+            // Respect Aspect Ratio
+            if (currentRatio === '16:9') { /* already wide */ }
+            else if (currentRatio === '9:16') { let t = w; w = h; h = t; }
+            else if (currentRatio === '1:1') { w = h; }
+            else { 
+                const aspect = canvas.width / canvas.height;
+                if (aspect > 1) h = Math.round(w / aspect);
+                else w = Math.round(h * aspect);
+            }
+
+            const tempCanvas = document.createElement('canvas');
+            tempCanvas.width = w; tempCanvas.height = h;
+            const tempCtx = tempCanvas.getContext('2d');
+            const tempRC = rough.canvas(tempCanvas);
+
+            const wasBoiling = isBoiling;
+            if (isBoiling) { isBoiling = false; clearTimeout(boilTimeout); }
+
+            renderMathCore(tempCanvas, tempCtx, tempRC, -1, true);
+
+            const mimeType = format === 'jpg' ? 'image/jpeg' : `image/${format}`;
+            const a = document.createElement('a');
+            a.href = tempCanvas.toDataURL(mimeType, 1.0);
+            a.download = `RoughMath-${res}.${format}`;
+            a.click();
+
+            if (wasBoiling) { isBoiling = true; updateBoilLoop(); }
+        });
+
+        // --- Utils ---
+        function applyTransform(matrix, transformStr, sx=1, sy=1) {
+            if (!transformStr) return matrix;
+            const regex = /([a-zA-Z]+)\(([^)]+)\)/g;
+            let m = new DOMMatrix(matrix);
+            let match;
+            while ((match = regex.exec(transformStr)) !== null) {
+                const type = match[1];
+                const args = match[2].split(/[,\s]+/).map(parseFloat);
+                if (type === 'translate') m = m.translate(args[0] * sx, (args[1] || 0) * sy);
+                else if (type === 'scale') m = m.scale(args[0], args[1] !== undefined ? args[1] : args[0]);
+                else if (type === 'matrix') m = m.multiply(new DOMMatrix(args));
+            }
+            return m;
+        }
+
+        function extractPaths(svgElement, sx=1, sy=1) {
+            const defs = {};
+            svgElement.querySelectorAll('defs path').forEach(p => defs[p.id] = p.getAttribute('d'));
+            const paths = [];
+
+            function traverse(node, currentMatrix) {
+                let matrix = new DOMMatrix(currentMatrix);
+                const transform = node.getAttribute('transform');
+                if (transform) matrix = applyTransform(matrix, transform, sx, sy);
+
+                const x = parseFloat(node.getAttribute('x') || 0) * sx;
+                const y = parseFloat(node.getAttribute('y') || 0) * sy;
+                if (x !== 0 || y !== 0) matrix = matrix.translate(x, y);
+
+                const tagName = node.tagName.toLowerCase();
+                if (tagName === 'use') {
+                    const href = node.getAttribute('href') || node.getAttribute('xlink:href');
+                    if (href && defs[href.substring(1)]) paths.push({ d: defs[href.substring(1)], matrix: matrix });
+                } else if (tagName === 'path' && !node.closest('defs')) {
+                    const d = node.getAttribute('d');
+                    if (d) paths.push({ d: d, matrix: matrix });
+                } else if (tagName === 'rect') {
+                    const w = parseFloat(node.getAttribute('width') || 0) * sx;
+                    const h = parseFloat(node.getAttribute('height') || 0);
+                    if (w > 0 && h > 0) paths.push({ d: `M 0 0 L ${w} 0 L ${w} ${h} L 0 ${h} Z`, matrix });
+                }
+
+                Array.from(node.children).forEach(child => {
+                    if (child.tagName.toLowerCase() !== 'defs') traverse(child, matrix);
+                });
+            }
+
+            traverse(svgElement, new DOMMatrix());
+            const viewBox = svgElement.getAttribute('viewBox');
+            let vb = [0, 0, 1000, 1000];
+            if (viewBox) {
+                const parts = viewBox.split(' ').map(parseFloat);
+                vb = [parts[0] * sx, parts[1] * sy, parts[2] * sx, parts[3] * sy];
+            }
+            return { paths, viewBox: vb };
+        }
+
+        function hexToRgba(hex, alpha) {
+            let r = parseInt(hex.slice(1, 3), 16),
+                g = parseInt(hex.slice(3, 5), 16),
+                b = parseInt(hex.slice(5, 7), 16);
+            return `rgba(${r}, ${g}, ${b}, ${alpha})`;
+        }
+
+        // --- MathJax Compilation ---
+        let debounceTimer;
+        const latexInput = document.getElementById('latex-input');
+        const errorState = document.getElementById('error-state');
+
+        latexInput.addEventListener('input', () => {
+            clearTimeout(debounceTimer);
+            debounceTimer = setTimeout(processLatex, 300);
+        });
+
+        async function processLatex() {
+            if (!window.mathJaxLoaded) return;
+            let tex = latexInput.value.trim();
+            if (!tex) { currentParsedMath = null; redrawMath(); return; }
+
+            const fontFamily = document.getElementById('text-font-family').value;
+            const fontWeight = document.getElementById('text-font-weight').value;
+            const fontStyle = document.getElementById('text-font-style').value;
+
+            // --- FIX FOR WORD PROBLEMS (\text{...}) ---
+            // Intercept \text{} blocks to apply typography settings to them manually
+            let textMacro = "\\text{#1}";
+            if (fontFamily === 'mathsf') textMacro = "\\textsf{#1}";
+            else if (fontFamily === 'mathtt') textMacro = "\\texttt{#1}";
+            
+            if (fontStyle === 'italic') textMacro = `\\textit{${textMacro}}`;
+            if (fontWeight === 'bold' || fontWeight === 'black') textMacro = `\\textbf{${textMacro}}`;
+
+            let preamble = '';
+            if (tex.includes('\\text')) {
+                // Safely replace \text{ with \customtext{ and prepend the macro definition
+                tex = tex.replace(/\\text(?=\s*\{)/g, '\\customtext');
+                preamble = `\\def\\customtext#1{${textMacro}} `;
+            }
+            // ------------------------------------------
+
+            // Apply Family
+            if (fontFamily !== 'normal') tex = `\\${fontFamily}{${tex}}`;
+            
+            // Apply Style
+            if (fontStyle === 'italic') tex = `\\mathit{${tex}}`;
+            
+            // Apply Weight (Macro level for true bold paths)
+            if (fontWeight === 'bold' || fontWeight === 'black') {
+                tex = `\\boldsymbol{${tex}}`;
+            }
+
+            tex = preamble + tex;
+
+            try {
+                const wrapper = await MathJax.tex2svgPromise(tex, { display: true });
+                const svg = wrapper.querySelector('svg');
+                if (!svg) throw new Error("No SVG");
+                
+                if (wrapper.querySelector('[data-mml-node="merror"]')) {
+                    errorState.style.opacity = '1'; currentParsedMath = null; redrawMath(); return;
+                }
+                
+                errorState.style.opacity = '0';
+                currentRawSVG = svg;
+                currentParsedMath = extractPaths(svg, currentLetterSpacing, currentLineHeight);
+                redrawMath();
+            } catch (err) {
+                console.error(err);
+                errorState.style.opacity = '1'; currentParsedMath = null; redrawMath();
+            }
+        }
+
+        // --- Render Engine ---
+        function renderMathCore(targetCanvas, targetCtx, targetRC, upToPathIndex = -1, forceGridBackground = false) {
+            if (!targetCanvas || targetCanvas.width === 0 || targetCanvas.height === 0) return;
+            
+            targetCtx.clearRect(0, 0, targetCanvas.width, targetCanvas.height);
+            targetCtx.filter = 'none'; // reset filter
+            
+            // Always paint the solid background for WYSIWYG
+            targetCtx.fillStyle = currentBgColor;
+            targetCtx.fillRect(0, 0, targetCanvas.width, targetCanvas.height);
+            
+            // Draw Paper Grid
+            if (showGrid) {
+                const isDarkBg = isDarkColor(currentBgColor);
+                targetCtx.strokeStyle = isDarkBg ? 'rgba(255,255,255,0.05)' : 'rgba(0,0,0,0.05)';
+                targetCtx.lineWidth = 1;
+                targetCtx.beginPath();
+                for (let x = 0; x <= targetCanvas.width; x += gridSize) { targetCtx.moveTo(x, 0); targetCtx.lineTo(x, targetCanvas.height); }
+                for (let y = 0; y <= targetCanvas.height; y += gridSize) { targetCtx.moveTo(0, y); targetCtx.lineTo(targetCanvas.width, y); }
+                targetCtx.stroke();
+            }
+
+            if (!currentParsedMath || currentParsedMath.paths.length === 0) return;
+
+            // Localize offscreen buffers to avoid resize thrashing between main canvas and record/export canvas
+            if (!targetCanvas._mathOffscreen) {
+                targetCanvas._mathOffscreen = document.createElement('canvas');
+                targetCanvas._mathOffCtx = targetCanvas._mathOffscreen.getContext('2d', { willReadFrequently: true });
+            }
+            if (!targetCanvas._extrudeOffscreen) {
+                targetCanvas._extrudeOffscreen = document.createElement('canvas');
+                targetCanvas._extrudeOffCtx = targetCanvas._extrudeOffscreen.getContext('2d', { willReadFrequently: true });
+            }
+
+            const mathOffscreen = targetCanvas._mathOffscreen;
+            const mathOffCtx = targetCanvas._mathOffCtx;
+
+            // Prepare Offscreen Canvas to isolate drop-shadow calculation
+            if (mathOffscreen.width !== targetCanvas.width || mathOffscreen.height !== targetCanvas.height) {
+                mathOffscreen.width = targetCanvas.width;
+                mathOffscreen.height = targetCanvas.height;
+                targetCanvas._mathOffRC = rough.canvas(mathOffscreen);
+            } else {
+                mathOffCtx.clearRect(0, 0, mathOffscreen.width, mathOffscreen.height);
+            }
+            const mathOffRC = targetCanvas._mathOffRC;
+
+            const padding = Math.min(targetCanvas.width, targetCanvas.height) * 0.15;
+            const [vx, vy, vw, vh] = currentParsedMath.viewBox;
+            const baseScale = Math.min((targetCanvas.width - padding*2) / vw, (targetCanvas.height - padding*2) / vh);
+            const finalScale = baseScale * currentScale;
+
+            mathOffCtx.save();
+
+            // Apply Center & Transform to offscreen context
+            mathOffCtx.translate(targetCanvas.width / 2, targetCanvas.height / 2);
+            mathOffCtx.rotate(transformAngle * Math.PI / 180);
+            mathOffCtx.scale(flipX ? -finalScale : finalScale, flipY ? -finalScale : finalScale);
+            mathOffCtx.translate(-(vx + vw / 2), -(vy + vh / 2));
+
+            const roughAmp = currentRoughness * (100 / (finalScale * 100)); 
+            const pathsToDraw = upToPathIndex >= 0 ? currentParsedMath.paths.slice(0, upToPathIndex) : currentParsedMath.paths;
+
+            // Determine precision stroke multiplier for semi-bold and black
+            const fontWeightVal = document.getElementById('text-font-weight').value;
+            let weightMult = 1.0;
+            if (fontWeightVal === 'semibold') weightMult = 1.35;
+            else if (fontWeightVal === 'bold') weightMult = 1.15;
+            else if (fontWeightVal === 'black') weightMult = 1.7;
+
+            pathsToDraw.forEach((p, index) => {
+                mathOffCtx.save();
+                mathOffCtx.transform(p.matrix.a, p.matrix.b, p.matrix.c, p.matrix.d, p.matrix.e, p.matrix.f);
+                
+                let currentW = (currentStrokeWidth * weightMult) / finalScale;
+
+                let roughOptions = {
+                    stroke: currentColor,
+                    strokeWidth: currentW, 
+                    roughness: roughAmp,
+                    bowing: currentBowing,
+                    seed: currentSeed + index
+                };
+
+                if (currentFillStyle !== 'none') {
+                    roughOptions.fill = currentColor;
+                    roughOptions.fillStyle = currentFillStyle;
+                    if (currentFillStyle === 'solid') {
+                        roughOptions.strokeWidth = currentW / 2;
+                    } else {
+                        roughOptions.hachureGap = Math.max(3.5, currentStrokeWidth * 0.8) / finalScale; 
+                        roughOptions.hachureAngle = 60;
+                        roughOptions.strokeWidth = currentW * 0.4;
+                        roughOptions.fillWeight = currentW * 0.4;
+                    }
+                } else roughOptions.fill = 'none';
+
+                mathOffRC.path(p.d, roughOptions);
+                mathOffCtx.restore();
+            });
+            
+            mathOffCtx.restore();
+
+            // Generate 3D Extrude Mask if needed
+            if (extrude3D) {
+                const extrudeOffscreen = targetCanvas._extrudeOffscreen;
+                const extrudeOffCtx = targetCanvas._extrudeOffCtx;
+
+                if (extrudeOffscreen.width !== targetCanvas.width || extrudeOffscreen.height !== targetCanvas.height) {
+                    extrudeOffscreen.width = targetCanvas.width;
+                    extrudeOffscreen.height = targetCanvas.height;
+                } else {
+                    extrudeOffCtx.clearRect(0, 0, extrudeOffscreen.width, extrudeOffscreen.height);
+                }
+                // Copy math drawing to extrude layer and tint it solid
+                extrudeOffCtx.drawImage(mathOffscreen, 0, 0);
+                extrudeOffCtx.globalCompositeOperation = 'source-in';
+                extrudeOffCtx.fillStyle = extrudeColor;
+                extrudeOffCtx.fillRect(0, 0, extrudeOffscreen.width, extrudeOffscreen.height);
+                extrudeOffCtx.globalCompositeOperation = 'source-over';
+            }
+
+            // Composite Offscreens to Target
+            targetCtx.save();
+            
+            if (extrude3D) {
+                const extrudeOffscreen = targetCanvas._extrudeOffscreen;
+                let dirX = 0, dirY = 0;
+                switch(extrudeDirection) {
+                    case 'top': dirY = -1; break;
+                    case 'bottom': dirY = 1; break;
+                    case 'left': dirX = -1; break;
+                    case 'right': dirX = 1; break;
+                    case 'top-left': dirX = -1; dirY = -1; break;
+                    case 'top-right': dirX = 1; dirY = -1; break;
+                    case 'bottom-left': dirX = -1; dirY = 1; break;
+                    case 'bottom-right': dirX = 1; dirY = 1; break;
+                }
+
+                // Draw Extrude Layers from back to front
+                for (let i = extrudeDepth; i >= 1; i--) {
+                    if (dropShadow && i === extrudeDepth) {
+                        // Apply drop shadow ONLY to the furthest back layer of the extrude
+                        targetCtx.filter = `drop-shadow(${shadowOffsetX}px ${shadowOffsetY}px ${shadowBlur}px ${hexToRgba(shadowColor, shadowOpacity)})`;
+                    } else {
+                        targetCtx.filter = 'none';
+                    }
+                    targetCtx.drawImage(extrudeOffscreen, i * dirX, i * dirY);
+                }
+                
+                targetCtx.filter = 'none';
+                targetCtx.drawImage(mathOffscreen, 0, 0);
+            } else {
+                if (dropShadow) {
+                    targetCtx.filter = `drop-shadow(${shadowOffsetX}px ${shadowOffsetY}px ${shadowBlur}px ${hexToRgba(shadowColor, shadowOpacity)})`;
+                }
+                targetCtx.drawImage(mathOffscreen, 0, 0);
+            }
+            
+            targetCtx.restore();
+        }
+
+        function redrawMath(upToPathIndex = currentDrawIndex) {
+            if (isAnimating && upToPathIndex === -1 && currentDrawIndex !== -1) return; 
+            renderMathCore(canvas, ctx, rc, upToPathIndex, false);
+            if (isRecording && recCanvas) renderMathCore(recCanvas, recCtx, recRC, upToPathIndex, true);
+        }
+
+        // --- Recording Logic ---
+        const btnAnimate = document.getElementById('btn-animate');
+        const btnRecord = document.getElementById('btn-record');
+
+        async function playAnimation(recordCallback = null) {
+            if (!currentParsedMath || currentParsedMath.paths.length === 0 || isAnimating) return;
+            
+            isAnimating = true;
+            btnAnimate.disabled = true; btnRecord.disabled = true;
+            if (recordCallback) await recordCallback();
+
+            const totalPaths = currentParsedMath.paths.length;
+            
+            // Decouple stroke animation speed from jitter speed
+            const drawDelay = Math.max(30, Math.min(200, 2500 / totalPaths));
+            const jitterDelay = isBoiling ? (1000 / boilSpeed) : 0;
+            
+            let lastJitterTime = Date.now();
+
+            for (let i = 1; i <= totalPaths; i++) {
+                currentDrawIndex = i;
+                
+                if (isBoiling) {
+                    const now = Date.now();
+                    // Only update the shape seed if enough time has passed based on boilSpeed
+                    if (now - lastJitterTime >= jitterDelay) {
+                        currentSeed = Math.floor(Math.random() * 1000000);
+                        document.getElementById('seed-input').value = currentSeed;
+                        lastJitterTime = now;
+                    }
+                }
+                
+                redrawMath(currentDrawIndex);
+                await new Promise(r => setTimeout(r, drawDelay));
+            }
+
+            currentDrawIndex = -1;
+            
+            if (isBoiling) {
+                const now = Date.now();
+                if (now - lastJitterTime >= jitterDelay) {
+                    currentSeed = Math.floor(Math.random() * 1000000);
+                    document.getElementById('seed-input').value = currentSeed;
+                }
+            }
+            
+            redrawMath(-1);
+            
+            isAnimating = false;
+            
+            if (!isRecording) {
+                btnAnimate.disabled = false; 
+                btnRecord.disabled = false;
+                if (isBoiling) updateBoilLoop();
+            }
+        }
+
+        btnAnimate.addEventListener('click', () => playAnimation());
+
+        btnRecord.addEventListener('click', async () => {
+            if (!currentParsedMath || currentParsedMath.paths.length === 0 || isAnimating) return;
+            
+            let mediaRecorder, recordedChunks = [];
+            isRecording = true;
+            
+            try {
+                // Determine Recording Resolution
+                const res = document.getElementById('export-res').value;
+                let w, h;
+                if (res === 'HD') { w = 1920; h = 1080; }
+                else if (res === '2K') { w = 2560; h = 1440; }
+                else { w = 3840; h = 2160; }
+                
+                // Respect Aspect Ratio
+                if (currentRatio === '16:9') { /* already wide */ }
+                else if (currentRatio === '9:16') { let t = w; w = h; h = t; }
+                else if (currentRatio === '1:1') { w = h; }
+                else { 
+                    const aspect = canvas.width / canvas.height;
+                    if (aspect > 1) h = Math.round(w / aspect);
+                    else w = Math.round(h * aspect);
+                }
+
+                // Force even dimensions for video codecs (prevents failure)
+                w = Math.floor(w / 2) * 2;
+                h = Math.floor(h / 2) * 2;
+
+                recCanvas = document.createElement('canvas');
+                recCanvas.width = w; recCanvas.height = h;
+                
+                // Mount to DOM invisibly so captureStream runs reliably in all browsers
+                recCanvas.style.position = 'fixed';
+                recCanvas.style.opacity = '0';
+                recCanvas.style.pointerEvents = 'none';
+                document.body.appendChild(recCanvas);
+
+                recCtx = recCanvas.getContext('2d', { willReadFrequently: true });
+                recRC = rough.canvas(recCanvas);
+
+                const stream = recCanvas.captureStream(30);
+                let options = { mimeType: 'video/webm;codecs=vp9' };
+                if (!MediaRecorder.isTypeSupported(options.mimeType)) options = { mimeType: 'video/webm' };
+
+                mediaRecorder = new MediaRecorder(stream, options);
+                mediaRecorder.ondataavailable = (e) => { if (e.data.size > 0) recordedChunks.push(e.data); };
+                mediaRecorder.onstop = () => {
+                    const blob = new Blob(recordedChunks, { type: options.mimeType.split(';')[0] });
+                    const a = document.createElement('a');
+                    a.style.display = 'none';
+                    a.href = URL.createObjectURL(blob);
+                    a.download = `RoughMath-Anim.${options.mimeType.includes('mp4') ? 'mp4' : 'webm'}`;
+                    document.body.appendChild(a); a.click(); setTimeout(() => document.body.removeChild(a), 100);
+                    
+                    document.getElementById('recording-overlay').classList.replace('translate-y-4', '-translate-y-20');
+                    if (recCanvas && recCanvas.parentNode) recCanvas.parentNode.removeChild(recCanvas);
+                    isRecording = false; recCanvas = null; redrawMath();
+                    btnAnimate.disabled = false; btnRecord.disabled = false;
+                    if (isBoiling) updateBoilLoop();
+                };
+
+                document.getElementById('recording-overlay').classList.replace('-translate-y-20', 'translate-y-4');
+                await playAnimation(() => mediaRecorder.start());
+                
+                // Hold end frame
+                if (isBoiling) {
+                    const steps = Math.max(1, Math.floor(800 / (1000 / boilSpeed)));
+                    for(let j=0; j<steps; j++) {
+                        currentSeed = Math.floor(Math.random() * 1000000);
+                        document.getElementById('seed-input').value = currentSeed;
+                        redrawMath(-1);
+                        await new Promise(r => setTimeout(r, 1000 / boilSpeed));
+                    }
+                } else {
+                    await new Promise(r => setTimeout(r, 800)); // Hold end frame
+                }
+                mediaRecorder.stop();
+
+            } catch (err) {
+                console.error(err); alert("Recording failed.");
+                document.getElementById('recording-overlay').classList.replace('translate-y-4', '-translate-y-20');
+                if (recCanvas && recCanvas.parentNode) recCanvas.parentNode.removeChild(recCanvas);
+                isAnimating = false; isRecording = false; btnAnimate.disabled = false; btnRecord.disabled = false;
+                redrawMath();
+            }
+        });
+
+    </script>
+</body>
+</html>
