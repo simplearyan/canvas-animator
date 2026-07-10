@@ -11,7 +11,7 @@
     <!-- Fonts & Icons -->
     <link rel="preconnect" href="https://fonts.googleapis.com">
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-    <link href="https://fonts.googleapis.com/css2?family=Google+Sans:wght@400;500;700;900&family=Roboto:wght@400;500&display=swap" rel="stylesheet">
+    <link href="https://fonts.googleapis.com/css2?family=Google+Sans:wght@400;500;700;900&family=Roboto:wght@400;500&family=Rubik:wght@400;500;700;900&family=Playfair+Display:ital,wght@0,400..900;1,400..900&display=swap" rel="stylesheet">
     <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Material+Symbols+Rounded:opsz,wght,FILL,GRAD@20..48,100..700,0..1,-50..200" />
 
     <!-- Tailwind -->
@@ -150,6 +150,11 @@
 
             <!-- Floating Context-Based Action Toolbar -->
             <div id="contextToolbar" class="absolute top-4 left-1/2 -translate-x-1/2 bg-white dark:bg-dark-surface border border-google-border/60 dark:border-dark-border shadow-[0_4px_20px_rgba(0,0,0,0.08)] rounded-full px-2 py-1.5 flex items-center gap-1 z-30 transition-all duration-300 opacity-0 -translate-y-4 pointer-events-none scale-95 origin-top">
+                <select id="tbFont" class="text-tool hidden bg-transparent text-[11px] md:text-xs font-medium px-2 py-1 outline-none text-google-textmuted dark:text-dark-textmuted border border-google-border/40 dark:border-dark-border rounded-full cursor-pointer hover:bg-google-hover dark:hover:bg-dark-hover transition mr-1">
+                    <option value='"Google Sans", sans-serif'>Google Sans</option>
+                    <option value='"Rubik", sans-serif'>Rubik</option>
+                    <option value='"Playfair Display", serif'>Playfair Display</option>
+                </select>
                 <button class="btn-icon text-tool hidden" title="Bold"><span class="material-symbols-rounded text-[18px]">format_bold</span></button>
                 <button class="btn-icon text-tool hidden" title="Italic"><span class="material-symbols-rounded text-[18px]">format_italic</span></button>
                 <button class="btn-icon text-tool hidden" title="Text Color"><span class="material-symbols-rounded text-[18px]">format_color_text</span></button>
@@ -236,6 +241,14 @@
                                 <div>
                                     <label class="block text-[12px] md:text-[13px] font-medium text-google-textmuted dark:text-dark-textmuted mb-1.5 md:mb-2">Text Content</label>
                                     <input type="text" id="propText" class="w-full text-xs md:text-sm px-3 py-2 md:px-4 md:py-2.5 rounded-xl bg-google-bg dark:bg-dark-bg border border-transparent focus:border-google-blue outline-none transition text-google-text dark:text-dark-text">
+                                </div>
+                                <div>
+                                    <label class="block text-[12px] md:text-[13px] font-medium text-google-textmuted dark:text-dark-textmuted mb-1.5 md:mb-2">Font Family</label>
+                                    <select id="propFont" class="w-full text-xs md:text-sm px-3 py-2 md:px-4 md:py-2.5 rounded-xl bg-google-bg dark:bg-dark-bg border border-transparent focus:border-google-blue outline-none transition text-google-text dark:text-dark-text cursor-pointer">
+                                        <option value='"Google Sans", sans-serif'>Google Sans (Default)</option>
+                                        <option value='"Rubik", sans-serif'>Rubik</option>
+                                        <option value='"Playfair Display", serif'>Playfair Display</option>
+                                    </select>
                                 </div>
                                 <div>
                                     <label class="block text-[12px] md:text-[13px] font-medium text-google-textmuted dark:text-dark-textmuted mb-2 md:mb-3 flex justify-between">
@@ -438,7 +451,8 @@
                     ctx.fill();
                 }
                 else if (layer.type === 'text') {
-                    ctx.font = `900 ${layer.size}px "Google Sans", sans-serif`;
+                    const fontFamily = layer.font || '"Google Sans", sans-serif';
+                    ctx.font = `900 ${layer.size}px ${fontFamily}`;
                     ctx.textAlign = 'center';
                     ctx.textBaseline = 'middle';
                     if (layer.z > 0.1) {
@@ -650,6 +664,7 @@
             if (layer.type === 'text') {
                 textTools.forEach(t => t.classList.remove('hidden'));
                 dividers.forEach(d => d.classList.remove('hidden'));
+                document.getElementById('tbFont').value = layer.font || '"Google Sans", sans-serif';
             } else {
                 textTools.forEach(t => t.classList.add('hidden'));
                 dividers.forEach(d => d.classList.add('hidden'));
@@ -708,6 +723,8 @@
         const pW = document.getElementById('propW');
         const pH = document.getElementById('propH');
         const pText = document.getElementById('propText');
+        const pFont = document.getElementById('propFont');
+        const tbFont = document.getElementById('tbFont');
         const pSize = document.getElementById('propSize');
         const pSizeVal = document.getElementById('propSizeVal');
         const pColor = document.getElementById('propColor');
@@ -741,6 +758,7 @@
                 pText.value = layer.text;
                 pSize.value = layer.size;
                 pSizeVal.textContent = layer.size;
+                pFont.value = layer.font || '"Google Sans", sans-serif';
             } else {
                 textPropsGrp.classList.add('hidden');
                 rectPropsGrp.classList.remove('hidden');
@@ -772,6 +790,22 @@
                 layer.name = layer.text.substring(0, 15) || 'Empty Text';
                 buildLayerList();
             }
+        });
+
+        pFont.addEventListener('change', (e) => {
+            const layer = layers.find(l => l.id === selectedLayerId);
+            if (!layer) return;
+            layer.font = e.target.value;
+            tbFont.value = e.target.value; // Sync contextual toolbar
+            render();
+        });
+
+        tbFont.addEventListener('change', (e) => {
+            const layer = layers.find(l => l.id === selectedLayerId);
+            if (!layer) return;
+            layer.font = e.target.value;
+            pFont.value = e.target.value; // Sync properties panel
+            render();
         });
 
         // --- Mouse & Parallax Logic ---
@@ -822,7 +856,8 @@
                         break;
                     }
                 } else if (layer.type === 'text') {
-                    ctx.font = `900 ${layer.size}px "Google Sans"`;
+                    const fontFamily = layer.font || '"Google Sans", sans-serif';
+                    ctx.font = `900 ${layer.size}px ${fontFamily}`;
                     const m = ctx.measureText(layer.text);
                     if (pos.x >= layer.x - m.width/2 && pos.x <= layer.x + m.width/2 &&
                         pos.y >= layer.y - layer.size/2 && pos.y <= layer.y + layer.size/2) {
