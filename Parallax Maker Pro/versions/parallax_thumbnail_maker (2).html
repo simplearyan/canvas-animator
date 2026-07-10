@@ -1,0 +1,868 @@
+<!DOCTYPE html>
+<html lang="en" class="light">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Google Flow - Parallax Thumbnail Maker</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <link href="https://fonts.googleapis.com/css2?family=Google+Sans:wght@400;500;700;900&family=Roboto:wght@400;500&display=swap" rel="stylesheet">
+    <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Material+Symbols+Rounded:opsz,wght,FILL,GRAD@20..48,100..700,0..1,-50..200" />
+    
+    <script>
+        tailwind.config = {
+            darkMode: 'class',
+            theme: {
+                extend: {
+                    fontFamily: {
+                        sans: ['Roboto', 'sans-serif'],
+                        google: ['"Google Sans"', 'sans-serif'],
+                    },
+                    colors: {
+                        // Light mode (Material)
+                        google: {
+                            blue: '#0b57d0',
+                            bluelight: '#d3e3fd',
+                            bg: '#f8f9fa',
+                            surface: '#ffffff',
+                            surface2: '#f3f6fc',
+                            border: '#c7c7c7',
+                            text: '#1f1f1f',
+                            textmuted: '#444746',
+                        },
+                        // Dark mode (Gemini/CapCut inspired)
+                        dark: {
+                            bg: '#0e0e0f',
+                            surface: '#181a1b',
+                            surface2: '#222426',
+                            border: '#343638',
+                            text: '#e3e3e3',
+                            textmuted: '#a8abae',
+                            blue: '#a8c7fa',
+                            bluebg: '#004a77'
+                        }
+                    }
+                }
+            }
+        }
+    </script>
+    <style>
+        :root {
+            --grid-color: #e8eaed;
+            --grid-bg: transparent;
+        }
+        .dark {
+            --grid-color: #2a2c2e;
+            --grid-bg: #0e0e0f;
+            color-scheme: dark;
+        }
+
+        /* Custom Scrollbars */
+        ::-webkit-scrollbar { width: 6px; height: 6px; }
+        ::-webkit-scrollbar-track { background: transparent; }
+        ::-webkit-scrollbar-thumb { background: #dadce0; border-radius: 3px; }
+        .dark ::-webkit-scrollbar-thumb { background: #555759; }
+        ::-webkit-scrollbar-thumb:hover { background: #bdc1c6; }
+        .dark ::-webkit-scrollbar-thumb:hover { background: #6b6d70; }
+
+        input[type=range] { -webkit-appearance: none; width: 100%; background: transparent; }
+        input[type=range]::-webkit-slider-thumb {
+            -webkit-appearance: none; height: 16px; width: 16px; border-radius: 50%;
+            background: #0b57d0; cursor: pointer; margin-top: -6px; box-shadow: 0 1px 3px rgba(0,0,0,0.3); transition: transform 0.1s;
+        }
+        .dark input[type=range]::-webkit-slider-thumb { background: #a8c7fa; }
+        input[type=range]::-webkit-slider-thumb:hover { transform: scale(1.2); }
+        input[type=range]::-webkit-slider-runnable-track {
+            width: 100%; height: 4px; cursor: pointer; background: #c7c7c7; border-radius: 2px;
+        }
+        .dark input[type=range]::-webkit-slider-runnable-track { background: #444746; }
+        input[type=range]:focus { outline: none; }
+
+        .layer-item.active, .track-item.active {
+            background-color: #d3e3fd;
+            border-color: #0b57d0;
+            color: #041e49;
+        }
+        .dark .layer-item.active, .dark .track-item.active {
+            background-color: #004a77;
+            border-color: #a8c7fa;
+            color: #e3e3e3;
+        }
+
+        .btn-icon {
+            @apply p-1.5 rounded-md hover:bg-black/5 dark:hover:bg-white/10 transition-colors flex items-center justify-center text-google-textmuted dark:text-dark-textmuted;
+        }
+        
+        /* Rail button styles */
+        .rail-btn {
+            @apply flex flex-col items-center justify-center w-[60px] h-[56px] rounded-xl hover:bg-black/5 dark:hover:bg-white/10 text-google-textmuted dark:text-dark-textmuted gap-0.5 transition-colors cursor-pointer;
+        }
+        .rail-btn.active {
+            @apply bg-google-bluelight dark:bg-dark-bluebg text-google-blue dark:text-dark-blue;
+        }
+    </style>
+</head>
+<body class="bg-google-bg dark:bg-dark-bg text-google-text dark:text-dark-text h-screen flex flex-col overflow-hidden transition-colors duration-200">
+
+    <!-- Top Header -->
+    <header class="h-14 flex items-center justify-between px-4 bg-google-surface dark:bg-dark-surface border-b border-google-border dark:border-dark-border shrink-0">
+        <!-- Left: Logo & Title -->
+        <div class="flex items-center gap-4">
+            <div class="w-8 h-8 rounded-full bg-blue-100 dark:bg-blue-900/30 flex items-center justify-center">
+                <span class="material-symbols-rounded text-blue-600 dark:text-blue-400 text-[20px]">animation</span>
+            </div>
+            <div>
+                <h1 class="font-google font-medium text-[16px] leading-tight text-gray-800 dark:text-gray-100 flex items-center gap-2">
+                    Untitled Parallax
+                </h1>
+            </div>
+        </div>
+        
+        <!-- Right: Actions -->
+        <div class="flex items-center gap-2">
+            <button class="btn-icon" title="History"><span class="material-symbols-rounded">history</span></button>
+            <button class="btn-icon" title="Comments"><span class="material-symbols-rounded">comment</span></button>
+            
+            <button id="themeToggle" class="btn-icon" title="Toggle Dark Mode">
+                <span class="material-symbols-rounded">dark_mode</span>
+            </button>
+
+            <div class="w-px h-6 bg-google-border dark:bg-dark-border mx-2"></div>
+            
+            <button id="parallaxToggleBtn" class="flex items-center gap-2 px-4 py-1.5 bg-google-surface2 dark:bg-dark-surface2 border border-google-border dark:border-dark-border rounded-full hover:bg-black/5 dark:hover:bg-white/10 font-google text-sm font-medium transition">
+                <span class="material-symbols-rounded text-[18px]">3d_rotation</span> Parallax Preview
+            </button>
+
+            <button id="exportBtn" class="flex items-center gap-2 px-4 py-1.5 bg-google-bluelight dark:bg-dark-bluebg text-google-blue dark:text-dark-blue rounded-full font-google text-sm font-medium transition hover:bg-blue-200 dark:hover:bg-blue-900/60 ml-2">
+                <span class="material-symbols-rounded text-[18px]">download</span> Export
+            </button>
+
+            <button class="ml-2 w-8 h-8 rounded-full bg-purple-600 flex items-center justify-center text-white font-medium text-sm">
+                T
+            </button>
+        </div>
+    </header>
+
+    <!-- Formatting Toolbar -->
+    <div class="h-12 flex items-center px-4 bg-google-surface dark:bg-dark-surface2 border-b border-google-border dark:border-dark-border shrink-0 text-sm gap-2 overflow-x-auto">
+        <button class="btn-icon text-google-text dark:text-dark-text" title="Pointer"><span class="material-symbols-rounded text-[20px]">arrow_selector_tool</span></button>
+        <button class="btn-icon" title="Pan"><span class="material-symbols-rounded text-[20px]">pan_tool</span></button>
+        <div class="w-px h-5 bg-google-border dark:bg-dark-border mx-1"></div>
+        <button id="addTextBtnToolbar" class="btn-icon" title="Add Text"><span class="material-symbols-rounded text-[20px]">text_fields</span></button>
+        <button id="addRectBtnToolbar" class="btn-icon" title="Add Shape"><span class="material-symbols-rounded text-[20px]">shape_line</span></button>
+        <div class="w-px h-5 bg-google-border dark:bg-dark-border mx-1"></div>
+        
+        <!-- Mock Formatting Options -->
+        <select class="bg-transparent border border-google-border dark:border-dark-border rounded px-2 py-1 text-xs outline-none dark:bg-dark-surface focus:border-google-blue">
+            <option>Google Sans</option>
+            <option>Arial</option>
+            <option>Roboto</option>
+        </select>
+        <div class="flex items-center border border-google-border dark:border-dark-border rounded h-[26px]">
+            <button class="px-2 hover:bg-black/5 dark:hover:bg-white/10 h-full border-r border-google-border dark:border-dark-border">-</button>
+            <span class="px-3 text-xs">64</span>
+            <button class="px-2 hover:bg-black/5 dark:hover:bg-white/10 h-full border-l border-google-border dark:border-dark-border">+</button>
+        </div>
+        <button class="btn-icon"><span class="material-symbols-rounded text-[18px]">format_bold</span></button>
+        <button class="btn-icon"><span class="material-symbols-rounded text-[18px]">format_italic</span></button>
+        <button class="btn-icon"><span class="material-symbols-rounded text-[18px]">format_color_text</span></button>
+    </div>
+
+    <!-- Main Workspace -->
+    <main class="flex-1 flex overflow-hidden">
+        
+        <!-- Center Column (Canvas + Timeline) -->
+        <div class="flex-1 flex flex-col relative min-w-0 bg-gray-50/50 dark:bg-[#0a0a0a]">
+            
+            <!-- Warning Banner for Parallax Mode -->
+            <div id="parallaxWarning" class="absolute top-4 left-1/2 -translate-x-1/2 bg-google-blue dark:bg-dark-bluebg text-white dark:text-dark-blue px-6 py-2 rounded-full shadow-lg text-sm font-medium z-20 flex items-center gap-2 opacity-0 pointer-events-none transition-opacity duration-300">
+                <span class="material-symbols-rounded text-[18px]">mouse</span> Move mouse to see 3D effect. (Editing disabled)
+            </div>
+
+            <!-- Canvas Area -->
+            <div class="flex-1 flex items-center justify-center p-8 overflow-auto" id="workspace">
+                <div class="relative shadow-xl ring-1 ring-black/5 dark:ring-white/10 transition-transform duration-200" id="canvasWrapper">
+                    <canvas id="thumbnailCanvas" width="1280" height="720" class="block w-full max-w-[850px] h-auto cursor-crosshair bg-white"></canvas>
+                </div>
+            </div>
+
+            <!-- Bottom Timeline panel -->
+            <div class="h-[180px] bg-google-surface dark:bg-dark-surface border-t border-google-border dark:border-dark-border flex flex-col shrink-0 shadow-[0_-4px_15px_rgba(0,0,0,0.02)]">
+                <!-- Timeline Controls -->
+                <div class="flex items-center justify-between px-4 h-11 border-b border-google-border dark:border-dark-border bg-google-surface2 dark:bg-dark-surface2">
+                    <div class="flex items-center gap-3">
+                        <button class="btn-icon" title="Toggle Timeline">
+                            <span class="material-symbols-rounded text-[18px]">view_timeline</span>
+                        </button>
+                    </div>
+                    
+                    <div class="flex items-center gap-4">
+                        <button class="w-7 h-7 rounded-full bg-google-blue text-white flex items-center justify-center shadow-md hover:bg-blue-700 transition">
+                            <span class="material-symbols-rounded text-[18px] ml-0.5">play_arrow</span>
+                        </button>
+                        <span class="text-[11px] font-mono text-google-textmuted dark:text-dark-textmuted bg-black/5 dark:bg-white/5 px-2 py-0.5 rounded">00:00.0 / 00:05.0</span>
+                    </div>
+                    
+                    <div class="flex items-center gap-2 w-32">
+                        <span class="material-symbols-rounded text-[16px] text-google-textmuted dark:text-dark-textmuted">zoom_out</span>
+                        <input type="range" class="w-full" min="10" max="200" value="100">
+                        <span class="material-symbols-rounded text-[16px] text-google-textmuted dark:text-dark-textmuted">zoom_in</span>
+                    </div>
+                </div>
+                
+                <!-- Timeline Tracks -->
+                <div class="flex-1 overflow-y-auto overflow-x-hidden p-2 space-y-1 relative" id="timelineTracks">
+                    <!-- Playhead Line -->
+                    <div class="absolute left-1/4 top-0 bottom-0 w-px bg-google-blue z-10 pointer-events-none">
+                        <div class="w-0 h-0 border-l-[6px] border-r-[6px] border-t-[8px] border-l-transparent border-r-transparent border-t-google-blue absolute -top-1 -left-[5px]"></div>
+                    </div>
+                    <!-- Tracks built via JS -->
+                </div>
+            </div>
+        </div>
+
+        <!-- Right Sidebar Area -->
+        <aside class="flex bg-google-surface dark:bg-dark-surface border-l border-google-border dark:border-dark-border shrink-0 z-10 shadow-[-4px_0_15px_rgba(0,0,0,0.03)]">
+            
+            <!-- Panel Content Area -->
+            <div id="sidePanel" class="flex flex-col w-[270px] transition-[width] duration-300 overflow-hidden">
+                
+                <!-- PROPERTIES PANEL -->
+                <div id="panelProperties" class="w-[270px] flex-1 flex flex-col hidden shrink-0">
+                    <div class="p-4 border-b border-google-border dark:border-dark-border flex items-center justify-between shrink-0">
+                        <div class="flex items-center gap-2">
+                            <span class="material-symbols-rounded text-google-textmuted dark:text-dark-textmuted">tune</span>
+                            <h3 class="font-google font-medium text-[15px]">Properties</h3>
+                        </div>
+                        <button class="btn-icon close-panel-btn" title="Close Panel"><span class="material-symbols-rounded text-[18px]">last_page</span></button>
+                    </div>
+
+                    <!-- Sub-tabs -->
+                    <div class="px-4 pt-3">
+                        <div class="flex bg-google-surface2 dark:bg-dark-surface2 p-1 rounded-lg border border-google-border dark:border-dark-border">
+                            <button id="subTabDesignBtn" class="flex-1 text-xs font-medium py-1.5 rounded-md bg-white dark:bg-dark-surface shadow-sm text-google-blue dark:text-dark-blue">Design</button>
+                            <button id="subTabParallaxBtn" class="flex-1 text-xs font-medium py-1.5 rounded-md text-google-textmuted dark:text-dark-textmuted hover:text-google-text dark:hover:text-dark-text">Parallax</button>
+                        </div>
+                    </div>
+
+                    <div id="propertiesContent" class="flex-1 overflow-y-auto p-4 space-y-6 hidden">
+                        <!-- Sub Tab: Design -->
+                        <div id="subTabDesign" class="space-y-5">
+                            <!-- Text specific -->
+                            <div id="textProps" class="space-y-3">
+                                <div>
+                                    <label class="block text-xs font-medium text-google-textmuted dark:text-dark-textmuted mb-1.5">Text Content</label>
+                                    <input type="text" id="propText" class="w-full text-sm px-3 py-2 border border-google-border dark:border-dark-border rounded-lg bg-google-bg dark:bg-dark-bg focus:ring-2 focus:ring-google-blue outline-none transition text-google-text dark:text-dark-text">
+                                </div>
+                                <div>
+                                    <label class="block text-xs font-medium text-google-textmuted dark:text-dark-textmuted mb-1.5 flex justify-between">
+                                        Font Size <span id="propSizeVal">100</span>
+                                    </label>
+                                    <input type="range" id="propSize" min="20" max="300" value="100">
+                                </div>
+                            </div>
+
+                            <!-- Layout (X/Y) -->
+                            <div>
+                                <label class="block text-xs font-medium text-google-textmuted dark:text-dark-textmuted mb-1.5">Position</label>
+                                <div class="flex gap-2">
+                                    <div class="flex-1 flex items-center bg-google-bg dark:bg-dark-bg border border-google-border dark:border-dark-border rounded-lg px-2 py-1.5 focus-within:ring-2 focus-within:ring-google-blue">
+                                        <span class="text-xs text-google-textmuted dark:text-dark-textmuted mr-2 font-mono">X</span>
+                                        <input type="number" id="propX" class="w-full bg-transparent text-sm outline-none text-google-text dark:text-dark-text">
+                                    </div>
+                                    <div class="flex-1 flex items-center bg-google-bg dark:bg-dark-bg border border-google-border dark:border-dark-border rounded-lg px-2 py-1.5 focus-within:ring-2 focus-within:ring-google-blue">
+                                        <span class="text-xs text-google-textmuted dark:text-dark-textmuted mr-2 font-mono">Y</span>
+                                        <input type="number" id="propY" class="w-full bg-transparent text-sm outline-none text-google-text dark:text-dark-text">
+                                    </div>
+                                </div>
+                            </div>
+
+                            <!-- Shape size (Rect Only) -->
+                            <div id="rectProps" class="hidden">
+                                <label class="block text-xs font-medium text-google-textmuted dark:text-dark-textmuted mb-1.5">Size</label>
+                                <div class="flex gap-2">
+                                    <div class="flex-1 flex items-center bg-google-bg dark:bg-dark-bg border border-google-border dark:border-dark-border rounded-lg px-2 py-1.5 focus-within:ring-2 focus-within:ring-google-blue">
+                                        <span class="text-xs text-google-textmuted dark:text-dark-textmuted mr-2 font-mono">W</span>
+                                        <input type="number" id="propW" class="w-full bg-transparent text-sm outline-none text-google-text dark:text-dark-text">
+                                    </div>
+                                    <div class="flex-1 flex items-center bg-google-bg dark:bg-dark-bg border border-google-border dark:border-dark-border rounded-lg px-2 py-1.5 focus-within:ring-2 focus-within:ring-google-blue">
+                                        <span class="text-xs text-google-textmuted dark:text-dark-textmuted mr-2 font-mono">H</span>
+                                        <input type="number" id="propH" class="w-full bg-transparent text-sm outline-none text-google-text dark:text-dark-text">
+                                    </div>
+                                </div>
+                            </div>
+
+                            <!-- Color -->
+                            <div>
+                                <label class="block text-xs font-medium text-google-textmuted dark:text-dark-textmuted mb-1.5">Fill Color</label>
+                                <div class="flex items-center gap-2">
+                                    <div class="w-9 h-9 rounded overflow-hidden border border-google-border dark:border-dark-border shrink-0">
+                                        <input type="color" id="propColor" class="w-[150%] h-[150%] -m-2 cursor-pointer outline-none">
+                                    </div>
+                                    <input type="text" id="propColorHex" class="flex-1 text-sm px-3 py-1.5 border border-google-border dark:border-dark-border rounded-lg bg-google-bg dark:bg-dark-bg outline-none text-google-text dark:text-dark-text font-mono uppercase" readonly>
+                                </div>
+                            </div>
+                        </div>
+
+                        <!-- Sub Tab: Parallax -->
+                        <div id="subTabParallax" class="space-y-4 hidden">
+                            <div class="bg-google-surface2 dark:bg-dark-surface2 p-4 rounded-xl border border-google-border dark:border-dark-border text-center">
+                                <span class="material-symbols-rounded text-3xl text-google-blue dark:text-dark-blue mb-2">layers</span>
+                                <h4 class="text-sm font-medium mb-1">Z-Depth Mapping</h4>
+                                <p class="text-xs text-google-textmuted dark:text-dark-textmuted mb-4">Set how far forward this element sits in 3D space. 0 is flat on background.</p>
+                                
+                                <div class="flex items-center justify-between text-xs font-bold mb-2">
+                                    <span>Back</span>
+                                    <span id="propZVal" class="text-google-blue dark:text-dark-blue bg-white dark:bg-dark-bg px-2 py-1 rounded shadow-sm border border-google-border dark:border-dark-border">0.00</span>
+                                    <span>Front</span>
+                                </div>
+                                <input type="range" id="propZ" min="0" max="1" step="0.05" value="0">
+                            </div>
+                        </div>
+                    </div>
+
+                    <!-- Empty State -->
+                    <div id="emptyProps" class="flex-1 flex flex-col items-center justify-center p-8 text-center">
+                        <div class="w-12 h-12 bg-google-surface2 dark:bg-dark-surface2 rounded-full flex items-center justify-center mb-3">
+                            <span class="material-symbols-rounded text-[24px] text-google-textmuted dark:text-dark-textmuted">touch_app</span>
+                        </div>
+                        <h4 class="text-sm font-medium mb-1 text-google-text dark:text-dark-text">No object selected</h4>
+                        <p class="text-xs text-google-textmuted dark:text-dark-textmuted">Click an element on the canvas or in the Layers tab to edit its properties.</p>
+                    </div>
+                </div>
+
+                <!-- LAYERS PANEL -->
+                <div id="panelLayers" class="w-[270px] flex-1 flex flex-col shrink-0">
+                    <div class="p-4 border-b border-google-border dark:border-dark-border flex items-center justify-between shrink-0">
+                        <div class="flex items-center gap-2">
+                            <span class="material-symbols-rounded text-google-textmuted dark:text-dark-textmuted">stacks</span>
+                            <h3 class="font-google font-medium text-[15px]">Layers</h3>
+                        </div>
+                        <div class="flex items-center">
+                            <button class="btn-icon text-google-blue dark:text-dark-blue mr-1" title="Add Layer"><span class="material-symbols-rounded text-[18px]">add</span></button>
+                            <button class="btn-icon close-panel-btn" title="Close Panel"><span class="material-symbols-rounded text-[18px]">last_page</span></button>
+                        </div>
+                    </div>
+                    
+                    <div class="flex-1 overflow-y-auto p-3 space-y-1" id="layerList">
+                        <!-- Layers populated via JS -->
+                    </div>
+                </div>
+
+            </div>
+
+            <!-- Navigation Rail (Far Right) -->
+            <div class="w-[70px] bg-google-surface2 dark:bg-dark-surface2 border-l border-google-border dark:border-dark-border flex flex-col items-center py-3 gap-2 shrink-0">
+                <button class="rail-btn active" data-target="panelLayers">
+                    <span class="material-symbols-rounded text-[22px]">stacks</span>
+                    <span class="text-[10px] font-medium">Layers</span>
+                </button>
+                <button class="rail-btn" data-target="panelProperties">
+                    <span class="material-symbols-rounded text-[22px]">tune</span>
+                    <span class="text-[10px] font-medium">Properties</span>
+                </button>
+                <div class="w-8 h-px bg-google-border dark:bg-dark-border my-1"></div>
+                <button class="rail-btn" id="addTextBtn">
+                    <span class="material-symbols-rounded text-[22px]">title</span>
+                    <span class="text-[10px] font-medium">Text</span>
+                </button>
+                <button class="rail-btn" id="addRectBtn">
+                    <span class="material-symbols-rounded text-[22px]">shapes</span>
+                    <span class="text-[10px] font-medium">Shapes</span>
+                </button>
+                <button class="rail-btn">
+                    <span class="material-symbols-rounded text-[22px]">image</span>
+                    <span class="text-[10px] font-medium">Image</span>
+                </button>
+            </div>
+        </aside>
+    </main>
+
+    <script>
+        // --- Theme / Dark Mode Logic ---
+        const html = document.documentElement;
+        const themeToggle = document.getElementById('themeToggle');
+        
+        // Initial setup based on localStorage or OS pref (default to light)
+        if (localStorage.theme === 'dark' || (!('theme' in localStorage) && window.matchMedia('(prefers-color-scheme: dark)').matches)) {
+            html.classList.add('dark');
+        }
+
+        themeToggle.addEventListener('click', () => {
+            html.classList.toggle('dark');
+            if (html.classList.contains('dark')) {
+                localStorage.theme = 'dark';
+                themeToggle.innerHTML = '<span class="material-symbols-rounded">light_mode</span>';
+            } else {
+                localStorage.theme = 'light';
+                themeToggle.innerHTML = '<span class="material-symbols-rounded">dark_mode</span>';
+            }
+            render(); // Re-render to catch any outline color changes
+        });
+
+        // Set initial icon
+        if (html.classList.contains('dark')) {
+             themeToggle.innerHTML = '<span class="material-symbols-rounded">light_mode</span>';
+        }
+
+        // --- Canvas & State Setup ---
+        const canvas = document.getElementById('thumbnailCanvas');
+        const ctx = canvas.getContext('2d');
+        
+        let layers = [
+            { id: 'l1', name: 'Background', type: 'rect', x: 640, y: 360, w: 1280, h: 720, color: '#13151a', z: 0.0 },
+            { id: 'l2', name: 'Grid Pattern', type: 'rect', x: 640, y: 360, w: 1000, h: 600, color: '#1c1f26', z: 0.1 }, 
+            { id: 'l3', name: 'Circle Glow', type: 'circle', x: 640, y: 360, w: 400, h: 400, color: '#0b57d0', z: 0.3 }, 
+            { id: 'l4', name: 'Subtitle', type: 'text', x: 640, y: 260, text: 'NATIVE HTML CANVAS', size: 30, color: '#a8c7fa', z: 0.5 },
+            { id: 'l5', name: 'Title', type: 'text', x: 640, y: 380, text: 'PARALLAX', size: 140, color: '#ffffff', z: 0.8 },
+            { id: 'l6', name: 'Accent Shape', type: 'rect', x: 980, y: 480, w: 80, h: 12, color: '#fbbc04', z: 1.0 }
+        ];
+
+        let selectedLayerId = null;
+        let isDragging = false;
+        let dragOffsetX = 0;
+        let dragOffsetY = 0;
+        
+        let isParallaxMode = false;
+        let mouseNormX = 0; 
+        let mouseNormY = 0; 
+
+        // --- Core Rendering Logic ---
+        function render() {
+            ctx.fillStyle = '#ffffff';
+            ctx.fillRect(0, 0, canvas.width, canvas.height);
+
+            layers.forEach(layer => {
+                let px = 0, py = 0;
+                if (isParallaxMode) {
+                    px = (mouseNormX * -150) * layer.z; 
+                    py = (mouseNormY * -80) * layer.z;
+                }
+
+                const drawX = layer.x + px;
+                const drawY = layer.y + py;
+
+                ctx.save();
+                ctx.fillStyle = layer.color;
+                
+                if (layer.type === 'rect') {
+                    ctx.fillRect(drawX - layer.w/2, drawY - layer.h/2, layer.w, layer.h);
+                } 
+                else if (layer.type === 'circle') {
+                    ctx.beginPath();
+                    ctx.arc(drawX, drawY, layer.w/2, 0, Math.PI * 2);
+                    ctx.fill();
+                }
+                else if (layer.type === 'text') {
+                    ctx.font = `900 ${layer.size}px "Google Sans", sans-serif`;
+                    ctx.textAlign = 'center';
+                    ctx.textBaseline = 'middle';
+                    if (layer.z > 0.2) {
+                        ctx.shadowColor = 'rgba(0,0,0,0.4)';
+                        ctx.shadowBlur = layer.z * 25;
+                        ctx.shadowOffsetY = layer.z * 15;
+                    }
+                    ctx.fillText(layer.text, drawX, drawY);
+                }
+
+                if (!isParallaxMode && layer.id === selectedLayerId) {
+                    const isDark = document.documentElement.classList.contains('dark');
+                    ctx.strokeStyle = isDark ? '#a8c7fa' : '#0b57d0';
+                    ctx.lineWidth = 3;
+                    ctx.setLineDash([6, 6]);
+                    
+                    if (layer.type === 'rect' || layer.type === 'circle') {
+                        ctx.strokeRect(drawX - layer.w/2, drawY - layer.h/2, layer.w, layer.h);
+                    } else if (layer.type === 'text') {
+                        const metrics = ctx.measureText(layer.text);
+                        const h = layer.size;
+                        const w = metrics.width;
+                        ctx.strokeRect(drawX - w/2 - 10, drawY - h/2 - 10, w + 20, h + 20);
+                    }
+                    
+                    ctx.setLineDash([]);
+                    ctx.fillStyle = '#ffffff';
+                    ctx.beginPath();
+                    ctx.arc(drawX, drawY, 4, 0, Math.PI * 2);
+                    ctx.fill();
+                    ctx.stroke();
+                }
+                
+                ctx.restore();
+            });
+        }
+
+        // --- Panel Navigation (Rail) ---
+        const railBtns = document.querySelectorAll('.rail-btn[data-target]');
+        const panels = {
+            'panelLayers': document.getElementById('panelLayers'),
+            'panelProperties': document.getElementById('panelProperties')
+        };
+        const sidePanel = document.getElementById('sidePanel');
+        let isPanelOpen = true;
+
+        railBtns.forEach(btn => {
+            btn.addEventListener('click', () => {
+                const target = btn.getAttribute('data-target');
+
+                if (btn.classList.contains('active') && isPanelOpen) {
+                    // Close the panel
+                    isPanelOpen = false;
+                    sidePanel.style.width = '0px';
+                    btn.classList.remove('active');
+                } else {
+                    // Open and switch the panel
+                    isPanelOpen = true;
+                    sidePanel.style.width = '270px';
+                    
+                    railBtns.forEach(b => b.classList.remove('active'));
+                    btn.classList.add('active');
+                    
+                    Object.values(panels).forEach(p => p.classList.add('hidden'));
+                    if(panels[target]) panels[target].classList.remove('hidden');
+                }
+            });
+        });
+
+        // Close panel via inner buttons
+        document.querySelectorAll('.close-panel-btn').forEach(btn => {
+            btn.addEventListener('click', () => {
+                isPanelOpen = false;
+                sidePanel.style.width = '0px';
+                railBtns.forEach(b => b.classList.remove('active'));
+            });
+        });
+
+        // --- Properties Sub-tabs ---
+        const subTabDesignBtn = document.getElementById('subTabDesignBtn');
+        const subTabParallaxBtn = document.getElementById('subTabParallaxBtn');
+        const subTabDesign = document.getElementById('subTabDesign');
+        const subTabParallax = document.getElementById('subTabParallax');
+
+        function switchPropTab(tab) {
+            const activeClass = ['bg-white', 'dark:bg-dark-surface', 'shadow-sm', 'text-google-blue', 'dark:text-dark-blue'];
+            const inactiveClass = ['text-google-textmuted', 'dark:text-dark-textmuted', 'hover:text-google-text', 'dark:hover:text-dark-text'];
+            
+            if(tab === 'design') {
+                subTabDesignBtn.classList.remove(...inactiveClass);
+                subTabDesignBtn.classList.add(...activeClass);
+                subTabParallaxBtn.classList.remove(...activeClass);
+                subTabParallaxBtn.classList.add(...inactiveClass);
+                subTabDesign.classList.remove('hidden');
+                subTabParallax.classList.add('hidden');
+            } else {
+                subTabParallaxBtn.classList.remove(...inactiveClass);
+                subTabParallaxBtn.classList.add(...activeClass);
+                subTabDesignBtn.classList.remove(...activeClass);
+                subTabDesignBtn.classList.add(...inactiveClass);
+                subTabParallax.classList.remove('hidden');
+                subTabDesign.classList.add('hidden');
+            }
+        }
+        subTabDesignBtn.addEventListener('click', () => switchPropTab('design'));
+        subTabParallaxBtn.addEventListener('click', () => switchPropTab('parallax'));
+
+
+        // --- Build UI Lists (Layers & Timeline) ---
+        function buildLayerList() {
+            const container = document.getElementById('layerList');
+            container.innerHTML = '';
+            
+            // Build Right Panel Layers
+            [...layers].reverse().forEach(layer => {
+                const el = document.createElement('div');
+                el.className = `layer-item flex items-center justify-between p-2.5 rounded-lg border border-transparent cursor-pointer transition-colors ${layer.id === selectedLayerId ? 'active' : 'hover:bg-black/5 dark:hover:bg-white/10'}`;
+                
+                let icon = layer.type === 'text' ? 'match_case' : (layer.type === 'circle' ? 'circle' : 'rectangle');
+                
+                el.innerHTML = `
+                    <div class="flex items-center gap-3 overflow-hidden">
+                        <span class="material-symbols-rounded text-[18px] opacity-70">${icon}</span>
+                        <span class="text-[13px] font-medium truncate w-28">${layer.name}</span>
+                    </div>
+                    <div class="flex items-center gap-2">
+                        <span class="text-[10px] font-mono bg-black/5 dark:bg-white/10 px-1.5 py-0.5 rounded opacity-70">Z: ${layer.z.toFixed(1)}</span>
+                        <button class="delete-btn opacity-50 hover:opacity-100 hover:text-red-500 transition material-symbols-rounded text-[16px]">delete</button>
+                    </div>
+                `;
+
+                el.addEventListener('click', (e) => {
+                    if (e.target.closest('.delete-btn')) {
+                        layers = layers.filter(l => l.id !== layer.id);
+                        if (selectedLayerId === layer.id) selectLayer(null);
+                        else { buildLayerList(); render(); }
+                        return;
+                    }
+                    selectLayer(layer.id);
+                });
+                
+                container.appendChild(el);
+            });
+
+            // Build Timeline Tracks
+            const trackContainer = document.getElementById('timelineTracks');
+            // clear tracks keeping the playhead
+            Array.from(trackContainer.children).forEach(child => {
+                if(!child.classList.contains('absolute')) child.remove();
+            });
+
+            layers.forEach((layer, index) => {
+                const track = document.createElement('div');
+                track.className = `flex items-center h-10 mb-1 rounded cursor-pointer group ${layer.id === selectedLayerId ? 'bg-google-surface2 dark:bg-dark-surface2' : 'hover:bg-black/5 dark:hover:bg-white/5'}`;
+                track.onclick = () => selectLayer(layer.id);
+                
+                // Track header
+                const header = document.createElement('div');
+                header.className = `w-40 shrink-0 h-full flex items-center px-3 border-r border-google-border dark:border-dark-border gap-2 text-xs font-medium truncate ${layer.id === selectedLayerId ? 'text-google-blue dark:text-dark-blue' : 'text-google-textmuted dark:text-dark-textmuted'}`;
+                header.innerHTML = `<span class="material-symbols-rounded text-[16px]">${layer.type === 'text' ? 'title' : 'shape_line'}</span> ${layer.name}`;
+                
+                // Track content area
+                const content = document.createElement('div');
+                content.className = 'flex-1 h-full relative flex items-center px-2';
+                
+                // The actual block in the timeline
+                const block = document.createElement('div');
+                const isDark = document.documentElement.classList.contains('dark');
+                let blockClasses = layer.id === selectedLayerId 
+                    ? 'bg-google-bluelight border-google-blue dark:bg-dark-bluebg dark:border-dark-blue' 
+                    : 'bg-white border-google-border dark:bg-dark-surface dark:border-dark-border';
+                
+                block.className = `absolute left-4 right-10 h-6 rounded-md border flex items-center px-2 text-[10px] truncate shadow-sm transition-colors ${blockClasses}`;
+                block.textContent = layer.name;
+
+                content.appendChild(block);
+                track.appendChild(header);
+                track.appendChild(content);
+                trackContainer.appendChild(track);
+            });
+        }
+
+        function selectLayer(id) {
+            selectedLayerId = id;
+            buildLayerList();
+            render();
+            updatePropertiesPanel();
+
+            // Auto-switch to properties panel if an item is selected and we are in Layers view (and keep it open)
+            if (id) {
+                const propsBtn = document.querySelector('.rail-btn[data-target="panelProperties"]');
+                if (!propsBtn.classList.contains('active') || !isPanelOpen) {
+                    propsBtn.click();
+                }
+            }
+        }
+
+        // --- Properties Panel Sync ---
+        const propsContent = document.getElementById('propertiesContent');
+        const emptyProps = document.getElementById('emptyProps');
+        
+        const pX = document.getElementById('propX');
+        const pY = document.getElementById('propY');
+        const pW = document.getElementById('propW');
+        const pH = document.getElementById('propH');
+        const pText = document.getElementById('propText');
+        const pSize = document.getElementById('propSize');
+        const pSizeVal = document.getElementById('propSizeVal');
+        const pColor = document.getElementById('propColor');
+        const pColorHex = document.getElementById('propColorHex');
+        const pZ = document.getElementById('propZ');
+        const pZVal = document.getElementById('propZVal');
+
+        const rectPropsGrp = document.getElementById('rectProps');
+        const textPropsGrp = document.getElementById('textProps');
+
+        function updatePropertiesPanel() {
+            const layer = layers.find(l => l.id === selectedLayerId);
+            if (!layer) {
+                propsContent.classList.add('hidden');
+                emptyProps.classList.remove('hidden');
+                return;
+            }
+
+            propsContent.classList.remove('hidden');
+            emptyProps.classList.add('hidden');
+
+            pX.value = Math.round(layer.x);
+            pY.value = Math.round(layer.y);
+            pColor.value = layer.color;
+            pColorHex.value = layer.color;
+            pZ.value = layer.z;
+            pZVal.textContent = layer.z.toFixed(2);
+
+            if (layer.type === 'text') {
+                textPropsGrp.classList.remove('hidden');
+                rectPropsGrp.classList.add('hidden');
+                pText.value = layer.text;
+                pSize.value = layer.size;
+                pSizeVal.textContent = layer.size;
+            } else {
+                textPropsGrp.classList.add('hidden');
+                rectPropsGrp.classList.remove('hidden');
+                pW.value = layer.w;
+                pH.value = layer.h;
+            }
+        }
+
+        function bindProp(el, key, isNum = true) {
+            el.addEventListener('input', (e) => {
+                const layer = layers.find(l => l.id === selectedLayerId);
+                if (!layer) return;
+                layer[key] = isNum ? parseFloat(e.target.value) : e.target.value;
+                if (key === 'color') pColorHex.value = layer.color;
+                if (key === 'z') pZVal.textContent = layer.z.toFixed(2);
+                if (key === 'size') pSizeVal.textContent = layer.size;
+                render();
+                if(key === 'z' || key === 'name' || key === 'text') buildLayerList(); 
+            });
+        }
+
+        bindProp(pX, 'x'); bindProp(pY, 'y'); bindProp(pW, 'w'); bindProp(pH, 'h');
+        bindProp(pText, 'text', false); bindProp(pSize, 'size'); bindProp(pColor, 'color', false);
+        bindProp(pZ, 'z');
+
+        // Text sync to Name
+        pText.addEventListener('input', (e) => {
+            const layer = layers.find(l => l.id === selectedLayerId);
+            if(layer && layer.type === 'text') {
+                layer.name = layer.text.substring(0, 15) || 'Empty Text';
+                buildLayerList();
+            }
+        })
+
+        // --- Mouse & Parallax Logic ---
+        function getMousePos(evt) {
+            const rect = canvas.getBoundingClientRect();
+            const scaleX = canvas.width / rect.width;
+            const scaleY = canvas.height / rect.height;
+            return {
+                x: (evt.clientX - rect.left) * scaleX,
+                y: (evt.clientY - rect.top) * scaleY
+            };
+        }
+
+        canvas.addEventListener('mousemove', (e) => {
+            if (isParallaxMode) {
+                const rect = canvas.getBoundingClientRect();
+                const centerX = rect.width / 2;
+                const centerY = rect.height / 2;
+                mouseNormX = (e.clientX - rect.left - centerX) / centerX;
+                mouseNormY = (e.clientY - rect.top - centerY) / centerY;
+                mouseNormX = Math.max(-1, Math.min(1, mouseNormX));
+                mouseNormY = Math.max(-1, Math.min(1, mouseNormY));
+                requestAnimationFrame(render);
+                return;
+            }
+
+            if (isDragging && selectedLayerId) {
+                const layer = layers.find(l => l.id === selectedLayerId);
+                const pos = getMousePos(e);
+                layer.x = pos.x - dragOffsetX;
+                layer.y = pos.y - dragOffsetY;
+                updatePropertiesPanel();
+                render();
+            }
+        });
+
+        canvas.addEventListener('mousedown', (e) => {
+            if (isParallaxMode) return;
+            
+            const pos = getMousePos(e);
+            let clickedLayer = null;
+
+            for (let i = layers.length - 1; i >= 0; i--) {
+                const layer = layers[i];
+                if (layer.type === 'rect' || layer.type === 'circle') {
+                    if (pos.x >= layer.x - layer.w/2 && pos.x <= layer.x + layer.w/2 &&
+                        pos.y >= layer.y - layer.h/2 && pos.y <= layer.y + layer.h/2) {
+                        clickedLayer = layer;
+                        break;
+                    }
+                } else if (layer.type === 'text') {
+                    ctx.font = `900 ${layer.size}px "Google Sans"`;
+                    const m = ctx.measureText(layer.text);
+                    if (pos.x >= layer.x - m.width/2 && pos.x <= layer.x + m.width/2 &&
+                        pos.y >= layer.y - layer.size/2 && pos.y <= layer.y + layer.size/2) {
+                        clickedLayer = layer;
+                        break;
+                    }
+                }
+            }
+
+            if (clickedLayer) {
+                selectLayer(clickedLayer.id);
+                isDragging = true;
+                dragOffsetX = pos.x - clickedLayer.x;
+                dragOffsetY = pos.y - clickedLayer.y;
+            } else {
+                selectLayer(null);
+            }
+        });
+
+        window.addEventListener('mouseup', () => { isDragging = false; });
+
+        // --- Toggle Parallax Mode ---
+        const parallaxToggleBtn = document.getElementById('parallaxToggleBtn');
+        const parallaxWarning = document.getElementById('parallaxWarning');
+        
+        parallaxToggleBtn.addEventListener('click', () => {
+            isParallaxMode = !isParallaxMode;
+            if (isParallaxMode) {
+                parallaxToggleBtn.classList.add('bg-blue-100', 'dark:bg-blue-900', 'text-blue-700', 'dark:text-blue-300', 'border-blue-300', 'dark:border-blue-700');
+                selectLayer(null);
+                parallaxWarning.classList.remove('opacity-0');
+                mouseNormX = 0; mouseNormY = 0; 
+            } else {
+                parallaxToggleBtn.classList.remove('bg-blue-100', 'dark:bg-blue-900', 'text-blue-700', 'dark:text-blue-300', 'border-blue-300', 'dark:border-blue-700');
+                parallaxWarning.classList.add('opacity-0');
+                mouseNormX = 0; mouseNormY = 0;
+            }
+            render();
+        });
+
+        canvas.addEventListener('mouseleave', () => {
+            if (isParallaxMode) {
+                mouseNormX = 0; mouseNormY = 0;
+                requestAnimationFrame(render);
+            }
+        });
+
+        // --- Add New Layers ---
+        function addText() {
+            const id = 'l' + Date.now();
+            layers.push({ id, name: 'HELLO', type: 'text', x: 640, y: 360, text: 'HELLO', size: 80, color: '#333333', z: 0.5 });
+            selectLayer(id);
+        }
+
+        function addRect() {
+            const id = 'l' + Date.now();
+            layers.push({ id, name: 'New Shape', type: 'rect', x: 640, y: 360, w: 200, h: 200, color: '#ea4335', z: 0.5 });
+            selectLayer(id);
+        }
+
+        document.getElementById('addTextBtn').addEventListener('click', addText);
+        document.getElementById('addTextBtnToolbar').addEventListener('click', addText);
+        document.getElementById('addRectBtn').addEventListener('click', addRect);
+        document.getElementById('addRectBtnToolbar').addEventListener('click', addRect);
+
+        // --- Export ---
+        document.getElementById('exportBtn').addEventListener('click', () => {
+            const wasParallax = isParallaxMode;
+            isParallaxMode = false;
+            selectLayer(null);
+            render();
+            
+            const link = document.createElement('a');
+            link.download = 'parallax-thumbnail.png';
+            link.href = canvas.toDataURL('image/png');
+            link.click();
+            
+            isParallaxMode = wasParallax;
+            render();
+        });
+
+        // Initialization
+        buildLayerList();
+        render();
+
+    </script>
+</body>
+</html>
