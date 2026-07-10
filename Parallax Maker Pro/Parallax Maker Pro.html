@@ -161,14 +161,16 @@
             </div>
 
             <!-- Canvas Area (Maximum Space) -->
-            <div class="flex-1 flex items-center justify-center p-4 md:p-8 overflow-auto" id="workspace">
+            <div class="flex-1 flex items-center justify-center p-2 md:p-4 overflow-auto" id="workspace">
                 <div class="relative shadow-sm transition-transform duration-200" id="canvasWrapper">
-                    <canvas id="thumbnailCanvas" width="1280" height="720" class="block w-full max-w-[850px] h-auto cursor-crosshair bg-white border border-gray-200 dark:border-gray-800 rounded"></canvas>
+                    <canvas id="thumbnailCanvas" width="1280" height="720" class="block w-full max-w-[1080px] h-auto cursor-crosshair bg-white border border-gray-200 dark:border-gray-800 rounded"></canvas>
                 </div>
             </div>
 
             <!-- Floating Timeline panel (Reduced Padding and Spacing) -->
-            <div class="h-[150px] lg:h-[170px] bg-google-surface dark:bg-dark-surface mx-1 mb-1 md:mx-2 md:mb-2 mt-0 rounded-xl shadow-sm border border-google-border/50 dark:border-dark-border flex flex-col shrink-0 overflow-hidden">
+            <div id="timelineContainer" class="bg-google-surface dark:bg-dark-surface mx-1 mb-1 md:mx-2 md:mb-2 mt-0 rounded-xl shadow-sm border border-google-border/50 dark:border-dark-border flex flex-col shrink-0 overflow-hidden relative" style="height: 240px;">
+                <!-- Resize drag handle -->
+                <div id="timelineResizer" class="absolute top-0 left-0 right-0 h-1.5 cursor-ns-resize hover:bg-google-blue/30 dark:hover:bg-dark-blue/30 transition-colors z-30"></div>
                 <!-- Timeline Controls -->
                 <div class="flex items-center justify-between px-4 md:px-6 h-12 md:h-14 shrink-0 bg-white/50 dark:bg-black/20 border-b border-google-border/30 dark:border-dark-border/50">
                     <div class="flex items-center gap-3">
@@ -192,7 +194,7 @@
                 </div>
                 
                 <!-- Timeline Tracks -->
-                <div class="flex-1 overflow-y-auto overflow-x-hidden p-2 md:p-4 space-y-1 md:space-y-2 relative" id="timelineTracks">
+                <div class="flex-1 overflow-y-auto overflow-x-hidden px-1 md:px-2 py-0 space-y-0.5 md:space-y-1 relative" id="timelineTracks">
                     <!-- Playhead Line -->
                     <div class="absolute left-1/4 top-0 bottom-0 w-px bg-google-blue z-10 pointer-events-none">
                         <div class="w-0 h-0 border-l-[6px] border-r-[6px] border-t-[8px] border-l-transparent border-r-transparent border-t-google-blue absolute -top-1 -left-[5px]"></div>
@@ -604,12 +606,12 @@
 
             [...layers].reverse().forEach((layer) => {
                 const track = document.createElement('div');
-                track.className = `flex items-center h-10 md:h-12 mb-1.5 md:mb-2 rounded-xl cursor-pointer group transition-colors ${layer.id === selectedLayerId ? 'bg-google-bg dark:bg-dark-bg' : 'hover:bg-black/5 dark:hover:bg-white/5'}`;
+                track.className = `flex items-center h-10 md:h-12 rounded-xl cursor-pointer group transition-colors ${layer.id === selectedLayerId ? 'bg-google-bg dark:bg-dark-bg' : 'hover:bg-black/5 dark:hover:bg-white/5'}`;
                 track.onclick = () => selectLayer(layer.id);
                 
                 const header = document.createElement('div');
-                header.className = `w-32 md:w-48 shrink-0 h-full flex items-center px-3 md:px-4 border-r border-google-border/50 dark:border-dark-border gap-2 md:gap-3 text-xs md:text-[13px] font-medium truncate ${layer.id === selectedLayerId ? 'text-google-blue dark:text-dark-blue' : 'text-google-textmuted dark:text-dark-textmuted'}`;
-                header.innerHTML = `<span class="material-symbols-rounded text-[16px] md:text-[18px] opacity-70">${layer.type === 'text' ? 'title' : 'shape_line'}</span> <span class="truncate">${layer.name}</span>`;
+                header.className = `w-24 md:w-32 shrink-0 h-full flex items-center px-2 md:px-2.5 border-r border-google-border/50 dark:border-dark-border gap-1.5 md:gap-2 text-[11px] md:text-xs font-medium truncate ${layer.id === selectedLayerId ? 'text-google-blue dark:text-dark-blue' : 'text-google-textmuted dark:text-dark-textmuted'}`;
+                header.innerHTML = `<span class="material-symbols-rounded text-[15px] md:text-[17px] opacity-70">${layer.type === 'text' ? 'title' : 'shape_line'}</span> <span class="truncate">${layer.name}</span>`;
                 
                 const content = document.createElement('div');
                 content.className = 'flex-1 h-full relative flex items-center px-2 py-1.5';
@@ -898,6 +900,44 @@
             
             isParallaxMode = wasParallax;
             render();
+        });
+
+        // --- Timeline Resizer Logic ---
+        const timelineContainer = document.getElementById('timelineContainer');
+        const timelineResizer = document.getElementById('timelineResizer');
+        let isResizingTimeline = false;
+        let startY = 0;
+        let startHeight = 0;
+
+        timelineResizer.addEventListener('mousedown', (e) => {
+            isResizingTimeline = true;
+            startY = e.clientY;
+            startHeight = timelineContainer.getBoundingClientRect().height;
+            document.body.style.cursor = 'ns-resize';
+            document.body.style.userSelect = 'none'; // Prevent text selection
+            e.preventDefault();
+        });
+
+        window.addEventListener('mousemove', (e) => {
+            if (!isResizingTimeline) return;
+            // Upwards drag decreases clientY, which increases height
+            const dy = startY - e.clientY;
+            let newHeight = startHeight + dy;
+            
+            // Constrain heights
+            const minHeight = 100;
+            const maxHeight = window.innerHeight * 0.5; // Cap at 50% viewport height
+            newHeight = Math.max(minHeight, Math.min(maxHeight, newHeight));
+            
+            timelineContainer.style.height = `${newHeight}px`;
+        });
+
+        window.addEventListener('mouseup', () => {
+            if (isResizingTimeline) {
+                isResizingTimeline = false;
+                document.body.style.cursor = '';
+                document.body.style.userSelect = '';
+            }
         });
 
         // Init
