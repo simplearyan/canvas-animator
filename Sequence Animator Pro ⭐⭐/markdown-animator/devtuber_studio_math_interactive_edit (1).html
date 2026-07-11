@@ -1,0 +1,868 @@
+<!DOCTYPE html>
+<html lang="en" class="dark">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>DevTuber Studio | Math & Interaction</title>
+
+    <!-- Google Fonts: Montserrat for impactful titles, JetBrains Mono for code -->
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=JetBrains+Mono:ital,wght@0,400;0,700;1,400&family=Montserrat:ital,wght@0,400;0,700;0,900;1,400;1,700;1,900&display=swap" rel="stylesheet">
+    
+    <!-- Material Symbols -->
+    <link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Rounded:opsz,wght,FILL,GRAD@20..48,100..700,0..1,-50..200" rel="stylesheet" />
+
+    <!-- Tailwind CSS -->
+    <script src="https://cdn.tailwindcss.com"></script>
+    <script>
+        tailwind.config = {
+            darkMode: 'class',
+            theme: {
+                extend: {
+                    fontFamily: {
+                        sans: ['Montserrat', 'sans-serif'],
+                        mono: ['"JetBrains Mono"', 'monospace'],
+                    },
+                    colors: {
+                        brand: {
+                            bg: '#0f0f11',
+                            surface: '#18181b',
+                            accent: '#ff4b4b',
+                            accentHover: '#ff3333',
+                            yellow: '#facc15',
+                            blue: '#38bdf8',
+                            codeBg: '#1e1e24'
+                        }
+                    },
+                    animation: {
+                        'pulse-fast': 'pulse 1s cubic-bezier(0.4, 0, 0.6, 1) infinite',
+                    }
+                }
+            }
+        }
+    </script>
+
+    <!-- MathJax for LaTeX parsing -->
+    <script>
+        window.MathJax = {
+            tex: { packages: {'[+]': ['base', 'ams']} },
+            svg: { fontCache: 'local' },
+            startup: { typeset: false } // We render manually to canvas
+        };
+    </script>
+    <script id="MathJax-script" async src="https://cdn.jsdelivr.net/npm/mathjax@3/es5/tex-svg.js"></script>
+
+    <style>
+        body { margin: 0; overflow: hidden; background-color: #0f0f11; color: #f4f4f5; }
+        
+        .ms-icon { 
+            font-family: 'Material Symbols Rounded'; 
+            font-weight: normal; font-style: normal; font-size: 20px; 
+            display: inline-block; line-height: 1; text-transform: none; 
+            letter-spacing: normal; word-wrap: normal; white-space: nowrap; direction: ltr; 
+            -webkit-font-smoothing: antialiased; 
+        }
+
+        ::-webkit-scrollbar { width: 8px; height: 8px; }
+        ::-webkit-scrollbar-track { background: #18181b; }
+        ::-webkit-scrollbar-thumb { background-color: #3f3f46; border-radius: 4px; }
+        ::-webkit-scrollbar-thumb:hover { background-color: #52525b; }
+
+        #canvas-wrapper {
+            position: relative;
+            width: 100%;
+            height: 100%;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            background-image: radial-gradient(circle at center, #27272a 1px, transparent 1px);
+            background-size: 24px 24px;
+        }
+
+        canvas {
+            width: 100%;
+            max-width: 100%;
+            max-height: 100%;
+            aspect-ratio: 16 / 9;
+            object-fit: contain;
+            background-color: #0f0f11;
+            box-shadow: 0 25px 50px -12px rgba(0, 0, 0, 0.75);
+            border: 1px solid #27272a;
+            border-radius: 8px;
+            cursor: default;
+        }
+        
+        canvas.interactive { cursor: pointer; }
+        textarea { tab-size: 4; }
+
+        /* Slide View Styles */
+        .slide-card {
+            transition: all 0.2s ease;
+            border: 2px solid transparent;
+        }
+        .slide-card.active {
+            border-color: #ff4b4b;
+            background-color: rgba(255, 75, 75, 0.1);
+        }
+        .slide-card:hover:not(.active) {
+            border-color: #3f3f46;
+            background-color: #27272a;
+        }
+    </style>
+</head>
+<body class="h-screen w-screen flex flex-col font-sans">
+
+    <header class="h-16 shrink-0 bg-brand-surface border-b border-zinc-800 px-4 flex items-center justify-between z-40">
+        <div class="flex items-center gap-4">
+            <div class="flex items-center gap-3">
+                <div class="w-10 h-10 bg-brand-accent rounded-lg flex items-center justify-center text-white font-black italic text-xl shadow-[0_0_15px_rgba(255,75,75,0.5)]">
+                    DS
+                </div>
+                <div>
+                    <h1 class="font-black italic text-lg tracking-tight leading-tight text-white">DEV<span class="text-brand-accent">TUBER</span> STUDIO</h1>
+                    <p class="text-[10px] font-mono text-zinc-400 uppercase tracking-widest">Math & Motion Engine</p>
+                </div>
+            </div>
+
+            <!-- Templates Dropdown -->
+            <div class="h-8 w-px bg-zinc-800 mx-2"></div>
+            <select id="template-selector" class="bg-zinc-900 border border-zinc-700 text-zinc-300 text-sm rounded-md px-3 py-1.5 focus:outline-none focus:border-brand-blue transition-colors cursor-pointer">
+                <option value="code">Preset: The Code Tutorial</option>
+                <option value="math">Preset: Physics & Math</option>
+                <option value="images">Preset: Visual Showcase</option>
+            </select>
+        </div>
+
+        <div class="flex items-center gap-3">
+            <div class="flex items-center gap-2 bg-brand-bg rounded-md px-3 py-1.5 border border-zinc-800">
+                <span class="ms-icon text-zinc-400 text-[18px]">timer</span>
+                <input type="number" id="setting-duration" value="3.0" step="0.1" class="w-12 bg-transparent text-white font-mono text-sm outline-none text-right">
+                <span class="text-xs text-zinc-500 font-mono">sec/slide</span>
+            </div>
+
+            <div class="flex items-center gap-1 bg-zinc-900 rounded-md border border-zinc-800 p-1">
+                <button id="btn-restart" class="p-1.5 text-zinc-400 hover:text-white hover:bg-zinc-800 rounded transition-colors" title="Restart to Beginning">
+                    <span class="ms-icon text-[20px]">replay</span>
+                </button>
+                <div class="w-px h-5 bg-zinc-800 mx-1"></div>
+                <button id="btn-play" class="flex items-center gap-1.5 px-3 py-1.5 text-white hover:bg-zinc-800 rounded font-bold text-sm transition-colors w-24 justify-center">
+                    <span class="ms-icon text-[20px]" id="play-icon">play_arrow</span> <span id="play-text">Play</span>
+                </button>
+            </div>
+
+            <button id="btn-export" class="flex items-center gap-2 px-5 py-2 bg-brand-accent hover:bg-brand-accentHover text-white shadow-[0_0_15px_rgba(255,75,75,0.4)] rounded-md font-bold text-sm transition-all ml-2">
+                <span class="ms-icon">movie</span> Render 1080p
+            </button>
+        </div>
+    </header>
+
+    <main class="flex-1 flex overflow-hidden">
+        
+        <!-- Editor Sidebar -->
+        <aside class="w-[450px] flex flex-col bg-brand-surface border-r border-zinc-800 shrink-0 z-30">
+            
+            <!-- Tabs -->
+            <div class="flex border-b border-zinc-800 bg-zinc-900/50 shrink-0">
+                <button id="tab-btn-raw" class="flex-1 py-3 text-xs font-bold text-white border-b-2 border-brand-accent transition-colors flex items-center justify-center gap-2">
+                    <span class="ms-icon text-[18px]">code_blocks</span> Raw Script
+                </button>
+                <button id="tab-btn-slides" class="flex-1 py-3 text-xs font-bold text-zinc-500 border-b-2 border-transparent hover:text-zinc-300 transition-colors flex items-center justify-center gap-2">
+                    <span class="ms-icon text-[18px]">view_carousel</span> Slides View
+                </button>
+            </div>
+
+            <!-- Tab Content: Raw Markdown -->
+            <div id="view-raw" class="flex-1 flex flex-col overflow-hidden">
+                <div class="px-4 py-2 bg-zinc-900 border-b border-zinc-800 text-[11px] text-zinc-400 font-mono flex flex-col gap-1 shrink-0">
+                    <span><b class="text-zinc-200">Format Guide: (--- separates slides)</b></span>
+                    <span><code class="text-brand-accent"># text</code> = Huge | <code class="text-brand-yellow">## text</code> = Medium Highlight</span>
+                    <span><code class="text-brand-blue">$$ E = mc^2 $$</code> = LaTeX Equation</span>
+                    <span><code class="text-green-400">![alt](url)</code> = Image | <code class="text-zinc-300">```js ... ```</code> = Code</span>
+                </div>
+                <textarea id="script-editor" class="flex-1 w-full p-4 bg-transparent text-zinc-200 font-mono text-[13px] resize-none focus:outline-none leading-relaxed" spellcheck="false"></textarea>
+            </div>
+
+            <!-- Tab Content: Slides Visualizer -->
+            <div id="view-slides" class="flex-1 overflow-y-auto hidden bg-brand-bg p-3 flex-col gap-2">
+                <!-- Dynamically populated by JS -->
+            </div>
+        </aside>
+
+        <!-- Canvas Preview Area -->
+        <section id="canvas-wrapper" class="flex-1 p-8 relative">
+            
+            <!-- Recording Indicator -->
+            <div id="recording-badge" class="absolute top-6 left-1/2 -translate-x-1/2 bg-red-600 text-white px-4 py-1.5 rounded-full font-bold text-sm flex items-center gap-2 opacity-0 transition-opacity z-50 shadow-lg tracking-wider pointer-events-none">
+                <div class="w-2.5 h-2.5 bg-white rounded-full animate-pulse-fast"></div>
+                RENDERING VIDEO...
+            </div>
+
+            <!-- Contextual Action Bar -->
+            <div id="context-bar" class="absolute top-6 left-1/2 -translate-x-1/2 bg-zinc-800/90 backdrop-blur border border-zinc-700 text-white px-4 py-2 rounded-full shadow-2xl flex items-center gap-4 opacity-0 scale-95 pointer-events-none transition-all z-40">
+                <div class="flex items-center gap-2">
+                    <span class="ms-icon text-zinc-400 text-sm">straighten</span>
+                    <span class="text-xs font-bold uppercase tracking-wide text-zinc-300">Scale Element</span>
+                </div>
+                <div class="h-4 w-px bg-zinc-600"></div>
+                <div class="flex items-center gap-3">
+                    <button id="btn-scale-down" class="hover:text-brand-accent transition-colors"><span class="ms-icon">remove_circle_outline</span></button>
+                    <span id="scale-value" class="font-mono text-sm font-bold w-12 text-center">1.0x</span>
+                    <button id="btn-scale-up" class="hover:text-brand-accent transition-colors"><span class="ms-icon">add_circle_outline</span></button>
+                </div>
+                <div class="h-4 w-px bg-zinc-600"></div>
+                <button id="btn-deselect" class="text-xs font-bold text-zinc-400 hover:text-white transition-colors">DONE</button>
+            </div>
+
+            <!-- Virtual 1920x1080 Canvas -->
+            <canvas id="video-canvas" width="1920" height="1080"></canvas>
+            
+            <!-- Playback Progress Bar -->
+            <div class="absolute bottom-6 left-1/2 -translate-x-1/2 w-3/4 max-w-2xl h-1.5 bg-zinc-800 rounded-full overflow-hidden shadow-lg border border-zinc-700 pointer-events-none">
+                <div id="progress-bar" class="h-full bg-brand-accent w-0 shadow-[0_0_10px_rgba(255,75,75,1)]"></div>
+            </div>
+        </section>
+    </main>
+
+    <script>
+        // DOM Elements
+        const editor = document.getElementById('script-editor');
+        const canvas = document.getElementById('video-canvas');
+        const ctx = canvas.getContext('2d');
+        
+        const btnPlay = document.getElementById('btn-play');
+        const playIcon = document.getElementById('play-icon');
+        const playText = document.getElementById('play-text');
+        const btnRestart = document.getElementById('btn-restart');
+        const btnExport = document.getElementById('btn-export');
+        
+        const durationInput = document.getElementById('setting-duration');
+        const progressBar = document.getElementById('progress-bar');
+        const recordingBadge = document.getElementById('recording-badge');
+        const templateSelector = document.getElementById('template-selector');
+        
+        const tabBtnRaw = document.getElementById('tab-btn-raw');
+        const tabBtnSlides = document.getElementById('tab-btn-slides');
+        const viewRaw = document.getElementById('view-raw');
+        const viewSlides = document.getElementById('view-slides');
+
+        // Context Bar Elements
+        const contextBar = document.getElementById('context-bar');
+        const btnScaleUp = document.getElementById('btn-scale-up');
+        const btnScaleDown = document.getElementById('btn-scale-down');
+        const btnDeselect = document.getElementById('btn-deselect');
+        const scaleValueDisplay = document.getElementById('scale-value');
+
+        // Resolution
+        const W = 1920;
+        const H = 1080;
+
+        // Presets
+        const presets = {
+            code: `# NEXT.JS \n*in 100 seconds*\n---\nNext.js is a React framework\nfor building *production-ready* apps.\n---\nIt gives you the best developer experience\nwith all the features you need for production.\n---\n# SERVER-SIDE RENDERING\n*(SSR)*\n---\nPages are rendered on the server,\ndelivering HTML directly to the browser.\n---\n\`\`\`jsx\n// pages/index.js\nexport default function Home({ data }) {\n  return <h1>{data.title}</h1>\n}\n\nexport async function getServerSideProps() {\n  const res = await fetch('api/data')\n  const data = await res.json()\n  return { props: { data } }\n}\n\`\`\`\n---\nNext.js.\nThe *React Framework* for the Web.\nHit like and subscribe.`,
+            math: `# SCHRÖDINGER \n*Equation in 100 seconds*\n---\nIn quantum mechanics, the \nSchrödinger equation describes \nhow a system changes over time.\n---\n## THE TIME-DEPENDENT EQUATION\n---\n$$ i\\hbar\\frac{\\partial}{\\partial t}\\Psi(\\mathbf{r},t) = \\left[-\\frac{\\hbar^2}{2m}\\nabla^2 + V(\\mathbf{r},t)\\right]\\Psi(\\mathbf{r},t) $$\n---\nIt reveals that particles exist as\n*probability waves* until observed.\n---\n## THE HAMILTONIAN OPERATOR\n---\n$$ \\hat{H} = -\\frac{\\hbar^2}{2m}\\nabla^2 + V(\\mathbf{r},t) $$\n---\nIt's the ultimate math behind \nmodern chemistry and physics.\nHit like and subscribe.`,
+            images: `# GAME DEV\n*in 100 seconds*\n---\nBuilding games requires art,\nlogic, and a lot of math.\n---\n![Game Engine](https://images.unsplash.com/photo-1552820728-8b83bb6b773f?ixlib=rb-4.0.3&auto=format&fit=crop&w=1920&q=80)\n---\nYou need a powerful engine\nlike Unity, Godot, or Unreal.\n---\n## PHYSICS SIMULATIONS\n---\n$$ \\vec{F} = m\\frac{d\\vec{v}}{dt} $$\n---\n![Code Matrix](https://images.unsplash.com/photo-1526374965328-7f61d4dc18c5?ixlib=rb-4.0.3&auto=format&fit=crop&w=1920&q=80)\n---\nCode, compile, test, repeat.\nHit like and subscribe.`
+        };
+
+        editor.value = presets.code;
+
+        // Core State
+        let slides = [];
+        let isPlaying = false;
+        let isRecording = false;
+        
+        // Time & Playback Tracking
+        let accumulatedTime = 0;
+        let lastTimestamp = 0;
+        let currentSlideIndex = 0;
+        let animationFrameId = null;
+        
+        let mediaRecorder = null;
+        let recordedChunks = [];
+
+        // Caches for External Assets
+        const imageCache = new Map();
+        const mathCache = new Map(); 
+
+        // Selection & Overrides State
+        let scaleOverrides = {}; 
+        let hitBoxes = []; 
+        let selectedElementId = null;
+
+        function parseScript(text) {
+            const rawSlides = text.split(/^---$/m).map(s => s.trim()).filter(s => s.length > 0);
+            
+            return rawSlides.map((rawText, sIdx) => {
+                let lines = rawText.split('\n');
+                let type = 'text'; 
+                let content = [];
+                let codeLang = '';
+
+                let inCodeBlock = false;
+                let codeLines = [];
+
+                for (let i = 0; i < lines.length; i++) {
+                    let line = lines[i].trim();
+                    
+                    if (line.startsWith('```')) {
+                        if (inCodeBlock) {
+                            inCodeBlock = false; type = 'code'; content = codeLines.join('\n');
+                        } else {
+                            inCodeBlock = true; codeLang = line.replace('```', '').trim();
+                        }
+                        continue;
+                    }
+                    if (inCodeBlock) { codeLines.push(lines[i]); continue; }
+
+                    if (line.startsWith('$$') && line.endsWith('$$')) {
+                        type = 'math'; content = line.replace(/\$\$/g, '').trim();
+                        if (!mathCache.has(content)) renderMathToCache(content);
+                        continue;
+                    }
+
+                    const imgMatch = line.match(/^!\[.*?\]\((.*?)\)$/);
+                    if (imgMatch) {
+                        type = 'image'; content = imgMatch[1];
+                        if (!imageCache.has(content)) {
+                            const img = new Image(); img.crossOrigin = "anonymous"; img.src = content;
+                            imageCache.set(content, img);
+                        }
+                        continue;
+                    }
+
+                    if (line.length > 0) {
+                        let parsedLine = { text: line, style: 'normal', index: i };
+                        if (line.startsWith('# ')) { parsedLine.text = line.substring(2); parsedLine.style = 'h1'; } 
+                        else if (line.startsWith('## ')) { parsedLine.text = line.substring(3); parsedLine.style = 'h2'; } 
+                        else if (line.startsWith('*') && line.endsWith('*')) { parsedLine.text = line.substring(1, line.length - 1); parsedLine.style = 'highlight'; }
+                        content.push(parsedLine);
+                    }
+                }
+
+                if (type === 'text' && content.length === 0) content.push({text: ' ', style: 'normal', index: 0});
+                return { type, content, codeLang, raw: rawText };
+            });
+        }
+
+        async function renderMathToCache(tex) {
+            if (!window.MathJax || !window.MathJax.tex2svgPromise) return;
+            mathCache.set(tex, null);
+            try {
+                const wrapper = await MathJax.tex2svgPromise(tex, { display: true });
+                const svg = wrapper.querySelector('svg');
+                svg.setAttribute('fill', 'currentColor'); svg.style.color = '#ffffff';
+                const svgData = new XMLSerializer().serializeToString(svg);
+                const blob = new Blob([svgData], {type: "image/svg+xml;charset=utf-8"});
+                const url = URL.createObjectURL(blob);
+                const img = new Image();
+                img.onload = () => { mathCache.set(tex, img); if (!isPlaying && !isRecording) forceRedrawCurrent(); };
+                img.src = url;
+            } catch(e) { console.error("MathJax error", e); }
+        }
+
+        const easeOutExpo = (t) => t === 1 ? 1 : 1 - Math.pow(2, -10 * t);
+        const easeOutBack = (t) => {
+            const c1 = 1.70158; const c3 = c1 + 1;
+            return 1 + c3 * Math.pow(t - 1, 3) + c1 * Math.pow(t - 1, 2);
+        };
+
+        function getScaleOverride(slideIdx, elementIdx) { return scaleOverrides[`${slideIdx}_${elementIdx}`] || 1.0; }
+        function setScaleOverride(slideIdx, elementIdx, scale) { scaleOverrides[`${slideIdx}_${elementIdx}`] = scale; }
+
+        function drawBackground() {
+            ctx.fillStyle = '#0f0f11'; ctx.fillRect(0, 0, W, H);
+            const gradient = ctx.createRadialGradient(W/2, H/2, 100, W/2, H/2, W);
+            gradient.addColorStop(0, 'rgba(39, 39, 42, 0.4)'); gradient.addColorStop(1, 'transparent');
+            ctx.fillStyle = gradient; ctx.fillRect(0, 0, W, H);
+            ctx.strokeStyle = 'rgba(255, 255, 255, 0.02)'; ctx.lineWidth = 2;
+            const gridSize = 100;
+            for(let x=0; x<W; x+=gridSize) { ctx.beginPath(); ctx.moveTo(x,0); ctx.lineTo(x,H); ctx.stroke(); }
+            for(let y=0; y<H; y+=gridSize) { ctx.beginPath(); ctx.moveTo(0,y); ctx.lineTo(W,y); ctx.stroke(); }
+        }
+
+        function drawSlide(slideIdx, slide, progress) {
+            drawBackground();
+            hitBoxes = []; 
+
+            let alpha = 1; let globalScale = 1; let yOffset = 0;
+
+            if (progress < 0.15) {
+                let t = progress / 0.15; alpha = t;
+                globalScale = 0.8 + (easeOutBack(t) * 0.2); yOffset = (1 - easeOutExpo(t)) * 100;
+            } else if (progress > 0.85) {
+                let t = (progress - 0.85) / 0.15; alpha = 1 - t;
+                globalScale = 1 + (t * 0.5); 
+            } else {
+                let t = (progress - 0.15) / 0.70; globalScale = 1.0 - (t * 0.02); 
+            }
+
+            ctx.save();
+            ctx.translate(W/2, H/2); ctx.scale(globalScale, globalScale); ctx.translate(-W/2, -H/2 + yOffset);
+            ctx.globalAlpha = Math.max(0, Math.min(1, alpha));
+
+            if (slide.type === 'text') drawTextSlide(slideIdx, slide.content);
+            else if (slide.type === 'code') drawCodeSlide(slideIdx, slide.content, slide.codeLang);
+            else if (slide.type === 'image') drawImageSlide(slideIdx, slide.content);
+            else if (slide.type === 'math') drawMathSlide(slideIdx, slide.content);
+
+            ctx.restore();
+            drawSelectionHighlight();
+        }
+
+        function drawTextSlide(slideIdx, lines) {
+            let totalHeight = 0; const lineHeights = [];
+            ctx.textAlign = 'center'; ctx.textBaseline = 'middle';
+
+            for (let line of lines) {
+                let size = 80;
+                if (line.style === 'h1') size = 180;
+                if (line.style === 'h2') size = 120;
+                if (line.style === 'highlight') size = 100;
+                
+                size *= getScaleOverride(slideIdx, line.index);
+                let h = size * 1.2; totalHeight += h; lineHeights.push({ size, h });
+            }
+
+            let currentY = (H - totalHeight) / 2;
+
+            for (let i = 0; i < lines.length; i++) {
+                let line = lines[i]; let { size, h } = lineHeights[i];
+                let drawY = currentY + (h / 2);
+                ctx.font = `italic ${line.style === 'h1'? 900 : line.style === 'h2'? 800 : line.style === 'highlight'? 700 : 500} ${size}px Montserrat`;
+                const tw = ctx.measureText(line.text.toUpperCase()).width;
+
+                hitBoxes.push({ id: `${slideIdx}_${line.index}`, x: W/2 - tw/2 - 20, y: drawY - h/2, w: tw + 40, h: h });
+
+                if (line.style === 'h1') {
+                    ctx.fillStyle = '#ffffff'; ctx.shadowColor = 'rgba(0,0,0,0.5)'; ctx.shadowBlur = 20; ctx.shadowOffsetY = 10;
+                    ctx.fillText(line.text.toUpperCase(), W/2, drawY); ctx.shadowColor = 'transparent';
+                } 
+                else if (line.style === 'h2') { ctx.fillStyle = '#facc15'; ctx.fillText(line.text.toUpperCase(), W/2, drawY); }
+                else if (line.style === 'highlight') {
+                    ctx.fillStyle = 'rgba(255, 75, 75, 0.1)'; ctx.fillRect(W/2 - tw/2 - 20, drawY - size/2 - 10, tw + 40, size + 20);
+                    ctx.fillStyle = '#ff4b4b'; ctx.fillText(line.text, W/2, drawY);
+                }
+                else { ctx.fillStyle = '#a1a1aa'; ctx.fillText(line.text, W/2, drawY); }
+                currentY += h;
+            }
+        }
+
+        const syntaxRules = [
+            { regex: /^\/\/.*$/, color: '#8b949e' }, 
+            { regex: /^(export|import|from|default|const|let|var|function|return|if|else|for|while|await|async|class|extends|new)\b/, color: '#ff7b72' },
+            { regex: /^('.*?'|".*?"|`.*?`)/, color: '#a5d6ff' },
+            { regex: /^[a-zA-Z_]\w*(?=\()/, color: '#d2a8ff' },
+            { regex: /^[0-9]+(\.[0-9]+)?\b/, color: '#79c0ff' },
+        ];
+
+        function drawCodeSlide(slideIdx, code, lang) {
+            const userScale = getScaleOverride(slideIdx, 0);
+            const pad = 60 * userScale; const codeLines = code.split('\n');
+            const fontSize = 50 * userScale; const lineHeight = fontSize * 1.5;
+            
+            ctx.font = `400 ${fontSize}px "JetBrains Mono"`;
+            let maxW = 0; for(let line of codeLines) maxW = Math.max(maxW, ctx.measureText(line).width);
+            
+            const boxW = Math.max(800 * userScale, Math.min(W * 0.9, maxW + pad * 2));
+            const boxH = codeLines.length * lineHeight + pad * 2 + (50 * userScale); 
+
+            const startX = (W - boxW) / 2; const startY = (H - boxH) / 2;
+            hitBoxes.push({ id: `${slideIdx}_0`, x: startX, y: startY, w: boxW, h: boxH });
+
+            ctx.fillStyle = '#1e1e24'; ctx.shadowColor = 'rgba(0,0,0,0.8)'; ctx.shadowBlur = 40; ctx.shadowOffsetY = 20;
+            ctx.beginPath(); ctx.roundRect(startX, startY, boxW, boxH, 16 * userScale); ctx.fill(); ctx.shadowColor = 'transparent';
+
+            const dotR = 10 * userScale; const dotY = startY + 30 * userScale;
+            ctx.fillStyle = '#ff5f56'; ctx.beginPath(); ctx.arc(startX + dotR*3, dotY, dotR, 0, Math.PI*2); ctx.fill();
+            ctx.fillStyle = '#ffbd2e'; ctx.beginPath(); ctx.arc(startX + dotR*6, dotY, dotR, 0, Math.PI*2); ctx.fill();
+            ctx.fillStyle = '#27c93f'; ctx.beginPath(); ctx.arc(startX + dotR*9, dotY, dotR, 0, Math.PI*2); ctx.fill();
+
+            ctx.textAlign = 'left'; ctx.textBaseline = 'top';
+            let textY = startY + 80 * userScale;
+            
+            for (let line of codeLines) {
+                let currentX = startX + pad;
+                const tokens = line.split(/([ \(\)\{\}\[\]\.,;:\n])/g).filter(Boolean);
+                for (let token of tokens) {
+                    let color = '#c9d1d9';
+                    if (token.trim() !== '') {
+                        for (let rule of syntaxRules) { if (rule.regex.test(token)) { color = rule.color; break; } }
+                        if (token.startsWith('<') || token.startsWith('</')) color = '#7ee787'; 
+                    }
+                    ctx.fillStyle = color; ctx.fillText(token, currentX, textY);
+                    currentX += ctx.measureText(token).width;
+                }
+                textY += lineHeight;
+            }
+        }
+
+        function drawImageSlide(slideIdx, url) {
+            const userScale = getScaleOverride(slideIdx, 0);
+            const img = imageCache.get(url);
+            
+            if (img && img.complete) {
+                const padding = 100;
+                let scale = Math.min((W - padding*2) / img.width, (H - padding*2) / img.height) * userScale;
+                let dw = img.width * scale; let dh = img.height * scale;
+                let dx = (W - dw)/2; let dy = (H - dh)/2;
+
+                hitBoxes.push({ id: `${slideIdx}_0`, x: dx, y: dy, w: dw, h: dh });
+                
+                ctx.shadowColor = 'rgba(0,0,0,0.6)'; ctx.shadowBlur = 50; ctx.shadowOffsetY = 20;
+                ctx.drawImage(img, dx, dy, dw, dh); ctx.shadowColor = 'transparent';
+            } else {
+                ctx.textAlign = 'center'; ctx.textBaseline = 'middle';
+                ctx.font = 'italic 900 100px Montserrat'; ctx.fillStyle = '#52525b';
+                ctx.fillText('LOADING IMAGE...', W/2, H/2);
+            }
+        }
+
+        function drawMathSlide(slideIdx, tex) {
+            const userScale = getScaleOverride(slideIdx, 0);
+            const img = mathCache.get(tex);
+            
+            if (img && img.complete) {
+                let scale = 4.0 * userScale;
+                let dw = img.width * scale; let dh = img.height * scale;
+                let dx = (W - dw)/2; let dy = (H - dh)/2;
+
+                hitBoxes.push({ id: `${slideIdx}_0`, x: dx - 40, y: dy - 40, w: dw + 80, h: dh + 80 });
+                
+                ctx.shadowColor = 'rgba(255,255,255,0.2)'; ctx.shadowBlur = 30;
+                ctx.drawImage(img, dx, dy, dw, dh); ctx.shadowColor = 'transparent';
+            } else {
+                ctx.textAlign = 'center'; ctx.textBaseline = 'middle';
+                ctx.font = 'italic 900 60px Montserrat'; ctx.fillStyle = '#52525b';
+                ctx.fillText('RENDERING MATH...', W/2, H/2);
+            }
+        }
+
+        function drawSelectionHighlight() {
+            if (!selectedElementId || isPlaying || isRecording) return;
+            const box = hitBoxes.find(b => b.id === selectedElementId);
+            if (box) {
+                ctx.strokeStyle = '#38bdf8'; ctx.lineWidth = 4; ctx.setLineDash([15, 10]);
+                ctx.strokeRect(box.x, box.y, box.w, box.h); ctx.setLineDash([]);
+                
+                ctx.fillStyle = '#38bdf8'; const s = 12;
+                ctx.fillRect(box.x - s/2, box.y - s/2, s, s); ctx.fillRect(box.x + box.w - s/2, box.y - s/2, s, s);
+                ctx.fillRect(box.x - s/2, box.y + box.h - s/2, s, s); ctx.fillRect(box.x + box.w - s/2, box.y + box.h - s/2, s, s);
+            }
+        }
+
+        
+        // Canvas Clicks
+        canvas.addEventListener('click', (e) => {
+            if (isPlaying || isRecording) return; 
+            const rect = canvas.getBoundingClientRect();
+            const clickX = (e.clientX - rect.left) * (W / rect.width);
+            const clickY = (e.clientY - rect.top) * (H / rect.height);
+
+            let clickedId = null;
+            for (let box of hitBoxes) {
+                if (clickX >= box.x && clickX <= box.x + box.w && clickY >= box.y && clickY <= box.y + box.h) {
+                    clickedId = box.id; break;
+                }
+            }
+
+            if (clickedId) { selectedElementId = clickedId; showContextBar(); forceRedrawCurrent(); } 
+            else closeContextBar();
+        });
+
+        canvas.addEventListener('mousemove', (e) => {
+            if (isPlaying || isRecording) return;
+            const rect = canvas.getBoundingClientRect();
+            const mx = (e.clientX - rect.left) * (W / rect.width);
+            const my = (e.clientY - rect.top) * (H / rect.height);
+            canvas.classList.toggle('interactive', hitBoxes.some(b => mx >= b.x && mx <= b.x + b.w && my >= b.y && my <= b.y + b.h));
+        });
+
+        function showContextBar() {
+            if (!selectedElementId) return;
+            const parts = selectedElementId.split('_');
+            scaleValueDisplay.textContent = getScaleOverride(parts[0], parts[1]).toFixed(1) + 'x';
+            contextBar.classList.remove('opacity-0', 'scale-95', 'pointer-events-none');
+            contextBar.classList.add('opacity-100', 'scale-100', 'pointer-events-auto');
+        }
+
+        function closeContextBar() {
+            selectedElementId = null;
+            contextBar.classList.add('opacity-0', 'scale-95', 'pointer-events-none');
+            contextBar.classList.remove('opacity-100', 'scale-100', 'pointer-events-auto');
+            forceRedrawCurrent();
+        }
+
+        btnDeselect.addEventListener('click', closeContextBar);
+        btnScaleUp.addEventListener('click', () => { updateScale(0.1); });
+        btnScaleDown.addEventListener('click', () => { updateScale(-0.1); });
+
+        function updateScale(delta) {
+            if (!selectedElementId) return;
+            const parts = selectedElementId.split('_');
+            let s = Math.max(0.2, Math.min(5.0, getScaleOverride(parts[0], parts[1]) + delta));
+            setScaleOverride(parts[0], parts[1], s);
+            scaleValueDisplay.textContent = s.toFixed(1) + 'x';
+            forceRedrawCurrent();
+        }
+
+        // Tab Switching
+        tabBtnRaw.addEventListener('click', () => {
+            tabBtnRaw.classList.replace('text-zinc-500', 'text-white');
+            tabBtnRaw.classList.replace('border-transparent', 'border-brand-accent');
+            tabBtnSlides.classList.replace('text-white', 'text-zinc-500');
+            tabBtnSlides.classList.replace('border-brand-accent', 'border-transparent');
+            viewRaw.classList.remove('hidden'); viewSlides.classList.add('hidden');
+        });
+
+        tabBtnSlides.addEventListener('click', () => {
+            tabBtnSlides.classList.replace('text-zinc-500', 'text-white');
+            tabBtnSlides.classList.replace('border-transparent', 'border-brand-accent');
+            tabBtnRaw.classList.replace('text-white', 'text-zinc-500');
+            tabBtnRaw.classList.replace('border-brand-accent', 'border-transparent');
+            viewSlides.classList.remove('hidden'); viewRaw.classList.add('hidden');
+            generateSlideUI();
+        });
+
+        function generateSlideUI() {
+            viewSlides.innerHTML = '';
+            slides.forEach((slide, idx) => {
+                const el = document.createElement('div');
+                el.className = `slide-card p-3 rounded-lg bg-zinc-800 cursor-pointer flex flex-col gap-1 ${idx === currentSlideIndex ? 'active' : ''}`;
+                
+                let icon = 'format_align_left'; let snippet = '';
+                if (slide.type === 'code') { icon = 'code'; snippet = `Code: ${slide.codeLang}`; }
+                else if (slide.type === 'math') { icon = 'functions'; snippet = 'LaTeX Equation'; }
+                else if (slide.type === 'image') { icon = 'image'; snippet = 'Image Asset'; }
+                else { snippet = slide.content[0]?.text.substring(0, 30) + '...' || 'Empty Slide'; }
+
+                el.innerHTML = `
+                    <div class="flex items-center justify-between">
+                        <span class="text-xs font-bold text-zinc-500 font-mono">SLIDE ${idx + 1}</span>
+                        <span class="ms-icon text-zinc-400 text-[16px]">${icon}</span>
+                    </div>
+                    <p class="text-sm text-zinc-200 truncate">${snippet}</p>
+                `;
+                el.onclick = () => jumpToSlide(idx);
+                viewSlides.appendChild(el);
+            });
+        }
+
+        function updateActiveSlideUI() {
+            if (viewSlides.classList.contains('hidden')) return;
+            const cards = viewSlides.querySelectorAll('.slide-card');
+            cards.forEach((c, idx) => {
+                if (idx === currentSlideIndex) c.classList.add('active');
+                else c.classList.remove('active');
+            });
+        }
+
+        function updatePlayButtonUI() {
+            if (isPlaying) {
+                playIcon.textContent = 'pause'; playText.textContent = 'Pause';
+                btnPlay.classList.add('bg-zinc-800'); btnPlay.classList.remove('bg-brand-accent', 'shadow-[0_0_10px_rgba(255,75,75,0.4)]');
+            } else {
+                playIcon.textContent = 'play_arrow'; 
+                playText.textContent = accumulatedTime > 0 && accumulatedTime < (slides.length * parseFloat(durationInput.value) * 1000) ? 'Resume' : 'Play';
+                btnPlay.classList.add('bg-brand-accent', 'shadow-[0_0_10px_rgba(255,75,75,0.4)]'); btnPlay.classList.remove('bg-zinc-800');
+            }
+        }
+
+        function forceRedrawCurrent() {
+            if (slides.length > 0 && currentSlideIndex < slides.length) {
+                const durationPerSlide = parseFloat(durationInput.value) * 1000;
+                let slideProgress = (accumulatedTime % durationPerSlide) / durationPerSlide;
+                if (accumulatedTime === 0) slideProgress = 0.5; // Default center preview for slide 0
+                drawSlide(currentSlideIndex, slides[currentSlideIndex], slideProgress);
+            } else { drawBackground(); }
+            updateActiveSlideUI();
+        }
+
+        function jumpToSlide(index) {
+            currentSlideIndex = index;
+            const durationPerSlide = parseFloat(durationInput.value) * 1000;
+            // set time exactly to middle of the requested slide for static preview
+            accumulatedTime = (index * durationPerSlide) + (durationPerSlide * 0.5); 
+            
+            isPlaying = false;
+            closeContextBar();
+            if (animationFrameId) cancelAnimationFrame(animationFrameId);
+            
+            updatePlayButtonUI();
+            forceRedrawCurrent();
+        }
+
+        function renderLoop(timestamp) {
+            if (!isPlaying && !isRecording) return;
+
+            if (lastTimestamp === 0) lastTimestamp = timestamp;
+            const dt = timestamp - lastTimestamp;
+            lastTimestamp = timestamp;
+            
+            accumulatedTime += dt;
+            
+            const durationPerSlide = parseFloat(durationInput.value) * 1000;
+            const totalDuration = slides.length * durationPerSlide;
+
+            if (totalDuration > 0) {
+                if (accumulatedTime >= totalDuration) {
+                    accumulatedTime = totalDuration;
+                    currentSlideIndex = slides.length - 1;
+                    progressBar.style.width = '100%';
+                    drawBackground(); // end state
+                    
+                    isPlaying = false;
+                    if (isRecording) stopRecording();
+                    updatePlayButtonUI();
+                    return;
+                }
+
+                currentSlideIndex = Math.floor(accumulatedTime / durationPerSlide);
+                let slideProgress = (accumulatedTime % durationPerSlide) / durationPerSlide;
+
+                drawSlide(currentSlideIndex, slides[currentSlideIndex], slideProgress);
+                progressBar.style.width = `${Math.min(100, (accumulatedTime / totalDuration) * 100)}%`;
+                updateActiveSlideUI();
+            }
+
+            if (isPlaying) { animationFrameId = requestAnimationFrame(renderLoop); }
+        }
+
+        function togglePlayback() {
+            closeContextBar();
+            slides = parseScript(editor.value);
+            if (slides.length === 0) return;
+
+            const durationPerSlide = parseFloat(durationInput.value) * 1000;
+            const totalDuration = slides.length * durationPerSlide;
+
+            if (isPlaying) {
+                // PAUSE
+                isPlaying = false;
+                if (animationFrameId) cancelAnimationFrame(animationFrameId);
+            } else {
+                // PLAY / RESUME
+                if (accumulatedTime >= totalDuration) {
+                    accumulatedTime = 0; currentSlideIndex = 0; // reset if at end
+                }
+                isPlaying = true;
+                lastTimestamp = performance.now(); // reset frame delta timer
+                requestAnimationFrame(renderLoop);
+            }
+            updatePlayButtonUI();
+        }
+
+        btnPlay.addEventListener('click', togglePlayback);
+        
+        btnRestart.addEventListener('click', () => {
+            isPlaying = false;
+            if (animationFrameId) cancelAnimationFrame(animationFrameId);
+            accumulatedTime = 0;
+            currentSlideIndex = 0;
+            progressBar.style.width = '0%';
+            updatePlayButtonUI();
+            forceRedrawCurrent();
+        });
+
+        function startRecording() {
+            if (isRecording) return;
+            closeContextBar();
+            
+            slides = parseScript(editor.value);
+            if (slides.length === 0) return; // Silent ignore instead of alert
+
+            isRecording = true;
+            recordedChunks = [];
+            
+            // Force reset for clean recording
+            accumulatedTime = 0;
+            currentSlideIndex = 0;
+            progressBar.style.width = '0%';
+            
+            btnExport.disabled = true; btnPlay.disabled = true; btnRestart.disabled = true;
+            btnExport.classList.add('opacity-50', 'cursor-not-allowed');
+            recordingBadge.classList.replace('opacity-0', 'opacity-100');
+
+            const stream = canvas.captureStream(60);
+            let options = { mimeType: 'video/webm;codecs=vp9', videoBitsPerSecond: 8000000 };
+            if (!MediaRecorder.isTypeSupported(options.mimeType)) {
+                options = { mimeType: 'video/webm', videoBitsPerSecond: 8000000 };
+            }
+
+            mediaRecorder = new MediaRecorder(stream, options);
+            mediaRecorder.ondataavailable = e => { if (e.data.size > 0) recordedChunks.push(e.data); };
+            mediaRecorder.onstop = () => {
+                const blob = new Blob(recordedChunks, { type: options.mimeType.split(';')[0] });
+                const url = URL.createObjectURL(blob);
+                
+                const a = document.createElement('a');
+                a.style.display = 'none'; a.href = url; a.download = `DevTuber_Export_${Date.now()}.webm`;
+                document.body.appendChild(a); a.click();
+                
+                setTimeout(() => { document.body.removeChild(a); URL.revokeObjectURL(url); }, 100);
+
+                isRecording = false;
+                btnExport.disabled = false; btnPlay.disabled = false; btnRestart.disabled = false;
+                btnExport.classList.remove('opacity-50', 'cursor-not-allowed');
+                recordingBadge.classList.replace('opacity-100', 'opacity-0');
+                
+                accumulatedTime = 0; currentSlideIndex = 0;
+                forceRedrawCurrent();
+            };
+
+            mediaRecorder.start();
+            isPlaying = true;
+            lastTimestamp = performance.now();
+            requestAnimationFrame(renderLoop);
+        }
+
+        function stopRecording() {
+            if (mediaRecorder && mediaRecorder.state !== 'inactive') mediaRecorder.stop();
+        }
+
+        btnExport.addEventListener('click', startRecording);
+
+        // Editor Debounce
+        let typingTimer;
+        editor.addEventListener('input', () => {
+            clearTimeout(typingTimer);
+            if (!isPlaying && !isRecording) {
+                typingTimer = setTimeout(() => {
+                    slides = parseScript(editor.value);
+                    if (currentSlideIndex >= slides.length) currentSlideIndex = slides.length - 1;
+                    if (!viewSlides.classList.contains('hidden')) generateSlideUI();
+                    forceRedrawCurrent();
+                }, 500);
+            }
+        });
+
+        // Template Selection
+        templateSelector.addEventListener('change', (e) => {
+            if (presets[e.target.value]) {
+                editor.value = presets[e.target.value];
+                scaleOverrides = {}; 
+                slides = parseScript(editor.value);
+                
+                isPlaying = false;
+                if (animationFrameId) cancelAnimationFrame(animationFrameId);
+                accumulatedTime = 0;
+                currentSlideIndex = 0;
+                progressBar.style.width = '0%';
+                
+                updatePlayButtonUI();
+                if (!viewSlides.classList.contains('hidden')) generateSlideUI();
+                forceRedrawCurrent();
+            }
+        });
+
+        // Initial Paint
+        drawBackground();
+        setTimeout(() => {
+            slides = parseScript(editor.value);
+            accumulatedTime = 0;
+            updatePlayButtonUI();
+            forceRedrawCurrent();
+        }, 100);
+
+    </script>
+</body>
+</html>
