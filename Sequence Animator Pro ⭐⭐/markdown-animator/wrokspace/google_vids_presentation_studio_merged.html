@@ -277,8 +277,13 @@
                                 <div class="flex items-center justify-between">
                                     <label class="text-xs font-medium text-google-textMuted dark:text-google-darkTextMuted">Background Color</label>
                                     <div class="relative w-8 h-8 rounded-full overflow-hidden border border-google-border dark:border-google-darkBorder cursor-pointer">
-                                        <!-- Default is light gray for light mode, dark for dark mode. JS handles init. -->
                                         <input type="color" id="setting-bg-color" value="#ffffff" class="absolute -top-2 -left-2 w-12 h-12 cursor-pointer">
+                                    </div>
+                                </div>
+                                <div class="flex items-center justify-between">
+                                    <label class="text-xs font-medium text-google-textMuted dark:text-google-darkTextMuted">Text Color</label>
+                                    <div class="relative w-8 h-8 rounded-full overflow-hidden border border-google-border dark:border-google-darkBorder cursor-pointer">
+                                        <input type="color" id="setting-text-color" value="#202124" class="absolute -top-2 -left-2 w-12 h-12 cursor-pointer">
                                     </div>
                                 </div>
                                 <hr class="border-google-border dark:border-google-darkBorder">
@@ -303,6 +308,23 @@
                                         <div class="relative w-full h-9 rounded-lg overflow-hidden border border-google-border dark:border-google-darkBorder cursor-pointer">
                                             <input type="color" id="setting-grid-color" value="#dadce0" class="absolute -top-2 -left-2 w-[120%] h-[150%] cursor-pointer">
                                         </div>
+                                    </div>
+                                </div>
+                                <div class="grid grid-cols-2 gap-3">
+                                    <div>
+                                        <label class="block text-xs font-medium text-google-textMuted dark:text-google-darkTextMuted mb-1">Highlight Color</label>
+                                        <div class="relative w-full h-9 rounded-lg overflow-hidden border border-google-border dark:border-google-darkBorder cursor-pointer">
+                                            <input type="color" id="setting-highlight-color" value="#0b57d0" class="absolute -top-2 -left-2 w-[120%] h-[150%] cursor-pointer">
+                                        </div>
+                                    </div>
+                                    <div>
+                                        <label class="block text-xs font-medium text-google-textMuted dark:text-google-darkTextMuted mb-1">Text Weight</label>
+                                        <select id="setting-text-weight" class="w-full bg-google-bg dark:bg-google-darkBg border border-google-border dark:border-google-darkBorder text-sm rounded-lg px-2 py-2 outline-none focus:ring-2 focus:ring-google-primary dark:focus:ring-google-darkPrimary cursor-pointer">
+                                            <option value="normal">Normal</option>
+                                            <option value="semibold" selected>Semi-Bold</option>
+                                            <option value="bold">Bold</option>
+                                            <option value="black">Black</option>
+                                        </select>
                                     </div>
                                 </div>
                                 <div>
@@ -401,10 +423,13 @@
 
         // Style Settings Elements
         const settingBgColor = document.getElementById('setting-bg-color');
+        const settingTextColor = document.getElementById('setting-text-color');
         const settingGridToggle = document.getElementById('setting-grid-toggle');
         const settingGridStyle = document.getElementById('setting-grid-style');
         const settingGridColor = document.getElementById('setting-grid-color');
+        const settingHighlightColor = document.getElementById('setting-highlight-color');
         const settingGridSize = document.getElementById('setting-grid-size');
+        const settingTextWeight = document.getElementById('setting-text-weight');
         const valGridSize = document.getElementById('val-grid-size');
         
         const settingGlobalAnimIn = document.getElementById('setting-global-anim-in');
@@ -472,17 +497,8 @@
             htmlElement.classList.toggle('dark');
             const isDark = htmlElement.classList.contains('dark');
             themeIcon.textContent = isDark ? 'light_mode' : 'dark_mode';
-            
-            // Smartly swap the default canvas background color to match the theme
-            if (canvasBgColor === '#ffffff' && isDark) {
-                canvasBgColor = '#1e1e20';
-                settingBgColor.value = '#1e1e20';
-            } else if (canvasBgColor === '#1e1e20' && !isDark) {
-                canvasBgColor = '#ffffff';
-                settingBgColor.value = '#ffffff';
-            }
-            
-            // Re-render math math cache colors if any
+
+            // Keep canvas colors tied to the user's chosen settings, not the app theme.
             mathCache.clear(); 
             slides.forEach(s => { if (s.type === 'math') s.isDirty = true; });
             
@@ -534,10 +550,17 @@
 
         // Style Settings State
         let canvasBgColor = '#ffffff';
+        let globalTextColor = '#202124';
+        let globalHighlightColor = '#0b57d0';
+        let globalTextWeight = 'semibold';
         let gridEnabled = true;
         let gridStyle = 'lines'; // 'lines', 'dots', 'crosses'
         let gridColor = '#dadce0';
         let customGridSize = 100;
+
+        function markAllSlidesDirty() {
+            slides.forEach(s => { s.isDirty = true; });
+        }
         
         // Animation State
         let globalAnimIn = 'slide-left';
@@ -742,7 +765,7 @@
                 ctx.strokeStyle = gridColor; 
                 ctx.fillStyle = gridColor;
                 ctx.lineWidth = 2;
-                ctx.globalAlpha = isDark ? 0.2 : 0.4; 
+                ctx.globalAlpha = 0.35;
                 
                 if (gridStyle === 'lines') {
                     for(let x=0; x<W; x+=customGridSize) { ctx.beginPath(); ctx.moveTo(x,0); ctx.lineTo(x,H); ctx.stroke(); }
@@ -794,10 +817,17 @@
             slide.isDirty = false;
         }
 
+        function getTextWeightValue(weightMode) {
+            if (weightMode === 'normal') return 400;
+            if (weightMode === 'bold') return 700;
+            if (weightMode === 'black') return 900;
+            return 600;
+        }
+
         function drawTextSlide(targetCtx, slideIdx, lines, targetHitBoxes, bounds, prefix) {
             let totalHeight = 0; const lineHeights = [];
             targetCtx.textAlign = 'center'; targetCtx.textBaseline = 'middle';
-            const isDark = htmlElement.classList.contains('dark');
+            const defaultWeight = getTextWeightValue(globalTextWeight);
 
             for (let line of lines) {
                 let size = 80;
@@ -825,7 +855,7 @@
                 
                 let totalW = 0;
                 for (let seg of line.segments) {
-                    let fw = (line.style === 'h1' || seg.style === 'bold') ? 800 : (line.style === 'h2' || seg.style === 'highlight') ? 700 : 500;
+                    let fw = line.style === 'h1' ? 800 : (line.style === 'h2' || seg.style === 'highlight' || seg.style === 'bold') ? Math.max(defaultWeight, 700) : defaultWeight;
                     targetCtx.font = `${fw} ${size}px ${fontOverride}`;
                     totalW += targetCtx.measureText(seg.text).width;
                 }
@@ -834,17 +864,14 @@
 
                 let currentX = bounds.x + bounds.w/2 - totalW/2 + pos.x;
                 for (let seg of line.segments) {
-                    let fw = (line.style === 'h1' || seg.style === 'bold') ? 800 : (line.style === 'h2' || seg.style === 'highlight') ? 700 : 500;
+                    let fw = line.style === 'h1' ? 800 : (line.style === 'h2' || seg.style === 'highlight' || seg.style === 'bold') ? Math.max(defaultWeight, 700) : defaultWeight;
                     targetCtx.font = `${fw} ${size}px ${fontOverride}`;
                     let tw = targetCtx.measureText(seg.text).width;
 
                     let textColor = customColor;
                     if (!textColor) {
-                        if (seg.style === 'highlight') textColor = isDark ? '#8ab4f8' : '#0b57d0';
-                        else if (seg.style === 'bold') textColor = isDark ? '#ffffff' : '#000000';
-                        else if (line.style === 'h1') textColor = isDark ? '#ffffff' : '#000000';
-                        else if (line.style === 'h2') textColor = isDark ? '#8ab4f8' : '#0b57d0';
-                        else textColor = isDark ? '#9aa0a6' : '#5f6368';
+                        if (seg.style === 'highlight') textColor = globalHighlightColor;
+                        else textColor = globalTextColor;
                     }
 
                     if (seg.style === 'highlight' || (line.style === 'highlight' && line.segments.length === 1)) {
@@ -1097,6 +1124,9 @@
 
         // Style Settings Listeners
         settingBgColor.addEventListener('input', (e) => { canvasBgColor = e.target.value; forceRedrawCurrent(); });
+        settingTextColor.addEventListener('input', (e) => { globalTextColor = e.target.value; markAllSlidesDirty(); forceRedrawCurrent(); });
+        settingHighlightColor.addEventListener('input', (e) => { globalHighlightColor = e.target.value; markAllSlidesDirty(); forceRedrawCurrent(); });
+        settingTextWeight.addEventListener('change', (e) => { globalTextWeight = e.target.value; markAllSlidesDirty(); forceRedrawCurrent(); });
         settingGridToggle.addEventListener('change', (e) => { gridEnabled = e.target.checked; forceRedrawCurrent(); });
         settingGridStyle.addEventListener('change', (e) => { gridStyle = e.target.value; forceRedrawCurrent(); });
         settingGridColor.addEventListener('input', (e) => { gridColor = e.target.value; forceRedrawCurrent(); });
