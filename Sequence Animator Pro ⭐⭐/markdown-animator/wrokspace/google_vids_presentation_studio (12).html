@@ -1,0 +1,142 @@
+<!-- ... existing code ... -->
+            <!-- Tab Content: Raw Markdown -->
+            <div id="view-raw" class="tab-panel flex-1 flex flex-col overflow-hidden min-h-0">
+                <div class="px-4 py-2 bg-google-bg dark:bg-[#0f0f11] border-b border-google-border dark:border-[#333537] text-[11px] text-google-textMuted dark:text-[#9aa0a6] font-mono flex flex-col gap-1 shrink-0">
+                    <span class="text-google-text dark:text-google-darkText font-bold mb-1">Markdown Guide (--- for new slide):</span>
+                    <span><code class="text-google-primary dark:text-google-darkPrimary font-bold"># Heading</code> | <code class="text-orange-500 font-bold">## Subhead</code> | <code class="text-google-text dark:text-white font-bold">**Bold**</code> | <code class="text-green-600 dark:text-green-400 font-bold">*Highlight*</code></span>
+                    <span><code class="text-purple-600 dark:text-purple-400 font-bold">$$ E = mc^2 $$</code> | <code class="text-pink-600 dark:text-pink-400 font-bold">![alt](url)</code> | <code class="font-bold">```js ... ```</code> | <code class="text-blue-500 font-bold">|||</code> = Split</span>
+                </div>
+                <textarea id="script-editor" class="flex-1 w-full p-4 bg-transparent text-sm font-mono focus:outline-none resize-none leading-relaxed text-google-text dark:text-[#e3e3e3]" spellcheck="false"></textarea>
+<!-- ... existing code ... -->
+```
+
+```javascript:Google Vids Presentation Studio:index.html
+// ... existing code ...
+                if (line.length > 0) {
+                    let parsedLine = { text: line, style: 'normal', index: i, segments: [] };
+                    
+                    let textToProcess = line;
+                    if (line.startsWith('# ')) { textToProcess = line.substring(2); parsedLine.style = 'h1'; } 
+                    else if (line.startsWith('## ')) { textToProcess = line.substring(3); parsedLine.style = 'h2'; } 
+                    
+                    // Parse inline **bold** and *highlights*
+                    let lastIdx = 0;
+                    let match;
+                    const regex = /\*\*(.*?)\*\*|\*(.*?)\*/g;
+                    while ((match = regex.exec(textToProcess)) !== null) {
+                        if (match.index > lastIdx) {
+                            parsedLine.segments.push({ text: textToProcess.substring(lastIdx, match.index), style: parsedLine.style });
+                        }
+                        if (match[1] !== undefined) {
+                            parsedLine.segments.push({ text: match[1], style: 'bold' });
+                        } else if (match[2] !== undefined) {
+                            parsedLine.segments.push({ text: match[2], style: 'highlight' });
+                        }
+                        lastIdx = regex.lastIndex;
+                    }
+                    if (lastIdx < textToProcess.length) {
+                        parsedLine.segments.push({ text: textToProcess.substring(lastIdx), style: parsedLine.style });
+                    }
+                    
+                    if (parsedLine.segments.length === 0) {
+                        parsedLine.segments.push({ text: textToProcess, style: parsedLine.style });
+                    }
+
+                    parsedLine.text = textToProcess;
+// ... existing code ...
+```
+
+```javascript:Google Vids Presentation Studio:index.html
+// ... existing code ...
+        function drawTextSlide(targetCtx, slideIdx, lines, targetHitBoxes, bounds, prefix) {
+            let totalHeight = 0; const lineHeights = [];
+            targetCtx.textAlign = 'center'; targetCtx.textBaseline = 'middle';
+            const isDark = htmlElement.classList.contains('dark');
+
+            for (let line of lines) {
+                let size = 80;
+                if (line.style === 'h1') size = 160;
+                if (line.style === 'h2') size = 110;
+                
+                // Promote full-line highlight to proper size
+                if (line.style === 'normal' && line.segments.length === 1 && line.segments[0].style === 'highlight') {
+                    size = 90;
+                    line.style = 'highlight';
+                }
+                
+                size *= getScaleOverride(`${slideIdx}_${prefix}_${line.index}`);
+                let h = size * 1.3; totalHeight += h; lineHeights.push({ size, h });
+            }
+
+            let currentY = bounds.y + (bounds.h - totalHeight) / 2;
+
+            for (let i = 0; i < lines.length; i++) {
+                let line = lines[i]; let { size, h } = lineHeights[i];
+                let pos = getPositionOverride(`${slideIdx}_${prefix}_${line.index}`);
+                let drawY = currentY + (h / 2) + pos.y;
+                let fontOverride = getFontOverride(`${slideIdx}_${prefix}_${line.index}`);
+                let customColor = getColorOverride(`${slideIdx}_${prefix}_${line.index}`);
+                
+                let totalW = 0;
+                for (let seg of line.segments) {
+                    let fw = (line.style === 'h1' || seg.style === 'bold') ? 800 : (line.style === 'h2' || seg.style === 'highlight') ? 700 : 500;
+                    targetCtx.font = `${fw} ${size}px ${fontOverride}`;
+                    totalW += targetCtx.measureText(seg.text).width;
+                }
+
+                targetHitBoxes.push({ id: `${slideIdx}_${prefix}_${line.index}`, x: bounds.x + bounds.w/2 - totalW/2 - 20 + pos.x, y: drawY - h/2, w: totalW + 40, h: h });
+
+                let currentX = bounds.x + bounds.w/2 - totalW/2 + pos.x;
+                for (let seg of line.segments) {
+                    let fw = (line.style === 'h1' || seg.style === 'bold') ? 800 : (line.style === 'h2' || seg.style === 'highlight') ? 700 : 500;
+                    targetCtx.font = `${fw} ${size}px ${fontOverride}`;
+                    let tw = targetCtx.measureText(seg.text).width;
+
+                    let textColor = customColor;
+                    if (!textColor) {
+                        if (seg.style === 'highlight') textColor = isDark ? '#8ab4f8' : '#0b57d0';
+                        else if (seg.style === 'bold') textColor = isDark ? '#ffffff' : '#000000';
+                        else if (line.style === 'h1') textColor = isDark ? '#ffffff' : '#000000';
+                        else if (line.style === 'h2') textColor = isDark ? '#8ab4f8' : '#0b57d0';
+                        else textColor = isDark ? '#9aa0a6' : '#5f6368'; // normal text
+                    }
+
+                    // Apply adaptive background pill for highlights
+                    if (seg.style === 'highlight' || (line.style === 'highlight' && line.segments.length === 1)) {
+                        targetCtx.globalAlpha = 0.15;
+                        targetCtx.fillStyle = textColor; 
+                        targetCtx.beginPath(); targetCtx.roundRect(currentX - 10, drawY - size/2 - 10, tw + 20, size + 20, 8); targetCtx.fill();
+                        targetCtx.globalAlpha = 1.0;
+                    }
+                    
+                    targetCtx.fillStyle = textColor;
+                    targetCtx.fillText(seg.text, currentX + tw/2, drawY);
+                    currentX += tw;
+                }
+                currentY += h;
+            }
+        }
+
+        const syntaxRules = [
+// ... existing code ...
+```
+
+```javascript:Google Vids Presentation Studio:index.html
+// ... existing code ...
+        function drawCodeSlide(targetCtx, slideIdx, code, lang, targetHitBoxes, bounds, prefix) {
+            const userScale = getScaleOverride(`${slideIdx}_${prefix}_0`);
+            const pos = getPositionOverride(`${slideIdx}_${prefix}_0`);
+            const pad = 60 * userScale; const codeLines = code.split('\n');
+            const fontSize = 45 * userScale; const lineHeight = fontSize * 1.6;
+            
+            targetCtx.font = `400 ${fontSize}px "JetBrains Mono"`;
+            let maxW = 0; for(let line of codeLines) maxW = Math.max(maxW, targetCtx.measureText(line).width);
+            
+            // Unrestrict the code box width from bounds so it doesn't clip
+            const boxW = Math.max(400 * userScale, maxW + pad * 2);
+            const boxH = codeLines.length * lineHeight + pad * 2 + (50 * userScale); 
+
+            const startX = bounds.x + (bounds.w - boxW) / 2 + pos.x; 
+            const startY = bounds.y + (bounds.h - boxH) / 2 + pos.y;
+            targetHitBoxes.push({ id: `${slideIdx}_${prefix}_0`, x: startX, y: startY, w: boxW, h: boxH });
+// ... existing code ...

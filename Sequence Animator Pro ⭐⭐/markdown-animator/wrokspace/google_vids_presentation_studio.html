@@ -1,0 +1,1195 @@
+<!DOCTYPE html>
+<html lang="en" class="light">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+    <title>Google Presentation Studio | Markdown to Video</title>
+
+    <!-- Google Fonts & Material Symbols -->
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Google+Sans:wght@400;500;700&family=Inter:wght@400;500;600;700;800;900&family=JetBrains+Mono:wght@400;700&display=swap" rel="stylesheet">
+    <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Material+Symbols+Rounded:opsz,wght,FILL,GRAD@20..48,100..700,0..1,-50..200&display=block" />
+
+    <!-- Tailwind CSS -->
+    <script src="https://cdn.tailwindcss.com"></script>
+    <script>
+        tailwind.config = {
+            darkMode: 'class',
+            theme: {
+                extend: {
+                    fontFamily: {
+                        sans: ['"Google Sans"', 'Inter', 'sans-serif'],
+                        mono: ['"JetBrains Mono"', 'monospace'],
+                        slide: ['Inter', 'sans-serif'],
+                    },
+                    colors: {
+                        google: {
+                            // Light Mode
+                            bg: '#f8f9fa',
+                            surface: '#ffffff',
+                            surfaceHover: '#f0f4f9',
+                            border: '#dadce0',
+                            text: '#202124',
+                            textMuted: '#5f6368',
+                            primary: '#0b57d0',
+                            primaryHover: '#0842a0',
+                            primaryBg: '#e8f0fe',
+                            // Dark Mode
+                            darkBg: '#131314',
+                            darkSurface: '#1e1e20',
+                            darkSurfaceHover: '#333537',
+                            darkBorder: '#444746',
+                            darkText: '#e3e3e3',
+                            darkTextMuted: '#9aa0a6',
+                            darkPrimary: '#8ab4f8',
+                            darkPrimaryHover: '#aecbfa',
+                            darkPrimaryBg: '#3c4043',
+                            // Code block theme
+                            codeBg: '#282a36',
+                        }
+                    },
+                    animation: {
+                        'pulse-fast': 'pulse 1s cubic-bezier(0.4, 0, 0.6, 1) infinite',
+                    }
+                }
+            }
+        }
+    </script>
+
+    <!-- MathJax for LaTeX parsing -->
+    <script>
+        window.MathJax = {
+            tex: { packages: {'[+]': ['base', 'ams']} },
+            svg: { fontCache: 'local' },
+            startup: { typeset: false } // Rendered manually to canvas
+        };
+    </script>
+    <script id="MathJax-script" async src="https://cdn.jsdelivr.net/npm/mathjax@3/es5/tex-svg.js"></script>
+
+    <style>
+        body { margin: 0; overflow: hidden; overscroll-behavior-y: none; transition: background-color 0.3s, color 0.3s; }
+        
+        .ms-icon { 
+            font-family: 'Material Symbols Rounded'; font-weight: normal; font-style: normal; font-size: 20px; 
+            display: inline-block; line-height: 1; text-transform: none; letter-spacing: normal; 
+            word-wrap: normal; white-space: nowrap; direction: ltr; -webkit-font-smoothing: antialiased; 
+        }
+
+        ::-webkit-scrollbar { width: 6px; height: 6px; }
+        ::-webkit-scrollbar-track { background: transparent; }
+        ::-webkit-scrollbar-thumb { background-color: #dadce0; border-radius: 3px; }
+        .dark ::-webkit-scrollbar-thumb { background-color: #5f6368; }
+        ::-webkit-scrollbar-thumb:hover { background-color: #9aa0a6; }
+
+        textarea { tab-size: 4; }
+
+        /* Accordion Animations */
+        .accordion-content { display: grid; grid-template-rows: 0fr; transition: grid-template-rows 0.2s ease-out; }
+        .accordion-content.open { grid-template-rows: 1fr; }
+        .accordion-inner { overflow: hidden; min-height: 0; }
+        .accordion-icon { transition: transform 0.2s; }
+        .accordion-icon.open { transform: rotate(180deg); }
+
+        /* Canvas Wrapper & Canvas */
+        #canvas-wrapper {
+            position: relative; width: 100%; height: 100%; display: flex; align-items: center; justify-content: center;
+            background-image: radial-gradient(circle at center, #dadce0 1px, transparent 1px);
+            background-size: 24px 24px;
+        }
+        .dark #canvas-wrapper { background-image: radial-gradient(circle at center, #444746 1px, transparent 1px); }
+
+        canvas {
+            width: 100%; max-width: 100%; max-height: 100%; aspect-ratio: 16 / 9; object-fit: contain;
+            background-color: #ffffff; box-shadow: 0 10px 30px -10px rgba(0, 0, 0, 0.2);
+            border: 1px solid #dadce0; border-radius: 8px; cursor: default; transition: border-color 0.3s;
+        }
+        .dark canvas { border-color: #444746; box-shadow: 0 10px 30px -10px rgba(0, 0, 0, 0.6); }
+        canvas.interactive { cursor: pointer; }
+
+        /* Slide View Styles */
+        .slide-card { transition: all 0.2s ease; border: 2px solid transparent; }
+        .slide-card.active { border-color: #0b57d0; background-color: #e8f0fe; }
+        .dark .slide-card.active { border-color: #8ab4f8; background-color: rgba(138, 180, 248, 0.15); }
+        .slide-card:hover:not(.active) { border-color: #dadce0; background-color: #f8f9fa; }
+        .dark .slide-card:hover:not(.active) { border-color: #5f6368; background-color: #333537; }
+    </style>
+</head>
+<body class="h-screen w-screen flex flex-col font-sans bg-google-bg dark:bg-google-darkBg text-google-text dark:text-google-darkText">
+
+    <header class="h-16 shrink-0 bg-google-surface dark:bg-google-darkSurface border-b border-google-border dark:border-google-darkBorder px-4 sm:px-6 flex items-center justify-between z-40 transition-colors">
+        <div class="flex items-center gap-3">
+            <div class="w-10 h-10 bg-google-primary dark:bg-google-darkPrimary rounded-xl flex items-center justify-center text-white dark:text-google-darkBg shadow-sm">
+                <span class="ms-icon text-[24px]">movie_creation</span>
+            </div>
+            <div>
+                <h1 class="font-medium text-lg tracking-tight leading-tight">Presentation Studio</h1>
+            </div>
+        </div>
+
+        <div class="flex items-center gap-2 sm:gap-3">
+            
+            <!-- Quick Template Selector -->
+            <select id="template-selector" class="hidden sm:block bg-google-bg dark:bg-google-darkBg border border-google-border dark:border-google-darkBorder text-sm rounded-lg px-3 py-2 outline-none focus:ring-2 focus:ring-google-primary dark:focus:ring-google-darkPrimary cursor-pointer transition-colors">
+                <option value="code">Template: Code Tutorial</option>
+                <option value="math">Template: Physics & Math</option>
+                <option value="images">Template: Visual Showcase</option>
+            </select>
+
+            <div class="w-px h-6 bg-google-border dark:bg-google-darkBorder mx-1 hidden sm:block"></div>
+
+            <!-- Playback Controls -->
+            <div class="flex items-center gap-1 bg-google-bg dark:bg-google-darkBg rounded-full border border-google-border dark:border-google-darkBorder p-1">
+                <button id="btn-restart" class="w-8 h-8 flex items-center justify-center text-google-textMuted dark:text-google-darkTextMuted hover:bg-black/5 dark:hover:bg-white/10 rounded-full transition-colors" title="Restart">
+                    <span class="ms-icon text-[18px]">replay</span>
+                </button>
+                <button id="btn-play" class="flex items-center gap-1.5 px-4 py-1.5 bg-google-primary dark:bg-google-darkPrimary text-white dark:text-google-darkBg hover:bg-google-primaryHover dark:hover:bg-google-darkPrimaryHover rounded-full font-medium text-sm transition-colors shadow-sm">
+                    <span class="ms-icon text-[18px]" id="play-icon">play_arrow</span> <span id="play-text">Play</span>
+                </button>
+            </div>
+
+            <!-- Export -->
+            <button id="btn-export" class="flex items-center gap-2 px-4 py-2 bg-google-surface dark:bg-google-darkSurface border border-google-border dark:border-google-darkBorder hover:bg-google-surfaceHover dark:hover:bg-google-darkSurfaceHover rounded-full font-medium text-sm transition-colors shadow-sm ml-1">
+                <span class="ms-icon text-[18px]">download</span> <span class="hidden sm:inline">Export WebM</span>
+            </button>
+            
+            <!-- Theme Toggle -->
+            <button id="theme-toggle" class="w-10 h-10 flex items-center justify-center text-google-textMuted dark:text-google-darkTextMuted hover:bg-black/5 dark:hover:bg-white/10 rounded-full transition-colors ml-1" title="Toggle Theme">
+                <span class="ms-icon text-[20px]" id="theme-icon">dark_mode</span>
+            </button>
+        </div>
+    </header>
+
+    <main class="flex-1 flex flex-col md:flex-row overflow-hidden relative">
+        
+        <!-- Editor Sidebar -->
+        <aside class="w-full md:w-[400px] flex flex-col bg-google-surface dark:bg-google-darkSurface border-r border-google-border dark:border-google-darkBorder shrink-0 z-30 transition-colors h-[40vh] md:h-auto">
+            
+            <!-- Segmented Tabs -->
+            <div class="flex p-2 border-b border-google-border dark:border-google-darkBorder shrink-0 bg-google-surface dark:bg-google-darkSurface gap-1">
+                <button id="tab-btn-raw" class="tab-btn active flex-1 py-1.5 text-xs font-medium rounded-lg transition-colors flex items-center justify-center gap-1.5 bg-google-primaryBg dark:bg-google-darkPrimaryBg text-google-primary dark:text-google-darkPrimary">
+                    <span class="ms-icon text-[16px]">description</span> Script
+                </button>
+                <button id="tab-btn-slides" class="tab-btn flex-1 py-1.5 text-xs font-medium rounded-lg transition-colors flex items-center justify-center gap-1.5 text-google-textMuted dark:text-google-darkTextMuted hover:bg-black/5 dark:hover:bg-white/5">
+                    <span class="ms-icon text-[16px]">view_carousel</span> Slides
+                </button>
+                <button id="tab-btn-style" class="tab-btn flex-1 py-1.5 text-xs font-medium rounded-lg transition-colors flex items-center justify-center gap-1.5 text-google-textMuted dark:text-google-darkTextMuted hover:bg-black/5 dark:hover:bg-white/5">
+                    <span class="ms-icon text-[16px]">tune</span> Settings
+                </button>
+            </div>
+
+            <!-- Tab Content: Raw Markdown -->
+            <div id="view-raw" class="tab-panel flex-1 flex flex-col overflow-hidden">
+                <div class="px-4 py-2 bg-google-bg dark:bg-google-darkBg border-b border-google-border dark:border-google-darkBorder text-[11px] text-google-textMuted dark:text-google-darkTextMuted font-mono flex flex-col gap-1 shrink-0">
+                    <span class="text-google-text dark:text-google-darkText font-bold mb-1">Markdown Guide (--- for new slide):</span>
+                    <span><code class="text-google-primary dark:text-google-darkPrimary font-bold"># Heading</code> | <code class="text-orange-500 font-bold">## Subhead</code> | <code class="text-green-600 dark:text-green-400 font-bold">*Highlight*</code></span>
+                    <span><code class="text-purple-600 dark:text-purple-400 font-bold">$$ E = mc^2 $$</code> = LaTeX Equation</span>
+                    <span><code class="text-pink-600 dark:text-pink-400 font-bold">![alt](url)</code> = Image | <code class="font-bold">```js ... ```</code> = Code</span>
+                </div>
+                <textarea id="script-editor" class="flex-1 w-full p-4 bg-transparent text-sm font-mono focus:outline-none resize-none leading-relaxed text-google-text dark:text-google-darkText" spellcheck="false"></textarea>
+            </div>
+
+            <!-- Tab Content: Slides Visualizer -->
+            <div id="view-slides" class="tab-panel flex-1 overflow-y-auto hidden bg-google-bg dark:bg-google-darkBg p-3 flex-col gap-3">
+                <!-- Dynamically populated by JS -->
+            </div>
+
+            <!-- Tab Content: Global Settings -->
+            <div id="view-style" class="tab-panel flex-1 overflow-y-auto hidden bg-google-bg dark:bg-google-darkBg p-3 flex-col gap-3">
+                
+                <!-- Timing & Transitions Accordion -->
+                <div class="border border-google-border dark:border-google-darkBorder rounded-xl bg-google-surface dark:bg-google-darkSurface overflow-hidden shadow-sm">
+                    <button class="accordion-toggle w-full flex items-center justify-between p-3 text-sm font-medium hover:bg-black/5 dark:hover:bg-white/5 transition-colors open">
+                        <div class="flex items-center gap-2"><span class="ms-icon text-[18px] text-google-primary dark:text-google-darkPrimary">animation</span> Timing & Transitions</div>
+                        <span class="ms-icon accordion-icon open text-[20px]">expand_more</span>
+                    </button>
+                    <div class="accordion-content open">
+                        <div class="accordion-inner">
+                            <div class="p-3 pt-0 flex flex-col gap-4">
+                                <div class="grid grid-cols-2 gap-3">
+                                    <div>
+                                        <label class="block text-xs font-medium text-google-textMuted dark:text-google-darkTextMuted mb-1">Slide Duration</label>
+                                        <div class="flex items-center gap-2 bg-google-bg dark:bg-google-darkBg border border-google-border dark:border-google-darkBorder rounded-lg px-3 py-2">
+                                            <input type="number" id="setting-duration" value="3.0" step="0.1" class="w-full bg-transparent text-sm outline-none font-mono">
+                                            <span class="text-[10px] text-google-textMuted dark:text-google-darkTextMuted font-bold uppercase">sec</span>
+                                        </div>
+                                    </div>
+                                    <div>
+                                        <label class="block text-xs font-medium text-google-textMuted dark:text-google-darkTextMuted mb-1">Anim Duration</label>
+                                        <div class="flex items-center gap-2 bg-google-bg dark:bg-google-darkBg border border-google-border dark:border-google-darkBorder rounded-lg px-3 py-2">
+                                            <input type="number" id="setting-anim-duration" value="0.45" step="0.05" min="0.1" max="2.0" class="w-full bg-transparent text-sm outline-none font-mono">
+                                            <span class="text-[10px] text-google-textMuted dark:text-google-darkTextMuted font-bold uppercase">sec</span>
+                                        </div>
+                                    </div>
+                                </div>
+                                <div class="grid grid-cols-2 gap-3">
+                                    <div>
+                                        <label class="block text-xs font-medium text-google-textMuted dark:text-google-darkTextMuted mb-1">Global Entry (In)</label>
+                                        <select id="setting-global-anim-in" class="w-full bg-google-bg dark:bg-google-darkBg border border-google-border dark:border-google-darkBorder text-sm rounded-lg px-2 py-2 outline-none focus:ring-2 focus:ring-google-primary dark:focus:ring-google-darkPrimary cursor-pointer">
+                                            <option value="pop">Pop & Scale</option>
+                                            <option value="fade">Smooth Fade</option>
+                                            <option value="slide-left" selected>Slide Left</option>
+                                            <option value="slide-right">Slide Right</option>
+                                            <option value="slide-up">Slide Up</option>
+                                            <option value="slide-down">Slide Down</option>
+                                            <option value="zoom">Zoom In</option>
+                                            <option value="none">No Animation</option>
+                                        </select>
+                                    </div>
+                                    <div>
+                                        <label class="block text-xs font-medium text-google-textMuted dark:text-google-darkTextMuted mb-1">Global Exit (Out)</label>
+                                        <select id="setting-global-anim-out" class="w-full bg-google-bg dark:bg-google-darkBg border border-google-border dark:border-google-darkBorder text-sm rounded-lg px-2 py-2 outline-none focus:ring-2 focus:ring-google-primary dark:focus:ring-google-darkPrimary cursor-pointer">
+                                            <option value="pop">Pop & Scale</option>
+                                            <option value="fade">Smooth Fade</option>
+                                            <option value="slide-left" selected>Slide Left</option>
+                                            <option value="slide-right">Slide Right</option>
+                                            <option value="slide-up">Slide Up</option>
+                                            <option value="slide-down">Slide Down</option>
+                                            <option value="zoom">Zoom Out</option>
+                                            <option value="none">No Animation</option>
+                                        </select>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Canvas Settings Accordion -->
+                <div class="border border-google-border dark:border-google-darkBorder rounded-xl bg-google-surface dark:bg-google-darkSurface overflow-hidden shadow-sm">
+                    <button class="accordion-toggle w-full flex items-center justify-between p-3 text-sm font-medium hover:bg-black/5 dark:hover:bg-white/5 transition-colors">
+                        <div class="flex items-center gap-2"><span class="ms-icon text-[18px] text-google-primary dark:text-google-darkPrimary">wallpaper</span> Canvas Design</div>
+                        <span class="ms-icon accordion-icon text-[20px]">expand_more</span>
+                    </button>
+                    <div class="accordion-content">
+                        <div class="accordion-inner">
+                            <div class="p-3 pt-0 flex flex-col gap-4">
+                                <div class="flex items-center justify-between">
+                                    <label class="text-xs font-medium text-google-textMuted dark:text-google-darkTextMuted">Background Color</label>
+                                    <div class="relative w-8 h-8 rounded-full overflow-hidden border border-google-border dark:border-google-darkBorder cursor-pointer">
+                                        <!-- Default is light gray for light mode, dark for dark mode. JS handles init. -->
+                                        <input type="color" id="setting-bg-color" value="#ffffff" class="absolute -top-2 -left-2 w-12 h-12 cursor-pointer">
+                                    </div>
+                                </div>
+                                <hr class="border-google-border dark:border-google-darkBorder">
+                                <div class="flex items-center justify-between">
+                                    <label class="text-xs font-medium text-google-textMuted dark:text-google-darkTextMuted">Show Blueprint Grid</label>
+                                    <label class="relative inline-flex items-center cursor-pointer">
+                                        <input type="checkbox" id="setting-grid-toggle" class="sr-only peer" checked>
+                                        <div class="w-9 h-5 bg-gray-300 peer-focus:outline-none rounded-full peer dark:bg-[#444746] peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border-gray-300 after:border after:rounded-full after:h-4 after:w-4 after:transition-all peer-checked:bg-google-primary dark:peer-checked:bg-google-darkPrimary"></div>
+                                    </label>
+                                </div>
+                                <div class="grid grid-cols-2 gap-3">
+                                    <div>
+                                        <label class="block text-xs font-medium text-google-textMuted dark:text-google-darkTextMuted mb-1">Grid Style</label>
+                                        <select id="setting-grid-style" class="w-full bg-google-bg dark:bg-google-darkBg border border-google-border dark:border-google-darkBorder text-sm rounded-lg px-2 py-2 outline-none focus:ring-2 focus:ring-google-primary dark:focus:ring-google-darkPrimary cursor-pointer">
+                                            <option value="lines">Lines</option>
+                                            <option value="dots">Dots</option>
+                                            <option value="crosses">Crosshairs</option>
+                                        </select>
+                                    </div>
+                                    <div>
+                                        <label class="block text-xs font-medium text-google-textMuted dark:text-google-darkTextMuted mb-1">Grid Color</label>
+                                        <div class="relative w-full h-9 rounded-lg overflow-hidden border border-google-border dark:border-google-darkBorder cursor-pointer">
+                                            <input type="color" id="setting-grid-color" value="#dadce0" class="absolute -top-2 -left-2 w-[120%] h-[150%] cursor-pointer">
+                                        </div>
+                                    </div>
+                                </div>
+                                <div>
+                                    <div class="flex justify-between items-center mb-1">
+                                        <label class="text-xs font-medium text-google-textMuted dark:text-google-darkTextMuted">Grid Scale</label>
+                                        <span id="val-grid-size" class="text-xs font-mono">100px</span>
+                                    </div>
+                                    <input type="range" id="setting-grid-size" min="20" max="200" step="10" value="100" class="w-full accent-google-primary dark:accent-google-darkPrimary">
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+
+            </div>
+        </aside>
+
+        <!-- Canvas Preview Area -->
+        <section id="canvas-wrapper" class="flex-1 p-4 sm:p-8 relative">
+            
+            <!-- Recording Indicator -->
+            <div id="recording-badge" class="absolute top-6 left-1/2 -translate-x-1/2 bg-red-600 text-white px-5 py-2 rounded-full font-bold text-sm flex items-center gap-2 opacity-0 transition-opacity duration-300 z-50 shadow-lg tracking-wider pointer-events-none">
+                <div class="w-2.5 h-2.5 bg-white rounded-full animate-pulse"></div>
+                RECORDING VIDEO
+            </div>
+
+            <!-- Contextual Action Bar -->
+            <div id="context-bar" class="absolute top-6 left-1/2 -translate-x-1/2 bg-google-surface dark:bg-google-darkSurface border border-google-border dark:border-google-darkBorder px-4 py-2.5 rounded-full shadow-lg flex items-center gap-4 opacity-0 scale-95 pointer-events-none transition-all z-40">
+                <div class="flex items-center gap-2">
+                    <span class="ms-icon text-google-primary dark:text-google-darkPrimary text-sm">aspect_ratio</span>
+                    <span class="text-xs font-bold uppercase tracking-wide text-google-textMuted dark:text-google-darkTextMuted">Scale</span>
+                </div>
+                <div class="h-5 w-px bg-google-border dark:bg-google-darkBorder"></div>
+                <div class="flex items-center gap-3">
+                    <button id="btn-scale-down" class="text-google-textMuted dark:text-google-darkTextMuted hover:text-google-primary dark:hover:text-google-darkPrimary transition-colors"><span class="ms-icon">remove</span></button>
+                    <span id="scale-value" class="font-mono text-sm font-bold w-10 text-center">1.0x</span>
+                    <button id="btn-scale-up" class="text-google-textMuted dark:text-google-darkTextMuted hover:text-google-primary dark:hover:text-google-darkPrimary transition-colors"><span class="ms-icon">add</span></button>
+                </div>
+                <div class="h-5 w-px bg-google-border dark:bg-google-darkBorder"></div>
+                <button id="btn-deselect" class="text-xs font-bold text-google-textMuted dark:text-google-darkTextMuted hover:text-google-text dark:hover:text-white transition-colors">DONE</button>
+            </div>
+
+            <!-- Virtual 1920x1080 Canvas -->
+            <canvas id="video-canvas" width="1920" height="1080"></canvas>
+            
+            <!-- Playback Progress Bar -->
+            <div class="absolute bottom-6 left-1/2 -translate-x-1/2 w-3/4 max-w-2xl h-1.5 bg-google-border dark:bg-google-darkBorder rounded-full overflow-hidden shadow-sm pointer-events-none">
+                <div id="progress-bar" class="h-full bg-google-primary dark:bg-google-darkPrimary w-0 transition-all duration-75"></div>
+            </div>
+        </section>
+    </main>
+
+    <script>
+        // DOM Elements
+        const htmlElement = document.documentElement;
+        const editor = document.getElementById('script-editor');
+        const canvas = document.getElementById('video-canvas');
+        const ctx = canvas.getContext('2d', { willReadFrequently: true });
+        
+        const btnPlay = document.getElementById('btn-play');
+        const playIcon = document.getElementById('play-icon');
+        const playText = document.getElementById('play-text');
+        const btnRestart = document.getElementById('btn-restart');
+        const btnExport = document.getElementById('btn-export');
+        const themeToggle = document.getElementById('theme-toggle');
+        const themeIcon = document.getElementById('theme-icon');
+        
+        const durationInput = document.getElementById('setting-duration');
+        const progressBar = document.getElementById('progress-bar');
+        const recordingBadge = document.getElementById('recording-badge');
+        const templateSelector = document.getElementById('template-selector');
+        
+        const viewRaw = document.getElementById('view-raw');
+        const viewSlides = document.getElementById('view-slides');
+        const viewStyle = document.getElementById('view-style');
+
+        // Style Settings Elements
+        const settingBgColor = document.getElementById('setting-bg-color');
+        const settingGridToggle = document.getElementById('setting-grid-toggle');
+        const settingGridStyle = document.getElementById('setting-grid-style');
+        const settingGridColor = document.getElementById('setting-grid-color');
+        const settingGridSize = document.getElementById('setting-grid-size');
+        const valGridSize = document.getElementById('val-grid-size');
+        
+        const settingGlobalAnimIn = document.getElementById('setting-global-anim-in');
+        const settingGlobalAnimOut = document.getElementById('setting-global-anim-out');
+        const settingAnimDuration = document.getElementById('setting-anim-duration');
+
+        // Context Bar Elements
+        const contextBar = document.getElementById('context-bar');
+        const btnScaleUp = document.getElementById('btn-scale-up');
+        const btnScaleDown = document.getElementById('btn-scale-down');
+        const btnDeselect = document.getElementById('btn-deselect');
+        const scaleValueDisplay = document.getElementById('scale-value');
+
+        // Resolution
+        const W = 1920;
+        const H = 1080;
+
+        // Presets
+        const presets = {
+            code: `# NEXT.JS \n*in 100 seconds*\n---\nNext.js is a React framework\nfor building *production-ready* apps.\n---\nIt gives you the best developer experience\nwith all the features you need for production.\n---\n# SERVER-SIDE RENDERING\n*(SSR)*\n---\nPages are rendered on the server,\ndelivering HTML directly to the browser.\n---\n\`\`\`jsx\n// pages/index.js\nexport default function Home({ data }) {\n  return <h1>{data.title}</h1>\n}\n\nexport async function getServerSideProps() {\n  const res = await fetch('api/data')\n  const data = await res.json()\n  return { props: { data } }\n}\n\`\`\`\n---\nNext.js.\nThe *React Framework* for the Web.`,
+            math: `# SCHRÖDINGER \n*Equation in 100 seconds*\n---\nIn quantum mechanics, the \nSchrödinger equation describes \nhow a system changes over time.\n---\n## THE TIME-DEPENDENT EQUATION\n---\n$$ i\\hbar\\frac{\\partial}{\\partial t}\\Psi(\\mathbf{r},t) = \\left[-\\frac{\\hbar^2}{2m}\\nabla^2 + V(\\mathbf{r},t)\\right]\\Psi(\\mathbf{r},t) $$\n---\nIt reveals that particles exist as\n*probability waves* until observed.\n---\n## THE HAMILTONIAN OPERATOR\n---\n$$ \\hat{H} = -\\frac{\\hbar^2}{2m}\\nabla^2 + V(\\mathbf{r},t) $$\n---\nIt's the ultimate math behind \nmodern chemistry and physics.`,
+            images: `# GAME DEV\n*in 100 seconds*\n---\nBuilding games requires art,\nlogic, and a lot of math.\n---\n![Game Engine](https://images.unsplash.com/photo-1552820728-8b83bb6b773f?ixlib=rb-4.0.3&auto=format&fit=crop&w=1920&q=80)\n---\nYou need a powerful engine\nlike Unity, Godot, or Unreal.\n---\n## PHYSICS SIMULATIONS\n---\n$$ \\vec{F} = m\\frac{d\\vec{v}}{dt} $$\n---\n![Code Matrix](https://images.unsplash.com/photo-1526374965328-7f61d4dc18c5?ixlib=rb-4.0.3&auto=format&fit=crop&w=1920&q=80)\n---\nCode, compile, test, repeat.`
+        };
+
+        editor.value = presets.code;
+
+        // Core State
+        let slides = [];
+        let isPlaying = false;
+        let isRecording = false;
+        
+        let accumulatedTime = 0;
+        let lastTimestamp = 0;
+        let currentSlideIndex = 0;
+        let animationFrameId = null;
+        
+        let mediaRecorder = null;
+        let recordedChunks = [];
+
+        // Caches for External Assets
+        const imageCache = new Map();
+        const mathCache = new Map(); 
+
+        // Style Settings State
+        let canvasBgColor = '#ffffff';
+        let gridEnabled = true;
+        let gridStyle = 'lines'; // 'lines', 'dots', 'crosses'
+        let gridColor = '#dadce0';
+        let customGridSize = 100;
+        
+        // Animation State
+        let globalAnimIn = 'slide-left';
+        let globalAnimOut = 'slide-left';
+        let globalAnimDuration = 0.45; // seconds
+        let slideAnimationsIn = {}; // Map of idx -> anim
+        let slideAnimationsOut = {}; 
+
+        // Selection & Overrides State
+        let scaleOverrides = {}; 
+        let selectedElementId = null;
+
+        // Theme Management
+        function applyTheme() {
+            const isDark = htmlElement.classList.contains('dark');
+            themeIcon.textContent = isDark ? 'light_mode' : 'dark_mode';
+            
+            // Sync default canvas colors with theme if they haven't been manually heavily modified
+            if (isDark) {
+                if (canvasBgColor === '#ffffff' || canvasBgColor === '#f8f9fa') canvasBgColor = '#1e1e20';
+                if (gridColor === '#dadce0') gridColor = '#444746';
+            } else {
+                if (canvasBgColor === '#1e1e20' || canvasBgColor === '#131314') canvasBgColor = '#ffffff';
+                if (gridColor === '#444746') gridColor = '#dadce0';
+            }
+            settingBgColor.value = canvasBgColor;
+            settingGridColor.value = gridColor;
+
+            // Mark slides dirty to redraw text with proper contrast
+            slides.forEach(s => s.isDirty = true);
+            if (!isPlaying && !isRecording) forceRedrawCurrent();
+        }
+
+        if (localStorage.theme === 'dark' || (!('theme' in localStorage) && window.matchMedia('(prefers-color-scheme: dark)').matches)) {
+            htmlElement.classList.add('dark');
+        }
+        applyTheme();
+
+        themeToggle.addEventListener('click', () => {
+            htmlElement.classList.toggle('dark');
+            localStorage.theme = htmlElement.classList.contains('dark') ? 'dark' : 'light';
+            applyTheme();
+        });
+
+        // Tabs & Accordions Logic
+        document.querySelectorAll('.tab-btn').forEach(btn => {
+            btn.addEventListener('click', (e) => {
+                document.querySelectorAll('.tab-btn').forEach(b => {
+                    b.classList.remove('active', 'bg-google-primaryBg', 'dark:bg-google-darkPrimaryBg', 'text-google-primary', 'dark:text-google-darkPrimary');
+                    b.classList.add('text-google-textMuted', 'dark:text-google-darkTextMuted');
+                });
+                document.querySelectorAll('.tab-panel').forEach(p => p.classList.add('hidden'));
+                
+                const target = e.currentTarget;
+                target.classList.add('active', 'bg-google-primaryBg', 'dark:bg-google-darkPrimaryBg', 'text-google-primary', 'dark:text-google-darkPrimary');
+                target.classList.remove('text-google-textMuted', 'dark:text-google-darkTextMuted');
+                
+                if(target.id === 'tab-btn-raw') viewRaw.classList.remove('hidden');
+                if(target.id === 'tab-btn-slides') { viewSlides.classList.remove('hidden'); generateSlideUI(); }
+                if(target.id === 'tab-btn-style') viewStyle.classList.remove('hidden');
+            });
+        });
+
+        document.querySelectorAll('.accordion-toggle').forEach(btn => {
+            btn.addEventListener('click', () => {
+                const content = btn.nextElementSibling;
+                const icon = btn.querySelector('.accordion-icon');
+                content.classList.toggle('open');
+                icon.classList.toggle('open');
+            });
+        });
+
+        function parseScript(text) {
+            const rawSlides = text.split(/^---$/m).map(s => s.trim()).filter(s => s.length > 0);
+            
+            return rawSlides.map((rawText, sIdx) => {
+                let lines = rawText.split('\n');
+                let type = 'text'; 
+                let content = [];
+                let codeLang = '';
+
+                let inCodeBlock = false;
+                let codeLines = [];
+
+                for (let i = 0; i < lines.length; i++) {
+                    let line = lines[i].trim();
+                    
+                    if (line.startsWith('```')) {
+                        if (inCodeBlock) {
+                            inCodeBlock = false; type = 'code'; content = codeLines.join('\n');
+                        } else {
+                            inCodeBlock = true; codeLang = line.replace('```', '').trim();
+                        }
+                        continue;
+                    }
+                    if (inCodeBlock) { codeLines.push(lines[i]); continue; }
+
+                    if (line.startsWith('$$') && line.endsWith('$$')) {
+                        type = 'math'; content = line.replace(/\$\$/g, '').trim();
+                        if (!mathCache.has(content)) renderMathToCache(content);
+                        continue;
+                    }
+
+                    const imgMatch = line.match(/^!\[.*?\]\((.*?)\)$/);
+                    if (imgMatch) {
+                        type = 'image'; content = imgMatch[1];
+                        if (!imageCache.has(content)) {
+                            const img = new Image(); img.crossOrigin = "anonymous"; 
+                            img.onload = () => {
+                                slides.forEach(s => { if (s.type === 'image' && s.content === content) s.isDirty = true; });
+                                if (!isPlaying && !isRecording) forceRedrawCurrent(); 
+                            };
+                            img.src = content;
+                            imageCache.set(content, img);
+                        }
+                        continue;
+                    }
+
+                    if (line.length > 0) {
+                        let parsedLine = { text: line, style: 'normal', index: i };
+                        if (line.startsWith('# ')) { parsedLine.text = line.substring(2); parsedLine.style = 'h1'; } 
+                        else if (line.startsWith('## ')) { parsedLine.text = line.substring(3); parsedLine.style = 'h2'; } 
+                        else if (line.startsWith('*') && line.endsWith('*')) { parsedLine.text = line.substring(1, line.length - 1); parsedLine.style = 'highlight'; }
+                        content.push(parsedLine);
+                    }
+                }
+
+                if (type === 'text' && content.length === 0) content.push({text: ' ', style: 'normal', index: 0});
+                
+                return { type, content, codeLang, raw: rawText, offscreen: null, hitBoxes: [], isDirty: true };
+            });
+        }
+
+        async function renderMathToCache(tex) {
+            if (!window.MathJax || !window.MathJax.tex2svgPromise) return;
+            mathCache.set(tex, null);
+            try {
+                const wrapper = await MathJax.tex2svgPromise(tex, { display: true });
+                const svg = wrapper.querySelector('svg');
+                svg.setAttribute('fill', 'currentColor'); 
+                // Default math color based on theme
+                svg.style.color = htmlElement.classList.contains('dark') ? '#e3e3e3' : '#202124';
+                const svgData = new XMLSerializer().serializeToString(svg);
+                const blob = new Blob([svgData], {type: "image/svg+xml;charset=utf-8"});
+                const url = URL.createObjectURL(blob);
+                const img = new Image();
+                img.onload = () => { 
+                    mathCache.set(tex, img); 
+                    slides.forEach(s => { if (s.type === 'math' && s.content === tex) s.isDirty = true; });
+                    if (!isPlaying && !isRecording) forceRedrawCurrent(); 
+                };
+                img.src = url;
+            } catch(e) { console.error("MathJax error", e); }
+        }
+
+        const easeOutExpo = (t) => t === 1 ? 1 : 1 - Math.pow(2, -10 * t);
+        const easeOutBack = (t) => {
+            const c1 = 1.70158; const c3 = c1 + 1;
+            return 1 + c3 * Math.pow(t - 1, 3) + c1 * Math.pow(t - 1, 2);
+        };
+
+        // Solid Push logic: no alpha fade for directional animations, perfectly synchronized in/out curves
+        function getSlideAnimationParams(type, phase, progress) {
+            let alpha = 1; let scale = 1; let xOffset = 0; let yOffset = 0;
+            let t = Math.max(0, Math.min(1, progress)); 
+
+            if (phase === 'in') {
+                if (type === 'pop') { alpha = t; scale = 0.8 + (easeOutBack(t) * 0.2); yOffset = (1 - easeOutExpo(t)) * 100; }
+                else if (type === 'fade') { alpha = t; }
+                else if (type === 'slide-left') { alpha = 1; xOffset = (1 - easeOutExpo(t)) * W; }
+                else if (type === 'slide-right') { alpha = 1; xOffset = -(1 - easeOutExpo(t)) * W; }
+                else if (type === 'slide-up') { alpha = 1; yOffset = (1 - easeOutExpo(t)) * H; }
+                else if (type === 'slide-down') { alpha = 1; yOffset = -(1 - easeOutExpo(t)) * H; }
+                else if (type === 'zoom') { alpha = t; scale = 0.5 + easeOutBack(t) * 0.5; }
+            } else if (phase === 'out') {
+                if (type === 'pop') { alpha = 1 - t; scale = 1.0 + (t * 0.1); yOffset = -(easeOutExpo(t)) * 50; }
+                else if (type === 'fade') { alpha = 1 - t; }
+                else if (type === 'slide-left') { alpha = 1; xOffset = -(easeOutExpo(t)) * W; }
+                else if (type === 'slide-right') { alpha = 1; xOffset = (easeOutExpo(t)) * W; }
+                else if (type === 'slide-up') { alpha = 1; yOffset = -(easeOutExpo(t)) * H; }
+                else if (type === 'slide-down') { alpha = 1; yOffset = (easeOutExpo(t)) * H; }
+                else if (type === 'zoom') { alpha = 1 - t; scale = 1 - easeOutExpo(t) * 0.5; }
+            }
+            return { alpha, scale, xOffset, yOffset };
+        }
+
+        function getScaleOverride(slideIdx, elementIdx) { return scaleOverrides[`${slideIdx}_${elementIdx}`] || 1.0; }
+        function setScaleOverride(slideIdx, elementIdx, scale) { scaleOverrides[`${slideIdx}_${elementIdx}`] = scale; }
+
+        function drawBackground() {
+            ctx.fillStyle = canvasBgColor; 
+            ctx.fillRect(0, 0, W, H);
+            
+            const isDark = htmlElement.classList.contains('dark');
+            const gradient = ctx.createRadialGradient(W/2, H/2, 100, W/2, H/2, W);
+            gradient.addColorStop(0, isDark ? 'rgba(255, 255, 255, 0.03)' : 'rgba(0, 0, 0, 0.02)'); 
+            gradient.addColorStop(1, 'transparent');
+            ctx.fillStyle = gradient; 
+            ctx.fillRect(0, 0, W, H);
+
+            if (gridEnabled) {
+                ctx.strokeStyle = gridColor; 
+                ctx.fillStyle = gridColor;
+                ctx.lineWidth = 2;
+                ctx.globalAlpha = isDark ? 0.2 : 0.4; 
+                
+                if (gridStyle === 'lines') {
+                    for(let x=0; x<W; x+=customGridSize) { ctx.beginPath(); ctx.moveTo(x,0); ctx.lineTo(x,H); ctx.stroke(); }
+                    for(let y=0; y<H; y+=customGridSize) { ctx.beginPath(); ctx.moveTo(0,y); ctx.lineTo(W,y); ctx.stroke(); }
+                } 
+                else if (gridStyle === 'dots') {
+                    for(let x=0; x<W; x+=customGridSize) {
+                        for(let y=0; y<H; y+=customGridSize) {
+                            ctx.beginPath(); ctx.arc(x, y, 3, 0, Math.PI*2); ctx.fill();
+                        }
+                    }
+                } 
+                else if (gridStyle === 'crosses') {
+                    const s = 6;
+                    for(let x=0; x<W; x+=customGridSize) {
+                        for(let y=0; y<H; y+=customGridSize) {
+                            ctx.beginPath(); ctx.moveTo(x-s, y); ctx.lineTo(x+s, y); ctx.stroke();
+                            ctx.beginPath(); ctx.moveTo(x, y-s); ctx.lineTo(x, y+s); ctx.stroke();
+                        }
+                    }
+                }
+                ctx.globalAlpha = 1.0;
+            }
+        }
+
+        function renderSlideToOffscreen(slideIdx, slide) {
+            if (!slide.offscreen) {
+                slide.offscreen = document.createElement('canvas');
+                slide.offscreen.width = W; slide.offscreen.height = H;
+            }
+            const offCtx = slide.offscreen.getContext('2d');
+            offCtx.clearRect(0, 0, W, H);
+            slide.hitBoxes = []; 
+
+            if (slide.type === 'text') drawTextSlide(offCtx, slideIdx, slide.content, slide.hitBoxes);
+            else if (slide.type === 'code') drawCodeSlide(offCtx, slideIdx, slide.content, slide.codeLang, slide.hitBoxes);
+            else if (slide.type === 'image') drawImageSlide(offCtx, slideIdx, slide.content, slide.hitBoxes);
+            else if (slide.type === 'math') drawMathSlide(offCtx, slideIdx, slide.content, slide.hitBoxes);
+
+            slide.isDirty = false;
+        }
+
+        function drawTextSlide(targetCtx, slideIdx, lines, targetHitBoxes) {
+            let totalHeight = 0; const lineHeights = [];
+            targetCtx.textAlign = 'center'; targetCtx.textBaseline = 'middle';
+            const isDark = htmlElement.classList.contains('dark');
+
+            for (let line of lines) {
+                let size = 80;
+                if (line.style === 'h1') size = 160;
+                if (line.style === 'h2') size = 110;
+                if (line.style === 'highlight') size = 90;
+                
+                size *= getScaleOverride(slideIdx, line.index);
+                let h = size * 1.3; totalHeight += h; lineHeights.push({ size, h });
+            }
+
+            let currentY = (H - totalHeight) / 2;
+
+            for (let i = 0; i < lines.length; i++) {
+                let line = lines[i]; let { size, h } = lineHeights[i];
+                let drawY = currentY + (h / 2);
+                
+                targetCtx.font = `${line.style === 'h1'? 800 : line.style === 'h2'? 700 : line.style === 'highlight'? 700 : 500} ${size}px 'Inter'`;
+                const tw = targetCtx.measureText(line.text).width;
+
+                targetHitBoxes.push({ id: `${slideIdx}_${line.index}`, x: W/2 - tw/2 - 20, y: drawY - h/2, w: tw + 40, h: h });
+
+                if (line.style === 'h1') {
+                    targetCtx.fillStyle = isDark ? '#ffffff' : '#000000'; 
+                    targetCtx.fillText(line.text, W/2, drawY); 
+                } 
+                else if (line.style === 'h2') { 
+                    targetCtx.fillStyle = isDark ? '#8ab4f8' : '#0b57d0'; 
+                    targetCtx.fillText(line.text, W/2, drawY); 
+                }
+                else if (line.style === 'highlight') {
+                    targetCtx.fillStyle = isDark ? 'rgba(138, 180, 248, 0.15)' : 'rgba(11, 87, 208, 0.1)'; 
+                    targetCtx.beginPath(); targetCtx.roundRect(W/2 - tw/2 - 20, drawY - size/2 - 10, tw + 40, size + 20, 8); targetCtx.fill();
+                    targetCtx.fillStyle = isDark ? '#8ab4f8' : '#0b57d0'; 
+                    targetCtx.fillText(line.text, W/2, drawY);
+                }
+                else { 
+                    targetCtx.fillStyle = isDark ? '#9aa0a6' : '#5f6368'; 
+                    targetCtx.fillText(line.text, W/2, drawY); 
+                }
+                currentY += h;
+            }
+        }
+
+        const syntaxRules = [
+            { regex: /^\/\/.*$/, color: '#9aa0a6' }, 
+            { regex: /^(export|import|from|default|const|let|var|function|return|if|else|for|while|await|async|class|extends|new)\b/, color: '#ff7b72' },
+            { regex: /^('.*?'|".*?"|`.*?`)/, color: '#a5d6ff' },
+            { regex: /^[a-zA-Z_]\w*(?=\()/, color: '#d2a8ff' },
+            { regex: /^[0-9]+(\.[0-9]+)?\b/, color: '#79c0ff' },
+        ];
+
+        function drawCodeSlide(targetCtx, slideIdx, code, lang, targetHitBoxes) {
+            const userScale = getScaleOverride(slideIdx, 0);
+            const pad = 60 * userScale; const codeLines = code.split('\n');
+            const fontSize = 45 * userScale; const lineHeight = fontSize * 1.6;
+            
+            targetCtx.font = `400 ${fontSize}px "JetBrains Mono"`;
+            let maxW = 0; for(let line of codeLines) maxW = Math.max(maxW, targetCtx.measureText(line).width);
+            
+            const boxW = Math.max(800 * userScale, Math.min(W * 0.9, maxW + pad * 2));
+            const boxH = codeLines.length * lineHeight + pad * 2 + (50 * userScale); 
+
+            const startX = (W - boxW) / 2; const startY = (H - boxH) / 2;
+            targetHitBoxes.push({ id: `${slideIdx}_0`, x: startX, y: startY, w: boxW, h: boxH });
+
+            // Code block is always dark theme for readability
+            targetCtx.fillStyle = '#1e1e20'; targetCtx.shadowColor = 'rgba(0,0,0,0.4)'; targetCtx.shadowBlur = 40; targetCtx.shadowOffsetY = 20;
+            targetCtx.beginPath(); targetCtx.roundRect(startX, startY, boxW, boxH, 16 * userScale); targetCtx.fill(); targetCtx.shadowColor = 'transparent';
+
+            const dotR = 8 * userScale; const dotY = startY + 30 * userScale;
+            targetCtx.fillStyle = '#ff5f56'; targetCtx.beginPath(); targetCtx.arc(startX + dotR*3, dotY, dotR, 0, Math.PI*2); targetCtx.fill();
+            targetCtx.fillStyle = '#ffbd2e'; targetCtx.beginPath(); targetCtx.arc(startX + dotR*6, dotY, dotR, 0, Math.PI*2); targetCtx.fill();
+            targetCtx.fillStyle = '#27c93f'; targetCtx.beginPath(); targetCtx.arc(startX + dotR*9, dotY, dotR, 0, Math.PI*2); targetCtx.fill();
+
+            targetCtx.textAlign = 'left'; targetCtx.textBaseline = 'top';
+            let textY = startY + 80 * userScale;
+            
+            for (let line of codeLines) {
+                let currentX = startX + pad;
+                const tokens = line.split(/([ \(\)\{\}\[\]\.,;:\n])/g).filter(Boolean);
+                for (let token of tokens) {
+                    let color = '#e3e3e3';
+                    if (token.trim() !== '') {
+                        for (let rule of syntaxRules) { if (rule.regex.test(token)) { color = rule.color; break; } }
+                        if (token.startsWith('<') || token.startsWith('</')) color = '#7ee787'; 
+                    }
+                    targetCtx.fillStyle = color; targetCtx.fillText(token, currentX, textY);
+                    currentX += targetCtx.measureText(token).width;
+                }
+                textY += lineHeight;
+            }
+        }
+
+        function drawImageSlide(targetCtx, slideIdx, url, targetHitBoxes) {
+            const userScale = getScaleOverride(slideIdx, 0);
+            const img = imageCache.get(url);
+            
+            if (img && img.complete) {
+                const padding = 100;
+                let scale = Math.min((W - padding*2) / img.width, (H - padding*2) / img.height) * userScale;
+                let dw = img.width * scale; let dh = img.height * scale;
+                let dx = (W - dw)/2; let dy = (H - dh)/2;
+
+                targetHitBoxes.push({ id: `${slideIdx}_0`, x: dx, y: dy, w: dw, h: dh });
+                
+                targetCtx.shadowColor = 'rgba(0,0,0,0.3)'; targetCtx.shadowBlur = 40; targetCtx.shadowOffsetY = 15;
+                targetCtx.drawImage(img, dx, dy, dw, dh); targetCtx.shadowColor = 'transparent';
+            } else {
+                targetCtx.textAlign = 'center'; targetCtx.textBaseline = 'middle';
+                targetCtx.font = '700 80px Inter'; targetCtx.fillStyle = '#9aa0a6';
+                targetCtx.fillText('LOADING IMAGE...', W/2, H/2);
+            }
+        }
+
+        function drawMathSlide(targetCtx, slideIdx, tex, targetHitBoxes) {
+            const userScale = getScaleOverride(slideIdx, 0);
+            const img = mathCache.get(tex);
+            
+            if (img && img.complete) {
+                let scale = 4.0 * userScale;
+                let dw = img.width * scale; let dh = img.height * scale;
+                let dx = (W - dw)/2; let dy = (H - dh)/2;
+
+                targetHitBoxes.push({ id: `${slideIdx}_0`, x: dx - 40, y: dy - 40, w: dw + 80, h: dh + 80 });
+                
+                targetCtx.drawImage(img, dx, dy, dw, dh);
+            } else {
+                targetCtx.textAlign = 'center'; targetCtx.textBaseline = 'middle';
+                targetCtx.font = '700 60px Inter'; targetCtx.fillStyle = '#9aa0a6';
+                targetCtx.fillText('RENDERING MATH...', W/2, H/2);
+            }
+        }
+
+        function drawSelectionHighlight() {
+            if (!selectedElementId || isPlaying || isRecording || slides.length === 0) return;
+            const slide = slides[currentSlideIndex];
+            if (!slide || !slide.hitBoxes) return;
+            
+            const box = slide.hitBoxes.find(b => b.id === selectedElementId);
+            if (box) {
+                ctx.strokeStyle = '#0b57d0'; ctx.lineWidth = 4; ctx.setLineDash([10, 8]);
+                ctx.strokeRect(box.x, box.y, box.w, box.h); ctx.setLineDash([]);
+                
+                ctx.fillStyle = '#0b57d0'; const s = 12;
+                ctx.fillRect(box.x - s/2, box.y - s/2, s, s); ctx.fillRect(box.x + box.w - s/2, box.y - s/2, s, s);
+                ctx.fillRect(box.x - s/2, box.y + box.h - s/2, s, s); ctx.fillRect(box.x + box.w - s/2, box.y + box.h - s/2, s, s);
+            }
+        }
+
+        canvas.addEventListener('click', (e) => {
+            if (isPlaying || isRecording || slides.length === 0) return; 
+            const rect = canvas.getBoundingClientRect();
+            const clickX = (e.clientX - rect.left) * (W / rect.width);
+            const clickY = (e.clientY - rect.top) * (H / rect.height);
+
+            const slide = slides[currentSlideIndex];
+            let clickedId = null;
+            
+            if (slide && slide.hitBoxes) {
+                for (let box of slide.hitBoxes) {
+                    if (clickX >= box.x && clickX <= box.x + box.w && clickY >= box.y && clickY <= box.y + box.h) {
+                        clickedId = box.id; break;
+                    }
+                }
+            }
+
+            if (clickedId) { selectedElementId = clickedId; showContextBar(); forceRedrawCurrent(); } 
+            else closeContextBar();
+        });
+
+        canvas.addEventListener('mousemove', (e) => {
+            if (isPlaying || isRecording || slides.length === 0) return;
+            const rect = canvas.getBoundingClientRect();
+            const mx = (e.clientX - rect.left) * (W / rect.width);
+            const my = (e.clientY - rect.top) * (H / rect.height);
+            const slide = slides[currentSlideIndex];
+            if (slide && slide.hitBoxes) {
+                canvas.classList.toggle('interactive', slide.hitBoxes.some(b => mx >= b.x && mx <= b.x + b.w && my >= b.y && my <= b.y + b.h));
+            }
+        });
+
+        function showContextBar() {
+            if (!selectedElementId) return;
+            const parts = selectedElementId.split('_');
+            scaleValueDisplay.textContent = getScaleOverride(parts[0], parts[1]).toFixed(1) + 'x';
+            contextBar.classList.remove('opacity-0', 'scale-95', 'pointer-events-none');
+            contextBar.classList.add('opacity-100', 'scale-100', 'pointer-events-auto');
+        }
+
+        function closeContextBar() {
+            selectedElementId = null;
+            contextBar.classList.add('opacity-0', 'scale-95', 'pointer-events-none');
+            contextBar.classList.remove('opacity-100', 'scale-100', 'pointer-events-auto');
+            forceRedrawCurrent();
+        }
+
+        btnDeselect.addEventListener('click', closeContextBar);
+        btnScaleUp.addEventListener('click', () => { updateScale(0.1); });
+        btnScaleDown.addEventListener('click', () => { updateScale(-0.1); });
+
+        function updateScale(delta) {
+            if (!selectedElementId) return;
+            const parts = selectedElementId.split('_');
+            let s = Math.max(0.2, Math.min(5.0, getScaleOverride(parts[0], parts[1]) + delta));
+            setScaleOverride(parts[0], parts[1], s);
+            scaleValueDisplay.textContent = s.toFixed(1) + 'x';
+            if (slides[parts[0]]) slides[parts[0]].isDirty = true;
+            forceRedrawCurrent();
+        }
+
+        // Style Settings Listeners
+        settingBgColor.addEventListener('input', (e) => { canvasBgColor = e.target.value; forceRedrawCurrent(); });
+        settingGridToggle.addEventListener('change', (e) => { gridEnabled = e.target.checked; forceRedrawCurrent(); });
+        settingGridStyle.addEventListener('change', (e) => { gridStyle = e.target.value; forceRedrawCurrent(); });
+        settingGridColor.addEventListener('input', (e) => { gridColor = e.target.value; forceRedrawCurrent(); });
+        settingGridSize.addEventListener('input', (e) => {
+            customGridSize = parseInt(e.target.value); valGridSize.textContent = `${customGridSize}px`; forceRedrawCurrent();
+        });
+        settingGlobalAnimIn.addEventListener('change', (e) => { globalAnimIn = e.target.value; forceRedrawCurrent(); });
+        settingGlobalAnimOut.addEventListener('change', (e) => { globalAnimOut = e.target.value; forceRedrawCurrent(); });
+        settingAnimDuration.addEventListener('input', (e) => {
+            globalAnimDuration = Math.max(0.1, parseFloat(e.target.value) || 0.45); forceRedrawCurrent();
+        });
+        durationInput.addEventListener('input', () => forceRedrawCurrent());
+
+        function generateSlideUI() {
+            viewSlides.innerHTML = '';
+            slides.forEach((slide, idx) => {
+                const el = document.createElement('div');
+                el.className = `slide-card p-3 rounded-xl bg-google-surface dark:bg-google-darkSurface cursor-pointer flex flex-col gap-1 ${idx === currentSlideIndex ? 'active' : ''}`;
+                
+                let icon = 'format_align_left'; let snippet = '';
+                if (slide.type === 'code') { icon = 'code'; snippet = `Code: ${slide.codeLang}`; }
+                else if (slide.type === 'math') { icon = 'functions'; snippet = 'LaTeX Equation'; }
+                else if (slide.type === 'image') { icon = 'image'; snippet = 'Image Asset'; }
+                else { snippet = slide.content[0]?.text.substring(0, 30) + '...' || 'Empty Slide'; }
+
+                const currentAnimIn = slideAnimationsIn[idx] || '';
+                const currentAnimOut = slideAnimationsOut[idx] || '';
+
+                el.innerHTML = `
+                    <div class="flex items-center justify-between">
+                        <span class="text-xs font-bold text-google-textMuted dark:text-google-darkTextMuted font-mono">SLIDE ${idx + 1}</span>
+                        <span class="ms-icon text-google-textMuted dark:text-google-darkTextMuted text-[16px]">${icon}</span>
+                    </div>
+                    <p class="text-sm text-google-text dark:text-google-darkText truncate font-medium">${snippet}</p>
+                    <div class="mt-2 pt-2 border-t border-google-border dark:border-google-darkBorder" onclick="event.stopPropagation()">
+                        <div class="flex items-center justify-between gap-2 mb-1">
+                            <span class="text-[10px] text-google-textMuted dark:text-google-darkTextMuted uppercase font-bold tracking-wider">In</span>
+                            <select class="slide-anim-in-select bg-google-bg dark:bg-google-darkBg border border-google-border dark:border-google-darkBorder text-google-text dark:text-google-darkText text-[10px] rounded px-1.5 py-1 outline-none focus:ring-1 focus:ring-google-primary dark:focus:ring-google-darkPrimary cursor-pointer" data-idx="${idx}">
+                                <option value="" ${currentAnimIn === '' ? 'selected' : ''}>Global Default</option>
+                                <option value="pop" ${currentAnimIn === 'pop' ? 'selected' : ''}>Pop & Scale</option>
+                                <option value="fade" ${currentAnimIn === 'fade' ? 'selected' : ''}>Smooth Fade</option>
+                                <option value="slide-left" ${currentAnimIn === 'slide-left' ? 'selected' : ''}>Slide Left</option>
+                                <option value="slide-right" ${currentAnimIn === 'slide-right' ? 'selected' : ''}>Slide Right</option>
+                                <option value="slide-up" ${currentAnimIn === 'slide-up' ? 'selected' : ''}>Slide Up</option>
+                                <option value="slide-down" ${currentAnimIn === 'slide-down' ? 'selected' : ''}>Slide Down</option>
+                                <option value="zoom" ${currentAnimIn === 'zoom' ? 'selected' : ''}>Zoom In</option>
+                                <option value="none" ${currentAnimIn === 'none' ? 'selected' : ''}>No Animation</option>
+                            </select>
+                        </div>
+                        <div class="flex items-center justify-between gap-2">
+                            <span class="text-[10px] text-google-textMuted dark:text-google-darkTextMuted uppercase font-bold tracking-wider">Out</span>
+                            <select class="slide-anim-out-select bg-google-bg dark:bg-google-darkBg border border-google-border dark:border-google-darkBorder text-google-text dark:text-google-darkText text-[10px] rounded px-1.5 py-1 outline-none focus:ring-1 focus:ring-google-primary dark:focus:ring-google-darkPrimary cursor-pointer" data-idx="${idx}">
+                                <option value="" ${currentAnimOut === '' ? 'selected' : ''}>Global Default</option>
+                                <option value="pop" ${currentAnimOut === 'pop' ? 'selected' : ''}>Pop & Scale</option>
+                                <option value="fade" ${currentAnimOut === 'fade' ? 'selected' : ''}>Smooth Fade</option>
+                                <option value="slide-left" ${currentAnimOut === 'slide-left' ? 'selected' : ''}>Slide Left</option>
+                                <option value="slide-right" ${currentAnimOut === 'slide-right' ? 'selected' : ''}>Slide Right</option>
+                                <option value="slide-up" ${currentAnimOut === 'slide-up' ? 'selected' : ''}>Slide Up</option>
+                                <option value="slide-down" ${currentAnimOut === 'slide-down' ? 'selected' : ''}>Slide Down</option>
+                                <option value="zoom" ${currentAnimOut === 'zoom' ? 'selected' : ''}>Zoom Out</option>
+                                <option value="none" ${currentAnimOut === 'none' ? 'selected' : ''}>No Animation</option>
+                            </select>
+                        </div>
+                    </div>
+                `;
+                el.onclick = () => jumpToSlide(idx);
+                viewSlides.appendChild(el);
+            });
+
+            document.querySelectorAll('.slide-anim-in-select').forEach(select => {
+                select.addEventListener('change', (e) => {
+                    const idx = parseInt(e.target.getAttribute('data-idx'));
+                    if (e.target.value === "") delete slideAnimationsIn[idx];
+                    else slideAnimationsIn[idx] = e.target.value;
+                    if (currentSlideIndex === idx) forceRedrawCurrent();
+                });
+            });
+            document.querySelectorAll('.slide-anim-out-select').forEach(select => {
+                select.addEventListener('change', (e) => {
+                    const idx = parseInt(e.target.getAttribute('data-idx'));
+                    if (e.target.value === "") delete slideAnimationsOut[idx];
+                    else slideAnimationsOut[idx] = e.target.value;
+                    if (currentSlideIndex === idx) forceRedrawCurrent();
+                });
+            });
+        }
+
+        function updateActiveSlideUI() {
+            if (viewSlides.classList.contains('hidden')) return;
+            const cards = viewSlides.querySelectorAll('.slide-card');
+            cards.forEach((c, idx) => {
+                if (idx === currentSlideIndex) c.classList.add('active');
+                else c.classList.remove('active');
+            });
+        }
+
+        function updatePlayButtonUI() {
+            if (isPlaying) {
+                playIcon.textContent = 'pause'; playText.textContent = 'Pause';
+            } else {
+                playIcon.textContent = 'play_arrow'; 
+                const slideDuration = parseFloat(durationInput.value) * 1000;
+                const transDuration = Math.min(globalAnimDuration * 1000, slideDuration / 2);
+                const stride = slideDuration - transDuration;
+                const totalDuration = slides.length > 0 ? ((slides.length - 1) * stride) + slideDuration : 0;
+                playText.textContent = accumulatedTime > 0 && accumulatedTime < totalDuration ? 'Resume' : 'Play';
+            }
+        }
+
+        function forceRedrawCurrent() {
+            drawBackground();
+            if (slides.length === 0) return;
+
+            const slideDuration = parseFloat(durationInput.value) * 1000;
+            const transDuration = Math.min(globalAnimDuration * 1000, slideDuration / 2);
+            const stride = slideDuration - transDuration;
+
+            for (let i = 0; i < slides.length; i++) {
+                const slide = slides[i];
+                const startTime = i * stride;
+                const endTime = startTime + slideDuration;
+
+                if (accumulatedTime >= startTime && accumulatedTime < endTime) {
+                    if (slide.isDirty) renderSlideToOffscreen(i, slide);
+                    
+                    const animIn = slideAnimationsIn[i] || globalAnimIn;
+                    const animOut = slideAnimationsOut[i] || globalAnimOut;
+                    
+                    let phase = 'static'; let progress = 1.0;
+                    
+                    if (accumulatedTime < startTime + transDuration) {
+                        phase = 'in'; progress = (accumulatedTime - startTime) / transDuration;
+                    } else if (accumulatedTime > endTime - transDuration) {
+                        phase = 'out'; progress = (accumulatedTime - (endTime - transDuration)) / transDuration;
+                    }
+
+                    const { alpha, scale, xOffset, yOffset } = getSlideAnimationParams(phase === 'in' ? animIn : animOut, phase, progress);
+
+                    ctx.save();
+                    ctx.translate(W/2 + xOffset, H/2 + yOffset); 
+                    ctx.scale(scale, scale); 
+                    ctx.translate(-W/2, -H/2);
+                    ctx.globalAlpha = Math.max(0, Math.min(1, alpha));
+                    
+                    if (slide.offscreen) ctx.drawImage(slide.offscreen, 0, 0);
+                    ctx.restore();
+                }
+            }
+            
+            drawSelectionHighlight();
+            updateActiveSlideUI();
+        }
+
+        function jumpToSlide(index) {
+            currentSlideIndex = index;
+            const slideDuration = parseFloat(durationInput.value) * 1000;
+            const transDuration = Math.min(globalAnimDuration * 1000, slideDuration / 2);
+            const stride = slideDuration - transDuration;
+            
+            accumulatedTime = (index * stride) + (slideDuration / 2); 
+            
+            isPlaying = false;
+            closeContextBar();
+            if (animationFrameId) cancelAnimationFrame(animationFrameId);
+            
+            updatePlayButtonUI();
+            forceRedrawCurrent();
+        }
+
+        function renderLoop(timestamp) {
+            if (!isPlaying && !isRecording) return;
+            if (lastTimestamp === 0) lastTimestamp = timestamp;
+            const dt = timestamp - lastTimestamp;
+            lastTimestamp = timestamp;
+            accumulatedTime += dt;
+            
+            const slideDuration = parseFloat(durationInput.value) * 1000;
+            const transDuration = Math.min(globalAnimDuration * 1000, slideDuration / 2);
+            const stride = slideDuration - transDuration;
+            const totalDuration = slides.length > 0 ? ((slides.length - 1) * stride) + slideDuration : 0;
+
+            if (totalDuration > 0) {
+                if (accumulatedTime >= totalDuration) {
+                    accumulatedTime = totalDuration;
+                    currentSlideIndex = slides.length - 1;
+                    progressBar.style.width = '100%';
+                    forceRedrawCurrent();
+                    
+                    isPlaying = false;
+                    if (isRecording) stopRecording();
+                    updatePlayButtonUI();
+                    return;
+                }
+                currentSlideIndex = Math.min(slides.length - 1, Math.max(0, Math.floor(accumulatedTime / stride)));
+                progressBar.style.width = `${Math.min(100, (accumulatedTime / totalDuration) * 100)}%`;
+                forceRedrawCurrent();
+            }
+            if (isPlaying) { animationFrameId = requestAnimationFrame(renderLoop); }
+        }
+
+        function togglePlayback() {
+            closeContextBar();
+            slides = parseScript(editor.value);
+            if (slides.length === 0) return;
+
+            const slideDuration = parseFloat(durationInput.value) * 1000;
+            const transDuration = Math.min(globalAnimDuration * 1000, slideDuration / 2);
+            const stride = slideDuration - transDuration;
+            const totalDuration = ((slides.length - 1) * stride) + slideDuration;
+
+            if (isPlaying) {
+                isPlaying = false;
+                if (animationFrameId) cancelAnimationFrame(animationFrameId);
+            } else {
+                if (accumulatedTime >= totalDuration) { accumulatedTime = 0; currentSlideIndex = 0; }
+                isPlaying = true;
+                lastTimestamp = performance.now();
+                requestAnimationFrame(renderLoop);
+            }
+            updatePlayButtonUI();
+        }
+
+        btnPlay.addEventListener('click', togglePlayback);
+        btnRestart.addEventListener('click', () => {
+            isPlaying = false; if (animationFrameId) cancelAnimationFrame(animationFrameId);
+            accumulatedTime = 0; currentSlideIndex = 0; progressBar.style.width = '0%';
+            updatePlayButtonUI(); forceRedrawCurrent();
+        });
+
+        function startRecording() {
+            if (isRecording) return;
+            closeContextBar();
+            slides = parseScript(editor.value);
+            if (slides.length === 0) return; 
+
+            isRecording = true; recordedChunks = [];
+            accumulatedTime = 0; currentSlideIndex = 0; progressBar.style.width = '0%';
+            
+            btnExport.disabled = true; btnPlay.disabled = true; btnRestart.disabled = true;
+            btnExport.classList.add('opacity-50', 'cursor-not-allowed');
+            recordingBadge.classList.replace('opacity-0', 'opacity-100');
+
+            const stream = canvas.captureStream(60);
+            let options = { mimeType: 'video/webm;codecs=vp9', videoBitsPerSecond: 8000000 };
+            if (!MediaRecorder.isTypeSupported(options.mimeType)) options = { mimeType: 'video/webm', videoBitsPerSecond: 8000000 };
+
+            mediaRecorder = new MediaRecorder(stream, options);
+            mediaRecorder.ondataavailable = e => { if (e.data.size > 0) recordedChunks.push(e.data); };
+            mediaRecorder.onstop = () => {
+                const blob = new Blob(recordedChunks, { type: options.mimeType.split(';')[0] });
+                const url = URL.createObjectURL(blob);
+                const a = document.createElement('a');
+                a.style.display = 'none'; a.href = url; a.download = `GoogleVids_Export_${Date.now()}.webm`;
+                document.body.appendChild(a); a.click();
+                setTimeout(() => { document.body.removeChild(a); URL.revokeObjectURL(url); }, 100);
+
+                isRecording = false;
+                btnExport.disabled = false; btnPlay.disabled = false; btnRestart.disabled = false;
+                btnExport.classList.remove('opacity-50', 'cursor-not-allowed');
+                recordingBadge.classList.replace('opacity-100', 'opacity-0');
+                
+                accumulatedTime = 0; currentSlideIndex = 0;
+                forceRedrawCurrent();
+            };
+
+            mediaRecorder.start();
+            isPlaying = true; lastTimestamp = performance.now();
+            requestAnimationFrame(renderLoop);
+        }
+
+        function stopRecording() { if (mediaRecorder && mediaRecorder.state !== 'inactive') mediaRecorder.stop(); }
+        btnExport.addEventListener('click', startRecording);
+
+        let typingTimer;
+        editor.addEventListener('input', () => {
+            clearTimeout(typingTimer);
+            if (!isPlaying && !isRecording) {
+                typingTimer = setTimeout(() => {
+                    slides = parseScript(editor.value);
+                    if (currentSlideIndex >= slides.length) currentSlideIndex = Math.max(0, slides.length - 1);
+                    if (!viewSlides.classList.contains('hidden')) generateSlideUI();
+                    forceRedrawCurrent();
+                }, 500);
+            }
+        });
+
+        templateSelector.addEventListener('change', (e) => {
+            if (presets[e.target.value]) {
+                editor.value = presets[e.target.value];
+                scaleOverrides = {}; slides = parseScript(editor.value);
+                isPlaying = false; if (animationFrameId) cancelAnimationFrame(animationFrameId);
+                accumulatedTime = 0; currentSlideIndex = 0; progressBar.style.width = '0%';
+                updatePlayButtonUI(); if (!viewSlides.classList.contains('hidden')) generateSlideUI();
+                forceRedrawCurrent();
+            }
+        });
+
+        drawBackground();
+        setTimeout(() => {
+            slides = parseScript(editor.value);
+            accumulatedTime = 0; updatePlayButtonUI(); forceRedrawCurrent();
+        }, 100);
+    </script>
+</body>
+</html>
