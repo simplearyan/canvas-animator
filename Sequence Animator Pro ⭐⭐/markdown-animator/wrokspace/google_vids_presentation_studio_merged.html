@@ -233,6 +233,10 @@
                                         </div>
                                     </div>
                                 </div>
+                                <div class="flex items-center justify-between rounded-lg border border-google-border dark:border-google-darkBorder bg-google-bg/70 dark:bg-google-darkBg/70 px-3 py-2">
+                                    <label for="setting-auto-duration" class="text-xs font-medium text-google-textMuted dark:text-google-darkTextMuted">Auto-fit duration to animations</label>
+                                    <input type="checkbox" id="setting-auto-duration" checked class="h-4 w-4 rounded border-google-border text-google-primary focus:ring-google-primary">
+                                </div>
                                 <div class="grid grid-cols-2 gap-3">
                                     <div>
                                         <label class="block text-xs font-medium text-google-textMuted dark:text-google-darkTextMuted mb-1">Global Entry (In)</label>
@@ -470,6 +474,7 @@
         const themeIcon = document.getElementById('theme-icon');
         
         const durationInput = document.getElementById('setting-duration');
+        const autoAdjustDurationCheckbox = document.getElementById('setting-auto-duration');
         const progressBar = document.getElementById('progress-bar');
         const recordingBadge = document.getElementById('recording-badge');
         const templateSelector = document.getElementById('template-selector');
@@ -681,6 +686,7 @@ The animation system keeps each element alive independently.`;
         let globalAnimIn = 'slide-left';
         let globalAnimOut = 'slide-left';
         let globalAnimDuration = 0.45; // seconds
+        let autoAdjustSlideDuration = true;
         let slideAnimationsIn = {}; // Map of idx -> anim
         let slideAnimationsOut = {}; 
 
@@ -896,13 +902,15 @@ The animation system keeps each element alive independently.`;
             const animationMode = phase === 'in' ? config.in : phase === 'out' ? config.out : 'none';
 
             if (phase !== 'static' && animationMode && animationMode !== 'none') {
-                if (animationMode === 'fade') { alpha = easedProgress; }
-                else if (animationMode === 'slide-top') { y = -((1 - easedProgress) * 140); alpha = easedProgress; }
-                else if (animationMode === 'slide-bottom') { y = ((1 - easedProgress) * 140); alpha = easedProgress; }
-                else if (animationMode === 'slide-left') { x = -((1 - easedProgress) * 220); alpha = easedProgress; }
-                else if (animationMode === 'slide-right') { x = ((1 - easedProgress) * 220); alpha = easedProgress; }
-                else if (animationMode === 'zoom') { scale = 0.85 + (easedProgress * 0.15); alpha = easedProgress; }
-                else if (animationMode === 'bar') { scale = 0.96 + (easedProgress * 0.04); alpha = easedProgress; }
+                const isOutPhase = phase === 'out';
+                const visualProgress = isOutPhase ? 1 - easedProgress : easedProgress;
+                if (animationMode === 'fade') { alpha = visualProgress; }
+                else if (animationMode === 'slide-top') { y = isOutPhase ? ((1 - easedProgress) * 140) : -((1 - easedProgress) * 140); alpha = visualProgress; }
+                else if (animationMode === 'slide-bottom') { y = isOutPhase ? -((1 - easedProgress) * 140) : ((1 - easedProgress) * 140); alpha = visualProgress; }
+                else if (animationMode === 'slide-left') { x = isOutPhase ? ((1 - easedProgress) * 220) : -((1 - easedProgress) * 220); alpha = visualProgress; }
+                else if (animationMode === 'slide-right') { x = isOutPhase ? -((1 - easedProgress) * 220) : ((1 - easedProgress) * 220); alpha = visualProgress; }
+                else if (animationMode === 'zoom') { scale = isOutPhase ? 1 - (easedProgress * 0.15) : 0.85 + (easedProgress * 0.15); alpha = visualProgress; }
+                else if (animationMode === 'bar') { scale = isOutPhase ? 1 - (easedProgress * 0.04) : 0.96 + (easedProgress * 0.04); alpha = visualProgress; }
             } else if (phase === 'static' && loopMode !== 'none') {
                 const loopDuration = Math.max(0.25, durationMs / 1000 / Math.max(1, repeatCount));
                 const loopTime = ((currentTime + delayMs) / 1000) % loopDuration;
@@ -990,8 +998,36 @@ The animation system keeps each element alive independently.`;
             return 600;
         }
 
+        function getEffectiveSlideDuration(slideIdx, slideDurationMs = parseFloat(durationInput.value) * 1000) {
+            const baseDuration = Math.max(100, slideDurationMs || 3000);
+            if (!autoAdjustSlideDuration) return baseDuration;
+
+            let extraDuration = 0;
+            const hasGlobalTransition = (globalAnimIn && globalAnimIn !== 'none') || (globalAnimOut && globalAnimOut !== 'none');
+            if (hasGlobalTransition) {
+                extraDuration = Math.max(extraDuration, Math.min(globalAnimDuration * 1000, baseDuration));
+            }
+
+            Object.keys(elementAnimations).forEach((elementId) => {
+                if (!elementId.startsWith(`${slideIdx}_`)) return;
+                const config = getElementAnimationConfig(elementId);
+                const delayMs = (config.delay || 0) * 1000;
+                const durationMs = Math.max(120, (config.duration || 0.6) * 1000);
+                if (config.in && config.in !== 'none') extraDuration = Math.max(extraDuration, delayMs + durationMs);
+                if (config.out && config.out !== 'none') extraDuration = Math.max(extraDuration, delayMs + durationMs);
+            });
+
+            return Math.max(baseDuration, baseDuration + extraDuration);
+        }
+
+        function getSlideTimelineDuration(baseDurationMs = parseFloat(durationInput.value) * 1000) {
+            let total = 0;
+            slides.forEach((_, idx) => { total += getEffectiveSlideDuration(idx, baseDurationMs); });
+            return total;
+        }
+
         function getSlideTiming(slideIdx, slideDurationMs = parseFloat(durationInput.value) * 1000) {
-            const duration = Math.max(100, slideDurationMs || 3000);
+            const duration = getEffectiveSlideDuration(slideIdx, slideDurationMs);
             let transitionMs = 0;
             const hasGlobalTransition = (globalAnimIn && globalAnimIn !== 'none') || (globalAnimOut && globalAnimOut !== 'none');
 
@@ -1009,12 +1045,16 @@ The animation system keeps each element alive independently.`;
             });
 
             transitionMs = Math.min(transitionMs, duration);
+            let startTime = 0;
+            for (let i = 0; i < slideIdx; i++) {
+                startTime += getEffectiveSlideDuration(i, slideDurationMs);
+            }
             return {
                 duration,
                 transitionMs,
                 stride: duration,
-                startTime: slideIdx * duration,
-                endTime: (slideIdx * duration) + duration
+                startTime,
+                endTime: startTime + duration
             };
         }
 
@@ -1055,15 +1095,23 @@ The animation system keeps each element alive independently.`;
                 const slideStartTime = timing.startTime;
                 const slideEndTime = timing.endTime;
                 const transDuration = timing.transitionMs;
+                const elConfig = getElementAnimationConfig(lineElementId);
+                const elDelay = (elConfig.delay || 0) * 1000;
+                const elDuration = Math.max(120, (elConfig.duration || 0.6) * 1000);
                 let phase = 'static';
                 let phaseProgress = 1;
                 if (isPreviewing) {
                     if (currentTime < slideStartTime + transDuration) {
-                        phase = 'in'; phaseProgress = (currentTime - slideStartTime) / Math.max(transDuration, 1);
-                    } else if (currentTime > slideEndTime - transDuration) {
-                        phase = 'out'; phaseProgress = (currentTime - (slideEndTime - transDuration)) / Math.max(transDuration, 1);
+                        phase = 'in';
+                        const elStart = slideStartTime + elDelay;
+                        phaseProgress = (currentTime - elStart) / Math.max(elDuration, 1);
+                    } else if (currentTime >= slideEndTime - transDuration) {
+                        phase = 'out';
+                        const elStartOut = slideEndTime - elDuration - elDelay;
+                        phaseProgress = (currentTime - elStartOut) / Math.max(elDuration, 1);
                     }
                 }
+                phaseProgress = Math.max(0, Math.min(1, phaseProgress));
                 const animationTransform = getElementAnimationTransform(lineElementId, phase, phaseProgress, currentTime);
                 targetCtx.save();
                 targetCtx.translate(bounds.x + bounds.w/2 + animationTransform.x, drawY + animationTransform.y);
@@ -1147,11 +1195,15 @@ The animation system keeps each element alive independently.`;
             const slideStartTime = timing.startTime;
             const slideEndTime = timing.endTime;
             const transDuration = timing.transitionMs;
+            const elConfig = getElementAnimationConfig(elementId);
+            const elDelay = (elConfig.delay || 0) * 1000;
+            const elDuration = Math.max(120, (elConfig.duration || 0.6) * 1000);
             let phase = 'static'; let phaseProgress = 1;
             if (isPreviewing) {
-                if (currentTime < slideStartTime + transDuration) { phase = 'in'; phaseProgress = (currentTime - slideStartTime) / Math.max(transDuration, 1); }
-                else if (currentTime > slideEndTime - transDuration) { phase = 'out'; phaseProgress = (currentTime - (slideEndTime - transDuration)) / Math.max(transDuration, 1); }
+                if (currentTime < slideStartTime + transDuration) { phase = 'in'; const elStart = slideStartTime + elDelay; phaseProgress = (currentTime - elStart) / Math.max(elDuration, 1); }
+                else if (currentTime >= slideEndTime - transDuration) { phase = 'out'; const elStartOut = slideEndTime - elDuration - elDelay; phaseProgress = (currentTime - elStartOut) / Math.max(elDuration, 1); }
             }
+            phaseProgress = Math.max(0, Math.min(1, phaseProgress));
             const animationTransform = getElementAnimationTransform(elementId, phase, phaseProgress, currentTime);
             targetCtx.save();
             targetCtx.translate(startX + boxW/2, startY + boxH/2);
@@ -1212,7 +1264,7 @@ The animation system keeps each element alive independently.`;
                 let phase = 'static'; let phaseProgress = 1;
                 if (isPreviewing) {
                     if (currentTime < slideStartTime + transDuration) { phase = 'in'; phaseProgress = (currentTime - slideStartTime) / Math.max(transDuration, 1); }
-                    else if (currentTime > slideEndTime - transDuration) { phase = 'out'; phaseProgress = (currentTime - (slideEndTime - transDuration)) / Math.max(transDuration, 1); }
+                    else if (currentTime >= slideEndTime - transDuration) { phase = 'out'; phaseProgress = (currentTime - (slideEndTime - transDuration)) / Math.max(transDuration, 1); }
                 }
                 const animationTransform = getElementAnimationTransform(elementId, phase, phaseProgress, currentTime);
                 targetCtx.save();
@@ -1253,7 +1305,7 @@ The animation system keeps each element alive independently.`;
                 let phase = 'static'; let phaseProgress = 1;
                 if (isPreviewing) {
                     if (currentTime < slideStartTime + transDuration) { phase = 'in'; phaseProgress = (currentTime - slideStartTime) / Math.max(transDuration, 1); }
-                    else if (currentTime > slideEndTime - transDuration) { phase = 'out'; phaseProgress = (currentTime - (slideEndTime - transDuration)) / Math.max(transDuration, 1); }
+                    else if (currentTime >= slideEndTime - transDuration) { phase = 'out'; phaseProgress = (currentTime - (slideEndTime - transDuration)) / Math.max(transDuration, 1); }
                 }
                 const animationTransform = getElementAnimationTransform(elementId, phase, phaseProgress, currentTime);
                 targetCtx.save();
@@ -1449,6 +1501,10 @@ The animation system keeps each element alive independently.`;
             globalAnimDuration = Math.max(0.1, parseFloat(e.target.value) || 0.45); forceRedrawCurrent();
         });
         durationInput.addEventListener('input', () => forceRedrawCurrent());
+        autoAdjustDurationCheckbox.addEventListener('change', (e) => {
+            autoAdjustSlideDuration = e.target.checked;
+            forceRedrawCurrent();
+        });
 
         // Tab Switching Logic
 
@@ -1627,8 +1683,7 @@ The animation system keeps each element alive independently.`;
             } else {
                 playIcon.textContent = 'play_arrow'; 
                 const slideDuration = parseFloat(durationInput.value) * 1000;
-                const stride = slideDuration;
-                const totalDuration = slides.length > 0 ? slides.length * slideDuration : 0;
+                const totalDuration = slides.length > 0 ? getSlideTimelineDuration(slideDuration) : 0;
                 playText.textContent = accumulatedTime > 0 && accumulatedTime < totalDuration ? 'Resume' : 'Play';
             }
         }
@@ -1702,8 +1757,7 @@ The animation system keeps each element alive independently.`;
             accumulatedTime += dt;
             
             const slideDuration = parseFloat(durationInput.value) * 1000;
-            const stride = slideDuration;
-            const totalDuration = slides.length > 0 ? slides.length * slideDuration : 0;
+            const totalDuration = slides.length > 0 ? getSlideTimelineDuration(slideDuration) : 0;
 
             if (totalDuration > 0) {
                 if (accumulatedTime >= totalDuration) {
@@ -1717,7 +1771,20 @@ The animation system keeps each element alive independently.`;
                     updatePlayButtonUI();
                     return;
                 }
-                currentSlideIndex = Math.min(slides.length - 1, Math.max(0, Math.floor(accumulatedTime / stride)));
+                const currentPosition = getSlideTiming(currentSlideIndex, slideDuration);
+                let cursor = 0;
+                let nextIndex = 0;
+                for (let i = 0; i < slides.length; i++) {
+                    const timing = getSlideTiming(i, slideDuration);
+                    if (accumulatedTime >= timing.startTime && accumulatedTime < timing.endTime) {
+                        nextIndex = i;
+                        break;
+                    }
+                    if (accumulatedTime >= timing.endTime) {
+                        nextIndex = i + 1;
+                    }
+                }
+                currentSlideIndex = Math.min(slides.length - 1, Math.max(0, nextIndex));
                 progressBar.style.width = `${Math.min(100, (accumulatedTime / totalDuration) * 100)}%`;
                 forceRedrawCurrent();
             }
@@ -1730,8 +1797,7 @@ The animation system keeps each element alive independently.`;
             if (slides.length === 0) return;
 
             const slideDuration = parseFloat(durationInput.value) * 1000;
-            const stride = slideDuration;
-            const totalDuration = slides.length * slideDuration;
+            const totalDuration = getSlideTimelineDuration(slideDuration);
 
             if (isPlaying) {
                 isPlaying = false;
