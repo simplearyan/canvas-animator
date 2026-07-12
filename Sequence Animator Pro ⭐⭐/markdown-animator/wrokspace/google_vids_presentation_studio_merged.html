@@ -990,6 +990,34 @@ The animation system keeps each element alive independently.`;
             return 600;
         }
 
+        function getSlideTiming(slideIdx, slideDurationMs = parseFloat(durationInput.value) * 1000) {
+            const duration = Math.max(100, slideDurationMs || 3000);
+            let transitionMs = 0;
+            const hasGlobalTransition = (globalAnimIn && globalAnimIn !== 'none') || (globalAnimOut && globalAnimOut !== 'none');
+
+            if (hasGlobalTransition) {
+                transitionMs = Math.max(transitionMs, Math.min(globalAnimDuration * 1000, duration / 2));
+            }
+
+            Object.keys(elementAnimations).forEach((elementId) => {
+                if (!elementId.startsWith(`${slideIdx}_`)) return;
+                const config = getElementAnimationConfig(elementId);
+                const delayMs = (config.delay || 0) * 1000;
+                const durationMs = Math.max(120, (config.duration || 0.6) * 1000);
+                if (config.in && config.in !== 'none') transitionMs = Math.max(transitionMs, delayMs + durationMs);
+                if (config.out && config.out !== 'none') transitionMs = Math.max(transitionMs, delayMs + durationMs);
+            });
+
+            transitionMs = Math.min(transitionMs, duration);
+            return {
+                duration,
+                transitionMs,
+                stride: duration,
+                startTime: slideIdx * duration,
+                endTime: (slideIdx * duration) + duration
+            };
+        }
+
         function drawTextSlide(targetCtx, slideIdx, lines, targetHitBoxes, bounds, prefix) {
             let totalHeight = 0; const lineHeights = [];
             targetCtx.textAlign = 'center'; targetCtx.textBaseline = 'middle';
@@ -1023,14 +1051,10 @@ The animation system keeps each element alive independently.`;
                 let customColor = getColorOverride(`${slideIdx}_${prefix}_${line.index}`);
                 
                 const lineElementId = `${slideIdx}_${prefix}_${line.index}`;
-                const lineAnimation = getElementAnimationConfig(lineElementId);
-                const slideStart = slideIdx * 1000;
-                const slideEnd = slideStart + 1000;
-                const slideDuration = parseFloat(durationInput.value) * 1000;
-                const transDuration = Math.min(globalAnimDuration * 1000, slideDuration / 2);
-                const stride = slideDuration - transDuration;
-                const slideStartTime = slideIdx * stride;
-                const slideEndTime = slideStartTime + slideDuration;
+                const timing = getSlideTiming(slideIdx);
+                const slideStartTime = timing.startTime;
+                const slideEndTime = timing.endTime;
+                const transDuration = timing.transitionMs;
                 let phase = 'static';
                 let phaseProgress = 1;
                 if (isPreviewing) {
@@ -1119,11 +1143,10 @@ The animation system keeps each element alive independently.`;
 
             const isPreviewing = isPlaying || isRecording;
             const currentTime = isPreviewing ? accumulatedTime : 0;
-            const slideDuration = parseFloat(durationInput.value) * 1000;
-            const transDuration = Math.min(globalAnimDuration * 1000, slideDuration / 2);
-            const stride = slideDuration - transDuration;
-            const slideStartTime = slideIdx * stride;
-            const slideEndTime = slideStartTime + slideDuration;
+            const timing = getSlideTiming(slideIdx);
+            const slideStartTime = timing.startTime;
+            const slideEndTime = timing.endTime;
+            const transDuration = timing.transitionMs;
             let phase = 'static'; let phaseProgress = 1;
             if (isPreviewing) {
                 if (currentTime < slideStartTime + transDuration) { phase = 'in'; phaseProgress = (currentTime - slideStartTime) / Math.max(transDuration, 1); }
@@ -1182,11 +1205,10 @@ The animation system keeps each element alive independently.`;
 
                 const isPreviewing = isPlaying || isRecording;
                 const currentTime = isPreviewing ? accumulatedTime : 0;
-                const slideDuration = parseFloat(durationInput.value) * 1000;
-                const transDuration = Math.min(globalAnimDuration * 1000, slideDuration / 2);
-                const stride = slideDuration - transDuration;
-                const slideStartTime = slideIdx * stride;
-                const slideEndTime = slideStartTime + slideDuration;
+                const timing = getSlideTiming(slideIdx);
+                const slideStartTime = timing.startTime;
+                const slideEndTime = timing.endTime;
+                const transDuration = timing.transitionMs;
                 let phase = 'static'; let phaseProgress = 1;
                 if (isPreviewing) {
                     if (currentTime < slideStartTime + transDuration) { phase = 'in'; phaseProgress = (currentTime - slideStartTime) / Math.max(transDuration, 1); }
@@ -1224,11 +1246,10 @@ The animation system keeps each element alive independently.`;
 
                 const isPreviewing = isPlaying || isRecording;
                 const currentTime = isPreviewing ? accumulatedTime : 0;
-                const slideDuration = parseFloat(durationInput.value) * 1000;
-                const transDuration = Math.min(globalAnimDuration * 1000, slideDuration / 2);
-                const stride = slideDuration - transDuration;
-                const slideStartTime = slideIdx * stride;
-                const slideEndTime = slideStartTime + slideDuration;
+                const timing = getSlideTiming(slideIdx);
+                const slideStartTime = timing.startTime;
+                const slideEndTime = timing.endTime;
+                const transDuration = timing.transitionMs;
                 let phase = 'static'; let phaseProgress = 1;
                 if (isPreviewing) {
                     if (currentTime < slideStartTime + transDuration) { phase = 'in'; phaseProgress = (currentTime - slideStartTime) / Math.max(transDuration, 1); }
@@ -1606,9 +1627,8 @@ The animation system keeps each element alive independently.`;
             } else {
                 playIcon.textContent = 'play_arrow'; 
                 const slideDuration = parseFloat(durationInput.value) * 1000;
-                const transDuration = Math.min(globalAnimDuration * 1000, slideDuration / 2);
-                const stride = slideDuration - transDuration;
-                const totalDuration = slides.length > 0 ? ((slides.length - 1) * stride) + slideDuration : 0;
+                const stride = slideDuration;
+                const totalDuration = slides.length > 0 ? slides.length * slideDuration : 0;
                 playText.textContent = accumulatedTime > 0 && accumulatedTime < totalDuration ? 'Resume' : 'Play';
             }
         }
@@ -1618,13 +1638,13 @@ The animation system keeps each element alive independently.`;
             if (slides.length === 0) return;
 
             const slideDuration = parseFloat(durationInput.value) * 1000;
-            const transDuration = Math.min(globalAnimDuration * 1000, slideDuration / 2);
-            const stride = slideDuration - transDuration;
 
             for (let i = 0; i < slides.length; i++) {
                 const slide = slides[i];
-                const startTime = i * stride;
-                const endTime = startTime + slideDuration;
+                const timing = getSlideTiming(i, slideDuration);
+                const startTime = timing.startTime;
+                const endTime = timing.endTime;
+                const transDuration = timing.transitionMs;
 
                 if (accumulatedTime >= startTime && accumulatedTime < endTime) {
                     if (slide.isDirty || isPlaying || isRecording) renderSlideToOffscreen(i, slide);
@@ -1660,10 +1680,11 @@ The animation system keeps each element alive independently.`;
         function jumpToSlide(index) {
             currentSlideIndex = index;
             const slideDuration = parseFloat(durationInput.value) * 1000;
-            const transDuration = Math.min(globalAnimDuration * 1000, slideDuration / 2);
-            const stride = slideDuration - transDuration;
-            
-            accumulatedTime = (index * stride) + (slideDuration / 2); 
+            const timing = getSlideTiming(index, slideDuration);
+
+            // Jump to the middle of the slide so the preview shows the static state
+            // (avoids landing in an 'in' or 'out' transition where content may be hidden).
+            accumulatedTime = timing.startTime + (timing.duration / 2);
             
             isPlaying = false;
             closeContextBar();
@@ -1681,9 +1702,8 @@ The animation system keeps each element alive independently.`;
             accumulatedTime += dt;
             
             const slideDuration = parseFloat(durationInput.value) * 1000;
-            const transDuration = Math.min(globalAnimDuration * 1000, slideDuration / 2);
-            const stride = slideDuration - transDuration;
-            const totalDuration = slides.length > 0 ? ((slides.length - 1) * stride) + slideDuration : 0;
+            const stride = slideDuration;
+            const totalDuration = slides.length > 0 ? slides.length * slideDuration : 0;
 
             if (totalDuration > 0) {
                 if (accumulatedTime >= totalDuration) {
@@ -1710,9 +1730,8 @@ The animation system keeps each element alive independently.`;
             if (slides.length === 0) return;
 
             const slideDuration = parseFloat(durationInput.value) * 1000;
-            const transDuration = Math.min(globalAnimDuration * 1000, slideDuration / 2);
-            const stride = slideDuration - transDuration;
-            const totalDuration = ((slides.length - 1) * stride) + slideDuration;
+            const stride = slideDuration;
+            const totalDuration = slides.length * slideDuration;
 
             if (isPlaying) {
                 isPlaying = false;
