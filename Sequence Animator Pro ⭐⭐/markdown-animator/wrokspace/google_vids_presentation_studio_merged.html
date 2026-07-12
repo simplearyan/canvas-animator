@@ -318,11 +318,32 @@
                                         </div>
                                     </div>
                                     <div>
+                                        <label class="block text-xs font-medium text-google-textMuted dark:text-google-darkTextMuted mb-1">Font Family</label>
+                                        <select id="setting-font-family" class="w-full bg-google-bg dark:bg-google-darkBg border border-google-border dark:border-google-darkBorder text-sm rounded-lg px-2 py-2 outline-none focus:ring-2 focus:ring-google-primary dark:focus:ring-google-darkPrimary cursor-pointer">
+                                            <option value="Inter">Inter</option>
+                                            <option value="Google Sans">Google Sans</option>
+                                            <option value="Outfit">Outfit</option>
+                                            <option value="Rubik">Rubik</option>
+                                            <option value="JetBrains Mono">JetBrains Mono</option>
+                                        </select>
+                                    </div>
+                                </div>
+                                <div class="grid grid-cols-2 gap-3">
+                                    <div>
                                         <label class="block text-xs font-medium text-google-textMuted dark:text-google-darkTextMuted mb-1">Text Weight</label>
                                         <select id="setting-text-weight" class="w-full bg-google-bg dark:bg-google-darkBg border border-google-border dark:border-google-darkBorder text-sm rounded-lg px-2 py-2 outline-none focus:ring-2 focus:ring-google-primary dark:focus:ring-google-darkPrimary cursor-pointer">
                                             <option value="normal">Normal</option>
                                             <option value="semibold" selected>Semi-Bold</option>
                                             <option value="bold">Bold</option>
+                                            <option value="black">Black</option>
+                                        </select>
+                                    </div>
+                                    <div>
+                                        <label class="block text-xs font-medium text-google-textMuted dark:text-google-darkTextMuted mb-1">Bold Text Weight</label>
+                                        <select id="setting-bold-text-weight" class="w-full bg-google-bg dark:bg-google-darkBg border border-google-border dark:border-google-darkBorder text-sm rounded-lg px-2 py-2 outline-none focus:ring-2 focus:ring-google-primary dark:focus:ring-google-darkPrimary cursor-pointer">
+                                            <option value="normal">Normal</option>
+                                            <option value="semibold">Semi-Bold</option>
+                                            <option value="bold" selected>Bold</option>
                                             <option value="black">Black</option>
                                         </select>
                                     </div>
@@ -424,12 +445,14 @@
         // Style Settings Elements
         const settingBgColor = document.getElementById('setting-bg-color');
         const settingTextColor = document.getElementById('setting-text-color');
+        const settingFontFamily = document.getElementById('setting-font-family');
         const settingGridToggle = document.getElementById('setting-grid-toggle');
         const settingGridStyle = document.getElementById('setting-grid-style');
         const settingGridColor = document.getElementById('setting-grid-color');
         const settingHighlightColor = document.getElementById('setting-highlight-color');
         const settingGridSize = document.getElementById('setting-grid-size');
         const settingTextWeight = document.getElementById('setting-text-weight');
+        const settingBoldTextWeight = document.getElementById('setting-bold-text-weight');
         const valGridSize = document.getElementById('val-grid-size');
         
         const settingGlobalAnimIn = document.getElementById('setting-global-anim-in');
@@ -552,7 +575,9 @@
         let canvasBgColor = '#ffffff';
         let globalTextColor = '#202124';
         let globalHighlightColor = '#0b57d0';
+        let globalFontFamily = 'Inter';
         let globalTextWeight = 'semibold';
+        let globalBoldTextWeight = 'bold';
         let gridEnabled = true;
         let gridStyle = 'lines'; // 'lines', 'dots', 'crosses'
         let gridColor = '#dadce0';
@@ -745,7 +770,7 @@
         function setScaleOverride(id, scale) { scaleOverrides[id] = scale; }
         function getColorOverride(id) { return colorOverrides[id]; }
         function setColorOverride(id, color) { colorOverrides[id] = color; }
-        function getFontOverride(id) { return fontOverrides[id] || 'Inter'; }
+        function getFontOverride(id) { return fontOverrides[id] || globalFontFamily; }
         function setFontOverride(id, font) { fontOverrides[id] = font; }
         function getPositionOverride(id) { return positionOverrides[id] || {x: 0, y: 0}; }
         function setPositionOverride(id, pos) { positionOverrides[id] = pos; }
@@ -817,7 +842,7 @@
             slide.isDirty = false;
         }
 
-        function getTextWeightValue(weightMode) {
+        function getWeightValue(weightMode) {
             if (weightMode === 'normal') return 400;
             if (weightMode === 'bold') return 700;
             if (weightMode === 'black') return 900;
@@ -827,7 +852,8 @@
         function drawTextSlide(targetCtx, slideIdx, lines, targetHitBoxes, bounds, prefix) {
             let totalHeight = 0; const lineHeights = [];
             targetCtx.textAlign = 'center'; targetCtx.textBaseline = 'middle';
-            const defaultWeight = getTextWeightValue(globalTextWeight);
+            const normalWeight = getWeightValue(globalTextWeight);
+            const boldWeight = getWeightValue(globalBoldTextWeight);
 
             for (let line of lines) {
                 let size = 80;
@@ -855,7 +881,11 @@
                 
                 let totalW = 0;
                 for (let seg of line.segments) {
-                    let fw = line.style === 'h1' ? 800 : (line.style === 'h2' || seg.style === 'highlight' || seg.style === 'bold') ? Math.max(defaultWeight, 700) : defaultWeight;
+                    let fw = normalWeight;
+                    if (line.style === 'h1') fw = 800;
+                    else if (line.style === 'h2') fw = 700;
+                    if (seg.style === 'bold') fw = boldWeight;
+                    else if (seg.style === 'highlight') fw = Math.max(fw, 600);
                     targetCtx.font = `${fw} ${size}px ${fontOverride}`;
                     totalW += targetCtx.measureText(seg.text).width;
                 }
@@ -864,7 +894,11 @@
 
                 let currentX = bounds.x + bounds.w/2 - totalW/2 + pos.x;
                 for (let seg of line.segments) {
-                    let fw = line.style === 'h1' ? 800 : (line.style === 'h2' || seg.style === 'highlight' || seg.style === 'bold') ? Math.max(defaultWeight, 700) : defaultWeight;
+                    let fw = normalWeight;
+                    if (line.style === 'h1') fw = 800;
+                    else if (line.style === 'h2') fw = 700;
+                    if (seg.style === 'bold') fw = boldWeight;
+                    else if (seg.style === 'highlight') fw = Math.max(fw, 600);
                     targetCtx.font = `${fw} ${size}px ${fontOverride}`;
                     let tw = targetCtx.measureText(seg.text).width;
 
@@ -1125,8 +1159,10 @@
         // Style Settings Listeners
         settingBgColor.addEventListener('input', (e) => { canvasBgColor = e.target.value; forceRedrawCurrent(); });
         settingTextColor.addEventListener('input', (e) => { globalTextColor = e.target.value; markAllSlidesDirty(); forceRedrawCurrent(); });
+        settingFontFamily.addEventListener('change', (e) => { globalFontFamily = e.target.value; markAllSlidesDirty(); forceRedrawCurrent(); });
         settingHighlightColor.addEventListener('input', (e) => { globalHighlightColor = e.target.value; markAllSlidesDirty(); forceRedrawCurrent(); });
         settingTextWeight.addEventListener('change', (e) => { globalTextWeight = e.target.value; markAllSlidesDirty(); forceRedrawCurrent(); });
+        settingBoldTextWeight.addEventListener('change', (e) => { globalBoldTextWeight = e.target.value; markAllSlidesDirty(); forceRedrawCurrent(); });
         settingGridToggle.addEventListener('change', (e) => { gridEnabled = e.target.checked; forceRedrawCurrent(); });
         settingGridStyle.addEventListener('change', (e) => { gridStyle = e.target.value; forceRedrawCurrent(); });
         settingGridColor.addEventListener('input', (e) => { gridColor = e.target.value; forceRedrawCurrent(); });
