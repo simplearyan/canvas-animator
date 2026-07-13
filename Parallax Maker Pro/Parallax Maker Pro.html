@@ -103,7 +103,7 @@
         .rail-btn.active {
             @apply bg-google-blue/10 text-google-blue dark:bg-dark-blue/20 dark:text-dark-blue;
         }
-        .hidden {
+        #contextToolbar .hidden {
             display: none !important;
         }
     </style>
@@ -213,7 +213,7 @@
                         <span class="text-xs md:text-[13px] font-medium text-google-blue dark:text-dark-blue"><span id="playTimeText">00:00.0</span> <span class="text-google-textmuted dark:text-dark-textmuted font-normal">/ 00:05.0</span></span>
                     </div>
                     
-                    <div class="flex-center gap-1 md:gap-1.5 justify-end hidden sm:flex">
+                    <div class="flex items-center gap-1 md:gap-1.5 justify-end hidden sm:flex">
                         <button class="btn-icon" title="Zoom Out"><span class="material-symbols-rounded text-[18px] text-google-textmuted dark:text-dark-textmuted">zoom_out</span></button>
                         <button class="btn-icon" title="Zoom In"><span class="material-symbols-rounded text-[18px] text-google-textmuted dark:text-dark-textmuted">zoom_in</span></button>
                     </div>
@@ -303,6 +303,12 @@
                                         Font Size <span id="propSizeVal" class="text-google-text dark:text-dark-text font-mono bg-google-bg dark:bg-dark-bg px-1.5 py-0.5 rounded text-xs">100</span>
                                     </label>
                                     <input type="range" id="propSize" min="20" max="300" value="100" class="mt-1">
+                                </div>
+                                <div>
+                                    <label class="block text-[12px] md:text-[13px] font-medium text-google-textmuted dark:text-dark-textmuted mb-2 md:mb-3 flex justify-between">
+                                        Letter Spacing <span id="propTrackingVal" class="text-google-text dark:text-dark-text font-mono bg-google-bg dark:bg-dark-bg px-1.5 py-0.5 rounded text-xs">0px</span>
+                                    </label>
+                                    <input type="range" id="propTracking" min="-5" max="25" value="0" class="mt-1 w-full">
                                 </div>
                             </div>
 
@@ -765,6 +771,7 @@
                     const fontWeight = layer.weight || '400';
                     const fontStyle = layer.style || 'normal';
                     ctx.font = `${fontStyle} ${fontWeight} ${layer.size * scale}px ${fontFamily}`;
+                    ctx.letterSpacing = `${layer.letterSpacing || 0}px`;
                     ctx.textAlign = 'center';
                     ctx.textBaseline = 'middle';
                     
@@ -785,6 +792,7 @@
                         textToDraw = layer.text.substring(0, numChars);
                     }
                     ctx.fillText(textToDraw, drawX, drawY);
+                    ctx.letterSpacing = '0px';
                 }
 
                 if (!isParallaxMode && layer.id === selectedLayerId) {
@@ -795,10 +803,12 @@
                     if (layer.type === 'rect' || layer.type === 'circle' || layer.type === 'image') {
                         ctx.strokeRect(drawX - scaledW/2, drawY - scaledH/2, scaledW, scaledH);
                     } else if (layer.type === 'text') {
+                        ctx.letterSpacing = `${layer.letterSpacing || 0}px`;
                         const metrics = ctx.measureText(layer.text);
                         const h = layer.size * scale;
                         const w = metrics.width;
                         ctx.strokeRect(drawX - w/2 - 15, drawY - h/2 - 15, w + 30, h + 30);
+                        ctx.letterSpacing = '0px';
                     }
                     
                     ctx.fillStyle = '#ffffff';
@@ -1141,6 +1151,8 @@
         const scalePropsGrp = document.getElementById('scaleProps');
         const pScale = document.getElementById('propScale');
         const pScaleVal = document.getElementById('propScaleVal');
+        const pTracking = document.getElementById('propTracking');
+        const pTrackingVal = document.getElementById('propTrackingVal');
 
         function updatePropertiesPanel() {
             const layer = layers.find(l => l.id === selectedLayerId);
@@ -1169,6 +1181,8 @@
                 pSizeVal.textContent = layer.size;
                 pFont.value = layer.font || '"Google Sans", sans-serif';
                 pWeight.value = layer.weight || '400';
+                pTracking.value = layer.letterSpacing || 0;
+                pTrackingVal.textContent = (layer.letterSpacing || 0) + 'px';
 
                 const activeClasses = ['bg-google-blue/10', 'text-google-blue', 'border-google-blue/30', 'dark:bg-dark-blue/20', 'dark:text-dark-blue', 'dark:border-dark-blue/30'];
                 const inactiveClasses = ['text-google-textmuted', 'dark:text-dark-textmuted'];
@@ -1243,6 +1257,14 @@
             if (!layer) return;
             layer.scale = parseFloat(e.target.value) / 100;
             pScaleVal.textContent = e.target.value + '%';
+            render();
+        });
+
+        pTracking.addEventListener('input', (e) => {
+            const layer = layers.find(l => l.id === selectedLayerId);
+            if (!layer) return;
+            layer.letterSpacing = parseInt(e.target.value);
+            pTrackingVal.textContent = e.target.value + 'px';
             render();
         });
 
@@ -1402,13 +1424,16 @@
                     const fontWeight = layer.weight || '400';
                     const fontStyle = layer.style || 'normal';
                     ctx.font = `${fontStyle} ${fontWeight} ${layer.size * scale}px ${fontFamily}`;
+                    ctx.letterSpacing = `${layer.letterSpacing || 0}px`;
                     const m = ctx.measureText(layer.text);
                     const halfH = (layer.size * scale) / 2;
                     if (pos.x >= layer.x - m.width/2 && pos.x <= layer.x + m.width/2 &&
                         pos.y >= layer.y - halfH && pos.y <= layer.y + halfH) {
+                        ctx.letterSpacing = '0px';
                         clickedLayer = layer;
                         break;
                     }
+                    ctx.letterSpacing = '0px';
                 }
             }
 
