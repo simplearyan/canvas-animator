@@ -1349,12 +1349,19 @@ The animation system keeps each element alive independently.`;
                     }
                 }
 
+                if (isPreviewingElement && selectedElementId === lineElementId) {
+                    phase = previewPhase;
+                }
+
                 const loopMode = elConfig.loop || 'none';
                 const repeatCount = Math.max(1, elConfig.repeat || 1);
                 let loopX = 0, loopY = 0, loopScale = 1;
                 if (phase === 'static' && loopMode !== 'none') {
                     const loopDuration = Math.max(0.25, elDuration / 1000 / repeatCount);
-                    const loopTime = ((currentTime + elDelay) / 1000) % loopDuration;
+                    const loopTimeTime = (isPreviewingElement && selectedElementId === lineElementId)
+                        ? (performance.now() - previewTimestamp) / 1000
+                        : (currentTime / 1000);
+                    const loopTime = (loopTimeTime + (elDelay / 1000)) % loopDuration;
                     const loopProgress = loopTime / loopDuration;
                     const loopWave = Math.sin(loopProgress * Math.PI * 2);
                     if (loopMode === 'pulse') loopScale = 1 + (0.04 * loopWave);
@@ -1395,7 +1402,14 @@ The animation system keeps each element alive independently.`;
                     let offsetMs = j * staggerDelay * 1000;
                     let itemProgress = 1.0;
 
-                    if (phase === 'in') {
+                    if (isPreviewingElement && selectedElementId === lineElementId) {
+                        if (previewPhase === 'static') {
+                            itemProgress = 1.0;
+                        } else {
+                            const elapsed = performance.now() - previewTimestamp;
+                            itemProgress = (elapsed - offsetMs) / Math.max(previewDuration - offsetMs, 120);
+                        }
+                    } else if (phase === 'in') {
                         let itemStart = slideStartTime + elDelay + offsetMs;
                         itemProgress = (currentTime - itemStart) / Math.max(elDuration, 1);
                     } else if (phase === 'out') {
@@ -1502,8 +1516,8 @@ The animation system keeps each element alive independently.`;
             const startY = bounds.y + (bounds.h - boxH) / 2 + pos.y;
             targetHitBoxes.push({ id: elementId, x: startX, y: startY, w: boxW, h: boxH });
 
-            const isPreviewing = isPlaying || isRecording;
-            const currentTime = isPreviewing ? accumulatedTime : 0;
+            let isPreviewing = isPlaying || isRecording;
+            let currentTime = isPreviewing ? accumulatedTime : 0;
             const timing = getSlideTiming(slideIdx);
             const slideStartTime = timing.startTime;
             const slideEndTime = timing.endTime;
@@ -1512,7 +1526,13 @@ The animation system keeps each element alive independently.`;
             const elDelay = (elConfig.delay || 0) * 1000;
             const elDuration = Math.max(120, (elConfig.duration || 0.6) * 1000);
             let phase = 'static'; let phaseProgress = 1;
-            if (isPreviewing) {
+
+            if (isPreviewingElement && selectedElementId === elementId) {
+                isPreviewing = true;
+                phase = previewPhase;
+                phaseProgress = previewProgress;
+                currentTime = performance.now() - previewTimestamp;
+            } else if (isPreviewing) {
                 if (currentTime < slideStartTime + transDuration) { phase = 'in'; const elStart = slideStartTime + elDelay; phaseProgress = (currentTime - elStart) / Math.max(elDuration, 1); }
                 else if (currentTime >= slideEndTime - transDuration) { phase = 'out'; const elStartOut = slideEndTime - elDuration - elDelay; phaseProgress = (currentTime - elStartOut) / Math.max(elDuration, 1); }
             }
@@ -1568,14 +1588,20 @@ The animation system keeps each element alive independently.`;
 
                 targetHitBoxes.push({ id: elementId, x: dx, y: dy, w: dw, h: dh });
 
-                const isPreviewing = isPlaying || isRecording;
-                const currentTime = isPreviewing ? accumulatedTime : 0;
+                let isPreviewing = isPlaying || isRecording;
+                let currentTime = isPreviewing ? accumulatedTime : 0;
                 const timing = getSlideTiming(slideIdx);
                 const slideStartTime = timing.startTime;
                 const slideEndTime = timing.endTime;
                 const transDuration = timing.transitionMs;
                 let phase = 'static'; let phaseProgress = 1;
-                if (isPreviewing) {
+
+                if (isPreviewingElement && selectedElementId === elementId) {
+                    isPreviewing = true;
+                    phase = previewPhase;
+                    phaseProgress = previewProgress;
+                    currentTime = performance.now() - previewTimestamp;
+                } else if (isPreviewing) {
                     if (currentTime < slideStartTime + transDuration) { phase = 'in'; phaseProgress = (currentTime - slideStartTime) / Math.max(transDuration, 1); }
                     else if (currentTime >= slideEndTime - transDuration) { phase = 'out'; phaseProgress = (currentTime - (slideEndTime - transDuration)) / Math.max(transDuration, 1); }
                 }
@@ -1609,14 +1635,20 @@ The animation system keeps each element alive independently.`;
 
                 targetHitBoxes.push({ id: elementId, x: dx - 40, y: dy - 40, w: dw + 80, h: dh + 80 });
 
-                const isPreviewing = isPlaying || isRecording;
-                const currentTime = isPreviewing ? accumulatedTime : 0;
+                let isPreviewing = isPlaying || isRecording;
+                let currentTime = isPreviewing ? accumulatedTime : 0;
                 const timing = getSlideTiming(slideIdx);
                 const slideStartTime = timing.startTime;
                 const slideEndTime = timing.endTime;
                 const transDuration = timing.transitionMs;
                 let phase = 'static'; let phaseProgress = 1;
-                if (isPreviewing) {
+
+                if (isPreviewingElement && selectedElementId === elementId) {
+                    isPreviewing = true;
+                    phase = previewPhase;
+                    phaseProgress = previewProgress;
+                    currentTime = performance.now() - previewTimestamp;
+                } else if (isPreviewing) {
                     if (currentTime < slideStartTime + transDuration) { phase = 'in'; phaseProgress = (currentTime - slideStartTime) / Math.max(transDuration, 1); }
                     else if (currentTime >= slideEndTime - transDuration) { phase = 'out'; phaseProgress = (currentTime - (slideEndTime - transDuration)) / Math.max(transDuration, 1); }
                 }
@@ -2290,6 +2322,44 @@ The animation system keeps each element alive independently.`;
 
         let activeAnimPhase = 'enter'; // 'enter' | 'exit' | 'loop'
 
+        let isPreviewingElement = false;
+        let previewPhase = 'in'; // 'in' | 'out' | 'static'
+        let previewProgress = 0;
+        let previewTimestamp = 0;
+        let previewAnimFrame = null;
+        let previewDuration = 600;
+
+        function triggerAnimationPreview() {
+            if (isPlaying || isRecording || !selectedElementId) return;
+
+            if (previewAnimFrame) cancelAnimationFrame(previewAnimFrame);
+
+            const animConfig = getElementAnimationConfig(selectedElementId);
+            const durationSec = animConfig.duration !== undefined ? animConfig.duration : 0.6;
+            previewDuration = Math.max(150, durationSec * 1000);
+            previewPhase = activeAnimPhase === 'enter' ? 'in' : activeAnimPhase === 'exit' ? 'out' : 'static';
+
+            isPreviewingElement = true;
+            previewTimestamp = performance.now();
+
+            function tickPreview(now) {
+                const elapsed = now - previewTimestamp;
+                const limit = previewPhase === 'static' ? 2500 : previewDuration;
+
+                if (elapsed < limit) {
+                    previewProgress = elapsed / Math.max(limit, 1);
+                    forceRedrawCurrent();
+                    previewAnimFrame = requestAnimationFrame(tickPreview);
+                } else {
+                    previewProgress = 1.0;
+                    isPreviewingElement = false;
+                    forceRedrawCurrent();
+                }
+            }
+
+            previewAnimFrame = requestAnimationFrame(tickPreview);
+        }
+
         function syncElementPropsPanel() {
             if (!selectedElementId) {
                 elementEmptyState.classList.remove('hidden');
@@ -2374,7 +2444,10 @@ The animation system keeps each element alive independently.`;
                 }
                 slide.isDirty = true;
                 syncElementPropsPanel();
-                if (!isPlaying && !isRecording) forceRedrawCurrent();
+                if (!isPlaying && !isRecording) {
+                    forceRedrawCurrent();
+                    triggerAnimationPreview();
+                }
             });
 
             if (currentVal === 'none') {
@@ -2434,16 +2507,19 @@ The animation system keeps each element alive independently.`;
         subtabGlobalBtn.addEventListener('click', () => switchSubtab(false));
         subtabElementBtn.addEventListener('click', () => switchSubtab(true));
 
-        toggleAnimEnter.addEventListener('click', () => { activeAnimPhase = 'enter'; syncElementPropsPanel(); });
-        toggleAnimExit.addEventListener('click', () => { activeAnimPhase = 'exit'; syncElementPropsPanel(); });
-        toggleAnimLoop.addEventListener('click', () => { activeAnimPhase = 'loop'; syncElementPropsPanel(); });
+        toggleAnimEnter.addEventListener('click', () => { activeAnimPhase = 'enter'; syncElementPropsPanel(); triggerAnimationPreview(); });
+        toggleAnimExit.addEventListener('click', () => { activeAnimPhase = 'exit'; syncElementPropsPanel(); triggerAnimationPreview(); });
+        toggleAnimLoop.addEventListener('click', () => { activeAnimPhase = 'loop'; syncElementPropsPanel(); triggerAnimationPreview(); });
 
         function updateAnimTiming(key, val) {
             if (!selectedElementId) return;
             setElementAnimationConfig(selectedElementId, { [key]: val });
             const sIdx = selectedElementId.split('_')[0];
             if (slides[sIdx]) slides[sIdx].isDirty = true;
-            if (!isPlaying && !isRecording) forceRedrawCurrent();
+            if (!isPlaying && !isRecording) {
+                forceRedrawCurrent();
+                triggerAnimationPreview();
+            }
         }
 
         propAnimDuration.addEventListener('input', (e) => {
@@ -2488,7 +2564,10 @@ The animation system keeps each element alive independently.`;
                 const sIdx = selectedElementId.split('_')[0];
                 if (slides[sIdx]) slides[sIdx].isDirty = true;
                 syncElementPropsPanel();
-                if (!isPlaying && !isRecording) forceRedrawCurrent();
+                if (!isPlaying && !isRecording) {
+                    forceRedrawCurrent();
+                    triggerAnimationPreview();
+                }
             }
 
             const btnBy = e.target.closest('.btn-by');
@@ -2498,7 +2577,10 @@ The animation system keeps each element alive independently.`;
                 const sIdx = selectedElementId.split('_')[0];
                 if (slides[sIdx]) slides[sIdx].isDirty = true;
                 syncElementPropsPanel();
-                if (!isPlaying && !isRecording) forceRedrawCurrent();
+                if (!isPlaying && !isRecording) {
+                    forceRedrawCurrent();
+                    triggerAnimationPreview();
+                }
             }
         });
 
