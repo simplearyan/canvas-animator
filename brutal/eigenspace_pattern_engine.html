@@ -1,0 +1,537 @@
+<!DOCTYPE html>
+<html lang="en" class="light">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>EigenSpace | Pattern Engine</title>
+    <link rel="icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'><text y='0.9em' font-size='80'>⚙️</text></svg>">
+ 
+    <!-- Google Fonts -->
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Bebas+Neue&family=JetBrains+Mono:wght@400;700&family=Outfit:wght@400;500;600;700;800&display=swap" rel="stylesheet">
+    
+    <!-- Phosphor Icons -->
+    <script src="https://unpkg.com/@phosphor-icons/web"></script>
+
+    <!-- KaTeX for Math Rendering -->
+    <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/katex@0.16.8/dist/katex.min.css">
+    <script src="https://cdn.jsdelivr.net/npm/katex@0.16.8/dist/katex.min.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/katex@0.16.8/dist/contrib/auto-render.min.js"></script>
+
+    <!-- Tailwind CSS -->
+    <script src="https://cdn.tailwindcss.com"></script>
+    
+    <script>
+        tailwind.config = {
+            darkMode: 'class',
+            theme: {
+                extend: {
+                    fontFamily: {
+                        display: ['"Bebas Neue"', 'sans-serif'],
+                        sans: ['Outfit', 'sans-serif'],
+                        mono: ['"JetBrains Mono"', 'monospace'],
+                    },
+                    colors: {
+                        brand: {
+                            gray: '#231F20',
+                            pink: '#F38BA3',
+                            green: '#0BA95B',
+                            yellow: '#F6AE2D',
+                            cyan: '#00C2D1',
+                            purple: '#8B5CF6',
+                            orange: '#FF5722',
+                            white: '#F9F4DA'
+                        }
+                    },
+                    boxShadow: {
+                        'brutal-sm': '4px 4px 0px 0px rgba(0,0,0,1)',
+                        'brutal': '8px 8px 0px 0px rgba(0,0,0,1)',
+                        'brutal-lg': '12px 12px 0px 0px rgba(0,0,0,1)',
+                    }
+                }
+            }
+        }
+    </script>
+
+    <style type="text/tailwindcss">
+        body {
+            background-color: #fdfcf9;
+            background-image: 
+                radial-gradient(circle, rgba(35, 31, 32, 0.15) 2px, transparent 2px);
+            background-size: 32px 32px;
+            overflow-x: hidden;
+        }
+
+        /* Custom Scrollbar */
+        ::-webkit-scrollbar { width: 12px; }
+        ::-webkit-scrollbar-track { background: transparent; border-left: 2px solid black; }
+        ::-webkit-scrollbar-thumb { background: #F6AE2D; border: 2px solid black; }
+
+        /* Interactive Brutalist Hover */
+        .brutal-hover {
+            transition: transform 0.1s ease, box-shadow 0.1s ease;
+        }
+        .brutal-hover:active {
+            transform: translate(4px, 4px) !important;
+            box-shadow: 0px 0px 0px 0px rgba(0,0,0,1) !important;
+        }
+
+        /* Range Slider Styling */
+        input[type=range] {
+            -webkit-appearance: none;
+            @apply w-full bg-transparent border-[3px] border-black h-8 p-1;
+        }
+        input[type=range]::-webkit-slider-thumb {
+            -webkit-appearance: none;
+            @apply h-6 w-6 bg-brand-cyan border-[3px] border-black cursor-pointer;
+        }
+        
+        .katex-display {
+            @apply font-mono bg-white border-[3px] border-black shadow-brutal-sm p-4 overflow-x-auto text-lg sm:text-xl my-4;
+        }
+        
+        /* Highlighting Dynamic Values in Math */
+        .math-hl { color: #e11d48; font-weight: bold; }
+    </style>
+</head>
+
+<body class="text-brand-gray antialiased min-h-screen flex flex-col selection:bg-brand-pink selection:text-black">
+
+    <!-- TOP NAV -->
+    <nav class="bg-brand-white border-b-[3px] border-black w-full flex items-center justify-between p-3 sm:p-4 sticky top-0 z-50">
+        <div class="flex items-center gap-3">
+            <div class="w-10 h-10 bg-black text-white border-[3px] border-black shadow-brutal-sm flex items-center justify-center text-xl font-bold brutal-hover cursor-pointer">
+                ⚙️
+            </div>
+            <div>
+                <h1 class="font-display text-2xl sm:text-3xl leading-none tracking-wide text-black mt-1">PATTERN ENGINE</h1>
+                <p class="font-mono text-[10px] font-bold text-brand-purple uppercase tracking-widest hidden sm:block">Interactive Math Algorithms</p>
+            </div>
+        </div>
+        <div>
+            <button class="font-display text-lg tracking-wide bg-brand-pink border-[3px] border-black px-4 py-1 shadow-brutal-sm brutal-hover text-black uppercase hidden sm:block">
+                View Source Code
+            </button>
+        </div>
+    </nav>
+
+    <!-- MAIN CONTENT -->
+    <main class="flex-1 max-w-7xl mx-auto w-full p-4 md:p-8 flex flex-col lg:flex-row gap-8">
+        
+        <!-- SIDEBAR / TABS -->
+        <aside class="lg:w-1/4 flex flex-col gap-4">
+            <div class="bg-black text-white font-display text-3xl px-4 py-2 border-[3px] border-black shadow-brutal-sm -rotate-2 w-max mb-2">
+                SELECT PATTERN
+            </div>
+            
+            <button onclick="switchTab('bayes')" id="tab-bayes" class="pattern-tab bg-brand-orange border-[3px] border-black shadow-brutal p-4 text-left brutal-hover hover:-translate-y-1 transition-transform">
+                <h3 class="font-cubano font-bold text-2xl uppercase border-b-2 border-black/20 pb-1 mb-2">Bayes' Theorem</h3>
+                <p class="font-sans text-sm font-medium">Analyze how false positives affect probabilities.</p>
+            </button>
+            
+            <button onclick="switchTab('eigen')" id="tab-eigen" class="pattern-tab bg-white border-[3px] border-black p-4 text-left brutal-hover hover:-translate-y-1 transition-transform opacity-70">
+                <h3 class="font-cubano font-bold text-2xl uppercase border-b-2 border-black/20 pb-1 mb-2">Eigenvalues</h3>
+                <p class="font-sans text-sm font-medium">Extract roots from a 2x2 matrix step-by-step.</p>
+            </button>
+            
+            <button onclick="switchTab('expected')" id="tab-expected" class="pattern-tab bg-white border-[3px] border-black p-4 text-left brutal-hover hover:-translate-y-1 transition-transform opacity-70">
+                <h3 class="font-cubano font-bold text-2xl uppercase border-b-2 border-black/20 pb-1 mb-2">Expected Value</h3>
+                <p class="font-sans text-sm font-medium">Integrate continuous probability density functions.</p>
+            </button>
+        </aside>
+
+        <!-- INTERACTIVE PLAYGROUND -->
+        <section class="lg:w-3/4 flex flex-col gap-8">
+            
+            <!-- MODULE 1: BAYES THEOREM -->
+            <div id="module-bayes" class="module-container block animate-fade-in">
+                <header class="mb-6 flex justify-between items-end">
+                    <div>
+                        <span class="bg-brand-gray text-white font-mono text-xs px-2 py-1 border-[2px] border-black uppercase font-bold">Probability</span>
+                        <h2 class="font-display text-5xl md:text-6xl mt-2 uppercase">The Belief Updater</h2>
+                        <p class="font-sans text-lg font-medium max-w-xl">Every Bayes problem follows the exact same logic: Define what you knew before, calculate the total chance of the new evidence, and update your belief.</p>
+                    </div>
+                    <button onclick="randomizeBayes()" class="bg-brand-cyan border-[3px] border-black p-2 shadow-brutal-sm brutal-hover hidden sm:block" title="Randomize Inputs">
+                        <i class="ph-bold ph-dice-five text-2xl"></i>
+                    </button>
+                </header>
+
+                <div class="grid md:grid-cols-12 gap-8">
+                    <!-- Controls -->
+                    <div class="md:col-span-5 flex flex-col gap-6 bg-white border-[3px] border-black shadow-brutal p-6 h-max relative">
+                        <div class="absolute -top-4 -right-4 bg-brand-yellow text-black border-[3px] border-black font-display px-3 py-1 text-xl rotate-6 shadow-brutal-sm">INPUTS</div>
+                        
+                        <div>
+                            <label class="font-mono text-sm font-bold flex justify-between mb-1">
+                                <span>Base Rate <span class="text-xs font-normal opacity-70">P(D)</span></span>
+                                <span id="val-pd" class="text-brand-pink bg-black text-white px-1">0.01</span>
+                            </label>
+                            <input type="range" id="input-pd" min="0.001" max="0.5" step="0.001" value="0.01" oninput="updateBayes()">
+                            <p class="text-xs font-sans mt-1 opacity-70">How rare is the condition initially?</p>
+                        </div>
+                        
+                        <div>
+                            <label class="font-mono text-sm font-bold flex justify-between mb-1">
+                                <span>True Positive <span class="text-xs font-normal opacity-70">P(T+|D)</span></span>
+                                <span id="val-tpd" class="text-brand-green bg-black text-white px-1">0.95</span>
+                            </label>
+                            <input type="range" id="input-tpd" min="0.5" max="0.999" step="0.001" value="0.95" oninput="updateBayes()">
+                            <p class="text-xs font-sans mt-1 opacity-70">If sick, chance the test gets it right.</p>
+                        </div>
+
+                        <div>
+                            <label class="font-mono text-sm font-bold flex justify-between mb-1">
+                                <span>False Positive <span class="text-xs font-normal opacity-70">P(T+|H)</span></span>
+                                <span id="val-tph" class="text-brand-orange bg-black text-white px-1">0.10</span>
+                            </label>
+                            <input type="range" id="input-tph" min="0.001" max="0.5" step="0.001" value="0.10" oninput="updateBayes()">
+                            <p class="text-xs font-sans mt-1 opacity-70">If healthy, chance the test gets it wrong.</p>
+                        </div>
+                    </div>
+
+                    <!-- Steps Output -->
+                    <div class="md:col-span-7 flex flex-col gap-6" id="output-bayes">
+                        <!-- Populated by JS -->
+                    </div>
+                </div>
+            </div>
+
+            <!-- MODULE 2: EIGENVALUES -->
+            <div id="module-eigen" class="module-container hidden animate-fade-in">
+                <header class="mb-6 flex justify-between items-end">
+                    <div>
+                        <span class="bg-brand-gray text-white font-mono text-xs px-2 py-1 border-[2px] border-black uppercase font-bold">Linear Algebra</span>
+                        <h2 class="font-display text-5xl md:text-6xl mt-2 uppercase">The Matrix Shatterer</h2>
+                        <p class="font-sans text-lg font-medium max-w-xl">Finding eigenvalues always breaks down to finding the roots of a characteristic quadratic equation. Shift the diagonal, find the determinant, solve.</p>
+                    </div>
+                    <button onclick="randomizeEigen()" class="bg-brand-yellow border-[3px] border-black p-2 shadow-brutal-sm brutal-hover hidden sm:block">
+                        <i class="ph-bold ph-dice-five text-2xl"></i>
+                    </button>
+                </header>
+
+                <div class="grid md:grid-cols-12 gap-8">
+                    <!-- Controls -->
+                    <div class="md:col-span-5 bg-white border-[3px] border-black shadow-brutal p-6 h-max relative">
+                        <div class="absolute -top-4 -right-4 bg-brand-cyan text-black border-[3px] border-black font-display px-3 py-1 text-xl rotate-6 shadow-brutal-sm">MATRIX A</div>
+                        
+                        <div class="grid grid-cols-2 gap-4 my-4 font-mono text-xl relative">
+                            <!-- Brackets -->
+                            <div class="absolute -left-2 top-0 bottom-0 w-4 border-l-[4px] border-t-[4px] border-b-[4px] border-black"></div>
+                            <div class="absolute -right-2 top-0 bottom-0 w-4 border-r-[4px] border-t-[4px] border-b-[4px] border-black"></div>
+                            
+                            <input type="number" id="mat-a" value="3" class="w-full text-center border-b-2 border-black/20 focus:border-black focus:outline-none bg-brand-pink/10 py-2" oninput="updateEigen()">
+                            <input type="number" id="mat-b" value="1" class="w-full text-center border-b-2 border-black/20 focus:border-black focus:outline-none bg-brand-yellow/10 py-2" oninput="updateEigen()">
+                            <input type="number" id="mat-c" value="2" class="w-full text-center border-b-2 border-black/20 focus:border-black focus:outline-none bg-brand-green/10 py-2" oninput="updateEigen()">
+                            <input type="number" id="mat-d" value="4" class="w-full text-center border-b-2 border-black/20 focus:border-black focus:outline-none bg-brand-purple/10 py-2" oninput="updateEigen()">
+                        </div>
+                    </div>
+
+                    <!-- Steps Output -->
+                    <div class="md:col-span-7 flex flex-col gap-6" id="output-eigen">
+                        <!-- Populated by JS -->
+                    </div>
+                </div>
+            </div>
+
+            <!-- MODULE 3: EXPECTED VALUE -->
+            <div id="module-expected" class="module-container hidden animate-fade-in">
+                <header class="mb-6 flex justify-between items-end">
+                    <div>
+                        <span class="bg-brand-gray text-white font-mono text-xs px-2 py-1 border-[2px] border-black uppercase font-bold">Calculus / Stats</span>
+                        <h2 class="font-display text-5xl md:text-6xl mt-2 uppercase">The Continuous Balancer</h2>
+                        <p class="font-sans text-lg font-medium max-w-xl">To find the center of mass (expected value) of a continuous probability curve, we always multiply the function by $x$ and integrate over the bounds.</p>
+                    </div>
+                    <button onclick="randomizeExpected()" class="bg-brand-pink border-[3px] border-black p-2 shadow-brutal-sm brutal-hover hidden sm:block">
+                        <i class="ph-bold ph-dice-five text-2xl"></i>
+                    </button>
+                </header>
+
+                <div class="grid md:grid-cols-12 gap-8">
+                    <!-- Controls -->
+                    <div class="md:col-span-5 flex flex-col gap-4 bg-white border-[3px] border-black shadow-brutal p-6 h-max relative">
+                        <div class="absolute -top-4 -right-4 bg-brand-green text-black border-[3px] border-black font-display px-3 py-1 text-xl rotate-6 shadow-brutal-sm">FUNCTION f(x)</div>
+                        
+                        <p class="font-mono text-sm font-bold bg-gray-100 p-2 border-2 border-black mb-2 text-center">
+                            $f(x) = cx^n$ from $[a, b]$
+                        </p>
+
+                        <div class="grid grid-cols-2 gap-4">
+                            <div>
+                                <label class="font-mono text-xs font-bold block mb-1">Coeff (c)</label>
+                                <input type="number" id="exp-c" value="3" class="w-full border-[3px] border-black p-2 bg-brand-cyan/20 focus:outline-none" oninput="updateExpected()">
+                            </div>
+                            <div>
+                                <label class="font-mono text-xs font-bold block mb-1">Power (n)</label>
+                                <input type="number" id="exp-n" value="2" class="w-full border-[3px] border-black p-2 bg-brand-yellow/20 focus:outline-none" oninput="updateExpected()">
+                            </div>
+                            <div>
+                                <label class="font-mono text-xs font-bold block mb-1">Lower (a)</label>
+                                <input type="number" id="exp-a" value="0" class="w-full border-[3px] border-black p-2 bg-gray-100 focus:outline-none" oninput="updateExpected()">
+                            </div>
+                            <div>
+                                <label class="font-mono text-xs font-bold block mb-1">Upper (b)</label>
+                                <input type="number" id="exp-b" value="1" class="w-full border-[3px] border-black p-2 bg-gray-100 focus:outline-none" oninput="updateExpected()">
+                            </div>
+                        </div>
+                        <p class="text-[10px] font-sans mt-2 opacity-70 leading-tight">*Note: For a valid probability distribution, the integral of f(x) must equal 1. This engine will calculate E[X] regardless for demonstration.</p>
+                    </div>
+
+                    <!-- Steps Output -->
+                    <div class="md:col-span-7 flex flex-col gap-6" id="output-expected">
+                        <!-- Populated by JS -->
+                    </div>
+                </div>
+            </div>
+
+        </section>
+    </main>
+
+    <script>
+        // --- Utility Functions ---
+        const fmt = (num) => Number(num.toFixed(4));
+        const fmtSign = (num) => num >= 0 ? `+ ${fmt(num)}` : `- ${fmt(Math.abs(num))}`;
+        const fmtCoeff = (num) => num === 1 ? '' : num === -1 ? '-' : fmt(num);
+        
+        function renderMath(containerId) {
+            renderMathInElement(document.getElementById(containerId), {
+                delimiters: [
+                    {left: '$$', right: '$$', display: true},
+                    {left: '$', right: '$', display: false}
+                ],
+                throwOnError : false
+            });
+        }
+
+        // --- Tab Switching Logic ---
+        function switchTab(tabId) {
+            // Hide all modules
+            document.querySelectorAll('.module-container').forEach(el => el.classList.add('hidden'));
+            // Reset tab styles
+            document.querySelectorAll('.pattern-tab').forEach(el => {
+                el.classList.remove('bg-brand-orange', 'bg-brand-cyan', 'bg-brand-pink', 'shadow-brutal');
+                el.classList.add('bg-white', 'opacity-70');
+            });
+
+            // Show target
+            document.getElementById(`module-${tabId}`).classList.remove('hidden');
+            const activeBtn = document.getElementById(`tab-${tabId}`);
+            activeBtn.classList.remove('bg-white', 'opacity-70');
+            activeBtn.classList.add('shadow-brutal');
+
+            if(tabId === 'bayes') activeBtn.classList.add('bg-brand-orange');
+            if(tabId === 'eigen') activeBtn.classList.add('bg-brand-cyan');
+            if(tabId === 'expected') activeBtn.classList.add('bg-brand-pink');
+
+            // Re-render math to prevent layout shifts
+            if(tabId === 'bayes') updateBayes();
+            if(tabId === 'eigen') updateEigen();
+            if(tabId === 'expected') updateExpected();
+        }
+
+        // --- Module 1: Bayes Logic ---
+        function updateBayes() {
+            const pD = parseFloat(document.getElementById('input-pd').value);
+            const pTpD = parseFloat(document.getElementById('input-tpd').value);
+            const pTpH = parseFloat(document.getElementById('input-tph').value);
+
+            // Update labels
+            document.getElementById('val-pd').innerText = pD;
+            document.getElementById('val-tpd').innerText = pTpD;
+            document.getElementById('val-tph').innerText = pTpH;
+
+            // Calculations
+            const pH = fmt(1 - pD);
+            const numerator = pTpD * pD;
+            const falsePosTotal = pTpH * pH;
+            const denominator = numerator + falsePosTotal;
+            const finalAns = (numerator / denominator);
+
+            // HTML Generation
+            const out = document.getElementById('output-bayes');
+            out.innerHTML = `
+                <div class="bg-white border-l-[6px] border-brand-orange p-4 sm:p-6 shadow-brutal-sm">
+                    <h3 class="font-cubano text-xl tracking-wide mb-1">Step 1: The Setup</h3>
+                    <p class="font-sans text-sm font-medium opacity-80 mb-2">Identify the base rate (prior) and test conditions.</p>
+                    <div class="font-mono text-sm bg-gray-100 p-3 border-2 border-black">
+                        $P(D) = \\color{#F38BA3}{${pD}}$ (Sick) <br>
+                        $P(H) = 1 - \\color{#F38BA3}{${pD}} = ${pH}$ (Healthy) <br>
+                        $P(T^+|D) = \\color{#0BA95B}{${pTpD}}$ (True Pos Rate)<br>
+                        $P(T^+|H) = \\color{#FF5722}{${pTpH}}$ (False Pos Rate)
+                    </div>
+                </div>
+
+                <div class="bg-white border-l-[6px] border-brand-orange p-4 sm:p-6 shadow-brutal-sm">
+                    <h3 class="font-cubano text-xl tracking-wide mb-1">Step 2: Total Probability</h3>
+                    <p class="font-sans text-sm font-medium opacity-80 mb-2">What's the total chance of getting a positive test? We add the true positives and the false positives.</p>
+                    $$
+                    \\begin{aligned}
+                    P(T^+) &= P(T^+|D)P(D) + P(T^+|H)P(H) \\\\
+                    &= (\\color{#0BA95B}{${pTpD}})(\\color{#F38BA3}{${pD}}) + (\\color{#FF5722}{${pTpH}})(${pH}) \\\\
+                    &= ${fmt(numerator)} + ${fmt(falsePosTotal)} = ${fmt(denominator)}
+                    \\end{aligned}
+                    $$
+                </div>
+
+                <div class="bg-black text-white border-[3px] border-black p-4 sm:p-6 shadow-brutal rotate-1">
+                    <h3 class="font-cubano text-xl tracking-wide mb-1 text-brand-yellow">Step 3: Update Belief</h3>
+                    <p class="font-sans text-sm font-medium opacity-80 mb-2">Apply Bayes' Theorem to find the actual chance they are sick given the positive test.</p>
+                    $$
+                    \\begin{aligned}
+                    P(D|T^+) &= \\frac{P(T^+|D)P(D)}{P(T^+)} \\\\
+                    &= \\frac{${fmt(numerator)}}{${fmt(denominator)}} \\\\
+                    &= \\mathbf{${fmt(finalAns * 100)}\\%}
+                    \\end{aligned}
+                    $$
+                </div>
+            `;
+            renderMath('output-bayes');
+        }
+
+        function randomizeBayes() {
+            document.getElementById('input-pd').value = (Math.random() * 0.1).toFixed(3); // Rare disease
+            document.getElementById('input-tpd').value = (0.7 + Math.random() * 0.29).toFixed(3); // High accuracy
+            document.getElementById('input-tph').value = (0.01 + Math.random() * 0.15).toFixed(3); // Lowish false pos
+            updateBayes();
+        }
+
+        // --- Module 2: Eigenvalues Logic ---
+        function updateEigen() {
+            const a = parseFloat(document.getElementById('mat-a').value) || 0;
+            const b = parseFloat(document.getElementById('mat-b').value) || 0;
+            const c = parseFloat(document.getElementById('mat-c').value) || 0;
+            const d = parseFloat(document.getElementById('mat-d').value) || 0;
+
+            // Trace and Det
+            const trace = a + d;
+            const det = (a * d) - (b * c);
+            
+            // Quadratic roots: x^2 - trace*x + det = 0
+            const discriminant = (trace * trace) - (4 * det);
+            let rootHTML = '';
+            
+            if (discriminant > 0) {
+                const l1 = (trace + Math.sqrt(discriminant)) / 2;
+                const l2 = (trace - Math.sqrt(discriminant)) / 2;
+                rootHTML = `\\lambda_1 = ${fmt(l1)}, \\lambda_2 = ${fmt(l2)}`;
+            } else if (discriminant === 0) {
+                const l = trace / 2;
+                rootHTML = `\\lambda_{1,2} = ${fmt(l)} \\text{ (Repeated Root)}`;
+            } else {
+                const real = trace / 2;
+                const imag = Math.sqrt(-discriminant) / 2;
+                rootHTML = `\\lambda = ${fmt(real)} \\pm ${fmt(imag)}i \\text{ (Complex Roots)}`;
+            }
+
+            const out = document.getElementById('output-eigen');
+            out.innerHTML = `
+                <div class="bg-white border-l-[6px] border-brand-cyan p-4 sm:p-6 shadow-brutal-sm">
+                    <h3 class="font-cubano text-xl tracking-wide mb-1">Step 1: Characteristic Eq</h3>
+                    <p class="font-sans text-sm font-medium opacity-80 mb-2">Set up $\\det(A - \\lambda I) = 0$. This always simplifies to $\\lambda^2 - \\text{Tr}(A)\\lambda + \\det(A) = 0$.</p>
+                    <div class="grid grid-cols-2 gap-4">
+                        <div>
+                            <strong>Trace (Sum of diagonal):</strong><br>
+                            $\\text{Tr} = \\color{#F38BA3}{${a}} + \\color{#8B5CF6}{${d}} = ${trace}$
+                        </div>
+                        <div>
+                            <strong>Determinant (ad - bc):</strong><br>
+                            $\\det = (\\color{#F38BA3}{${a}})(\\color{#8B5CF6}{${d}}) - (\\color{#F6AE2D}{${b}})(\\color{#0BA95B}{${c}}) = ${det}$
+                        </div>
+                    </div>
+                </div>
+
+                <div class="bg-white border-l-[6px] border-brand-cyan p-4 sm:p-6 shadow-brutal-sm">
+                    <h3 class="font-cubano text-xl tracking-wide mb-1">Step 2: The Quadratic</h3>
+                    <p class="font-sans text-sm font-medium opacity-80 mb-2">Substitute Trace and Det into the polynomial pattern.</p>
+                    $$ \\lambda^2 ${fmtSign(-trace)}\\lambda ${fmtSign(det)} = 0 $$
+                </div>
+
+                <div class="bg-brand-gray text-white border-[3px] border-black p-4 sm:p-6 shadow-brutal rotate-1">
+                    <h3 class="font-cubano text-xl tracking-wide mb-1 text-brand-cyan">Step 3: Extract Roots</h3>
+                    <p class="font-sans text-sm font-medium opacity-80 mb-2">Solve using the quadratic formula. These are your Eigenvalues.</p>
+                    $$ ${rootHTML} $$
+                </div>
+            `;
+            renderMath('output-eigen');
+        }
+
+        function randomizeEigen() {
+            document.getElementById('mat-a').value = Math.floor(Math.random() * 10) - 5;
+            document.getElementById('mat-b').value = Math.floor(Math.random() * 10) - 5;
+            document.getElementById('mat-c').value = Math.floor(Math.random() * 10) - 5;
+            document.getElementById('mat-d').value = Math.floor(Math.random() * 10) - 5;
+            updateEigen();
+        }
+
+        // --- Module 3: Expected Value Logic ---
+        function updateExpected() {
+            const c = parseFloat(document.getElementById('exp-c').value) || 0;
+            const n = parseFloat(document.getElementById('exp-n').value) || 0;
+            const a = parseFloat(document.getElementById('exp-a').value) || 0;
+            const b = parseFloat(document.getElementById('exp-b').value) || 0;
+
+            const nPlus2 = n + 2;
+            const integralCoeff = c / nPlus2;
+            const upperEval = integralCoeff * Math.pow(b, nPlus2);
+            const lowerEval = integralCoeff * Math.pow(a, nPlus2);
+            const ans = upperEval - lowerEval;
+
+            const out = document.getElementById('output-expected');
+            out.innerHTML = `
+                <div class="bg-white border-l-[6px] border-brand-pink p-4 sm:p-6 shadow-brutal-sm">
+                    <h3 class="font-cubano text-xl tracking-wide mb-1">Step 1: Setup Integral</h3>
+                    <p class="font-sans text-sm font-medium opacity-80 mb-2">Multiply the PDF by $x$ and set bounds.</p>
+                    $$
+                    E[X] = \\int_{\\color{#231F20}{${a}}}^{\\color{#231F20}{${b}}} x \\cdot (\\color{#00C2D1}{${c}} x^{\\color{#F6AE2D}{${n}}}) dx = \\int_{\\color{#231F20}{${a}}}^{\\color{#231F20}{${b}}} \\color{#00C2D1}{${c}} x^{\\color{#F6AE2D}{${n+1}}} dx
+                    $$
+                </div>
+
+                <div class="bg-white border-l-[6px] border-brand-pink p-4 sm:p-6 shadow-brutal-sm">
+                    <h3 class="font-cubano text-xl tracking-wide mb-1">Step 2: Power Rule</h3>
+                    <p class="font-sans text-sm font-medium opacity-80 mb-2">Integrate: add 1 to power, divide by new power.</p>
+                    $$
+                    = \\left[ \\frac{\\color{#00C2D1}{${c}}}{${nPlus2}} x^{${nPlus2}} \\right]_{${a}}^{${b}} = \\left[ ${fmt(integralCoeff)}x^{${nPlus2}} \\right]_{${a}}^{${b}}
+                    $$
+                </div>
+
+                <div class="bg-brand-gray text-white border-[3px] border-black p-4 sm:p-6 shadow-brutal -rotate-1">
+                    <h3 class="font-cubano text-xl tracking-wide mb-1 text-brand-pink">Step 3: Evaluate Bounds</h3>
+                    <p class="font-sans text-sm font-medium opacity-80 mb-2">Plug in upper bound, subtract lower bound.</p>
+                    $$
+                    \\begin{aligned}
+                    &= ${fmt(integralCoeff)}(${b})^{${nPlus2}} - ${fmt(integralCoeff)}(${a})^{${nPlus2}} \\\\
+                    &= ${fmt(upperEval)} - ${fmt(lowerEval)} \\\\
+                    &= \\mathbf{${fmt(ans)}}
+                    \\end{aligned}
+                    $$
+                </div>
+            `;
+            // Call render math on next tick to ensure DOM is ready
+            setTimeout(() => renderMath('output-expected'), 10);
+        }
+
+        function randomizeExpected() {
+            document.getElementById('exp-c').value = Math.floor(Math.random() * 5) + 1;
+            document.getElementById('exp-n').value = Math.floor(Math.random() * 3) + 1;
+            document.getElementById('exp-a').value = 0;
+            document.getElementById('exp-b').value = Math.floor(Math.random() * 3) + 1;
+            updateExpected();
+        }
+
+        // --- Initialization ---
+        document.addEventListener("DOMContentLoaded", function() {
+            // Render Math in static non-dynamic elements (like headers)
+            renderMathInElement(document.body, {
+                delimiters: [
+                    {left: '$$', right: '$$', display: true},
+                    {left: '$', right: '$', display: false}
+                ],
+                throwOnError : false
+            });
+            
+            // Init default tab
+            updateBayes();
+        });
+    </script>
+</body>
+</html>
